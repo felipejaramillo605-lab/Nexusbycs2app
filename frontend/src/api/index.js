@@ -28,13 +28,18 @@ export const organizationAPI = {
 export const serviceAPI = {
   getAll: (params = {}) => api.get('/services', { params }),
   create: (data) => api.post('/services', data),
+  update: (id, data) => api.put(`/services/${id}`, data),
   delete: (id) => api.delete(`/services/${id}`),
 };
 
 export const barberAPI = {
   getAll: (params = {}) => api.get('/barbers', { params }),
   create: (data) => api.post('/barbers', data),
+  update: (id, data) => api.put(`/barbers/${id}`, data),
   delete: (id) => api.delete(`/barbers/${id}`),
+  getBlockedTimes: (id, params = {}) => api.get(`/barbers/${id}/blocked-times`, { params }),
+  createBlockedTime: (id, data) => api.post(`/barbers/${id}/blocked-times`, data),
+  deleteBlockedTime: (barberId, blockId) => api.delete(`/barbers/${barberId}/blocked-times/${blockId}`),
 };
 
 export const appointmentAPI = {

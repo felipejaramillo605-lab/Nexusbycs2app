@@ -1,16 +1,19 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { serviceAPI } from '../api';
-import { Plus, Trash2, ArrowLeft, Scissors } from 'lucide-react';
+import { Plus, Trash2, ArrowLeft, Scissors, Edit2 } from 'lucide-react';
 import { MANAGER } from '../constants/testIds';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '../components/ui/dialog';
+import { toast } from 'sonner';
 
 const ManagerServices = () => {
   const navigate = useNavigate();
   const [services, setServices] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [newService, setNewService] = useState({ name: '', duration: 30, price: 0 });
+  const [editingService, setEditingService] = useState(null);
 
   useEffect(() => {
     loadServices();
@@ -30,11 +33,40 @@ const ManagerServices = () => {
   const handleCreate = async () => {
     try {
       await serviceAPI.create(newService);
-      setIsDialogOpen(false);
+      setIsCreateDialogOpen(false);
       setNewService({ name: '', duration: 30, price: 0 });
       loadServices();
+      toast.success('Servicio creado exitosamente');
     } catch (error) {
       console.error('Error creating service:', error);
+      toast.error('Error al crear servicio');
+    }
+  };
+
+  const handleEdit = (service) => {
+    setEditingService({
+      service_id: service.service_id,
+      name: service.name,
+      duration: service.duration,
+      price: service.price
+    });
+    setIsEditDialogOpen(true);
+  };
+
+  const handleUpdate = async () => {
+    try {
+      await serviceAPI.update(editingService.service_id, {
+        name: editingService.name,
+        duration: editingService.duration,
+        price: editingService.price
+      });
+      setIsEditDialogOpen(false);
+      setEditingService(null);
+      loadServices();
+      toast.success('Servicio actualizado exitosamente');
+    } catch (error) {
+      console.error('Error updating service:', error);
+      toast.error('Error al actualizar servicio');
     }
   };
 
@@ -43,8 +75,10 @@ const ManagerServices = () => {
     try {
       await serviceAPI.delete(id);
       loadServices();
+      toast.success('Servicio eliminado');
     } catch (error) {
       console.error('Error deleting service:', error);
+      toast.error('Error al eliminar servicio');
     }
   };
 
@@ -79,7 +113,9 @@ const ManagerServices = () => {
               </div>
             </div>
           </div>
-          <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+          
+          {/* Create Dialog */}
+          <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
             <DialogTrigger asChild>
               <button
                 data-testid={MANAGER.addServiceBtn}
@@ -134,6 +170,53 @@ const ManagerServices = () => {
           </Dialog>
         </div>
 
+        {/* Edit Dialog */}
+        <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+          <DialogContent className="bg-[#0A0A0A] border-white/10">
+            <DialogHeader>
+              <DialogTitle className="text-white">Editar Servicio</DialogTitle>
+            </DialogHeader>
+            {editingService && (
+              <div className="space-y-4 mt-4">
+                <div>
+                  <label className="text-sm text-zinc-400 mb-2 block">Nombre</label>
+                  <input
+                    type="text"
+                    value={editingService.name}
+                    onChange={(e) => setEditingService({ ...editingService, name: e.target.value })}
+                    className="w-full px-4 py-3 bg-transparent border border-white/20 rounded-xl text-white focus:border-[#0A84FF] focus:ring-1 focus:ring-[#0A84FF] outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="text-sm text-zinc-400 mb-2 block">Duración (minutos)</label>
+                  <input
+                    type="number"
+                    value={editingService.duration}
+                    onChange={(e) => setEditingService({ ...editingService, duration: parseInt(e.target.value) })}
+                    className="w-full px-4 py-3 bg-transparent border border-white/20 rounded-xl text-white focus:border-[#0A84FF] focus:ring-1 focus:ring-[#0A84FF] outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="text-sm text-zinc-400 mb-2 block">Precio</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    value={editingService.price}
+                    onChange={(e) => setEditingService({ ...editingService, price: parseFloat(e.target.value) })}
+                    className="w-full px-4 py-3 bg-transparent border border-white/20 rounded-xl text-white focus:border-[#0A84FF] focus:ring-1 focus:ring-[#0A84FF] outline-none"
+                  />
+                </div>
+                <button
+                  onClick={handleUpdate}
+                  className="w-full px-6 py-3 bg-[#0A84FF] hover:bg-[#0071E3] text-white rounded-xl font-medium transition-all"
+                >
+                  Guardar Cambios
+                </button>
+              </div>
+            )}
+          </DialogContent>
+        </Dialog>
+
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {services.map((service) => (
             <div
@@ -145,12 +228,22 @@ const ManagerServices = () => {
                 <div className="w-12 h-12 rounded-xl bg-[#0A84FF]/20 flex items-center justify-center">
                   <Scissors size={24} strokeWidth={1.5} className="text-[#0A84FF]" />
                 </div>
-                <button
-                  onClick={() => handleDelete(service.service_id)}
-                  className="p-2 rounded-lg bg-white/5 hover:bg-red-500/20 text-zinc-400 hover:text-red-300 transition-all opacity-0 group-hover:opacity-100"
-                >
-                  <Trash2 size={18} strokeWidth={1.5} />
-                </button>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => handleEdit(service)}
+                    className="p-2 rounded-lg bg-white/5 hover:bg-[#0A84FF]/20 text-zinc-400 hover:text-[#0A84FF] transition-all opacity-0 group-hover:opacity-100"
+                    title="Editar"
+                  >
+                    <Edit2 size={18} strokeWidth={1.5} />
+                  </button>
+                  <button
+                    onClick={() => handleDelete(service.service_id)}
+                    className="p-2 rounded-lg bg-white/5 hover:bg-red-500/20 text-zinc-400 hover:text-red-300 transition-all opacity-0 group-hover:opacity-100"
+                    title="Eliminar"
+                  >
+                    <Trash2 size={18} strokeWidth={1.5} />
+                  </button>
+                </div>
               </div>
               <h3 className="text-white font-medium text-lg mb-2">{service.name}</h3>
               <div className="flex items-center justify-between text-sm">

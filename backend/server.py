@@ -395,6 +395,32 @@ async def create_service(data: ServiceCreate, authorization: Optional[str] = Hea
     service_doc["created_at"] = datetime.fromisoformat(service_doc["created_at"])
     return Service(**service_doc)
 
+@api_router.put("/services/{service_id}")
+async def update_service(service_id: str, data: ServiceCreate, authorization: Optional[str] = Header(None), session_token: Optional[str] = Cookie(None)):
+    current_user = await get_current_user(authorization, session_token)
+    
+    if not current_user.organization_id:
+        raise HTTPException(status_code=400, detail="No organization assigned")
+    
+    update_data = {
+        "name": data.name,
+        "duration": data.duration,
+        "price": data.price
+    }
+    
+    result = await db.services.update_one(
+        {"service_id": service_id, "organization_id": current_user.organization_id},
+        {"$set": update_data}
+    )
+    
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Service not found")
+    
+    updated_service = await db.services.find_one({"service_id": service_id}, {"_id": 0})
+    if isinstance(updated_service["created_at"], str):
+        updated_service["created_at"] = datetime.fromisoformat(updated_service["created_at"])
+    return Service(**updated_service)
+
 @api_router.delete("/services/{service_id}")
 async def delete_service(service_id: str, authorization: Optional[str] = Header(None), session_token: Optional[str] = Cookie(None)):
     current_user = await get_current_user(authorization, session_token)
