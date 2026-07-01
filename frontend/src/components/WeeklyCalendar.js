@@ -31,25 +31,23 @@ const WeeklyCalendar = ({ organizationId }) => {
     try {
       setLoading(true);
       
-      // Get appointments for the week
-      const startDate = formatDate(weekDates[0]);
-      const endDate = formatDate(weekDates[6]);
-      
       const params = { organization_id: organizationId };
-      const [barbersRes] = await Promise.all([
-        barberAPI.getAll(params)
+      
+      // Get barbers and all appointments for the week in parallel
+      const appointmentPromises = weekDates.map(date => {
+        const dateStr = formatDate(date);
+        return appointmentAPI.getAll({ ...params, date: dateStr });
+      });
+      
+      const [barbersRes, ...appointmentsResponses] = await Promise.all([
+        barberAPI.getAll(params),
+        ...appointmentPromises
       ]);
       
       setBarbers(barbersRes.data);
 
-      // Get appointments for each day of the week
-      const allAppointments = [];
-      for (const date of weekDates) {
-        const dateStr = formatDate(date);
-        const aptsRes = await appointmentAPI.getAll({ ...params, date: dateStr });
-        allAppointments.push(...aptsRes.data);
-      }
-      
+      // Flatten all appointments from all days
+      const allAppointments = appointmentsResponses.flatMap(res => res.data);
       setAppointments(allAppointments);
     } catch (error) {
       console.error('Error loading calendar data:', error);
