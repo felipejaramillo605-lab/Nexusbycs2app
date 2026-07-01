@@ -1,0 +1,29 @@
+{
+  "summary": "FASE 2 frontend UI smoke test: verified frontend compiles (only harmless eslint warnings, no errors), Login page renders, Booking Flow (public) navigates through all 4 steps without JS errors, and PhoneInput on step 4 works with 246-country selector defaulting to CO (Colombia) and +57 prefix. Protected /manager/dashboard correctly redirects unauthenticated users to /login (confirming ProtectedRoute + ThemeProvider load). Full ThemeToggle/DashboardStats/BookingTools DOM verification requires Google OAuth login which is not automatable (Emergent-managed).",
+  "tested_scope": ["frontend", "integration"],
+  "passed": [
+    "Frontend webpack compiles with only eslint warnings (react-hooks/exhaustive-deps), no errors",
+    "Login page loads: 'Nexus by CS2' + 'Iniciar sesión con Google' button visible",
+    "Public booking flow /book/org_demo001 loads (200) and shows 4-step stepper",
+    "Step 1: services list rendered from GET /api/public/org_demo001/services",
+    "Step 2: barbers list rendered and selectable",
+    "Step 3: date input + time slots (09:00 etc) rendered after date change",
+    "Step 4: PhoneInput fully functional - .PhoneInput wrapper, input[type=tel], select.PhoneInputCountrySelect with 246 country options, defaultCountry=CO, Colombian flag + '+57' prefix visible",
+    "Protected route /manager/dashboard redirects unauthenticated users to /login (ProtectedRoute + ThemeProvider working)",
+    "Zero JS pageerrors during full booking flow",
+    "No .error / [class*='error'] elements in DOM"
+  ],
+  "failed": [],
+  "action_items": [
+    "Deferred to full testing agent (requires authenticated Google session): verify ThemeToggle button in ManagerDashboard navbar, DashboardStats Recharts (LineChart/PieChart/BarChart) rendering with real /statistics data, BookingTools Copy-link + QR modal + PNG download, localStorage theme persistence.",
+    "Optional cleanup: silence 4 react-hooks/exhaustive-deps eslint warnings in DashboardStats.js, BookingFlow.js, ManagerDashboard.js (non-blocking)."
+  ],
+  "success_rate": {"backend": "not tested (deferred per request)", "frontend": "100% on testable public surface"},
+  "retest_needed": false,
+  "full_testing_deferred": true,
+  "notes": {
+    "auth_limitation": "Google OAuth (Emergent-managed) cannot be automated in Playwright; ManagerDashboard-scoped components (ThemeToggle, DashboardStats, BookingTools) confirmed to import/compile cleanly but their in-app rendering requires manual/authenticated verification.",
+    "mocked_apis": ["WhatsApp confirmations"],
+    "public_url_used": "https://clipper-manage-1.preview.emergentagent.com"
+  }
+}

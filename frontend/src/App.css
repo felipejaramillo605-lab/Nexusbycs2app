@@ -73,3 +73,27 @@
 .border-primary {
   border-color: var(--border-primary);
 }
+
+/* Phone Input Styles */
+.phone-input-custom {
+  background: transparent !important;
+}
+
+.phone-input-custom .PhoneInputInput {
+  background: transparent !important;
+  border: none !important;
+  color: var(--text-primary) !important;
+  outline: none !important;
+  font-size: 1rem;
+}
+
+.phone-input-custom .PhoneInputCountrySelect {
+  background: transparent !important;
+  border: none !important;
+  color: var(--text-primary) !important;
+  margin-right: 0.5rem;
+}
+
+.phone-input-custom .PhoneInputCountryIcon {
+  box-shadow: none !important;
+}

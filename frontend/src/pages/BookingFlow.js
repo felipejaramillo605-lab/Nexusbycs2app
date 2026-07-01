@@ -4,6 +4,8 @@ import { publicAPI } from '../api';
 import { ArrowRight, ArrowLeft, Check, Calendar as CalendarIcon, Clock, User, Mail, Phone, Sparkles } from 'lucide-react';
 import { BOOKING } from '../constants/testIds';
 import { toast } from 'sonner';
+import PhoneInput from 'react-phone-number-input';
+import 'react-phone-number-input/style.css';
 
 const BookingFlow = () => {
   const { orgId } = useParams();
@@ -382,12 +384,13 @@ const BookingFlow = () => {
                     <Phone size={16} strokeWidth={1.5} />
                     Teléfono
                   </label>
-                  <input
-                    type="tel"
+                  <PhoneInput
+                    international
+                    defaultCountry="CO"
                     value={clientData.phone}
-                    onChange={(e) => setClientData({ ...clientData, phone: e.target.value })}
-                    className="w-full px-4 py-3 bg-transparent border border-white/20 rounded-xl text-white focus:border-[#0A84FF] focus:ring-1 focus:ring-[#0A84FF] outline-none"
-                    placeholder="+1234567890"
+                    onChange={(value) => setClientData({ ...clientData, phone: value || '' })}
+                    className="phone-input-custom w-full px-4 py-3 bg-transparent border border-white/20 rounded-xl text-white focus-within:border-[#0A84FF] focus-within:ring-1 focus-within:ring-[#0A84FF]"
+                    placeholder="+57 300 123 4567"
                   />
                 </div>
                 <div>

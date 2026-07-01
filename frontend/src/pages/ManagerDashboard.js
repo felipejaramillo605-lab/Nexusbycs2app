@@ -5,6 +5,9 @@ import { appointmentAPI, organizationAPI, serviceAPI, barberAPI } from '../api';
 import { Calendar, DollarSign, Users, LogOut, Menu, Scissors, Package } from 'lucide-react';
 import { MANAGER, AUTH } from '../constants/testIds';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '../components/ui/sheet';
+import ThemeToggle from '../components/ThemeToggle';
+import DashboardStats from '../components/DashboardStats';
+import BookingTools from '../components/BookingTools';
 
 const ManagerDashboard = () => {
   const { user, logout } = useAuth();
@@ -159,6 +162,7 @@ const ManagerDashboard = () => {
             )}
           </div>
           <div className="flex items-center gap-4">
+            <ThemeToggle />
             {user.role === 'owner' && (
               <button
                 onClick={() => navigate('/owner/access-control')}
@@ -252,6 +256,21 @@ const ManagerDashboard = () => {
             <div className="text-sm text-zinc-400">Barberos Activos</div>
           </div>
         </div>
+
+
+        {/* Booking Tools */}
+        {selectedOrg && (
+          <div className="mb-8">
+            <BookingTools organizationId={selectedOrg.organization_id} />
+          </div>
+        )}
+
+        {/* Statistics Dashboard */}
+        {selectedOrg && (
+          <div className="mb-8">
+            <DashboardStats organizationId={selectedOrg.organization_id} />
+          </div>
+        )}
 
         <div className="mb-6">
           <h2 className="text-2xl font-light text-white mb-4" style={{ fontFamily: 'Outfit, sans-serif' }}>
