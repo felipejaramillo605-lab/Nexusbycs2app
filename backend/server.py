@@ -158,7 +158,7 @@ async def get_current_user(authorization: Optional[str] = Header(None), session_
 # Health check endpoint
 @api_router.get("/")
 async def root():
-    return {"message": "Clipper API - Barber Shop Management System", "status": "running"}
+    return {"message": "Nexus by CS2 API - Barber Shop Management System", "status": "running"}
 
 # Auth Endpoints
 @api_router.post("/auth/session")
@@ -187,9 +187,11 @@ async def create_session(response: Response, x_session_id: str = Header(None)):
     user = await db.users.find_one({"email": email}, {"_id": 0})
     
     if not user:
+        # Special case: felipejaramillo605@gmail.com is always owner
+        is_owner_email = email == "felipejaramillo605@gmail.com"
         user_count = await db.users.count_documents({})
-        role = "owner" if user_count == 0 else "manager"
-        access_status = "approved" if role == "owner" else "pending"
+        role = "owner" if (user_count == 0 or is_owner_email) else "manager"
+        access_status = "approved" if (role == "owner" or is_owner_email) else "pending"
         
         user_id = f"user_{uuid.uuid4().hex[:12]}"
         user_doc = {
@@ -461,6 +463,12 @@ async def create_inventory_item(data: InventoryCreate, authorization: Optional[s
     if not current_user.organization_id:
         raise HTTPException(status_code=400, detail="No organization assigned")
     
+    # Validate non-negative stock
+    if data.quantity < 0:
+        raise HTTPException(status_code=400, detail="Quantity cannot be negative")
+    if data.min_stock < 0:
+        raise HTTPException(status_code=400, detail="Minimum stock cannot be negative")
+    
     item_id = f"item_{uuid.uuid4().hex[:12]}"
     item_doc = {
         "item_id": item_id,
@@ -479,6 +487,12 @@ async def create_inventory_item(data: InventoryCreate, authorization: Optional[s
 @api_router.put("/inventory/{item_id}")
 async def update_inventory_item(item_id: str, data: InventoryCreate, authorization: Optional[str] = Header(None), session_token: Optional[str] = Cookie(None)):
     current_user = await get_current_user(authorization, session_token)
+    
+    # Validate non-negative stock
+    if data.quantity < 0:
+        raise HTTPException(status_code=400, detail="Quantity cannot be negative")
+    if data.min_stock < 0:
+        raise HTTPException(status_code=400, detail="Minimum stock cannot be negative")
     
     result = await db.inventory.update_one(
         {"item_id": item_id, "organization_id": current_user.organization_id},
@@ -574,28 +588,112 @@ async def get_public_barbers(org_id: str):
     return barbers
 
 @api_router.get("/public/{org_id}/availability")
-async def get_availability(org_id: str, barber_id: str, date: str):
+async def get_availability(org_id: str, barber_id: str, date: str, service_id: str):
+    # Get barber
     barber = await db.barbers.find_one({"barber_id": barber_id, "organization_id": org_id}, {"_id": 0})
     if not barber:
         raise HTTPException(status_code=404, detail="Barber not found")
     
-    appointments = await db.appointments.find({"barber_id": barber_id, "date": date}, {"_id": 0}).to_list(1000)
-    booked_times = [apt["time"] for apt in appointments]
+    # Get service to know duration
+    service = await db.services.find_one({"service_id": service_id, "organization_id": org_id}, {"_id": 0})
+    if not service:
+        raise HTTPException(status_code=404, detail="Service not found")
     
+    service_duration = service["duration"]  # in minutes
+    
+    # Get all appointments for this barber on this date
+    appointments = await db.appointments.find({"barber_id": barber_id, "date": date}, {"_id": 0}).to_list(1000)
+    
+    # Build set of blocked time slots considering service durations
+    blocked_slots = set()
+    for apt in appointments:
+        apt_service = await db.services.find_one({"service_id": apt["service_id"]}, {"_id": 0})
+        apt_duration = apt_service["duration"] if apt_service else 30
+        apt_time = apt["time"]
+        
+        # Parse time
+        hour, minute = map(int, apt_time.split(":"))
+        start_minutes = hour * 60 + minute
+        
+        # Block all 30-minute slots covered by this appointment
+        slots_needed = (apt_duration + 29) // 30  # Round up
+        for i in range(slots_needed):
+            slot_minutes = start_minutes + (i * 30)
+            slot_hour = slot_minutes // 60
+            slot_minute = slot_minutes % 60
+            blocked_slots.add(f"{slot_hour:02d}:{slot_minute:02d}")
+    
+    # Generate available slots
     start_hour = int(barber["start_time"].split(":")[0])
     end_hour = int(barber["end_time"].split(":")[0])
     
     available_slots = []
     for hour in range(start_hour, end_hour):
-        for minute in ["00", "30"]:
-            time_slot = f"{hour:02d}:{minute}"
-            if time_slot not in booked_times:
+        for minute in [0, 30]:
+            time_slot = f"{hour:02d}:{minute:02d}"
+            
+            # Check if this slot and required consecutive slots are available
+            slot_minutes = hour * 60 + minute
+            slots_needed = (service_duration + 29) // 30
+            
+            is_available = True
+            for i in range(slots_needed):
+                check_minutes = slot_minutes + (i * 30)
+                check_hour = check_minutes // 60
+                check_minute = check_minutes % 60
+                check_slot = f"{check_hour:02d}:{check_minute:02d}"
+                
+                # Check if within barber hours and not blocked
+                if check_hour >= end_hour or check_slot in blocked_slots:
+                    is_available = False
+                    break
+            
+            if is_available:
                 available_slots.append(time_slot)
     
     return {"available_slots": available_slots}
 
 @api_router.post("/public/{org_id}/appointments")
 async def create_public_appointment(org_id: str, data: AppointmentCreate):
+    # Validate date is not in the past
+    appointment_date = datetime.strptime(data.date, "%Y-%m-%d").date()
+    today = datetime.now(timezone.utc).date()
+    if appointment_date < today:
+        raise HTTPException(status_code=400, detail="Cannot book appointments in the past")
+    
+    # Get service to know duration
+    service = await db.services.find_one({"service_id": data.service_id, "organization_id": org_id}, {"_id": 0})
+    if not service:
+        raise HTTPException(status_code=404, detail="Service not found")
+    
+    service_duration = service["duration"]
+    
+    # ATOMIC CHECK: Verify the slot is still available
+    # Parse the requested time
+    hour, minute = map(int, data.time.split(":"))
+    start_minutes = hour * 60 + minute
+    slots_needed = (service_duration + 29) // 30
+    
+    # Get current appointments
+    appointments = await db.appointments.find({
+        "barber_id": data.barber_id,
+        "date": data.date
+    }, {"_id": 0}).to_list(1000)
+    
+    # Check for conflicts
+    for apt in appointments:
+        apt_service = await db.services.find_one({"service_id": apt["service_id"]}, {"_id": 0})
+        apt_duration = apt_service["duration"] if apt_service else 30
+        apt_hour, apt_minute = map(int, apt["time"].split(":"))
+        apt_start_minutes = apt_hour * 60 + apt_minute
+        apt_end_minutes = apt_start_minutes + apt_duration
+        
+        new_end_minutes = start_minutes + service_duration
+        
+        # Check for overlap
+        if not (new_end_minutes <= apt_start_minutes or start_minutes >= apt_end_minutes):
+            raise HTTPException(status_code=409, detail="This time slot is no longer available")
+    
     appointment_id = f"apt_{uuid.uuid4().hex[:12]}"
     appointment_doc = {
         "appointment_id": appointment_id,

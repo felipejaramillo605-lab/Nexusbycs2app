@@ -33,15 +33,23 @@ const ManagerInventory = () => {
   };
 
   const handleCreate = async () => {
+    if (newItem.quantity < 0 || newItem.min_stock < 0) {
+      toast.error('Las cantidades no pueden ser negativas');
+      return;
+    }
     try {
       await inventoryAPI.create(newItem);
       setIsDialogOpen(false);
       setNewItem({ name: '', quantity: 0, min_stock: 0, unit: 'unidades' });
-      loadInventory();
+      await loadInventory();
       toast.success('Producto agregado');
     } catch (error) {
       console.error('Error creating item:', error);
-      toast.error('Error al crear producto');
+      if (error.response?.status === 400) {
+        toast.error(error.response.data.detail || 'Datos inválidos');
+      } else {
+        toast.error('Error al crear producto');
+      }
     }
   };
 
@@ -50,11 +58,15 @@ const ManagerInventory = () => {
       await inventoryAPI.update(editingItem.item_id, newItem);
       setEditingItem(null);
       setNewItem({ name: '', quantity: 0, min_stock: 0, unit: 'unidades' });
-      loadInventory();
+      await loadInventory(); // Reload to get updated is_low_stock
       toast.success('Producto actualizado');
     } catch (error) {
       console.error('Error updating item:', error);
-      toast.error('Error al actualizar producto');
+      if (error.response?.status === 400) {
+        toast.error(error.response.data.detail || 'Datos inválidos');
+      } else {
+        toast.error('Error al actualizar producto');
+      }
     }
   };
 

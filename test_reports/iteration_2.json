@@ -1,0 +1,44 @@
+{
+  "summary": "QA audit re-test for Nexus by CS2. Verified: branding update, past-date validation, sequential double-booking prevention, service-duration slot blocking (45min blocks 2 consecutive 30-min slots), stock negative validation on POST/PUT. Found 2 critical bugs: (1) POST /api/inventory returns 500 for valid payload due to Mongo ObjectId leaking into response (insert_one mutates dict); (2) Concurrent double-booking IS possible - race condition allowed 3 of 5 simultaneous requests to same slot to succeed (only 2 got 409). Availability query still correctly hides slot afterwards, but atomic guarantee is not real. Owner-email auto-approve logic verified via code review at server.py:190-194.",
+  "tested_scope": ["backend", "frontend", "integration"],
+  "passed": [
+    "GET /api/ health returns 'Nexus by CS2' branding",
+    "Frontend landing page shows 'Nexus by CS2', no 'Clipper' reference; login button height=56px (>=44px touch target)",
+    "POST /api/public/{org}/appointments with past date -> 400 'Cannot book appointments in the past'",
+    "POST /api/public/{org}/appointments duplicate SEQUENTIAL request same slot -> 409 'This time slot is no longer available'",
+    "45-min service booked at 15:00 -> attempt to book 15:30 correctly returns 409 (overlap detected)",
+    "GET /api/public/{org}/availability with 45-min service booked at 15:00 hides BOTH 15:00 and 15:30 (correct multi-slot blocking)",
+    "POST /api/inventory with quantity=-5 -> 400 'Quantity cannot be negative'",
+    "POST /api/inventory with min_stock=-3 -> 400 'Minimum stock cannot be negative'",
+    "PUT /api/inventory/{id} with quantity=-1 rejects with 400 (validation present in update path)",
+    "Owner-email auto-approve logic present at server.py:191-194 (felipejaramillo605@gmail.com forced role=owner, access_status=approved)"
+  ],
+  "failed": [
+    {
+      "area": "Inventory create response serialization",
+      "issue": "POST /api/inventory with VALID payload returns 500 Internal Server Error. Root cause: insert_one mutates item_doc adding a Mongo ObjectId at key '_id'; FastAPI then fails to JSON-serialize it (TypeError: 'ObjectId' object is not iterable). Same bug likely affects other POST endpoints that return the mutated dict (services, barbers, organizations, appointments, public appointments) but only inventory returns the raw dict without Pydantic model wrapping.",
+      "evidence": "Backend log: ValueError: [TypeError(\"'ObjectId' object is not iterable\"), ...] followed by 'POST /api/inventory HTTP/1.1 500 Internal Server Error'. Reproduced with curl payload {\"name\":\"QAItem\",\"quantity\":10,\"min_stock\":5,\"unit\":\"un\"} + valid Bearer token.",
+      "priority": "HIGH"
+    },
+    {
+      "area": "Double-booking prevention under concurrency (race condition)",
+      "issue": "The 'atomic check' in POST /api/public/{org}/appointments (server.py:671-711) is NOT atomic: it reads existing appointments then inserts, without a DB-level unique index or transaction. Under 5 simultaneous requests targeting the same barber+date+time, THREE requests succeeded (HTTP 200) and only 2 got 409. This violates the CRITICAL requirement 'Blindaje anti-double-booking'. Three overlapping appointments were persisted in Mongo.",
+      "evidence": "Race test: 5 parallel curl POSTs, barber_002, date=2026-07-08, time=11:00, service_001. Results: req1=200, req2=200, req3=409, req4=409, req5=200. Three appointment_ids created: apt_d0a140943477, apt_395d1fdf74ba, apt_c59cec36c538.",
+      "priority": "HIGH"
+    }
+  ],
+  "action_items": [
+    "Fix inventory 500: in POST /api/inventory (server.py:459-485) and PUT-return paths, either wrap return in a Pydantic InventoryItem model, or strip '_id' before returning (e.g., item_doc.pop('_id', None) after insert_one), or pass copy.deepcopy before insert_one.",
+    "Audit other POST endpoints that return post-insert dicts (services, barbers, organizations, appointments) for the same ObjectId leak - they currently work only because Pydantic model_config extra='ignore' drops '_id', but this masks the underlying anti-pattern.",
+    "Fix real double-booking race: create a partial unique index in Mongo on {barber_id, date, time} for status='confirmed' OR use a transactional findOneAndUpdate/insert pattern OR use a per-barber+date lock. Current read-then-write is not race-safe.",
+    "Add integration test that fires N concurrent requests to the same slot and asserts exactly one 200 + N-1 409s."
+  ],
+  "success_rate": {"backend": "80%", "frontend": "100%"},
+  "retest_needed": true,
+  "full_testing_deferred": true,
+  "notes": {
+    "auth_flow": "Google OAuth interactive login not exercised. Owner-email hardcoding verified via code inspection only (server.py:190-194). Manager session for inventory tests was seeded directly in Mongo per /app/auth_testing.md.",
+    "not_exercised_ui": "Dashboard filters, LocalStorage 'nexus_client_data', inline stock-alert refresh, booking-flow 409 return-to-step-3 behavior - not exercised via UI because they require an authenticated manager session behind Google OAuth. Recommend full testing agent cover these post-fix.",
+    "mocks_confirmed": "WhatsApp confirmations still mocked via logger.info at server.py:713."
+  }
+}

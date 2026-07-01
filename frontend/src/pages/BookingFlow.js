@@ -42,10 +42,10 @@ const BookingFlow = () => {
   }, [orgId]);
 
   useEffect(() => {
-    if (selectedBarber && selectedDate) {
+    if (selectedBarber && selectedDate && selectedService) {
       loadAvailability();
     }
-  }, [selectedBarber, selectedDate]);
+  }, [selectedBarber, selectedDate, selectedService]);
 
   const loadServices = async () => {
     try {
@@ -67,10 +67,11 @@ const BookingFlow = () => {
 
   const loadAvailability = async () => {
     try {
-      const response = await publicAPI.getAvailability(orgId, selectedBarber.barber_id, selectedDate);
+      const response = await publicAPI.getAvailability(orgId, selectedBarber.barber_id, selectedDate, selectedService.service_id);
       setAvailableSlots(response.data.available_slots);
     } catch (error) {
       console.error('Error loading availability:', error);
+      toast.error('Error al cargar disponibilidad');
     }
   };
 
@@ -100,6 +101,13 @@ const BookingFlow = () => {
       return;
     }
 
+    // Email validation
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(clientData.email)) {
+      toast.error('Email inválido');
+      return;
+    }
+
     setLoading(true);
     try {
       await publicAPI.createAppointment(orgId, {
@@ -113,16 +121,24 @@ const BookingFlow = () => {
       });
 
       if (rememberData) {
-        localStorage.setItem('clipper_client_data', JSON.stringify(clientData));
+        localStorage.setItem('nexus_client_data', JSON.stringify(clientData));
       } else {
-        localStorage.removeItem('clipper_client_data');
+        localStorage.removeItem('nexus_client_data');
       }
 
       setSuccess(true);
       toast.success('¡Cita reservada!');
     } catch (error) {
       console.error('Error creating appointment:', error);
-      toast.error('Error al crear la cita');
+      if (error.response?.status === 409) {
+        toast.error('Este horario ya no está disponible. Por favor selecciona otro.');
+        setStep(3); // Go back to calendar
+        loadAvailability(); // Refresh availability
+      } else if (error.response?.status === 400 && error.response?.data?.detail?.includes('past')) {
+        toast.error('No puedes reservar citas en el pasado');
+      } else {
+        toast.error('Error al crear la cita');
+      }
     } finally {
       setLoading(false);
     }

@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
-import { appointmentAPI, organizationAPI } from '../api';
+import { appointmentAPI, organizationAPI, serviceAPI, barberAPI } from '../api';
 import { Calendar, DollarSign, Users, LogOut, Menu, Scissors, Package } from 'lucide-react';
 import { MANAGER, AUTH } from '../constants/testIds';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '../components/ui/sheet';
@@ -13,6 +13,8 @@ const ManagerDashboard = () => {
   const [organizations, setOrganizations] = useState([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState('all');
+  const [services, setServices] = useState([]);
+  const [barbers, setBarbers] = useState([]);
   const [selectedAppointment, setSelectedAppointment] = useState(null);
 
   useEffect(() => {
@@ -21,12 +23,16 @@ const ManagerDashboard = () => {
 
   const loadData = async () => {
     try {
-      const [aptsRes, orgsRes] = await Promise.all([
+      const [aptsRes, orgsRes, servicesRes, barbersRes] = await Promise.all([
         appointmentAPI.getToday(),
-        organizationAPI.getAll()
+        organizationAPI.getAll(),
+        serviceAPI.getAll(),
+        barberAPI.getAll()
       ]);
       setAppointments(aptsRes.data);
       setOrganizations(orgsRes.data);
+      setServices(servicesRes.data);
+      setBarbers(barbersRes.data);
     } catch (error) {
       console.error('Error loading data:', error);
     } finally {
@@ -43,7 +49,15 @@ const ManagerDashboard = () => {
 
   const filteredAppointments = appointments.filter(apt => {
     if (filter === 'all') return true;
-    return false;
+    if (filter.startsWith('service_')) {
+      const serviceId = filter.replace('service_', '');
+      return apt.service_id === serviceId;
+    }
+    if (filter.startsWith('barber_')) {
+      const barberId = filter.replace('barber_', '');
+      return apt.barber_id === barberId;
+    }
+    return true;
   });
 
   if (user?.access_status !== 'approved') {
@@ -114,7 +128,7 @@ const ManagerDashboard = () => {
         <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
           <div className="flex items-center gap-4">
             <h1 className="text-2xl font-light tracking-tight text-white" style={{ fontFamily: 'Outfit, sans-serif' }}>
-              Clipper
+              Nexus by CS2
             </h1>
             {organizations[0] && (
               <span className="text-zinc-400 text-sm">/ {organizations[0].name}</span>
@@ -185,6 +199,58 @@ const ManagerDashboard = () => {
           <h2 className="text-2xl font-light text-white mb-4" style={{ fontFamily: 'Outfit, sans-serif' }}>
             Citas del Día
           </h2>
+          
+          <div className="flex items-center gap-3 flex-wrap">
+            <button
+              data-testid={MANAGER.filterBtn}
+              onClick={() => setFilter('all')}
+              className={`min-h-[44px] px-4 py-2 rounded-xl font-medium transition-all ${
+                filter === 'all' 
+                  ? 'bg-[#0A84FF] text-white' 
+                  : 'bg-white/5 border border-white/10 text-zinc-400 hover:bg-white/10'
+              }`}
+            >
+              Todas ({appointments.length})
+            </button>
+            
+            {services.length > 0 && (
+              <>
+                <span className="text-zinc-500 text-sm">Servicios:</span>
+                {services.map((service) => (
+                  <button
+                    key={service.service_id}
+                    onClick={() => setFilter(`service_${service.service_id}`)}
+                    className={`min-h-[44px] px-4 py-2 rounded-xl text-sm font-medium transition-all ${
+                      filter === `service_${service.service_id}`
+                        ? 'bg-[#0A84FF] text-white'
+                        : 'bg-white/5 border border-white/10 text-zinc-400 hover:bg-white/10'
+                    }`}
+                  >
+                    {service.name}
+                  </button>
+                ))}
+              </>
+            )}
+            
+            {barbers.length > 0 && (
+              <>
+                <span className="text-zinc-500 text-sm">Barberos:</span>
+                {barbers.map((barber) => (
+                  <button
+                    key={barber.barber_id}
+                    onClick={() => setFilter(`barber_${barber.barber_id}`)}
+                    className={`min-h-[44px] px-4 py-2 rounded-xl text-sm font-medium transition-all ${
+                      filter === `barber_${barber.barber_id}`
+                        ? 'bg-[#0A84FF] text-white'
+                        : 'bg-white/5 border border-white/10 text-zinc-400 hover:bg-white/10'
+                    }`}
+                  >
+                    {barber.name}
+                  </button>
+                ))}
+              </>
+            )}
+          </div>
         </div>
 
         <div className="space-y-4">

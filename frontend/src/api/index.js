@@ -47,12 +47,12 @@ export const inventoryAPI = {
   create: (data) => api.post('/inventory', data),
   update: (id, data) => api.put(`/inventory/${id}`, data),
   delete: (id) => api.delete(`/inventory/${id}`),
-  generateOrder: () => api.post('/inventory/generate-order'),
+  generateOrder: () => api.post('/inventory/generate-order', {}, { responseType: 'stream' }),
 };
 
 export const publicAPI = {
   getServices: (orgId) => axios.get(`${API}/public/${orgId}/services`),
   getBarbers: (orgId) => axios.get(`${API}/public/${orgId}/barbers`),
-  getAvailability: (orgId, barberId, date) => axios.get(`${API}/public/${orgId}/availability`, { params: { barber_id: barberId, date } }),
+  getAvailability: (orgId, barberId, date, serviceId) => axios.get(`${API}/public/${orgId}/availability`, { params: { barber_id: barberId, date, service_id: serviceId } }),
   createAppointment: (orgId, data) => axios.post(`${API}/public/${orgId}/appointments`, data),
 };
