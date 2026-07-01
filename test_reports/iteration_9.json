@@ -1,0 +1,27 @@
+{
+  "summary": "Frontend-only smoke test. Landing/login page (/login) renders correctly with Nexus by CS2 branding and Google Sign-in button. Verified WeeklyCalendar component is imported and integrated into ManagerDashboard (line 11 import, lines 277-281 rendering block). ManagerDashboard filter buttons for Services and Barbers are structured in separate rows with space-y-4 wrapper (lines 288-343). Deep interactive testing of the Weekly Calendar UI and dashboard flow was NOT possible because the app is gated behind Emergent-managed Google OAuth, which cannot be automated in Playwright.",
+  "tested_scope": ["frontend"],
+  "passed": [
+    "Login page loads at /login (HTTP 200)",
+    "Nexus by CS2 branding renders",
+    "Google Sign-in button visible on login screen",
+    "No unexpected JS/page errors on load (only expected 401 from /auth/me pre-login)",
+    "Static code review: WeeklyCalendar imported and integrated in ManagerDashboard at lines 11 & 277-281",
+    "Static code review: filter buttons for Services (lines 303-322) and Barbers (lines 324-343) are in separate rows with space-y-4 spacing"
+  ],
+  "failed": [
+    {
+      "area": "auth-testing-limitation",
+      "issue": "Cannot programmatically log in with Google OAuth; unable to reach ManagerDashboard to visually verify WeeklyCalendar rendering, week navigation, barber filter dropdown, theme toggle effect on calendar, or filter-button spacing in the running UI.",
+      "evidence": "Navigating to /manager without a session redirects to a blank protected route. Google OAuth flow cannot be scripted.",
+      "priority": "MEDIUM"
+    }
+  ],
+  "action_items": [
+    "Main agent to manually verify in a logged-in browser: (1) Weekly Calendar renders Mon-Sun grid with 8:00-... hourly rows, (2) prev/next/today week navigation buttons work, (3) barber filter dropdown filters appointments, (4) theme toggle applies to calendar (uses text-primary, bg-secondary CSS vars — should work), (5) Services/Barbers filter rows are visually well-spaced.",
+    "Note: WeeklyCalendar.loadData fires one GET /api/appointments request per day (7 sequential requests per week change) — functional but a performance concern to note for later."
+  ],
+  "success_rate": {"backend": "not-tested", "frontend": "60%"},
+  "retest_needed": false,
+  "full_testing_deferred": true
+}

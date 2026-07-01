@@ -8,6 +8,7 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '../c
 import ThemeToggle from '../components/ThemeToggle';
 import DashboardStats from '../components/DashboardStats';
 import BookingTools from '../components/BookingTools';
+import WeeklyCalendar from '../components/WeeklyCalendar';
 
 const ManagerDashboard = () => {
   const { user, logout } = useAuth();
@@ -272,60 +273,73 @@ const ManagerDashboard = () => {
           </div>
         )}
 
+        {/* Weekly Calendar */}
+        {selectedOrg && (
+          <div className="mb-8">
+            <WeeklyCalendar organizationId={selectedOrg.organization_id} />
+          </div>
+        )}
+
         <div className="mb-6">
           <h2 className="text-2xl font-light text-white mb-4" style={{ fontFamily: 'Outfit, sans-serif' }}>
             Citas del Día
           </h2>
           
-          <div className="flex items-center gap-3 flex-wrap">
-            <button
-              data-testid={MANAGER.filterBtn}
-              onClick={() => setFilter('all')}
-              className={`min-h-[44px] px-4 py-2 rounded-xl font-medium transition-all ${
-                filter === 'all' 
-                  ? 'bg-[#0A84FF] text-white' 
-                  : 'bg-white/5 border border-white/10 text-zinc-400 hover:bg-white/10'
-              }`}
-            >
-              Todas ({appointments.length})
-            </button>
+          <div className="space-y-4">
+            <div className="flex items-center gap-3 flex-wrap">
+              <button
+                data-testid={MANAGER.filterBtn}
+                onClick={() => setFilter('all')}
+                className={`min-h-[44px] px-4 py-2 rounded-xl font-medium transition-all ${
+                  filter === 'all' 
+                    ? 'bg-[#0A84FF] text-white' 
+                    : 'bg-white/5 border border-white/10 text-zinc-400 hover:bg-white/10'
+                }`}
+              >
+                Todas ({appointments.length})
+              </button>
+            </div>
             
             {services.length > 0 && (
-              <>
-                <span className="text-zinc-500 text-sm">Servicios:</span>
-                {services.map((service) => (
-                  <button
-                    key={service.service_id}
-                    onClick={() => setFilter(`service_${service.service_id}`)}
-                    className={`min-h-[44px] px-4 py-2 rounded-xl text-sm font-medium transition-all ${
-                      filter === `service_${service.service_id}`
-                        ? 'bg-[#0A84FF] text-white'
-                        : 'bg-white/5 border border-white/10 text-zinc-400 hover:bg-white/10'
-                    }`}
-                  >
-                    {service.name}
-                  </button>
-                ))}
-              </>
+              <div className="flex items-center gap-3 flex-wrap">
+                <span className="text-zinc-400 text-sm font-medium min-w-[80px]">Servicios:</span>
+                <div className="flex items-center gap-3 flex-wrap">
+                  {services.map((service) => (
+                    <button
+                      key={service.service_id}
+                      onClick={() => setFilter(`service_${service.service_id}`)}
+                      className={`min-h-[44px] px-4 py-2 rounded-xl text-sm font-medium transition-all ${
+                        filter === `service_${service.service_id}`
+                          ? 'bg-[#0A84FF] text-white'
+                          : 'bg-white/5 border border-white/10 text-zinc-400 hover:bg-white/10'
+                      }`}
+                    >
+                      {service.name}
+                    </button>
+                  ))}
+                </div>
+              </div>
             )}
             
             {barbers.length > 0 && (
-              <>
-                <span className="text-zinc-500 text-sm">Barberos:</span>
-                {barbers.map((barber) => (
-                  <button
-                    key={barber.barber_id}
-                    onClick={() => setFilter(`barber_${barber.barber_id}`)}
-                    className={`min-h-[44px] px-4 py-2 rounded-xl text-sm font-medium transition-all ${
-                      filter === `barber_${barber.barber_id}`
-                        ? 'bg-[#0A84FF] text-white'
-                        : 'bg-white/5 border border-white/10 text-zinc-400 hover:bg-white/10'
-                    }`}
-                  >
-                    {barber.name}
-                  </button>
-                ))}
-              </>
+              <div className="flex items-center gap-3 flex-wrap">
+                <span className="text-zinc-400 text-sm font-medium min-w-[80px]">Barberos:</span>
+                <div className="flex items-center gap-3 flex-wrap">
+                  {barbers.map((barber) => (
+                    <button
+                      key={barber.barber_id}
+                      onClick={() => setFilter(`barber_${barber.barber_id}`)}
+                      className={`min-h-[44px] px-4 py-2 rounded-xl text-sm font-medium transition-all ${
+                        filter === `barber_${barber.barber_id}`
+                          ? 'bg-[#0A84FF] text-white'
+                          : 'bg-white/5 border border-white/10 text-zinc-400 hover:bg-white/10'
+                      }`}
+                    >
+                      {barber.name}
+                    </button>
+                  ))}
+                </div>
+              </div>
             )}
           </div>
         </div>
