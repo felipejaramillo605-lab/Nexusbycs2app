@@ -1,0 +1,58 @@
+import axios from 'axios';
+
+const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
+export const API = `${BACKEND_URL}/api`;
+
+export const api = axios.create({
+  baseURL: API,
+  withCredentials: true,
+});
+
+export const authAPI = {
+  createSession: (sessionId) => api.post('/auth/session', {}, { headers: { 'X-Session-ID': sessionId } }),
+  getMe: () => api.get('/auth/me'),
+  logout: () => api.post('/auth/logout'),
+};
+
+export const ownerAPI = {
+  getUsers: () => api.get('/owner/users'),
+  updateAccess: (userId, status) => api.put(`/owner/users/${userId}/access`, { access_status: status }),
+  deleteUser: (userId) => api.delete(`/owner/users/${userId}`),
+};
+
+export const organizationAPI = {
+  getAll: () => api.get('/organizations'),
+  create: (name) => api.post('/organizations', null, { params: { name } }),
+};
+
+export const serviceAPI = {
+  getAll: () => api.get('/services'),
+  create: (data) => api.post('/services', data),
+  delete: (id) => api.delete(`/services/${id}`),
+};
+
+export const barberAPI = {
+  getAll: () => api.get('/barbers'),
+  create: (data) => api.post('/barbers', data),
+  delete: (id) => api.delete(`/barbers/${id}`),
+};
+
+export const appointmentAPI = {
+  getAll: (date) => api.get('/appointments', { params: { date } }),
+  getToday: () => api.get('/appointments/today'),
+};
+
+export const inventoryAPI = {
+  getAll: () => api.get('/inventory'),
+  create: (data) => api.post('/inventory', data),
+  update: (id, data) => api.put(`/inventory/${id}`, data),
+  delete: (id) => api.delete(`/inventory/${id}`),
+  generateOrder: () => api.post('/inventory/generate-order'),
+};
+
+export const publicAPI = {
+  getServices: (orgId) => axios.get(`${API}/public/${orgId}/services`),
+  getBarbers: (orgId) => axios.get(`${API}/public/${orgId}/barbers`),
+  getAvailability: (orgId, barberId, date) => axios.get(`${API}/public/${orgId}/availability`, { params: { barber_id: barberId, date } }),
+  createAppointment: (orgId, data) => axios.post(`${API}/public/${orgId}/appointments`, data),
+};
