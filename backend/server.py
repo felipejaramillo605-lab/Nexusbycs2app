@@ -399,8 +399,17 @@ async def create_service(data: ServiceCreate, authorization: Optional[str] = Hea
 async def update_service(service_id: str, data: ServiceCreate, authorization: Optional[str] = Header(None), session_token: Optional[str] = Cookie(None)):
     current_user = await get_current_user(authorization, session_token)
     
-    if not current_user.organization_id:
-        raise HTTPException(status_code=400, detail="No organization assigned")
+    # Get the service first to verify it exists and belongs to accessible organization
+    service = await db.services.find_one({"service_id": service_id}, {"_id": 0})
+    if not service:
+        raise HTTPException(status_code=404, detail="Service not found")
+    
+    # Validate access
+    if current_user.role != "owner":
+        if not current_user.organization_id:
+            raise HTTPException(status_code=400, detail="No organization assigned")
+        if service["organization_id"] != current_user.organization_id:
+            raise HTTPException(status_code=403, detail="Not authorized")
     
     update_data = {
         "name": data.name,
@@ -409,7 +418,7 @@ async def update_service(service_id: str, data: ServiceCreate, authorization: Op
     }
     
     result = await db.services.update_one(
-        {"service_id": service_id, "organization_id": current_user.organization_id},
+        {"service_id": service_id},
         {"$set": update_data}
     )
     
@@ -470,6 +479,43 @@ async def create_barber(data: BarberCreate, authorization: Optional[str] = Heade
     barber_doc["created_at"] = datetime.fromisoformat(barber_doc["created_at"])
     return Barber(**barber_doc)
 
+@api_router.put("/barbers/{barber_id}")
+async def update_barber(barber_id: str, data: BarberCreate, authorization: Optional[str] = Header(None), session_token: Optional[str] = Cookie(None)):
+    current_user = await get_current_user(authorization, session_token)
+    
+    # Get the barber first to verify it exists and belongs to accessible organization
+    barber = await db.barbers.find_one({"barber_id": barber_id}, {"_id": 0})
+    if not barber:
+        raise HTTPException(status_code=404, detail="Barber not found")
+    
+    # Validate access
+    if current_user.role != "owner":
+        if not current_user.organization_id:
+            raise HTTPException(status_code=400, detail="No organization assigned")
+        if barber["organization_id"] != current_user.organization_id:
+            raise HTTPException(status_code=403, detail="Not authorized")
+    
+    update_data = {
+        "name": data.name,
+        "avatar": data.avatar,
+        "available_days": data.available_days or [1, 2, 3, 4, 5],
+        "start_time": data.start_time or "09:00",
+        "end_time": data.end_time or "18:00"
+    }
+    
+    result = await db.barbers.update_one(
+        {"barber_id": barber_id},
+        {"$set": update_data}
+    )
+    
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Barber not found")
+    
+    updated_barber = await db.barbers.find_one({"barber_id": barber_id}, {"_id": 0})
+    if isinstance(updated_barber["created_at"], str):
+        updated_barber["created_at"] = datetime.fromisoformat(updated_barber["created_at"])
+    return Barber(**updated_barber)
+
 @api_router.delete("/barbers/{barber_id}")
 async def delete_barber(barber_id: str, authorization: Optional[str] = Header(None), session_token: Optional[str] = Cookie(None)):
     current_user = await get_current_user(authorization, session_token)
@@ -495,11 +541,23 @@ async def get_blocked_times(barber_id: str, date: Optional[str] = None, authoriz
 async def create_blocked_time(barber_id: str, data: BlockedTimeCreate, authorization: Optional[str] = Header(None), session_token: Optional[str] = Cookie(None)):
     current_user = await get_current_user(authorization, session_token)
     
+    # Get barber to obtain organization_id
+    barber = await db.barbers.find_one({"barber_id": barber_id}, {"_id": 0})
+    if not barber:
+        raise HTTPException(status_code=404, detail="Barber not found")
+    
+    # Validate access for non-owner users
+    if current_user.role != "owner":
+        if not current_user.organization_id:
+            raise HTTPException(status_code=400, detail="No organization assigned")
+        if barber["organization_id"] != current_user.organization_id:
+            raise HTTPException(status_code=403, detail="Not authorized")
+    
     block_id = f"block_{uuid.uuid4().hex[:12]}"
     block_doc = {
         "block_id": block_id,
         "barber_id": barber_id,
-        "organization_id": current_user.organization_id,
+        "organization_id": barber["organization_id"],
         "date": data.date,
         "start_time": data.start_time,
         "end_time": data.end_time,
