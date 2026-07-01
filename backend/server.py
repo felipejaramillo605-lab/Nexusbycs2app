@@ -83,6 +83,23 @@ class Appointment(BaseModel):
     status: str = "confirmed"
     created_at: datetime
 
+class BlockedTime(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    block_id: str
+    barber_id: str
+    organization_id: str
+    date: str
+    start_time: str
+    end_time: str
+    reason: str
+    created_at: datetime
+
+class BlockedTimeCreate(BaseModel):
+    date: str
+    start_time: str
+    end_time: str
+    reason: str
+
 class InventoryItem(BaseModel):
     model_config = ConfigDict(extra="ignore")
     item_id: str
@@ -433,6 +450,46 @@ async def delete_barber(barber_id: str, authorization: Optional[str] = Header(No
     await db.barbers.delete_one({"barber_id": barber_id, "organization_id": current_user.organization_id})
     return {"message": "Barber deleted"}
 
+# Blocked Times Endpoints
+@api_router.get("/barbers/{barber_id}/blocked-times")
+async def get_blocked_times(barber_id: str, date: Optional[str] = None, authorization: Optional[str] = Header(None), session_token: Optional[str] = Cookie(None)):
+    current_user = await get_current_user(authorization, session_token)
+    
+    query = {"barber_id": barber_id}
+    if date:
+        query["date"] = date
+    
+    blocked_times = await db.blocked_times.find(query, {"_id": 0}).to_list(1000)
+    for bt in blocked_times:
+        if isinstance(bt["created_at"], str):
+            bt["created_at"] = datetime.fromisoformat(bt["created_at"])
+    return blocked_times
+
+@api_router.post("/barbers/{barber_id}/blocked-times")
+async def create_blocked_time(barber_id: str, data: BlockedTimeCreate, authorization: Optional[str] = Header(None), session_token: Optional[str] = Cookie(None)):
+    current_user = await get_current_user(authorization, session_token)
+    
+    block_id = f"block_{uuid.uuid4().hex[:12]}"
+    block_doc = {
+        "block_id": block_id,
+        "barber_id": barber_id,
+        "organization_id": current_user.organization_id,
+        "date": data.date,
+        "start_time": data.start_time,
+        "end_time": data.end_time,
+        "reason": data.reason,
+        "created_at": datetime.now(timezone.utc).isoformat()
+    }
+    await db.blocked_times.insert_one(block_doc)
+    block_doc["created_at"] = datetime.fromisoformat(block_doc["created_at"])
+    return BlockedTime(**block_doc)
+
+@api_router.delete("/barbers/{barber_id}/blocked-times/{block_id}")
+async def delete_blocked_time(barber_id: str, block_id: str, authorization: Optional[str] = Header(None), session_token: Optional[str] = Cookie(None)):
+    current_user = await get_current_user(authorization, session_token)
+    await db.blocked_times.delete_one({"block_id": block_id, "barber_id": barber_id})
+    return {"message": "Blocked time deleted"}
+
 # Appointments Endpoints
 @api_router.get("/appointments")
 async def get_appointments(date: Optional[str] = None, organization_id: Optional[str] = None, authorization: Optional[str] = Header(None), session_token: Optional[str] = Cookie(None)):
@@ -471,6 +528,76 @@ async def get_appointments(date: Optional[str] = None, organization_id: Optional
 async def get_today_appointments(authorization: Optional[str] = Header(None), session_token: Optional[str] = Cookie(None)):
     today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
     return await get_appointments(date=today, authorization=authorization, session_token=session_token)
+
+# Statistics Endpoints
+@api_router.get("/statistics")
+async def get_statistics(start_date: str, end_date: str, organization_id: Optional[str] = None, authorization: Optional[str] = Header(None), session_token: Optional[str] = Cookie(None)):
+    current_user = await get_current_user(authorization, session_token)
+    
+    # Build query
+    if current_user.role == "owner":
+        if organization_id:
+            query = {"organization_id": organization_id}
+        else:
+            query = {}
+    else:
+        if not current_user.organization_id:
+            raise HTTPException(status_code=400, detail="No organization assigned")
+        query = {"organization_id": current_user.organization_id}
+    
+    # Add date range
+    query["date"] = {"$gte": start_date, "$lte": end_date}
+    
+    # Get appointments
+    appointments = await db.appointments.find(query, {"_id": 0}).to_list(10000)
+    
+    # Calculate statistics
+    daily_revenue = {}
+    service_count = {}
+    barber_count = {}
+    
+    for apt in appointments:
+        # Get service info
+        service = await db.services.find_one({"service_id": apt["service_id"]}, {"_id": 0})
+        service_price = service["price"] if service else 0
+        service_name = service["name"] if service else "Unknown"
+        
+        # Get barber info
+        barber = await db.barbers.find_one({"barber_id": apt["barber_id"]}, {"_id": 0})
+        barber_name = barber["name"] if barber else "Unknown"
+        
+        # Daily revenue
+        date = apt["date"]
+        if date not in daily_revenue:
+            daily_revenue[date] = 0
+        daily_revenue[date] += service_price
+        
+        # Service count
+        if service_name not in service_count:
+            service_count[service_name] = 0
+        service_count[service_name] += 1
+        
+        # Barber count
+        if barber_name not in barber_count:
+            barber_count[barber_name] = 0
+        barber_count[barber_name] += 1
+    
+    # Format for charts
+    daily_stats = [{"date": date, "revenue": revenue} for date, revenue in sorted(daily_revenue.items())]
+    service_stats = [{"name": name, "count": count} for name, count in service_count.items()]
+    barber_stats = [{"name": name, "count": count} for name, count in barber_count.items()]
+    
+    total_revenue = sum(daily_revenue.values())
+    total_appointments = len(appointments)
+    
+    return {
+        "total_revenue": total_revenue,
+        "total_appointments": total_appointments,
+        "daily_stats": daily_stats,
+        "service_stats": service_stats,
+        "barber_stats": barber_stats
+    }
+
 
 # Inventory Endpoints
 @api_router.get("/inventory")
@@ -641,8 +768,13 @@ async def get_availability(org_id: str, barber_id: str, date: str, service_id: s
     # Get all appointments for this barber on this date
     appointments = await db.appointments.find({"barber_id": barber_id, "date": date}, {"_id": 0}).to_list(1000)
     
+    # Get blocked times for this barber on this date
+    blocked_times = await db.blocked_times.find({"barber_id": barber_id, "date": date}, {"_id": 0}).to_list(1000)
+    
     # Build set of blocked time slots considering service durations
     blocked_slots = set()
+    
+    # Block appointment slots
     for apt in appointments:
         apt_service = await db.services.find_one({"service_id": apt["service_id"]}, {"_id": 0})
         apt_duration = apt_service["duration"] if apt_service else 30
@@ -659,6 +791,22 @@ async def get_availability(org_id: str, barber_id: str, date: str, service_id: s
             slot_hour = slot_minutes // 60
             slot_minute = slot_minutes % 60
             blocked_slots.add(f"{slot_hour:02d}:{slot_minute:02d}")
+    
+    # Block manually blocked time ranges
+    for blocked in blocked_times:
+        start_hour, start_minute = map(int, blocked["start_time"].split(":"))
+        end_hour, end_minute = map(int, blocked["end_time"].split(":"))
+        
+        start_total_minutes = start_hour * 60 + start_minute
+        end_total_minutes = end_hour * 60 + end_minute
+        
+        # Block all 30-minute slots in this range
+        current_minutes = start_total_minutes
+        while current_minutes < end_total_minutes:
+            slot_hour = current_minutes // 60
+            slot_minute = current_minutes % 60
+            blocked_slots.add(f"{slot_hour:02d}:{slot_minute:02d}")
+            current_minutes += 30
     
     # Generate available slots
     start_hour = int(barber["start_time"].split(":")[0])
