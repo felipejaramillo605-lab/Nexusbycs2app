@@ -26,24 +26,27 @@ export const organizationAPI = {
 };
 
 export const serviceAPI = {
-  getAll: () => api.get('/services'),
+  getAll: (params = {}) => api.get('/services', { params }),
   create: (data) => api.post('/services', data),
   delete: (id) => api.delete(`/services/${id}`),
 };
 
 export const barberAPI = {
-  getAll: () => api.get('/barbers'),
+  getAll: (params = {}) => api.get('/barbers', { params }),
   create: (data) => api.post('/barbers', data),
   delete: (id) => api.delete(`/barbers/${id}`),
 };
 
 export const appointmentAPI = {
-  getAll: (date) => api.get('/appointments', { params: { date } }),
-  getToday: () => api.get('/appointments/today'),
+  getAll: (params = {}) => api.get('/appointments', { params }),
+  getToday: (params = {}) => {
+    const today = new Date().toISOString().split('T')[0];
+    return api.get('/appointments', { params: { ...params, date: today } });
+  },
 };
 
 export const inventoryAPI = {
-  getAll: () => api.get('/inventory'),
+  getAll: (params = {}) => api.get('/inventory', { params }),
   create: (data) => api.post('/inventory', data),
   update: (id, data) => api.put(`/inventory/${id}`, data),
   delete: (id) => api.delete(`/inventory/${id}`),

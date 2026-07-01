@@ -11,6 +11,7 @@ const ManagerDashboard = () => {
   const navigate = useNavigate();
   const [appointments, setAppointments] = useState([]);
   const [organizations, setOrganizations] = useState([]);
+  const [selectedOrg, setSelectedOrg] = useState(null);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState('all');
   const [services, setServices] = useState([]);
@@ -23,20 +24,38 @@ const ManagerDashboard = () => {
 
   const loadData = async () => {
     try {
-      const [aptsRes, orgsRes, servicesRes, barbersRes] = await Promise.all([
-        appointmentAPI.getToday(),
-        organizationAPI.getAll(),
-        serviceAPI.getAll(),
-        barberAPI.getAll()
-      ]);
-      setAppointments(aptsRes.data);
+      const orgsRes = await organizationAPI.getAll();
       setOrganizations(orgsRes.data);
-      setServices(servicesRes.data);
-      setBarbers(barbersRes.data);
+      
+      // For owner, select first org automatically if available
+      const targetOrg = user.role === 'owner' && orgsRes.data.length > 0 
+        ? orgsRes.data[0] 
+        : orgsRes.data.find(o => o.organization_id === user.organization_id);
+      
+      if (targetOrg) {
+        setSelectedOrg(targetOrg);
+        await loadOrgData(targetOrg.organization_id);
+      }
     } catch (error) {
       console.error('Error loading data:', error);
     } finally {
       setLoading(false);
+    }
+  };
+  
+  const loadOrgData = async (orgId) => {
+    try {
+      const params = user.role === 'owner' ? { organization_id: orgId } : {};
+      const [aptsRes, servicesRes, barbersRes] = await Promise.all([
+        appointmentAPI.getToday(params),
+        serviceAPI.getAll(params),
+        barberAPI.getAll(params)
+      ]);
+      setAppointments(aptsRes.data);
+      setServices(servicesRes.data);
+      setBarbers(barbersRes.data);
+    } catch (error) {
+      console.error('Error loading org data:', error);
     }
   };
 
@@ -130,32 +149,50 @@ const ManagerDashboard = () => {
             <h1 className="text-2xl font-light tracking-tight text-white" style={{ fontFamily: 'Outfit, sans-serif' }}>
               Nexus by CS2
             </h1>
-            {organizations[0] && (
-              <span className="text-zinc-400 text-sm">/ {organizations[0].name}</span>
+            {selectedOrg && (
+              <span className="text-zinc-400 text-sm">/ {selectedOrg.name}</span>
+            )}
+            {user.role === 'owner' && (
+              <span className="px-3 py-1 rounded-lg text-xs font-medium bg-purple-500/20 text-purple-300">
+                Owner
+              </span>
             )}
           </div>
           <div className="flex items-center gap-4">
-            <button
-              onClick={() => navigate('/manager/services')}
-              className="flex items-center gap-2 px-4 py-2 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 transition-all text-white"
-            >
-              <Scissors size={18} strokeWidth={1.5} />
-              <span className="hidden md:inline">Servicios</span>
-            </button>
-            <button
-              onClick={() => navigate('/manager/barbers')}
-              className="flex items-center gap-2 px-4 py-2 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 transition-all text-white"
-            >
-              <Users size={18} strokeWidth={1.5} />
-              <span className="hidden md:inline">Barberos</span>
-            </button>
-            <button
-              onClick={() => navigate('/manager/inventory')}
-              className="flex items-center gap-2 px-4 py-2 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 transition-all text-white"
-            >
-              <Package size={18} strokeWidth={1.5} />
-              <span className="hidden md:inline">Inventario</span>
-            </button>
+            {user.role === 'owner' && (
+              <button
+                onClick={() => navigate('/owner/access-control')}
+                className="flex items-center gap-2 px-4 py-2 rounded-xl bg-purple-500/20 border border-purple-500/30 hover:bg-purple-500/30 transition-all text-purple-300"
+              >
+                <Users size={18} strokeWidth={1.5} />
+                <span className="hidden md:inline">Control de Accesos</span>
+              </button>
+            )}
+            {selectedOrg && (
+              <>
+                <button
+                  onClick={() => navigate('/manager/services')}
+                  className="flex items-center gap-2 px-4 py-2 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 transition-all text-white"
+                >
+                  <Scissors size={18} strokeWidth={1.5} />
+                  <span className="hidden md:inline">Servicios</span>
+                </button>
+                <button
+                  onClick={() => navigate('/manager/barbers')}
+                  className="flex items-center gap-2 px-4 py-2 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 transition-all text-white"
+                >
+                  <Users size={18} strokeWidth={1.5} />
+                  <span className="hidden md:inline">Barberos</span>
+                </button>
+                <button
+                  onClick={() => navigate('/manager/inventory')}
+                  className="flex items-center gap-2 px-4 py-2 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 transition-all text-white"
+                >
+                  <Package size={18} strokeWidth={1.5} />
+                  <span className="hidden md:inline">Inventario</span>
+                </button>
+              </>
+            )}
             <button
               data-testid={AUTH.logoutBtn}
               onClick={handleLogout}
@@ -169,6 +206,27 @@ const ManagerDashboard = () => {
       </nav>
 
       <div className="max-w-7xl mx-auto px-6 py-8">
+        {user.role === 'owner' && organizations.length > 1 && (
+          <div className="mb-6">
+            <label className="text-sm text-zinc-400 mb-2 block">Seleccionar Barbería</label>
+            <select
+              value={selectedOrg?.organization_id || ''}
+              onChange={(e) => {
+                const org = organizations.find(o => o.organization_id === e.target.value);
+                setSelectedOrg(org);
+                if (org) loadOrgData(org.organization_id);
+              }}
+              className="w-full md:w-64 px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white focus:border-[#0A84FF] focus:ring-1 focus:ring-[#0A84FF] outline-none"
+            >
+              {organizations.map((org) => (
+                <option key={org.organization_id} value={org.organization_id} className="bg-[#1A1A1A]">
+                  {org.name}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
+        
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
           <div className="backdrop-blur-xl bg-white/3 border border-white/10 rounded-2xl p-6">
             <div className="flex items-center justify-between mb-4">

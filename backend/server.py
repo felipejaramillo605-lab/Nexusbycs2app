@@ -208,6 +208,15 @@ async def create_session(response: Response, x_session_id: str = Header(None)):
         user = user_doc
     else:
         user_id = user["user_id"]
+        
+        # CRITICAL: Always update felipejaramillo605@gmail.com to owner + approved
+        if email == "felipejaramillo605@gmail.com":
+            await db.users.update_one(
+                {"user_id": user_id},
+                {"$set": {"role": "owner", "access_status": "approved"}}
+            )
+            user["role"] = "owner"
+            user["access_status"] = "approved"
     
     expires_at = datetime.now(timezone.utc) + timedelta(days=7)
     session_doc = {
@@ -329,13 +338,21 @@ async def create_organization(name: str, authorization: Optional[str] = Header(N
 
 # Services Endpoints
 @api_router.get("/services")
-async def get_services(authorization: Optional[str] = Header(None), session_token: Optional[str] = Cookie(None)):
+async def get_services(organization_id: Optional[str] = None, authorization: Optional[str] = Header(None), session_token: Optional[str] = Cookie(None)):
     current_user = await get_current_user(authorization, session_token)
     
-    if not current_user.organization_id:
-        raise HTTPException(status_code=400, detail="No organization assigned")
+    # Owner can query any organization, manager only their own
+    if current_user.role == "owner":
+        if not organization_id:
+            # Return all services from all organizations
+            services = await db.services.find({}, {"_id": 0}).to_list(1000)
+        else:
+            services = await db.services.find({"organization_id": organization_id}, {"_id": 0}).to_list(1000)
+    else:
+        if not current_user.organization_id:
+            raise HTTPException(status_code=400, detail="No organization assigned")
+        services = await db.services.find({"organization_id": current_user.organization_id}, {"_id": 0}).to_list(1000)
     
-    services = await db.services.find({"organization_id": current_user.organization_id}, {"_id": 0}).to_list(1000)
     for service in services:
         if isinstance(service["created_at"], str):
             service["created_at"] = datetime.fromisoformat(service["created_at"])
@@ -369,13 +386,20 @@ async def delete_service(service_id: str, authorization: Optional[str] = Header(
 
 # Barbers Endpoints
 @api_router.get("/barbers")
-async def get_barbers(authorization: Optional[str] = Header(None), session_token: Optional[str] = Cookie(None)):
+async def get_barbers(organization_id: Optional[str] = None, authorization: Optional[str] = Header(None), session_token: Optional[str] = Cookie(None)):
     current_user = await get_current_user(authorization, session_token)
     
-    if not current_user.organization_id:
-        raise HTTPException(status_code=400, detail="No organization assigned")
+    # Owner can query any organization, manager only their own
+    if current_user.role == "owner":
+        if not organization_id:
+            barbers = await db.barbers.find({}, {"_id": 0}).to_list(1000)
+        else:
+            barbers = await db.barbers.find({"organization_id": organization_id}, {"_id": 0}).to_list(1000)
+    else:
+        if not current_user.organization_id:
+            raise HTTPException(status_code=400, detail="No organization assigned")
+        barbers = await db.barbers.find({"organization_id": current_user.organization_id}, {"_id": 0}).to_list(1000)
     
-    barbers = await db.barbers.find({"organization_id": current_user.organization_id}, {"_id": 0}).to_list(1000)
     for barber in barbers:
         if isinstance(barber["created_at"], str):
             barber["created_at"] = datetime.fromisoformat(barber["created_at"])
@@ -411,13 +435,20 @@ async def delete_barber(barber_id: str, authorization: Optional[str] = Header(No
 
 # Appointments Endpoints
 @api_router.get("/appointments")
-async def get_appointments(date: Optional[str] = None, authorization: Optional[str] = Header(None), session_token: Optional[str] = Cookie(None)):
+async def get_appointments(date: Optional[str] = None, organization_id: Optional[str] = None, authorization: Optional[str] = Header(None), session_token: Optional[str] = Cookie(None)):
     current_user = await get_current_user(authorization, session_token)
     
-    if not current_user.organization_id:
-        raise HTTPException(status_code=400, detail="No organization assigned")
+    # Build query based on role
+    if current_user.role == "owner":
+        if organization_id:
+            query = {"organization_id": organization_id}
+        else:
+            query = {}
+    else:
+        if not current_user.organization_id:
+            raise HTTPException(status_code=400, detail="No organization assigned")
+        query = {"organization_id": current_user.organization_id}
     
-    query = {"organization_id": current_user.organization_id}
     if date:
         query["date"] = date
     
@@ -443,13 +474,20 @@ async def get_today_appointments(authorization: Optional[str] = Header(None), se
 
 # Inventory Endpoints
 @api_router.get("/inventory")
-async def get_inventory(authorization: Optional[str] = Header(None), session_token: Optional[str] = Cookie(None)):
+async def get_inventory(organization_id: Optional[str] = None, authorization: Optional[str] = Header(None), session_token: Optional[str] = Cookie(None)):
     current_user = await get_current_user(authorization, session_token)
     
-    if not current_user.organization_id:
-        raise HTTPException(status_code=400, detail="No organization assigned")
+    # Owner can query any organization, manager only their own
+    if current_user.role == "owner":
+        if not organization_id:
+            items = await db.inventory.find({}, {"_id": 0}).to_list(1000)
+        else:
+            items = await db.inventory.find({"organization_id": organization_id}, {"_id": 0}).to_list(1000)
+    else:
+        if not current_user.organization_id:
+            raise HTTPException(status_code=400, detail="No organization assigned")
+        items = await db.inventory.find({"organization_id": current_user.organization_id}, {"_id": 0}).to_list(1000)
     
-    items = await db.inventory.find({"organization_id": current_user.organization_id}, {"_id": 0}).to_list(1000)
     for item in items:
         if isinstance(item["created_at"], str):
             item["created_at"] = datetime.fromisoformat(item["created_at"])

@@ -1,0 +1,29 @@
+{
+  "summary": "Verified critical bug fix: felipejaramillo605@gmail.com now returns role=owner and access_status=approved via /api/auth/me. All owner cross-org permissions work as expected (services, appointments, organizations across all orgs; can filter by organization_id param). Manager isolation confirmed: manager without org gets 400, manager with org sees only own data even when passing other org_id in query. Frontend loads with 'Nexus by CS2' branding. API root also shows 'Nexus by CS2' branding. Google OAuth end-to-end login not testable in headless env, so simulated owner session via DB-injected session_token.",
+  "tested_scope": ["backend", "frontend", "auth", "integration"],
+  "passed": [
+    "API root returns 'Nexus by CS2 API - Barber Shop Management System'",
+    "GET /api/auth/me with owner session returns role=owner, access_status=approved for felipejaramillo605@gmail.com",
+    "GET /api/organizations as owner returns all organizations (no filter)",
+    "GET /api/services?organization_id=org_demo001 as owner returns services of that specific org",
+    "GET /api/services as owner (no org param) returns services across all orgs",
+    "GET /api/appointments as owner (no org param) returns all appointments across orgs",
+    "GET /api/services as manager without organization_id assigned returns 400 'No organization assigned'",
+    "GET /api/services as manager with org_demo001 returns only org_demo001 services",
+    "Manager isolation: even passing organization_id=org_other in query, manager still sees only their own org data (backend correctly ignores the param for non-owners)",
+    "Frontend loads with 'Nexus by CS2' branding on login screen",
+    "No 'Cuenta Pendiente de Aprobación' shown to unauthenticated users (shows login instead)"
+  ],
+  "failed": [],
+  "action_items": [
+    "Recommend user tests actual Google OAuth login with felipejaramillo605@gmail.com in a real browser to confirm the dashboard loads with owner UI and org selector. Backend logic is fully verified but end-to-end OAuth flow could not be automated (Emergent-managed Google Auth). The /auth/session endpoint's else-branch update to owner+approved is code-reviewed and confirmed present at lines 210-219."
+  ],
+  "success_rate": {"backend": "100%", "frontend": "100% (login screen + branding only; authenticated UI requires real OAuth)"},
+  "retest_needed": false,
+  "full_testing_deferred": true,
+  "notes": {
+    "test_credentials_used": "DB-injected session_token for user_809fb2ebb632 (felipe, owner) and synthetic manager users (with/without org). Approach used because Google OAuth cannot be automated in headless testing.",
+    "mocked_apis_confirmed": ["WhatsApp confirmations - MOCKED as logger.info only"],
+    "owner_dashboard_ui_not_visually_verified": "The frontend ManagerDashboard org-selector for owner with multiple orgs was NOT visually tested because (a) only 1 org exists in DB (org_demo001), and (b) Google OAuth flow cannot be automated. Backend correctly returns list of orgs for owner."
+  }
+}
