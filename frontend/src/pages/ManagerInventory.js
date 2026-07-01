@@ -93,6 +93,12 @@ const ManagerInventory = () => {
           if (line.startsWith('data: ')) {
             try {
               const data = JSON.parse(line.substring(6));
+              if (data.error) {
+                toast.error(data.error);
+                setOrderRecommendation(`❌ Error: ${data.error}`);
+                setLoadingOrder(false);
+                break;
+              }
               if (data.content) {
                 fullText += data.content;
                 setOrderRecommendation(fullText);

@@ -521,17 +521,17 @@ Para cada producto, recomienda:
 
 Formatea la respuesta como una lista clara y accionable."""
     
-    try:
-        chat = LlmChat(
-            api_key=EMERGENT_LLM_KEY,
-            session_id=f"purchase_order_{current_user.user_id}",
-            system_message="Eres un asistente experto en gestión de inventarios para barberías."
-        ).with_model("gemini", "gemini-3.5-flash")
-        
-        user_message = UserMessage(text=prompt)
-        
-        async def generate():
+    async def generate():
+        try:
+            chat = LlmChat(
+                api_key=EMERGENT_LLM_KEY,
+                session_id=f"purchase_order_{current_user.user_id}",
+                system_message="Eres un asistente experto en gestión de inventarios para barberías."
+            ).with_model("gemini", "gemini-3.5-flash")
+            
+            user_message = UserMessage(text=prompt)
             full_response = ""
+            
             async for event in chat.stream_message(user_message):
                 if isinstance(event, TextDelta):
                     full_response += event.content
@@ -539,15 +539,22 @@ Formatea la respuesta como una lista clara y accionable."""
                 elif isinstance(event, StreamDone):
                     yield f"data: {json.dumps({'done': True, 'full_response': full_response})}\n\n"
                     break
-        
-        return StreamingResponse(
-            generate(),
-            media_type="text/event-stream",
-            headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"}
-        )
-    except Exception as e:
-        logger.error(f"Error generating purchase order: {e}")
-        raise HTTPException(status_code=500, detail="Failed to generate order")
+        except Exception as e:
+            logger.error(f"Error generating purchase order: {e}")
+            error_msg = str(e)
+            if "budget" in error_msg.lower():
+                error_msg = "El presupuesto del servicio de IA se ha agotado. Por favor, contacta al administrador."
+            elif "quota" in error_msg.lower():
+                error_msg = "Se ha excedido la cuota del servicio de IA. Intenta de nuevo más tarde."
+            else:
+                error_msg = "Error al generar la recomendación. Por favor, intenta de nuevo."
+            yield f"data: {json.dumps({'error': error_msg})}\n\n"
+    
+    return StreamingResponse(
+        generate(),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"}
+    )
 
 # Public Endpoints (for clients)
 @api_router.get("/public/{org_id}/services")
