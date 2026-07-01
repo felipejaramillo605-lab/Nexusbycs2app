@@ -479,10 +479,9 @@ async def create_inventory_item(data: InventoryCreate, authorization: Optional[s
         "unit": data.unit,
         "created_at": datetime.now(timezone.utc).isoformat()
     }
-    await db.inventory.insert_one(item_doc)
-    item_doc["created_at"] = datetime.fromisoformat(item_doc["created_at"])
+    await db.inventory.insert_one(item_doc.copy())  # Use copy to prevent _id mutation
     item_doc["is_low_stock"] = item_doc["quantity"] <= item_doc["min_stock"]
-    return item_doc
+    return InventoryItem(**{**item_doc, "created_at": datetime.fromisoformat(item_doc["created_at"])})
 
 @api_router.put("/inventory/{item_id}")
 async def update_inventory_item(item_id: str, data: InventoryCreate, authorization: Optional[str] = Header(None), session_token: Optional[str] = Cookie(None)):
@@ -708,7 +707,14 @@ async def create_public_appointment(org_id: str, data: AppointmentCreate):
         "status": "confirmed",
         "created_at": datetime.now(timezone.utc).isoformat()
     }
-    await db.appointments.insert_one(appointment_doc)
+    
+    try:
+        await db.appointments.insert_one(appointment_doc)
+    except Exception as e:
+        # Handle duplicate key error from unique index
+        if "E11000" in str(e) or "duplicate key" in str(e).lower():
+            raise HTTPException(status_code=409, detail="This time slot is no longer available")
+        raise
     
     logger.info(f"[MOCK] WhatsApp confirmation sent to {data.client_phone}: Appointment confirmed for {data.date} at {data.time}")
     

@@ -1,0 +1,25 @@
+{
+  "summary": "Post-fix verification for Nexus by CS2. Both HIGH-priority bugs from iteration_2 are FIXED. (1) POST /api/inventory with valid payload now returns 200 with proper item_id (no more 500 from ObjectId leak). (2) Concurrent double-booking is now truly atomic: 5 parallel requests to the same barber+date+time resulted in EXACTLY 1 success (200) and 4 conflicts (409), with only 1 appointment persisted in Mongo. MongoDB partial unique index 'unique_barber_datetime_confirmed' on {barber_id, date, time} where status='confirmed' is present and enforced; E11000 is correctly translated into HTTP 409. All secondary checks (branding, past-date validation, sequential 409, 45-min multi-slot blocking, negative stock 400) also pass.",
+  "tested_scope": ["backend", "integration"],
+  "passed": [
+    "GET /api/ returns 'Nexus by CS2 API - Barber Shop Management System'",
+    "POST /api/inventory with valid payload returns HTTP 200 and clean JSON with item_id (fix via item_doc.copy() + Pydantic InventoryItem return verified)",
+    "POST /api/inventory with quantity=-5 returns HTTP 400 'Quantity cannot be negative'",
+    "POST /api/public/{org}/appointments with past date (2020-01-01) returns HTTP 400 'Cannot book appointments in the past'",
+    "CONCURRENT double-booking (5 parallel POSTs same barber+date+time): exactly 1 x 200 + 4 x 409; DB contains exactly 1 confirmed appointment for that slot -> atomicity verified via Mongo unique index + E11000 catch",
+    "Sequential double-booking: first POST 200, duplicate POST 409 with 'This time slot is no longer available'",
+    "45-min service booked at 15:00 correctly blocks both 15:00 AND 15:30 in GET /api/public/{org}/availability while 16:00 remains available",
+    "MongoDB index verified via mongosh: unique_barber_datetime_confirmed { barber_id:1, date:1, time:1 }, unique:true, partialFilterExpression: { status:'confirmed' }",
+    "Owner auto-approve for felipejaramillo605@gmail.com present at server.py:191-194 (code review, not exercised interactively)"
+  ],
+  "failed": [],
+  "action_items": [],
+  "success_rate": {"backend": "100%", "frontend": "not tested (backend-only re-test as requested)"},
+  "retest_needed": false,
+  "full_testing_deferred": true,
+  "notes": {
+    "mocks_confirmed": "WhatsApp confirmations still MOCKED via logger.info at server.py:719 (as declared in review request).",
+    "auth_flow": "Manager session seeded directly in Mongo per /app/auth_testing.md; Google OAuth flow not exercised. Owner-email auto-approve verified via code inspection only.",
+    "scope_note": "This iteration is scoped to backend re-verification of the two HIGH bugs plus the review-request checklist. Frontend UI flows deferred to full testing agent."
+  }
+}
