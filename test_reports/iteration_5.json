@@ -1,0 +1,24 @@
+{
+  "summary": "Verified Owner Panel enhancements: user categorization by organization, bidirectional navigation (Ver Dashboard <-> Control de Accesos), and multi-org data. Backend endpoints return grouped data correctly; frontend UI displays organization sections with filters, correct user counts, and 44px touch-target buttons.",
+  "tested_scope": ["backend", "frontend", "integration"],
+  "passed": [
+    "GET /api/owner/users returns 12 users including 6 demo users with correct organization_id and access_status",
+    "GET /api/organizations returns both demo orgs: Barbería Elite (org_demo001), Estilo & Corte (org_demo002)",
+    "GET /api/services?organization_id=org_demo001 returns Corte Clásico ($25), Corte + Barba ($40)",
+    "GET /api/services?organization_id=org_demo002 returns Corte Moderno ($30), Estilo Completo ($50) - distinct pricing per org",
+    "Owner Access Control page renders org filter pills: Todas(11), Barbería Elite(7), Estilo & Corte(3), Sin Organización(1)",
+    "Users grouped visually into collapsible sections per organization with headers and counts",
+    "Demo users appear in correct orgs: Carlos/Juan/Pedro under Elite (2 approved + 1 pending), María/Luis/Ana under Estilo (2 approved + 1 pending)",
+    "Owner (Felipe Jaramillo) appears in 'Administrador del Sistema' section (organization_id null)",
+    "'Ver Dashboard' button on /owner/access-control (height=44px) navigates to /manager/dashboard",
+    "'Control de Accesos' purple button visible on Manager Dashboard header (height=44px) for owner role",
+    "Manager Dashboard shows org selector with Barbería Elite pre-selected and Elite services displayed",
+    "Bidirectional navigation flow works: access-control -> dashboard via 'Ver Dashboard'"
+  ],
+  "failed": [],
+  "action_items": [],
+  "success_rate": {"backend": "100%", "frontend": "100%"},
+  "retest_needed": false,
+  "full_testing_deferred": true,
+  "notes": "Auth via session_token cookie using provided owner token (test_owner_1782868754709). WhatsApp confirmations remain MOCKED per problem statement."
+}

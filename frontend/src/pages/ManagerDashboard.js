@@ -162,7 +162,7 @@ const ManagerDashboard = () => {
             {user.role === 'owner' && (
               <button
                 onClick={() => navigate('/owner/access-control')}
-                className="flex items-center gap-2 px-4 py-2 rounded-xl bg-purple-500/20 border border-purple-500/30 hover:bg-purple-500/30 transition-all text-purple-300"
+                className="flex items-center gap-2 min-h-[44px] px-4 py-2 rounded-xl bg-purple-500/20 border border-purple-500/30 hover:bg-purple-500/30 transition-all text-purple-300"
               >
                 <Users size={18} strokeWidth={1.5} />
                 <span className="hidden md:inline">Control de Accesos</span>
@@ -172,21 +172,21 @@ const ManagerDashboard = () => {
               <>
                 <button
                   onClick={() => navigate('/manager/services')}
-                  className="flex items-center gap-2 px-4 py-2 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 transition-all text-white"
+                  className="flex items-center gap-2 min-h-[44px] px-4 py-2 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 transition-all text-white"
                 >
                   <Scissors size={18} strokeWidth={1.5} />
                   <span className="hidden md:inline">Servicios</span>
                 </button>
                 <button
                   onClick={() => navigate('/manager/barbers')}
-                  className="flex items-center gap-2 px-4 py-2 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 transition-all text-white"
+                  className="flex items-center gap-2 min-h-[44px] px-4 py-2 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 transition-all text-white"
                 >
                   <Users size={18} strokeWidth={1.5} />
                   <span className="hidden md:inline">Barberos</span>
                 </button>
                 <button
                   onClick={() => navigate('/manager/inventory')}
-                  className="flex items-center gap-2 px-4 py-2 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 transition-all text-white"
+                  className="flex items-center gap-2 min-h-[44px] px-4 py-2 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 transition-all text-white"
                 >
                   <Package size={18} strokeWidth={1.5} />
                   <span className="hidden md:inline">Inventario</span>
@@ -196,7 +196,7 @@ const ManagerDashboard = () => {
             <button
               data-testid={AUTH.logoutBtn}
               onClick={handleLogout}
-              className="flex items-center gap-2 px-4 py-2 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 transition-all text-white"
+              className="flex items-center gap-2 min-h-[44px] px-4 py-2 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 transition-all text-white"
             >
               <LogOut size={18} strokeWidth={1.5} />
               <span className="hidden md:inline">Salir</span>
