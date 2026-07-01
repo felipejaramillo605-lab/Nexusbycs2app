@@ -31,7 +31,7 @@ const BookingFlow = () => {
     loadBarbers();
     
     // Load saved client data from localStorage
-    const savedData = localStorage.getItem('clipper_client_data');
+    const savedData = localStorage.getItem('nexus_client_data');
     if (savedData) {
       try {
         const parsed = JSON.parse(savedData);
