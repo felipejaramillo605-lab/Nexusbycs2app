@@ -1,0 +1,75 @@
+{
+  "theme": "Dark",
+  "archetype": "5 (Luxury / Apple Glassmorphism)",
+  "design_philosophy": "A sophisticated, high-contrast Dark Mode PWA with Apple liquid glass aesthetic. Minimalist visual noise, leveraging pure black backgrounds, frosted glass panels, and a single electric accent color. Focus on fluid microinteractions, geometric typography, and abundant negative space.",
+  "colors": {
+    "background": "#000000",
+    "surface": "#0A0A0A",
+    "surface_glass": "rgba(255, 255, 255, 0.03)",
+    "surface_glass_hover": "rgba(255, 255, 255, 0.06)",
+    "border": "rgba(255, 255, 255, 0.1)",
+    "border_hover": "rgba(255, 255, 255, 0.2)",
+    "text_primary": "#FFFFFF",
+    "text_secondary": "#A1A1AA",
+    "accent_primary": "#0A84FF",
+    "accent_hover": "#0071E3",
+    "alert_danger": "#FF453A",
+    "alert_success": "#32D74B"
+  },
+  "typography": {
+    "headings_font": "Outfit, sans-serif",
+    "body_font": "Satoshi, sans-serif",
+    "scale": {
+      "h1": "text-4xl sm:text-5xl lg:text-6xl tracking-tight font-light",
+      "h2": "text-2xl sm:text-3xl lg:text-4xl tracking-tight font-medium",
+      "h3": "text-xl sm:text-2xl font-medium",
+      "h4": "text-lg sm:text-xl font-medium",
+      "body": "text-base leading-relaxed text-zinc-400",
+      "small": "text-sm text-zinc-500 uppercase tracking-widest"
+    }
+  },
+  "spacing_and_layout": {
+    "general": "Abundant negative space. Padding values: p-6, p-8, p-12. Avoid cramped containers.",
+    "grid": "Bento-style or Control Room grid depending on view. Mobile-first grid-cols-1, md:grid-cols-3 or 4 for dashboard.",
+    "container_radius": "rounded-2xl or rounded-3xl for major panels, rounded-xl for inner cards.",
+    "alignment": "Left-aligned for all form fields and data. Center only for empty states or hero text."
+  },
+  "surfaces_and_microinteractions": {
+    "glassmorphism": "Use 'backdrop-blur-xl bg-white/5 border border-white/10' for modals, navbars, and feature cards.",
+    "buttons": "Large touch targets (min h-12). Primary buttons use bg-[#0A84FF] hover:bg-[#0071E3] text-white rounded-xl transition-all.",
+    "animations": "On click compression: scale-95 (via Framer Motion). Hover state: slight negative Y translation (-translate-y-1) and border glow.",
+    "icons": "Lucide React, stroke-width: 1.5. Linear, thin, minimal.",
+    "tables": "Interactive sortable headers, sticky headers, thin borders between rows (border-b border-white/5), row hover effect (bg-white/5)."
+  },
+  "components": {
+    "buttons": "Tailwind standard pure CSS or customized Shadcn Button. Always include scale down on click.",
+    "inputs": "Shadcn UI customized. bg-transparent, border-white/20, focus:border-[#0A84FF] focus:ring-1 focus:ring-[#0A84FF]. Floating labels or minimal placeholders.",
+    "modals": "Shadcn Dialog wrapped in Framer Motion for smooth scale-in. backdrop-blur-2xl overlay.",
+    "calendar": "Customized Shadcn Calendar. Hide non-available dates. Use primary accent for selected date.",
+    "low_stock_alert": "Red pulsing dot absolute positioned on the inventory card/row, or a thin red banner."
+  },
+  "accessibility_and_testing": {
+    "contrast": "Ensure text contrast ratio > 4.5:1. Never use transparent text or bg without blur.",
+    "testing": "All interactive elements MUST have data-testid attributes (e.g., data-testid='book-service-btn', data-testid='inventory-item-row')."
+  },
+  "media": {
+    "hero_background": {
+      "url": "https://images.pexels.com/photos/17027433/pexels-photo-17027433.jpeg",
+      "description": "Dark, moody barber shop interior with glowing neon signs. Use as low opacity background (opacity-20) for the public booking flow landing."
+    },
+    "service_barber_profile": {
+      "url": "https://images.pexels.com/photos/9992820/pexels-photo-9992820.jpeg",
+      "description": "Man getting a haircut at a modern barber. Use for service placeholder or barber profile avatar if needed."
+    },
+    "inventory_placeholder": {
+      "url": "https://images.unsplash.com/photo-1621605815971-fbc98d665033",
+      "description": "Barber tools and clippers on dark background. Use for inventory module empty state or placeholder."
+    }
+  },
+  "modules_instructions": {
+    "1_Role_Access": "Owner dashboard: simple table view of emails, toggle switches (Shadcn Switch) to admit/deny access.",
+    "2_Booking_Flow": "Multi-step wizard for clients. Step 1: Grid of services. Step 2: Grid of barbers. Step 3: Interactive calendar (date + time slots). Step 4: Form + LocalStorage save checkbox. Finish: Success screen with WhatsApp redirect simulation.",
+    "3_Manager_Dashboard": "Stats at top (Appointments, Revenue). Quick filter pills below stats. Main area: List of today's appointments. Click appointment -> Slide-out panel (Sheet component) with details.",
+    "4_Inventory": "CRUD list/grid. Highlight low stock items. 'Generate Purchase Order' button at top right that compiles low stock items into a modal list for review."
+  }
+}
