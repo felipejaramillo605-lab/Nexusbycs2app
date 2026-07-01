@@ -8,6 +8,7 @@ const WeeklyCalendar = ({ organizationId }) => {
   const [appointments, setAppointments] = useState([]);
   const [barbers, setBarbers] = useState([]);
   const [selectedBarber, setSelectedBarber] = useState('all');
+  const [blockedTimes, setBlockedTimes] = useState([]);
   const [loading, setLoading] = useState(true);
 
   // Generate week dates
@@ -49,6 +50,19 @@ const WeeklyCalendar = ({ organizationId }) => {
       // Flatten all appointments from all days
       const allAppointments = appointmentsResponses.flatMap(res => res.data);
       setAppointments(allAppointments);
+
+      // Load blocked times if a specific barber is selected
+      if (selectedBarber !== 'all') {
+        try {
+          const blockedRes = await barberAPI.getBlockedTimes(selectedBarber);
+          setBlockedTimes(blockedRes.data);
+        } catch (error) {
+          console.error('Error loading blocked times:', error);
+          setBlockedTimes([]);
+        }
+      } else {
+        setBlockedTimes([]);
+      }
     } catch (error) {
       console.error('Error loading calendar data:', error);
       toast.error('Error al cargar calendario');
@@ -80,6 +94,25 @@ const WeeklyCalendar = ({ organizationId }) => {
         return false;
       }
       return apt.date === dateStr && apt.time === time;
+    });
+  };
+
+  const getBlockedTimeForSlot = (date, time) => {
+    const dateStr = formatDate(date);
+    return blockedTimes.filter(block => {
+      if (block.date !== dateStr) return false;
+      
+      // Check if the time slot falls within the blocked range
+      const [slotHour, slotMin] = time.split(':').map(Number);
+      const slotMinutes = slotHour * 60 + slotMin;
+      
+      const [startHour, startMin] = block.start_time.split(':').map(Number);
+      const startMinutes = startHour * 60 + startMin;
+      
+      const [endHour, endMin] = block.end_time.split(':').map(Number);
+      const endMinutes = endHour * 60 + endMin;
+      
+      return slotMinutes >= startMinutes && slotMinutes < endMinutes;
     });
   };
 
@@ -195,6 +228,7 @@ const WeeklyCalendar = ({ organizationId }) => {
                   {/* Day Cells */}
                   {weekDates.map((date, dayIndex) => {
                     const aptsInSlot = getAppointmentForSlot(date, time);
+                    const blocksInSlot = getBlockedTimeForSlot(date, time);
                     const isSlotPast = isPast(date, time);
 
                     return (
@@ -204,7 +238,8 @@ const WeeklyCalendar = ({ organizationId }) => {
                           isSlotPast ? 'bg-secondary/10' : ''
                         } ${isToday(date) ? 'bg-[#0A84FF]/5' : ''}`}
                       >
-                        {aptsInSlot.length > 0 ? (
+                        {/* Show appointments */}
+                        {aptsInSlot.length > 0 && (
                           <div className="space-y-1">
                             {aptsInSlot.map((apt) => (
                               <div
@@ -235,12 +270,41 @@ const WeeklyCalendar = ({ organizationId }) => {
                               </div>
                             ))}
                           </div>
-                        ) : (
-                          !isSlotPast && (
-                            <div className="h-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                              <span className="text-xs text-tertiary">Disponible</span>
-                            </div>
-                          )
+                        )}
+
+                        {/* Show blocked times */}
+                        {blocksInSlot.length > 0 && aptsInSlot.length === 0 && (
+                          <div className="space-y-1">
+                            {blocksInSlot.map((block) => (
+                              <div
+                                key={block.block_id}
+                                className="p-2 rounded-lg bg-[#FF9F0A]/20 border border-[#FF9F0A]/30 hover:bg-[#FF9F0A]/30 transition-all cursor-pointer"
+                                title={`Bloqueado: ${block.reason}`}
+                              >
+                                <div className="flex items-start gap-2">
+                                  <Clock size={12} strokeWidth={1.5} className="text-[#FF9F0A] mt-0.5 flex-shrink-0" />
+                                  <div className="min-w-0 flex-1">
+                                    <p className="text-xs font-medium text-[#FF9F0A]">
+                                      Bloqueado
+                                    </p>
+                                    <p className="text-xs text-secondary truncate">
+                                      {block.reason}
+                                    </p>
+                                    <p className="text-xs text-secondary mt-1">
+                                      {block.start_time} - {block.end_time}
+                                    </p>
+                                  </div>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+
+                        {/* Show available slot */}
+                        {aptsInSlot.length === 0 && blocksInSlot.length === 0 && !isSlotPast && (
+                          <div className="h-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                            <span className="text-xs text-tertiary">Disponible</span>
+                          </div>
                         )}
                       </div>
                     );
@@ -258,6 +322,10 @@ const WeeklyCalendar = ({ organizationId }) => {
           <div className="flex items-center gap-2">
             <div className="w-4 h-4 rounded bg-[#0A84FF]/20 border border-[#0A84FF]/30"></div>
             <span className="text-secondary">Cita reservada</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <div className="w-4 h-4 rounded bg-[#FF9F0A]/20 border border-[#FF9F0A]/30"></div>
+            <span className="text-secondary">Horario bloqueado</span>
           </div>
           <div className="flex items-center gap-2">
             <div className="w-4 h-4 rounded bg-[#0A84FF]/5"></div>
