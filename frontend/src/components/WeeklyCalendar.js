@@ -201,13 +201,13 @@ const WeeklyCalendar = ({ organizationId }) => {
             {/* Day Headers */}
             <div className="grid grid-cols-8 border-b border-primary/10 bg-secondary/30">
               <div className="p-4 text-sm font-medium text-secondary">Hora</div>
-              {weekDates.map((date, index) => (
+              {weekDates.map((date) => (
                 <div
-                  key={index}
+                  key={`day-${date.toISOString()}`}
                   className={`p-4 text-center ${isToday(date) ? 'bg-[#0A84FF]/20' : ''}`}
                 >
                   <div className={`text-sm font-medium ${isToday(date) ? 'text-[#0A84FF]' : 'text-primary'}`}>
-                    {['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'][index]}
+                    {['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'][date.getDay() === 0 ? 6 : date.getDay() - 1]}
                   </div>
                   <div className={`text-xs ${isToday(date) ? 'text-[#0A84FF]' : 'text-secondary'}`}>
                     {date.getDate()}/{date.getMonth() + 1}
@@ -226,14 +226,15 @@ const WeeklyCalendar = ({ organizationId }) => {
                   </div>
 
                   {/* Day Cells */}
-                  {weekDates.map((date, dayIndex) => {
+                  {weekDates.map((date) => {
                     const aptsInSlot = getAppointmentForSlot(date, time);
                     const blocksInSlot = getBlockedTimeForSlot(date, time);
                     const isSlotPast = isPast(date, time);
+                    const cellKey = `${formatDate(date)}-${time}`;
 
                     return (
                       <div
-                        key={dayIndex}
+                        key={cellKey}
                         className={`p-2 min-h-[80px] border-r border-primary/5 ${
                           isSlotPast ? 'bg-secondary/10' : ''
                         } ${isToday(date) ? 'bg-[#0A84FF]/5' : ''}`}

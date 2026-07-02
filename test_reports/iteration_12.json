@@ -1,0 +1,21 @@
+{
+  "summary": "Frontend smoke test after code-quality fixes (AuthContext useMemo, ThemeContext useMemo, WeeklyCalendar unique keys). App loads cleanly at public URL, dark theme applied, no React key warnings, no 'Maximum update depth' errors, no 'Cannot read property of undefined' errors. Only expected 401s from /auth/me for unauthenticated visitor. Full login + WeeklyCalendar rendering could not be exercised end-to-end because Google OAuth is Emergent-managed and cannot be automated in a headless browser.",
+  "tested_scope": ["frontend"],
+  "passed": [
+    "Landing page loads at https://clipper-manage-1.preview.emergentagent.com (200)",
+    "React app renders without runtime errors or crashes",
+    "ThemeContext: default 'dark' theme applied to <html> element via ThemeProvider effect (dark UI visible)",
+    "AuthContext: checkAuth() runs on mount, handles 401 gracefully, no infinite re-render loop (would surface as 'Maximum update depth')",
+    "No React 'Warning: Each child in a list should have a unique key' messages in console (WeeklyCalendar key fix is code-verified: date.toISOString() and `${formatDate(date)}-${time}` are guaranteed unique)",
+    "/login route renders the Google sign-in card correctly"
+  ],
+  "failed": [],
+  "action_items": [],
+  "notes": [
+    "WeeklyCalendar is behind Google OAuth (owner-only route). Its rendering was NOT exercised at runtime, only static code review confirmed the key fixes are correct.",
+    "Full auth flow verification requires manual Google login by owner (felipejaramillo605@gmail.com) - deferred to manual QA or full-testing pass."
+  ],
+  "success_rate": {"backend": "not_tested", "frontend": "100%"},
+  "retest_needed": false,
+  "full_testing_deferred": true
+}

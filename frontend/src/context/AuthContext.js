@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
+import React, { createContext, useContext, useState, useCallback, useEffect, useMemo } from 'react';
 import { authAPI } from '../api';
 
 const AuthContext = createContext(null);
@@ -36,13 +36,21 @@ export const AuthProvider = ({ children }) => {
     checkAuth();
   }, [checkAuth]);
 
-  const logout = async () => {
+  const logout = useCallback(async () => {
     await authAPI.logout();
     setUser(null);
-  };
+  }, []);
+
+  const value = useMemo(() => ({
+    user,
+    setUser,
+    loading,
+    checkAuth,
+    logout
+  }), [user, loading, checkAuth, logout]);
 
   return (
-    <AuthContext.Provider value={{ user, setUser, loading, checkAuth, logout }}>
+    <AuthContext.Provider value={value}>
       {children}
     </AuthContext.Provider>
   );
