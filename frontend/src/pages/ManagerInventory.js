@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
 import { inventoryAPI } from '../api';
 import { Plus, Trash2, ArrowLeft, Package, AlertCircle, FileText, Edit } from 'lucide-react';
 import { MANAGER } from '../constants/testIds';
@@ -8,6 +9,8 @@ import { toast } from 'sonner';
 
 const ManagerInventory = () => {
   const navigate = useNavigate();
+  const { user } = useAuth();
+  const [searchParams] = useSearchParams();
   const [inventory, setInventory] = useState([]);
   const [loading, setLoading] = useState(true);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -17,13 +20,19 @@ const ManagerInventory = () => {
   const [editingItem, setEditingItem] = useState(null);
   const [newItem, setNewItem] = useState({ name: '', quantity: 0, min_stock: 0, unit: 'unidades' });
 
+  // Get org_id from query param (for owner) or user.organization_id (for manager)
+  const organizationId = searchParams.get('org_id') || user?.organization_id;
+
   useEffect(() => {
-    loadInventory();
-  }, []);
+    if (organizationId) {
+      loadInventory();
+    }
+  }, [organizationId]);
 
   const loadInventory = async () => {
     try {
-      const response = await inventoryAPI.getAll();
+      const params = organizationId ? { organization_id: organizationId } : {};
+      const response = await inventoryAPI.getAll(params);
       setInventory(response.data);
     } catch (error) {
       console.error('Error loading inventory:', error);

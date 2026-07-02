@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
 import { barberAPI } from '../api';
 import { Plus, Trash2, ArrowLeft, Users, Edit2, Clock, Calendar } from 'lucide-react';
 import { MANAGER } from '../constants/testIds';
@@ -8,6 +9,8 @@ import { toast } from 'sonner';
 
 const ManagerBarbers = () => {
   const navigate = useNavigate();
+  const { user } = useAuth();
+  const [searchParams] = useSearchParams();
   const [barbers, setBarbers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
@@ -19,13 +22,19 @@ const ManagerBarbers = () => {
   const [blockedTimes, setBlockedTimes] = useState([]);
   const [newBlock, setNewBlock] = useState({ date: '', start_time: '13:00', end_time: '14:00', reason: 'Almuerzo' });
 
+  // Get org_id from query param (for owner) or user.organization_id (for manager)
+  const organizationId = searchParams.get('org_id') || user?.organization_id;
+
   useEffect(() => {
-    loadBarbers();
-  }, []);
+    if (organizationId) {
+      loadBarbers();
+    }
+  }, [organizationId]);
 
   const loadBarbers = async () => {
     try {
-      const response = await barberAPI.getAll();
+      const params = organizationId ? { organization_id: organizationId } : {};
+      const response = await barberAPI.getAll(params);
       setBarbers(response.data);
     } catch (error) {
       console.error('Error loading barbers:', error);

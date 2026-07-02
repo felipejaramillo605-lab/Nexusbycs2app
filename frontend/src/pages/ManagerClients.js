@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { clientAPI } from '../api';
 import { Users, LogOut, ArrowLeft, Phone, Mail, Calendar, MessageSquare, Send, Eye, CheckCircle } from 'lucide-react';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '../components/ui/sheet';
@@ -10,6 +10,7 @@ import whatsappService, { MESSAGE_TEMPLATES } from '../services/whatsappService'
 const ManagerClients = () => {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const [clients, setClients] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedClient, setSelectedClient] = useState(null);
@@ -20,14 +21,19 @@ const ManagerClients = () => {
   const [customMessage, setCustomMessage] = useState('');
   const [sendingMessage, setSendingMessage] = useState(false);
 
+  // Get org_id from query param (for owner) or user.organization_id (for manager)
+  const organizationId = searchParams.get('org_id') || user?.organization_id;
+
   useEffect(() => {
-    loadClients();
-  }, []);
+    if (organizationId) {
+      loadClients();
+    }
+  }, [organizationId]);
 
   const loadClients = async () => {
     try {
       setLoading(true);
-      const params = user.organization_id ? { organization_id: user.organization_id } : {};
+      const params = organizationId ? { organization_id: organizationId } : {};
       const response = await clientAPI.getAll(params);
       setClients(response.data);
     } catch (error) {

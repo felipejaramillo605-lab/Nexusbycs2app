@@ -208,28 +208,28 @@ const ManagerDashboard = () => {
                 {selectedOrg && (
                   <>
                     <button
-                      onClick={() => navigate('/manager/clients')}
+                      onClick={() => navigate(user.role === 'owner' ? `/manager/clients?org_id=${selectedOrg.organization_id}` : '/manager/clients')}
                       className="flex items-center gap-2 min-h-[44px] px-3 sm:px-4 py-2 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 transition-all text-white"
                     >
                       <Users size={18} strokeWidth={1.5} />
                       <span className="hidden sm:inline text-sm">Clientes</span>
                     </button>
                     <button
-                      onClick={() => navigate('/manager/services')}
+                      onClick={() => navigate(user.role === 'owner' ? `/manager/services?org_id=${selectedOrg.organization_id}` : '/manager/services')}
                       className="flex items-center gap-2 min-h-[44px] px-3 sm:px-4 py-2 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 transition-all text-white"
                     >
                       <Scissors size={18} strokeWidth={1.5} />
                       <span className="hidden sm:inline text-sm">Servicios</span>
                     </button>
                     <button
-                      onClick={() => navigate('/manager/barbers')}
+                      onClick={() => navigate(user.role === 'owner' ? `/manager/barbers?org_id=${selectedOrg.organization_id}` : '/manager/barbers')}
                       className="flex items-center gap-2 min-h-[44px] px-3 sm:px-4 py-2 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 transition-all text-white"
                     >
                       <Users size={18} strokeWidth={1.5} />
                       <span className="hidden sm:inline text-sm">Barberos</span>
                     </button>
                     <button
-                      onClick={() => navigate('/manager/inventory')}
+                      onClick={() => navigate(user.role === 'owner' ? `/manager/inventory?org_id=${selectedOrg.organization_id}` : '/manager/inventory')}
                       className="flex items-center gap-2 min-h-[44px] px-3 sm:px-4 py-2 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 transition-all text-white"
                     >
                       <Package size={18} strokeWidth={1.5} />
@@ -276,28 +276,28 @@ const ManagerDashboard = () => {
                     {selectedOrg && (
                       <>
                         <button
-                          onClick={() => navigate('/manager/clients')}
+                          onClick={() => navigate(user.role === 'owner' ? `/manager/clients?org_id=${selectedOrg.organization_id}` : '/manager/clients')}
                           className="w-full flex items-center gap-3 px-4 py-3 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 transition-all text-left group"
                         >
                           <Users size={20} strokeWidth={1.5} className="text-zinc-400 group-hover:text-[#0A84FF] transition-colors" />
                           <span className="text-white font-medium">Clientes</span>
                         </button>
                         <button
-                          onClick={() => navigate('/manager/services')}
+                          onClick={() => navigate(user.role === 'owner' ? `/manager/services?org_id=${selectedOrg.organization_id}` : '/manager/services')}
                           className="w-full flex items-center gap-3 px-4 py-3 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 transition-all text-left group"
                         >
                           <Scissors size={20} strokeWidth={1.5} className="text-zinc-400 group-hover:text-[#0A84FF] transition-colors" />
                           <span className="text-white font-medium">Servicios</span>
                         </button>
                         <button
-                          onClick={() => navigate('/manager/barbers')}
+                          onClick={() => navigate(user.role === 'owner' ? `/manager/barbers?org_id=${selectedOrg.organization_id}` : '/manager/barbers')}
                           className="w-full flex items-center gap-3 px-4 py-3 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 transition-all text-left group"
                         >
                           <Users size={20} strokeWidth={1.5} className="text-zinc-400 group-hover:text-[#0A84FF] transition-colors" />
                           <span className="text-white font-medium">Barberos</span>
                         </button>
                         <button
-                          onClick={() => navigate('/manager/inventory')}
+                          onClick={() => navigate(user.role === 'owner' ? `/manager/inventory?org_id=${selectedOrg.organization_id}` : '/manager/inventory')}
                           className="w-full flex items-center gap-3 px-4 py-3 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 transition-all text-left group"
                         >
                           <Package size={20} strokeWidth={1.5} className="text-zinc-400 group-hover:text-[#0A84FF] transition-colors" />

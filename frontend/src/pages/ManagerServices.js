@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
 import { serviceAPI } from '../api';
 import { Plus, Trash2, ArrowLeft, Scissors, Edit2 } from 'lucide-react';
 import { MANAGER } from '../constants/testIds';
@@ -8,6 +9,8 @@ import { toast } from 'sonner';
 
 const ManagerServices = () => {
   const navigate = useNavigate();
+  const { user } = useAuth();
+  const [searchParams] = useSearchParams();
   const [services, setServices] = useState([]);
   const [loading, setLoading] = useState(true);
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
@@ -15,13 +18,19 @@ const ManagerServices = () => {
   const [newService, setNewService] = useState({ name: '', duration: 30, price: 0 });
   const [editingService, setEditingService] = useState(null);
 
+  // Get org_id from query param (for owner) or user.organization_id (for manager)
+  const organizationId = searchParams.get('org_id') || user?.organization_id;
+
   useEffect(() => {
-    loadServices();
-  }, []);
+    if (organizationId) {
+      loadServices();
+    }
+  }, [organizationId]);
 
   const loadServices = async () => {
     try {
-      const response = await serviceAPI.getAll();
+      const params = organizationId ? { organization_id: organizationId } : {};
+      const response = await serviceAPI.getAll(params);
       setServices(response.data);
     } catch (error) {
       console.error('Error loading services:', error);
