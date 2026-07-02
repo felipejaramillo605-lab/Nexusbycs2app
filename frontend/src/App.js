@@ -6,11 +6,14 @@ import { Toaster } from './components/ui/sonner';
 import AuthCallback from './components/AuthCallback';
 import ProtectedRoute from './components/ProtectedRoute';
 import Login from './pages/Login';
+import Register from './pages/Register';
+import PendingApproval from './pages/PendingApproval';
 import OwnerAccessControl from './pages/OwnerAccessControl';
 import ManagerDashboard from './pages/ManagerDashboard';
 import ManagerServices from './pages/ManagerServices';
 import ManagerBarbers from './pages/ManagerBarbers';
 import ManagerInventory from './pages/ManagerInventory';
+import ManagerClients from './pages/ManagerClients';
 import BookingFlow from './pages/BookingFlow';
 import './App.css';
 
@@ -25,6 +28,8 @@ function AppRouter() {
   return (
     <Routes>
       <Route path="/login" element={<Login />} />
+      <Route path="/register" element={<Register />} />
+      <Route path="/pending-approval" element={<PendingApproval />} />
       <Route path="/auth/callback" element={<AuthCallback />} />
       <Route path="/book/:orgId" element={<BookingFlow />} />
       
@@ -69,6 +74,15 @@ function AppRouter() {
         element={
           <ProtectedRoute>
             <ManagerInventory />
+          </ProtectedRoute>
+        }
+      />
+      
+      <Route
+        path="/manager/clients"
+        element={
+          <ProtectedRoute>
+            <ManagerClients />
           </ProtectedRoute>
         }
       />

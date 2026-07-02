@@ -208,6 +208,13 @@ const ManagerDashboard = () => {
                 {selectedOrg && (
                   <>
                     <button
+                      onClick={() => navigate('/manager/clients')}
+                      className="flex items-center gap-2 min-h-[44px] px-3 sm:px-4 py-2 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 transition-all text-white"
+                    >
+                      <Users size={18} strokeWidth={1.5} />
+                      <span className="hidden sm:inline text-sm">Clientes</span>
+                    </button>
+                    <button
                       onClick={() => navigate('/manager/services')}
                       className="flex items-center gap-2 min-h-[44px] px-3 sm:px-4 py-2 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 transition-all text-white"
                     >
@@ -268,6 +275,13 @@ const ManagerDashboard = () => {
                     )}
                     {selectedOrg && (
                       <>
+                        <button
+                          onClick={() => navigate('/manager/clients')}
+                          className="w-full flex items-center gap-3 px-4 py-3 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 transition-all text-left group"
+                        >
+                          <Users size={20} strokeWidth={1.5} className="text-zinc-400 group-hover:text-[#0A84FF] transition-colors" />
+                          <span className="text-white font-medium">Clientes</span>
+                        </button>
                         <button
                           onClick={() => navigate('/manager/services')}
                           className="w-full flex items-center gap-3 px-4 py-3 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 transition-all text-left group"
