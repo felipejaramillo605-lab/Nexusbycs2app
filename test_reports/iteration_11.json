@@ -1,0 +1,22 @@
+{
+  "summary": "Verified BUG FIX (iteration 2) for Toggle Vista Móvil/Escritorio on ManagerDashboard at 390px mobile viewport. The className fix on line ~198 now works correctly: forceDesktopView=true applies only 'flex' (no 'hidden'), so all desktop nav buttons render visibly. All 5 nav buttons (Servicios, Barberos, Inventario, Salir, Control de Accesos) are visible with width=44px, clickable, and navigation works. Toggle icon swap, hamburger Sheet in mobile mode, and localStorage persistence across reload all confirmed. Bug fix is RESOLVED.",
+  "tested_scope": ["frontend"],
+  "passed": [
+    "Default mobile (390px): Monitor icon shown, hamburger visible, desktop nav buttons hidden (Servicios is_visible=False)",
+    "Toggle click swaps Monitor icon to Smartphone icon and adds 'force-desktop-view' class to <nav>",
+    "After force desktop: ALL nav buttons visible (Servicios, Barberos, Inventario, Salir, Control de Accesos each width=44px, is_visible=True)",
+    "Hamburger button correctly hidden when force-desktop-view is active",
+    "Click on 'Servicios' button navigates to /manager/services (button is clickable)",
+    "localStorage 'nexus_force_desktop=true' persists after reload; Smartphone icon and visible buttons restored",
+    "Second toggle returns to mobile view: Monitor icon returns, hamburger reappears, Sheet drawer opens with all items (Servicios, Barberos, Inventario, Cerrar Sesión)"
+  ],
+  "failed": [],
+  "notes": [
+    "Nav scrollWidth == clientWidth (both 1024px) so no INTERNAL horizontal scroll on <nav>. However, because .force-desktop-view enforces min-width:1024px on a 390px viewport, the whole page overflows horizontally and body-level horizontal scroll provides access to buttons. scroll_into_view_if_needed successfully scrolled to Servicios and click worked. This is acceptable per the design (App.css .force-desktop-view uses overflow-x:auto).",
+    "Buttons display as icon-only (w=44px) at 390px since sm:inline hides text; icons alone are visible and functional. Consider adding aria-label or ensuring labels appear at larger widths for a11y, but not blocking."
+  ],
+  "action_items": [],
+  "success_rate": {"backend": "n/a (skipped per request)", "frontend": "100%"},
+  "retest_needed": false,
+  "full_testing_deferred": true
+}

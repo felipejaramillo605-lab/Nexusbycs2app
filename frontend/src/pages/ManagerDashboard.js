@@ -195,7 +195,7 @@ const ManagerDashboard = () => {
               <ThemeToggle />
 
               {/* Desktop: Botones completos */}
-              <div className={`hidden ${forceDesktopView ? 'flex' : 'lg:flex'} items-center gap-1 sm:gap-2`}>
+              <div className={`${forceDesktopView ? 'flex' : 'hidden lg:flex'} items-center gap-1 sm:gap-2`}>
                 {user.role === 'owner' && (
                   <button
                     onClick={() => navigate('/owner/access-control')}
