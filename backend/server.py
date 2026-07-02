@@ -42,6 +42,60 @@ class User(BaseModel):
     organization_id: Optional[str] = None
     created_at: datetime
 
+# ==================== ROW LEVEL SECURITY (RLS) HELPERS ====================
+async def validate_organization_access(user: User, organization_id: str) -> bool:
+    """
+    Validates if user has access to the specified organization.
+    Owner: Access to all organizations
+    Manager: Only their assigned organization
+    """
+    if user.role == "owner":
+        return True
+    
+    if not user.organization_id:
+        return False
+    
+    return user.organization_id == organization_id
+
+async def get_organization_filter(user: User, provided_org_id: Optional[str] = None) -> dict:
+    """
+    Returns MongoDB filter for organization-scoped queries.
+    Enforces Row Level Security at query level.
+    """
+    if user.role == "owner":
+        # Owner can query specific org or get their own org
+        if provided_org_id:
+            return {"organization_id": provided_org_id}
+        # If no org specified, query for user's primary org (first owned org)
+        if user.organization_id:
+            return {"organization_id": user.organization_id}
+        # Fallback: return empty filter (will return all - owner privilege)
+        return {}
+    
+    # Managers can ONLY access their assigned organization
+    if not user.organization_id:
+        raise HTTPException(status_code=403, detail="No organization assigned")
+    
+    # If org_id provided, validate it matches user's org
+    if provided_org_id and provided_org_id != user.organization_id:
+        raise HTTPException(status_code=403, detail="Access denied to this organization")
+    
+    return {"organization_id": user.organization_id}
+
+async def enforce_rls_on_write(user: User, document: dict, organization_id: str) -> None:
+    """
+    Enforces Row Level Security on write operations (create/update).
+    Prevents managers from creating/modifying data outside their organization.
+    """
+    if user.role != "owner":
+        if not user.organization_id:
+            raise HTTPException(status_code=403, detail="No organization assigned")
+        
+        if organization_id != user.organization_id:
+            raise HTTPException(status_code=403, detail="Cannot modify data outside your organization")
+
+# ==================== END RLS HELPERS ====================
+
 class Organization(BaseModel):
     model_config = ConfigDict(extra="ignore")
     organization_id: str
@@ -358,17 +412,9 @@ async def create_organization(name: str, authorization: Optional[str] = Header(N
 async def get_services(organization_id: Optional[str] = None, authorization: Optional[str] = Header(None), session_token: Optional[str] = Cookie(None)):
     current_user = await get_current_user(authorization, session_token)
     
-    # Owner can query any organization, manager only their own
-    if current_user.role == "owner":
-        if not organization_id:
-            # Return all services from all organizations
-            services = await db.services.find({}, {"_id": 0}).to_list(1000)
-        else:
-            services = await db.services.find({"organization_id": organization_id}, {"_id": 0}).to_list(1000)
-    else:
-        if not current_user.organization_id:
-            raise HTTPException(status_code=400, detail="No organization assigned")
-        services = await db.services.find({"organization_id": current_user.organization_id}, {"_id": 0}).to_list(1000)
+    # RLS: Get organization filter based on user role
+    org_filter = await get_organization_filter(current_user, organization_id)
+    services = await db.services.find(org_filter, {"_id": 0}).to_list(1000)
     
     for service in services:
         if isinstance(service["created_at"], str):
@@ -381,6 +427,9 @@ async def create_service(data: ServiceCreate, authorization: Optional[str] = Hea
     
     if not current_user.organization_id:
         raise HTTPException(status_code=400, detail="No organization assigned")
+    
+    # RLS: Enforce write access
+    await enforce_rls_on_write(current_user, {}, current_user.organization_id)
     
     service_id = f"service_{uuid.uuid4().hex[:12]}"
     service_doc = {
@@ -404,12 +453,12 @@ async def update_service(service_id: str, data: ServiceCreate, authorization: Op
     if not service:
         raise HTTPException(status_code=404, detail="Service not found")
     
-    # Validate access
-    if current_user.role != "owner":
-        if not current_user.organization_id:
-            raise HTTPException(status_code=400, detail="No organization assigned")
-        if service["organization_id"] != current_user.organization_id:
-            raise HTTPException(status_code=403, detail="Not authorized")
+    # RLS: Validate organization access
+    if not await validate_organization_access(current_user, service["organization_id"]):
+        raise HTTPException(status_code=403, detail="Access denied to this organization")
+    
+    # RLS: Enforce write access
+    await enforce_rls_on_write(current_user, service, service["organization_id"])
     
     update_data = {
         "name": data.name,
@@ -433,7 +482,16 @@ async def update_service(service_id: str, data: ServiceCreate, authorization: Op
 @api_router.delete("/services/{service_id}")
 async def delete_service(service_id: str, authorization: Optional[str] = Header(None), session_token: Optional[str] = Cookie(None)):
     current_user = await get_current_user(authorization, session_token)
-    await db.services.delete_one({"service_id": service_id, "organization_id": current_user.organization_id})
+    
+    # RLS: Get service and validate access
+    service = await db.services.find_one({"service_id": service_id}, {"_id": 0})
+    if not service:
+        raise HTTPException(status_code=404, detail="Service not found")
+    
+    if not await validate_organization_access(current_user, service["organization_id"]):
+        raise HTTPException(status_code=403, detail="Access denied")
+    
+    await db.services.delete_one({"service_id": service_id})
     return {"message": "Service deleted"}
 
 # Barbers Endpoints
@@ -441,16 +499,9 @@ async def delete_service(service_id: str, authorization: Optional[str] = Header(
 async def get_barbers(organization_id: Optional[str] = None, authorization: Optional[str] = Header(None), session_token: Optional[str] = Cookie(None)):
     current_user = await get_current_user(authorization, session_token)
     
-    # Owner can query any organization, manager only their own
-    if current_user.role == "owner":
-        if not organization_id:
-            barbers = await db.barbers.find({}, {"_id": 0}).to_list(1000)
-        else:
-            barbers = await db.barbers.find({"organization_id": organization_id}, {"_id": 0}).to_list(1000)
-    else:
-        if not current_user.organization_id:
-            raise HTTPException(status_code=400, detail="No organization assigned")
-        barbers = await db.barbers.find({"organization_id": current_user.organization_id}, {"_id": 0}).to_list(1000)
+    # RLS: Get organization filter
+    org_filter = await get_organization_filter(current_user, organization_id)
+    barbers = await db.barbers.find(org_filter, {"_id": 0}).to_list(1000)
     
     for barber in barbers:
         if isinstance(barber["created_at"], str):
@@ -463,6 +514,9 @@ async def create_barber(data: BarberCreate, authorization: Optional[str] = Heade
     
     if not current_user.organization_id:
         raise HTTPException(status_code=400, detail="No organization assigned")
+    
+    # RLS: Enforce write access
+    await enforce_rls_on_write(current_user, {}, current_user.organization_id)
     
     barber_id = f"barber_{uuid.uuid4().hex[:12]}"
     barber_doc = {
@@ -488,12 +542,12 @@ async def update_barber(barber_id: str, data: BarberCreate, authorization: Optio
     if not barber:
         raise HTTPException(status_code=404, detail="Barber not found")
     
-    # Validate access
-    if current_user.role != "owner":
-        if not current_user.organization_id:
-            raise HTTPException(status_code=400, detail="No organization assigned")
-        if barber["organization_id"] != current_user.organization_id:
-            raise HTTPException(status_code=403, detail="Not authorized")
+    # RLS: Validate organization access
+    if not await validate_organization_access(current_user, barber["organization_id"]):
+        raise HTTPException(status_code=403, detail="Access denied to this organization")
+    
+    # RLS: Enforce write access
+    await enforce_rls_on_write(current_user, barber, barber["organization_id"])
     
     update_data = {
         "name": data.name,
@@ -519,7 +573,16 @@ async def update_barber(barber_id: str, data: BarberCreate, authorization: Optio
 @api_router.delete("/barbers/{barber_id}")
 async def delete_barber(barber_id: str, authorization: Optional[str] = Header(None), session_token: Optional[str] = Cookie(None)):
     current_user = await get_current_user(authorization, session_token)
-    await db.barbers.delete_one({"barber_id": barber_id, "organization_id": current_user.organization_id})
+    
+    # RLS: Get barber and validate access
+    barber = await db.barbers.find_one({"barber_id": barber_id}, {"_id": 0})
+    if not barber:
+        raise HTTPException(status_code=404, detail="Barber not found")
+    
+    if not await validate_organization_access(current_user, barber["organization_id"]):
+        raise HTTPException(status_code=403, detail="Access denied")
+    
+    await db.barbers.delete_one({"barber_id": barber_id})
     return {"message": "Barber deleted"}
 
 # Blocked Times Endpoints
@@ -993,13 +1056,48 @@ async def create_public_appointment(org_id: str, data: AppointmentCreate):
 
 app.include_router(api_router)
 
+# ==================== SECURITY MIDDLEWARE ====================
+
+# CORS Configuration - RESTRICTIVE
 app.add_middleware(
     CORSMiddleware,
     allow_credentials=True,
     allow_origins=os.environ.get('CORS_ORIGINS', '*').split(','),
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],  # Explicit methods only
+    allow_headers=["Content-Type", "Authorization", "Cookie"],  # Explicit headers only
+    expose_headers=["Set-Cookie"],
+    max_age=600,  # Cache preflight requests for 10 minutes
 )
+
+# Security Headers Middleware
+@app.middleware("http")
+async def add_security_headers(request, call_next):
+    response = await call_next(request)
+    
+    # Prevent clickjacking
+    response.headers["X-Frame-Options"] = "DENY"
+    
+    # Prevent MIME type sniffing
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    
+    # Enable XSS protection
+    response.headers["X-XSS-Protection"] = "1; mode=block"
+    
+    # Strict Transport Security (HTTPS only)
+    response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
+    
+    # Content Security Policy
+    response.headers["Content-Security-Policy"] = "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline';"
+    
+    # Referrer Policy
+    response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+    
+    # Permissions Policy
+    response.headers["Permissions-Policy"] = "geolocation=(), microphone=(), camera=()"
+    
+    return response
+
+# ==================== END SECURITY MIDDLEWARE ====================
 
 @app.on_event("shutdown")
 async def shutdown_db_client():
