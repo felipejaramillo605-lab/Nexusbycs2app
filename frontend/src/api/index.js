@@ -9,9 +9,16 @@ export const api = axios.create({
 });
 
 export const authAPI = {
+  // Google OAuth (Emergent-managed)
   createSession: (sessionId) => api.post('/auth/session', {}, { headers: { 'X-Session-ID': sessionId } }),
   getMe: () => api.get('/auth/me'),
   logout: () => api.post('/auth/logout'),
+  
+  // Manual Auth
+  register: (data) => api.post('/auth/register', data),
+  login: (data) => api.post('/auth/login', data),
+  forgotPassword: (data) => api.post('/auth/forgot-password', data),
+  resetPassword: (data) => api.post('/auth/reset-password', data),
 };
 
 export const ownerAPI = {
