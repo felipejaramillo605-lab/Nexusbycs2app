@@ -13,6 +13,8 @@ from datetime import datetime, timezone, timedelta
 import httpx
 from emergentintegrations.llm.chat import LlmChat, UserMessage, TextDelta, StreamDone
 import json
+import bcrypt
+import secrets
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
@@ -37,10 +39,13 @@ class User(BaseModel):
     email: str
     name: str
     picture: Optional[str] = None
+    password_hash: Optional[str] = None  # For manual auth
+    auth_method: str = "google"  # google, apple, manual
     role: str = "manager"
-    access_status: str = "pending"
+    access_status: str = "pending"  # pending, approved, rejected
     organization_id: Optional[str] = None
     created_at: datetime
+    last_login: Optional[datetime] = None
 
 # ==================== ROW LEVEL SECURITY (RLS) HELPERS ====================
 async def validate_organization_access(user: User, organization_id: str) -> bool:
@@ -206,6 +211,32 @@ class InventoryCreate(BaseModel):
 class UserAccessUpdate(BaseModel):
     access_status: str
 
+class RegisterRequest(BaseModel):
+    email: str
+    password: str
+    name: str
+
+class LoginRequest(BaseModel):
+    email: str
+    password: str
+
+class ForgotPasswordRequest(BaseModel):
+    email: str
+
+class ResetPasswordRequest(BaseModel):
+    token: str
+    new_password: str
+
+# Password Helper Functions
+def hash_password(password: str) -> str:
+    """Hash a password using bcrypt"""
+    salt = bcrypt.gensalt()
+    return bcrypt.hashpw(password.encode('utf-8'), salt).decode('utf-8')
+
+def verify_password(password: str, hashed: str) -> bool:
+    """Verify a password against its hash"""
+    return bcrypt.checkpw(password.encode('utf-8'), hashed.encode('utf-8'))
+
 # Auth Helper
 async def get_current_user(authorization: Optional[str] = Header(None), session_token: Optional[str] = Cookie(None)):
     token = None
@@ -336,6 +367,95 @@ async def logout(response: Response, session_token: Optional[str] = Cookie(None)
         await db.user_sessions.delete_many({"session_token": session_token})
     response.delete_cookie(key="session_token", path="/")
     return {"message": "Logged out"}
+
+# Manual Auth Endpoints
+@api_router.post("/auth/register")
+async def register_user(data: RegisterRequest):
+    """Register new user with email/password. User starts with pending status."""
+    existing = await db.users.find_one({"email": data.email}, {"_id": 0})
+    if existing:
+        raise HTTPException(status_code=400, detail="Email already registered")
+    
+    password_hash = hash_password(data.password)
+    user_id = f"user_{uuid.uuid4().hex[:12]}"
+    user_doc = {
+        "user_id": user_id,
+        "email": data.email,
+        "name": data.name,
+        "password_hash": password_hash,
+        "auth_method": "manual",
+        "picture": None,
+        "role": "manager",
+        "access_status": "pending",
+        "organization_id": None,
+        "created_at": datetime.now(timezone.utc).isoformat(),
+        "last_login": None
+    }
+    await db.users.insert_one(user_doc)
+    logger.info(f"New user registered: {data.email} (pending approval)")
+    return {"message": "Registration successful. Awaiting admin approval.", "user_id": user_id}
+
+@api_router.post("/auth/login")
+async def login_user(data: LoginRequest, response: Response):
+    """Login with email/password."""
+    user = await db.users.find_one({"email": data.email}, {"_id": 0})
+    if not user or user.get("auth_method") != "manual":
+        raise HTTPException(status_code=401, detail="Invalid credentials")
+    if not user.get("password_hash") or not verify_password(data.password, user["password_hash"]):
+        raise HTTPException(status_code=401, detail="Invalid credentials")
+    if user["access_status"] != "approved":
+        raise HTTPException(status_code=403, detail="Account pending approval")
+    
+    session_token = secrets.token_urlsafe(32)
+    expires_at = datetime.now(timezone.utc) + timedelta(days=7)
+    await db.user_sessions.insert_one({
+        "user_id": user["user_id"],
+        "session_token": session_token,
+        "expires_at": expires_at.isoformat(),
+        "created_at": datetime.now(timezone.utc).isoformat()
+    })
+    await db.users.update_one({"user_id": user["user_id"]}, {"$set": {"last_login": datetime.now(timezone.utc).isoformat()}})
+    
+    response.set_cookie(key="session_token", value=session_token, httponly=True, secure=True, samesite="none", path="/", max_age=7*24*60*60)
+    
+    if isinstance(user["created_at"], str):
+        user["created_at"] = datetime.fromisoformat(user["created_at"])
+    if user.get("last_login") and isinstance(user["last_login"], str):
+        user["last_login"] = datetime.fromisoformat(user["last_login"])
+    return User(**user)
+
+@api_router.post("/auth/forgot-password")
+async def forgot_password(data: ForgotPasswordRequest):
+    """Initiate password reset (mock)."""
+    user = await db.users.find_one({"email": data.email}, {"_id": 0})
+    if user and user.get("auth_method") == "manual":
+        reset_token = secrets.token_urlsafe(32)
+        expires_at = datetime.now(timezone.utc) + timedelta(hours=1)
+        await db.password_resets.insert_one({
+            "user_id": user["user_id"],
+            "token": reset_token,
+            "expires_at": expires_at.isoformat(),
+            "used": False,
+            "created_at": datetime.now(timezone.utc).isoformat()
+        })
+        logger.info(f"[MOCK] Password reset token: {reset_token}")
+    return {"message": "If the email exists, a reset link has been sent"}
+
+@api_router.post("/auth/reset-password")
+async def reset_password(data: ResetPasswordRequest):
+    """Reset password with token."""
+    reset_doc = await db.password_resets.find_one({"token": data.token, "used": False}, {"_id": 0})
+    if not reset_doc:
+        raise HTTPException(status_code=400, detail="Invalid or expired token")
+    
+    expires_at = datetime.fromisoformat(reset_doc["expires_at"])
+    if datetime.now(timezone.utc) > expires_at:
+        raise HTTPException(status_code=400, detail="Token expired")
+    
+    password_hash = hash_password(data.new_password)
+    await db.users.update_one({"user_id": reset_doc["user_id"]}, {"$set": {"password_hash": password_hash}})
+    await db.password_resets.update_one({"token": data.token}, {"$set": {"used": True}})
+    return {"message": "Password reset successful"}
 
 # Owner Endpoints
 @api_router.get("/owner/users")
