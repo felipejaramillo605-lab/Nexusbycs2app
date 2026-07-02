@@ -137,6 +137,18 @@ class Appointment(BaseModel):
     status: str = "confirmed"
     created_at: datetime
 
+class Client(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    client_id: str
+    organization_id: str
+    phone: str  # Primary identifier
+    name: str
+    email: Optional[str] = None
+    total_visits: int = 0
+    last_visit: Optional[str] = None
+    created_at: datetime
+    updated_at: datetime
+
 class BlockedTime(BaseModel):
     model_config = ConfigDict(extra="ignore")
     block_id: str
@@ -746,6 +758,97 @@ async def get_statistics(start_date: str, end_date: str, organization_id: Option
     }
 
 
+# ==================== CLIENTS ENDPOINTS ====================
+
+@api_router.get("/clients")
+async def get_clients(organization_id: Optional[str] = None, authorization: Optional[str] = Header(None), session_token: Optional[str] = Cookie(None)):
+    current_user = await get_current_user(authorization, session_token)
+    
+    # RLS: Get organization filter
+    org_filter = await get_organization_filter(current_user, organization_id)
+    clients = await db.clients.find(org_filter, {"_id": 0}).sort("total_visits", -1).to_list(1000)
+    
+    for client in clients:
+        if isinstance(client.get("created_at"), str):
+            client["created_at"] = datetime.fromisoformat(client["created_at"])
+        if isinstance(client.get("updated_at"), str):
+            client["updated_at"] = datetime.fromisoformat(client["updated_at"])
+    
+    return clients
+
+@api_router.get("/clients/{client_id}/history")
+async def get_client_history(client_id: str, authorization: Optional[str] = Header(None), session_token: Optional[str] = Cookie(None)):
+    current_user = await get_current_user(authorization, session_token)
+    
+    # Get client first
+    client = await db.clients.find_one({"client_id": client_id}, {"_id": 0})
+    if not client:
+        raise HTTPException(status_code=404, detail="Client not found")
+    
+    # RLS: Validate access
+    if not await validate_organization_access(current_user, client["organization_id"]):
+        raise HTTPException(status_code=403, detail="Access denied")
+    
+    # Get all appointments for this client
+    appointments = await db.appointments.find(
+        {"organization_id": client["organization_id"], "client_phone": client["phone"]},
+        {"_id": 0}
+    ).sort("created_at", -1).to_list(1000)
+    
+    # Enrich with service and barber names
+    for apt in appointments:
+        service = await db.services.find_one({"service_id": apt["service_id"]}, {"_id": 0})
+        barber = await db.barbers.find_one({"barber_id": apt["barber_id"]}, {"_id": 0})
+        apt["service_name"] = service["name"] if service else "Unknown"
+        apt["service_price"] = service["price"] if service else 0
+        apt["barber_name"] = barber["name"] if barber else "Unknown"
+        
+        if isinstance(apt.get("created_at"), str):
+            apt["created_at"] = datetime.fromisoformat(apt["created_at"])
+    
+    return appointments
+
+async def upsert_client(organization_id: str, phone: str, name: str, email: Optional[str] = None):
+    """
+    Create or update client record. Uses phone as unique identifier per organization.
+    """
+    existing = await db.clients.find_one({"organization_id": organization_id, "phone": phone}, {"_id": 0})
+    
+    if existing:
+        # Update existing client
+        update_data = {
+            "name": name,
+            "total_visits": existing.get("total_visits", 0) + 1,
+            "last_visit": datetime.now(timezone.utc).isoformat(),
+            "updated_at": datetime.now(timezone.utc).isoformat()
+        }
+        if email:
+            update_data["email"] = email
+        
+        await db.clients.update_one(
+            {"organization_id": organization_id, "phone": phone},
+            {"$set": update_data}
+        )
+        return {**existing, **update_data}
+    else:
+        # Create new client
+        client_id = f"client_{uuid.uuid4().hex[:12]}"
+        client_doc = {
+            "client_id": client_id,
+            "organization_id": organization_id,
+            "phone": phone,
+            "name": name,
+            "email": email,
+            "total_visits": 1,
+            "last_visit": datetime.now(timezone.utc).isoformat(),
+            "created_at": datetime.now(timezone.utc).isoformat(),
+            "updated_at": datetime.now(timezone.utc).isoformat()
+        }
+        await db.clients.insert_one(client_doc)
+        return client_doc
+
+# ==================== END CLIENTS ENDPOINTS ====================
+
 # Inventory Endpoints
 @api_router.get("/inventory")
 async def get_inventory(organization_id: Optional[str] = None, authorization: Optional[str] = Header(None), session_token: Optional[str] = Cookie(None)):
@@ -1049,10 +1152,66 @@ async def create_public_appointment(org_id: str, data: AppointmentCreate):
             raise HTTPException(status_code=409, detail="This time slot is no longer available")
         raise
     
-    logger.info(f"[MOCK] WhatsApp confirmation sent to {data.client_phone}: Appointment confirmed for {data.date} at {data.time}")
+    # Create or update client record
+    await upsert_client(
+        organization_id=org_id,
+        phone=data.client_phone,
+        name=data.client_name,
+        email=data.client_email
+    )
+    
+    logger.info(f"[MOCK] WhatsApp confirmation sent to {data.client_phone}: Appointment {appointment_id} confirmed for {data.date} at {data.time}")
     
     appointment_doc["created_at"] = datetime.fromisoformat(appointment_doc["created_at"])
     return Appointment(**appointment_doc)
+
+# Public Cancellation Endpoint
+@api_router.post("/public/appointments/{appointment_id}/cancel")
+async def cancel_public_appointment(appointment_id: str):
+    """
+    Public endpoint for clients to cancel their appointments via unique link.
+    No authentication required - secured by unique appointment_id.
+    """
+    appointment = await db.appointments.find_one({"appointment_id": appointment_id}, {"_id": 0})
+    
+    if not appointment:
+        raise HTTPException(status_code=404, detail="Appointment not found")
+    
+    if appointment["status"] == "cancelled":
+        raise HTTPException(status_code=400, detail="Appointment already cancelled")
+    
+    # Cancel the appointment
+    await db.appointments.update_one(
+        {"appointment_id": appointment_id},
+        {"$set": {"status": "cancelled"}}
+    )
+    
+    logger.info(f"[MOCK] WhatsApp cancellation notification sent to {appointment['client_phone']}: Appointment {appointment_id} cancelled")
+    
+    return {"message": "Appointment cancelled successfully", "appointment_id": appointment_id}
+
+@api_router.get("/public/appointments/{appointment_id}")
+async def get_public_appointment(appointment_id: str):
+    """
+    Public endpoint to view appointment details for cancellation page.
+    """
+    appointment = await db.appointments.find_one({"appointment_id": appointment_id}, {"_id": 0})
+    
+    if not appointment:
+        raise HTTPException(status_code=404, detail="Appointment not found")
+    
+    # Enrich with service and barber names
+    service = await db.services.find_one({"service_id": appointment["service_id"]}, {"_id": 0})
+    barber = await db.barbers.find_one({"barber_id": appointment["barber_id"]}, {"_id": 0})
+    
+    appointment["service_name"] = service["name"] if service else "Unknown"
+    appointment["service_price"] = service["price"] if service else 0
+    appointment["barber_name"] = barber["name"] if barber else "Unknown"
+    
+    if isinstance(appointment.get("created_at"), str):
+        appointment["created_at"] = datetime.fromisoformat(appointment["created_at"])
+    
+    return appointment
 
 app.include_router(api_router)
 

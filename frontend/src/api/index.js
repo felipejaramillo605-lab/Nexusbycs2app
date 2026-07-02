@@ -48,6 +48,12 @@ export const appointmentAPI = {
     const today = new Date().toISOString().split('T')[0];
     return api.get('/appointments', { params: { ...params, date: today } });
   },
+  getStats: (params = {}) => api.get('/appointments/stats', { params }),
+};
+
+export const clientAPI = {
+  getAll: (params = {}) => api.get('/clients', { params }),
+  getHistory: (clientId) => api.get(`/clients/${clientId}/history`),
 };
 
 export const inventoryAPI = {
@@ -63,4 +69,6 @@ export const publicAPI = {
   getBarbers: (orgId) => axios.get(`${API}/public/${orgId}/barbers`),
   getAvailability: (orgId, barberId, date, serviceId) => axios.get(`${API}/public/${orgId}/availability`, { params: { barber_id: barberId, date, service_id: serviceId } }),
   createAppointment: (orgId, data) => axios.post(`${API}/public/${orgId}/appointments`, data),
+  getAppointment: (appointmentId) => axios.get(`${API}/public/appointments/${appointmentId}`),
+  cancelAppointment: (appointmentId) => axios.post(`${API}/public/appointments/${appointmentId}/cancel`),
 };
