@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { appointmentAPI, organizationAPI, serviceAPI, barberAPI } from '../api';
-import { Calendar, DollarSign, Users, LogOut, Menu, Scissors, Package } from 'lucide-react';
+import { Calendar, DollarSign, Users, LogOut, Menu, Scissors, Package, Monitor, Smartphone } from 'lucide-react';
 import { MANAGER, AUTH } from '../constants/testIds';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '../components/ui/sheet';
 import ThemeToggle from '../components/ThemeToggle';
@@ -21,6 +21,9 @@ const ManagerDashboard = () => {
   const [services, setServices] = useState([]);
   const [barbers, setBarbers] = useState([]);
   const [selectedAppointment, setSelectedAppointment] = useState(null);
+  const [forceDesktopView, setForceDesktopView] = useState(() => {
+    return localStorage.getItem('nexus_force_desktop') === 'true';
+  });
 
   useEffect(() => {
     loadData();
@@ -66,6 +69,12 @@ const ManagerDashboard = () => {
   const handleLogout = async () => {
     await logout();
     navigate('/login');
+  };
+
+  const toggleViewMode = () => {
+    const newValue = !forceDesktopView;
+    setForceDesktopView(newValue);
+    localStorage.setItem('nexus_force_desktop', newValue.toString());
   };
 
   const totalRevenue = appointments.reduce((sum, apt) => sum + (apt.service_price || 0), 0);
@@ -147,65 +156,153 @@ const ManagerDashboard = () => {
 
   return (
     <div className="min-h-screen bg-[#000000]" data-testid={MANAGER.dashboard}>
-      <nav className="backdrop-blur-xl bg-white/3 border-b border-white/10 sticky top-0 z-50">
-        <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <h1 className="text-2xl font-light tracking-tight text-white" style={{ fontFamily: 'Outfit, sans-serif' }}>
-              Nexus by CS2
-            </h1>
-            {selectedOrg && (
-              <span className="text-zinc-400 text-sm">/ {selectedOrg.name}</span>
-            )}
-            {user.role === 'owner' && (
-              <span className="px-3 py-1 rounded-lg text-xs font-medium bg-purple-500/20 text-purple-300">
-                Owner
-              </span>
-            )}
-          </div>
-          <div className="flex items-center gap-4">
-            <ThemeToggle />
-            {user.role === 'owner' && (
+      <nav className={`backdrop-blur-xl bg-white/3 border-b border-white/10 sticky top-0 z-50 ${forceDesktopView ? 'force-desktop-view' : ''}`}>
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-3 sm:py-4">
+          <div className="flex items-center justify-between gap-2">
+            {/* Logo y Título */}
+            <div className="flex items-center gap-2 sm:gap-4 min-w-0">
+              <h1 className="text-lg sm:text-2xl font-light tracking-tight text-white truncate" style={{ fontFamily: 'Outfit, sans-serif' }}>
+                Nexus by CS2
+              </h1>
+              {selectedOrg && (
+                <span className="text-zinc-400 text-xs sm:text-sm truncate hidden sm:inline">/ {selectedOrg.name}</span>
+              )}
+              {user.role === 'owner' && (
+                <span className="px-2 py-1 rounded-lg text-xs font-medium bg-purple-500/20 text-purple-300 hidden sm:inline">
+                  Owner
+                </span>
+              )}
+            </div>
+
+            {/* Botones de Navegación */}
+            <div className="flex items-center gap-1 sm:gap-2">
+              {/* Toggle Vista Mobile/Desktop */}
               <button
-                onClick={() => navigate('/owner/access-control')}
-                className="flex items-center gap-2 min-h-[44px] px-4 py-2 rounded-xl bg-purple-500/20 border border-purple-500/30 hover:bg-purple-500/30 transition-all text-purple-300"
+                onClick={toggleViewMode}
+                className="flex items-center gap-2 min-h-[44px] px-3 py-2 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 transition-all text-white"
+                title={forceDesktopView ? "Cambiar a vista móvil" : "Cambiar a vista escritorio"}
               >
-                <Users size={18} strokeWidth={1.5} />
-                <span className="hidden md:inline">Control de Accesos</span>
+                {forceDesktopView ? (
+                  <Smartphone size={18} strokeWidth={1.5} />
+                ) : (
+                  <Monitor size={18} strokeWidth={1.5} />
+                )}
+                <span className="hidden lg:inline text-sm">
+                  {forceDesktopView ? "Vista Móvil" : "Vista Escritorio"}
+                </span>
               </button>
-            )}
-            {selectedOrg && (
-              <>
+
+              <ThemeToggle />
+
+              {/* Desktop: Botones completos */}
+              <div className={`hidden ${forceDesktopView ? 'flex' : 'lg:flex'} items-center gap-1 sm:gap-2`}>
+                {user.role === 'owner' && (
+                  <button
+                    onClick={() => navigate('/owner/access-control')}
+                    className="flex items-center gap-2 min-h-[44px] px-3 sm:px-4 py-2 rounded-xl bg-purple-500/20 border border-purple-500/30 hover:bg-purple-500/30 transition-all text-purple-300"
+                  >
+                    <Users size={18} strokeWidth={1.5} />
+                    <span className="hidden sm:inline text-sm">Control de Accesos</span>
+                  </button>
+                )}
+                {selectedOrg && (
+                  <>
+                    <button
+                      onClick={() => navigate('/manager/services')}
+                      className="flex items-center gap-2 min-h-[44px] px-3 sm:px-4 py-2 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 transition-all text-white"
+                    >
+                      <Scissors size={18} strokeWidth={1.5} />
+                      <span className="hidden sm:inline text-sm">Servicios</span>
+                    </button>
+                    <button
+                      onClick={() => navigate('/manager/barbers')}
+                      className="flex items-center gap-2 min-h-[44px] px-3 sm:px-4 py-2 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 transition-all text-white"
+                    >
+                      <Users size={18} strokeWidth={1.5} />
+                      <span className="hidden sm:inline text-sm">Barberos</span>
+                    </button>
+                    <button
+                      onClick={() => navigate('/manager/inventory')}
+                      className="flex items-center gap-2 min-h-[44px] px-3 sm:px-4 py-2 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 transition-all text-white"
+                    >
+                      <Package size={18} strokeWidth={1.5} />
+                      <span className="hidden sm:inline text-sm">Inventario</span>
+                    </button>
+                  </>
+                )}
                 <button
-                  onClick={() => navigate('/manager/services')}
-                  className="flex items-center gap-2 min-h-[44px] px-4 py-2 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 transition-all text-white"
+                  data-testid={AUTH.logoutBtn}
+                  onClick={handleLogout}
+                  className="flex items-center gap-2 min-h-[44px] px-3 sm:px-4 py-2 rounded-xl bg-red-500/10 border border-red-500/20 hover:bg-red-500/20 transition-all text-red-400"
                 >
-                  <Scissors size={18} strokeWidth={1.5} />
-                  <span className="hidden md:inline">Servicios</span>
+                  <LogOut size={18} strokeWidth={1.5} />
+                  <span className="hidden sm:inline text-sm">Salir</span>
                 </button>
-                <button
-                  onClick={() => navigate('/manager/barbers')}
-                  className="flex items-center gap-2 min-h-[44px] px-4 py-2 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 transition-all text-white"
-                >
-                  <Users size={18} strokeWidth={1.5} />
-                  <span className="hidden md:inline">Barberos</span>
-                </button>
-                <button
-                  onClick={() => navigate('/manager/inventory')}
-                  className="flex items-center gap-2 min-h-[44px] px-4 py-2 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 transition-all text-white"
-                >
-                  <Package size={18} strokeWidth={1.5} />
-                  <span className="hidden md:inline">Inventario</span>
-                </button>
-              </>
-            )}
-            <button
-              data-testid={AUTH.logoutBtn}
-              onClick={handleLogout}
-              className="flex items-center gap-2 min-h-[44px] px-4 py-2 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 transition-all text-white"
-            >
-              <LogOut size={18} strokeWidth={1.5} />
-              <span className="hidden md:inline">Salir</span>
-            </button>
+              </div>
+
+              {/* Mobile: Menu Drawer */}
+              <Sheet>
+                <SheetTrigger asChild>
+                  <button
+                    className={`${forceDesktopView ? 'hidden' : 'flex lg:hidden'} items-center justify-center min-h-[44px] w-[44px] rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 transition-all text-white`}
+                  >
+                    <Menu size={20} strokeWidth={1.5} />
+                  </button>
+                </SheetTrigger>
+                <SheetContent side="right" className="bg-[#0A0A0A] border-l border-white/10 w-[280px]">
+                  <SheetHeader className="mb-6">
+                    <SheetTitle className="text-white text-left">Menú de Navegación</SheetTitle>
+                    {selectedOrg && (
+                      <p className="text-zinc-400 text-sm text-left">{selectedOrg.name}</p>
+                    )}
+                  </SheetHeader>
+                  <div className="space-y-2">
+                    {user.role === 'owner' && (
+                      <button
+                        onClick={() => navigate('/owner/access-control')}
+                        className="w-full flex items-center gap-3 px-4 py-3 rounded-xl bg-purple-500/10 border border-purple-500/20 hover:bg-purple-500/20 transition-all text-left group"
+                      >
+                        <Users size={20} strokeWidth={1.5} className="text-purple-300" />
+                        <span className="text-purple-300 font-medium">Control de Accesos</span>
+                      </button>
+                    )}
+                    {selectedOrg && (
+                      <>
+                        <button
+                          onClick={() => navigate('/manager/services')}
+                          className="w-full flex items-center gap-3 px-4 py-3 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 transition-all text-left group"
+                        >
+                          <Scissors size={20} strokeWidth={1.5} className="text-zinc-400 group-hover:text-[#0A84FF] transition-colors" />
+                          <span className="text-white font-medium">Servicios</span>
+                        </button>
+                        <button
+                          onClick={() => navigate('/manager/barbers')}
+                          className="w-full flex items-center gap-3 px-4 py-3 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 transition-all text-left group"
+                        >
+                          <Users size={20} strokeWidth={1.5} className="text-zinc-400 group-hover:text-[#0A84FF] transition-colors" />
+                          <span className="text-white font-medium">Barberos</span>
+                        </button>
+                        <button
+                          onClick={() => navigate('/manager/inventory')}
+                          className="w-full flex items-center gap-3 px-4 py-3 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 transition-all text-left group"
+                        >
+                          <Package size={20} strokeWidth={1.5} className="text-zinc-400 group-hover:text-[#0A84FF] transition-colors" />
+                          <span className="text-white font-medium">Inventario</span>
+                        </button>
+                      </>
+                    )}
+                    <div className="border-t border-white/10 my-4"></div>
+                    <button
+                      onClick={handleLogout}
+                      className="w-full flex items-center gap-3 px-4 py-3 rounded-xl bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 transition-all text-left group"
+                    >
+                      <LogOut size={20} strokeWidth={1.5} className="text-red-400" />
+                      <span className="text-red-400 font-medium">Cerrar Sesión</span>
+                    </button>
+                  </div>
+                </SheetContent>
+              </Sheet>
+            </div>
           </div>
         </div>
       </nav>

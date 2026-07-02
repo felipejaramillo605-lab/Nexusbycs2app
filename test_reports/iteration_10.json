@@ -1,0 +1,26 @@
+{
+  "summary": "Tested mobile toggle Vista Móvil/Escritorio on ManagerDashboard at 390px viewport. Toggle button, hamburger Sheet menu, localStorage persistence all work. CRITICAL BUG: When 'Vista Escritorio' is forced on mobile, the desktop nav buttons (Servicios, Barberos, Inventario, Salir, Control de Accesos) remain HIDDEN (width=0, is_visible=False) so users cannot reach them, defeating the purpose of the toggle.",
+  "tested_scope": ["frontend"],
+  "passed": [
+    "Toggle button visible in header on mobile viewport (390px) with Monitor icon in mobile mode",
+    "Hamburger (☰) Sheet drawer opens in mobile default view showing all nav items: Control de Accesos, Servicios, Barberos, Inventario, Cerrar Sesión",
+    "Toggle click updates icon to Smartphone and applies 'force-desktop-view' class on <nav>",
+    "localStorage 'nexus_force_desktop' persists correctly across page reload (true after toggle, false after toggle back)",
+    "After reload with force-desktop=true, Smartphone icon is shown (state restored)"
+  ],
+  "failed": [
+    {
+      "area": "ManagerDashboard - Forced Desktop View on Mobile",
+      "issue": "After activating 'Vista Escritorio' on mobile (390px), the desktop nav button group remains hidden. All buttons Servicios/Barberos/Inventario/Salir/Control de Accesos have bounding rect width=0 and are not clickable. Nav element scrollWidth=clientWidth=1024 (no horizontal scroll of buttons). Root cause: className `hidden ${forceDesktopView ? 'flex' : 'lg:flex'}` produces 'hidden flex', but in Tailwind v3, `.hidden` is defined AFTER `.flex` in the generated CSS, so display:none wins and buttons never render visibly.",
+      "evidence": "Playwright: 'Forced desktop - Servicios: count=1, visible=False' for all 5 buttons; getBoundingClientRect returned x=0,y=0,w=0,h=0; scroll_into_view_if_needed timed out because element is not visible. Screenshot m_desktop_scrolled.png shows only 'Nexus by CS2' title + toggle/theme icons — no nav buttons rendered.",
+      "priority": "HIGH"
+    }
+  ],
+  "action_items": [
+    "Fix line ~198 of /app/frontend/src/pages/ManagerDashboard.js: change `className={\\`hidden ${forceDesktopView ? 'flex' : 'lg:flex'} items-center gap-1 sm:gap-2\\`}` to `className={\\`${forceDesktopView ? 'flex' : 'hidden lg:flex'} items-center gap-1 sm:gap-2\\`}` so `hidden` is only applied when NOT forcing desktop. This will make the nav buttons visible under horizontal scroll when forceDesktopView=true.",
+    "After fix, re-verify at 390px viewport: force desktop toggle should reveal Servicios/Barberos/Inventario/Salir with horizontal scroll enabled by .force-desktop-view CSS (min-width:1024px)."
+  ],
+  "success_rate": {"backend": "n/a", "frontend": "60%"},
+  "retest_needed": true,
+  "full_testing_deferred": true
+}

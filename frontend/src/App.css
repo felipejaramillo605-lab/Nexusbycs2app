@@ -255,3 +255,20 @@
 .transition-bounce {
   transition: transform 0.25s cubic-bezier(0.68, -0.55, 0.265, 1.55);
 }
+
+/* ===== FORCE DESKTOP VIEW ===== */
+.force-desktop-view {
+  min-width: 1024px;
+  overflow-x: auto;
+}
+
+@media (max-width: 1023px) {
+  .force-desktop-view {
+    overflow-x: scroll;
+    -webkit-overflow-scrolling: touch;
+  }
+  
+  .force-desktop-view > * {
+    min-width: 1024px;
+  }
+}
