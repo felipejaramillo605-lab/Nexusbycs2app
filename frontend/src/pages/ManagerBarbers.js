@@ -1,7 +1,7 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { barberAPI } from '../api';
+import { barberAPI, organizationAPI } from '../api';
 import { Plus, Trash2, ArrowLeft, Users, Edit2, Clock, Calendar } from 'lucide-react';
 import { MANAGER } from '../constants/testIds';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '../components/ui/dialog';
@@ -21,19 +21,26 @@ const ManagerBarbers = () => {
   const [selectedBarberForBlock, setSelectedBarberForBlock] = useState(null);
   const [blockedTimes, setBlockedTimes] = useState([]);
   const [newBlock, setNewBlock] = useState({ date: '', start_time: '13:00', end_time: '14:00', reason: 'Almuerzo' });
+  const [organizationName, setOrganizationName] = useState('');
 
   // Get org_id from query param (for owner) or user.organization_id (for manager)
   const organizationId = searchParams.get('org_id') || user?.organization_id;
 
-  useEffect(() => {
-    if (organizationId) {
-      loadBarbers();
+  const loadOrganizationName = useCallback(async () => {
+    if (!organizationId) return;
+    try {
+      const orgsRes = await organizationAPI.getAll();
+      const org = orgsRes.data.find(o => o.organization_id === organizationId);
+      if (org) setOrganizationName(org.name);
+    } catch (error) {
+      console.error('Error loading organization:', error);
     }
   }, [organizationId]);
 
-  const loadBarbers = async () => {
+  const loadBarbers = useCallback(async () => {
+    if (!organizationId) return;
     try {
-      const params = organizationId ? { organization_id: organizationId } : {};
+      const params = { organization_id: organizationId };
       const response = await barberAPI.getAll(params);
       setBarbers(response.data);
     } catch (error) {
@@ -41,7 +48,14 @@ const ManagerBarbers = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [organizationId]);
+
+  useEffect(() => {
+    if (organizationId) {
+      loadBarbers();
+      loadOrganizationName();
+    }
+  }, [organizationId, loadBarbers, loadOrganizationName]);
 
   const loadBlockedTimes = async (barberId) => {
     try {
@@ -161,7 +175,7 @@ const ManagerBarbers = () => {
         <div className="flex items-center justify-between mb-8">
           <div className="flex items-center gap-4">
             <button
-              onClick={() => navigate('/manager/dashboard')}
+              onClick={() => navigate(organizationId && user?.role === 'owner' ? `/manager/dashboard?org_id=${organizationId}` : '/manager/dashboard')}
               className="p-2 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 transition-all text-white"
             >
               <ArrowLeft size={20} strokeWidth={1.5} />
@@ -174,7 +188,11 @@ const ManagerBarbers = () => {
                 <h1 className="text-4xl font-light tracking-tight text-white" style={{ fontFamily: 'Outfit, sans-serif' }}>
                   Barberos
                 </h1>
-                <p className="text-zinc-400 text-sm">Gestiona tu equipo de trabajo</p>
+                {organizationName ? (
+                  <p className="text-zinc-400 text-sm mt-1">{organizationName}</p>
+                ) : (
+                  <p className="text-zinc-400 text-sm">Gestiona tu equipo de trabajo</p>
+                )}
               </div>
             </div>
           </div>

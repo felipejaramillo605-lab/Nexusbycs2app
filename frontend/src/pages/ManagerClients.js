@@ -1,7 +1,7 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { clientAPI } from '../api';
+import { clientAPI, organizationAPI } from '../api';
 import { Users, LogOut, ArrowLeft, Phone, Mail, Calendar, MessageSquare, Send, Eye, CheckCircle } from 'lucide-react';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '../components/ui/sheet';
 import { toast } from 'sonner';
@@ -20,20 +20,27 @@ const ManagerClients = () => {
   const [selectedTemplate, setSelectedTemplate] = useState(MESSAGE_TEMPLATES.APPOINTMENT_REMINDER);
   const [customMessage, setCustomMessage] = useState('');
   const [sendingMessage, setSendingMessage] = useState(false);
+  const [organizationName, setOrganizationName] = useState('');
 
   // Get org_id from query param (for owner) or user.organization_id (for manager)
   const organizationId = searchParams.get('org_id') || user?.organization_id;
 
-  useEffect(() => {
-    if (organizationId) {
-      loadClients();
+  const loadOrganizationName = useCallback(async () => {
+    if (!organizationId) return;
+    try {
+      const orgsRes = await organizationAPI.getAll();
+      const org = orgsRes.data.find(o => o.organization_id === organizationId);
+      if (org) setOrganizationName(org.name);
+    } catch (error) {
+      console.error('Error loading organization:', error);
     }
   }, [organizationId]);
 
-  const loadClients = async () => {
+  const loadClients = useCallback(async () => {
+    if (!organizationId) return;
     try {
       setLoading(true);
-      const params = organizationId ? { organization_id: organizationId } : {};
+      const params = { organization_id: organizationId };
       const response = await clientAPI.getAll(params);
       setClients(response.data);
     } catch (error) {
@@ -42,7 +49,14 @@ const ManagerClients = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [organizationId]);
+
+  useEffect(() => {
+    if (organizationId) {
+      loadClients();
+      loadOrganizationName();
+    }
+  }, [organizationId, loadClients, loadOrganizationName]);
 
   const loadClientHistory = async (clientId) => {
     try {
@@ -146,7 +160,7 @@ const ManagerClients = () => {
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
               <button
-                onClick={() => navigate('/manager/dashboard')}
+                onClick={() => navigate(organizationId && user?.role === 'owner' ? `/manager/dashboard?org_id=${organizationId}` : '/manager/dashboard')}
                 className="flex items-center gap-2 text-zinc-400 hover:text-white transition-colors"
               >
                 <ArrowLeft size={20} strokeWidth={1.5} />
@@ -154,6 +168,7 @@ const ManagerClients = () => {
               </button>
               <h1 className="text-xl sm:text-2xl font-light tracking-tight text-white" style={{ fontFamily: 'Outfit, sans-serif' }}>
                 Clientes
+                {organizationName && <span className="text-zinc-400 text-base ml-2">· {organizationName}</span>}
               </h1>
             </div>
             <button

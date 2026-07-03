@@ -1,7 +1,7 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { serviceAPI } from '../api';
+import { serviceAPI, organizationAPI } from '../api';
 import { Plus, Trash2, ArrowLeft, Scissors, Edit2 } from 'lucide-react';
 import { MANAGER } from '../constants/testIds';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '../components/ui/dialog';
@@ -17,19 +17,26 @@ const ManagerServices = () => {
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [newService, setNewService] = useState({ name: '', duration: 30, price: 0 });
   const [editingService, setEditingService] = useState(null);
+  const [organizationName, setOrganizationName] = useState('');
 
   // Get org_id from query param (for owner) or user.organization_id (for manager)
   const organizationId = searchParams.get('org_id') || user?.organization_id;
 
-  useEffect(() => {
-    if (organizationId) {
-      loadServices();
+  const loadOrganizationName = useCallback(async () => {
+    if (!organizationId) return;
+    try {
+      const orgsRes = await organizationAPI.getAll();
+      const org = orgsRes.data.find(o => o.organization_id === organizationId);
+      if (org) setOrganizationName(org.name);
+    } catch (error) {
+      console.error('Error loading organization:', error);
     }
   }, [organizationId]);
 
-  const loadServices = async () => {
+  const loadServices = useCallback(async () => {
+    if (!organizationId) return;
     try {
-      const params = organizationId ? { organization_id: organizationId } : {};
+      const params = { organization_id: organizationId };
       const response = await serviceAPI.getAll(params);
       setServices(response.data);
     } catch (error) {
@@ -37,7 +44,14 @@ const ManagerServices = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [organizationId]);
+
+  useEffect(() => {
+    if (organizationId) {
+      loadServices();
+      loadOrganizationName();
+    }
+  }, [organizationId, loadServices, loadOrganizationName]);
 
   const handleCreate = async () => {
     try {
@@ -105,7 +119,7 @@ const ManagerServices = () => {
         <div className="flex items-center justify-between mb-8">
           <div className="flex items-center gap-4">
             <button
-              onClick={() => navigate('/manager/dashboard')}
+              onClick={() => navigate(organizationId && user?.role === 'owner' ? `/manager/dashboard?org_id=${organizationId}` : '/manager/dashboard')}
               className="p-2 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 transition-all text-white"
             >
               <ArrowLeft size={20} strokeWidth={1.5} />
@@ -118,6 +132,9 @@ const ManagerServices = () => {
                 <h1 className="text-4xl font-light tracking-tight text-white" style={{ fontFamily: 'Outfit, sans-serif' }}>
                   Servicios
                 </h1>
+                {organizationName && (
+                  <p className="text-zinc-400 text-sm mt-1">{organizationName}</p>
+                )}
                 <p className="text-zinc-400 text-sm">Gestiona tus servicios de barbería</p>
               </div>
             </div>

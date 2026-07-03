@@ -1,7 +1,7 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { inventoryAPI } from '../api';
+import { inventoryAPI, organizationAPI } from '../api';
 import { Plus, Trash2, ArrowLeft, Package, AlertCircle, FileText, Edit } from 'lucide-react';
 import { MANAGER } from '../constants/testIds';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '../components/ui/dialog';
@@ -19,19 +19,26 @@ const ManagerInventory = () => {
   const [loadingOrder, setLoadingOrder] = useState(false);
   const [editingItem, setEditingItem] = useState(null);
   const [newItem, setNewItem] = useState({ name: '', quantity: 0, min_stock: 0, unit: 'unidades' });
+  const [organizationName, setOrganizationName] = useState('');
 
   // Get org_id from query param (for owner) or user.organization_id (for manager)
   const organizationId = searchParams.get('org_id') || user?.organization_id;
 
-  useEffect(() => {
-    if (organizationId) {
-      loadInventory();
+  const loadOrganizationName = useCallback(async () => {
+    if (!organizationId) return;
+    try {
+      const orgsRes = await organizationAPI.getAll();
+      const org = orgsRes.data.find(o => o.organization_id === organizationId);
+      if (org) setOrganizationName(org.name);
+    } catch (error) {
+      console.error('Error loading organization:', error);
     }
   }, [organizationId]);
 
-  const loadInventory = async () => {
+  const loadInventory = useCallback(async () => {
+    if (!organizationId) return;
     try {
-      const params = organizationId ? { organization_id: organizationId } : {};
+      const params = { organization_id: organizationId };
       const response = await inventoryAPI.getAll(params);
       setInventory(response.data);
     } catch (error) {
@@ -39,7 +46,14 @@ const ManagerInventory = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [organizationId]);
+
+  useEffect(() => {
+    if (organizationId) {
+      loadInventory();
+      loadOrganizationName();
+    }
+  }, [organizationId, loadInventory, loadOrganizationName]);
 
   const handleCreate = async () => {
     if (newItem.quantity < 0 || newItem.min_stock < 0) {
@@ -185,7 +199,7 @@ const ManagerInventory = () => {
         <div className="flex items-center justify-between mb-8">
           <div className="flex items-center gap-4">
             <button
-              onClick={() => navigate('/manager/dashboard')}
+              onClick={() => navigate(organizationId && user?.role === 'owner' ? `/manager/dashboard?org_id=${organizationId}` : '/manager/dashboard')}
               className="p-2 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 transition-all text-white"
             >
               <ArrowLeft size={20} strokeWidth={1.5} />
@@ -198,7 +212,11 @@ const ManagerInventory = () => {
                 <h1 className="text-4xl font-light tracking-tight text-white" style={{ fontFamily: 'Outfit, sans-serif' }}>
                   Inventario
                 </h1>
-                <p className="text-zinc-400 text-sm">Gestiona tus productos y stock</p>
+                {organizationName ? (
+                  <p className="text-zinc-400 text-sm mt-1">{organizationName}</p>
+                ) : (
+                  <p className="text-zinc-400 text-sm">Gestiona tus productos y stock</p>
+                )}
               </div>
             </div>
           </div>
