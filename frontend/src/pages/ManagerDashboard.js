@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { appointmentAPI, organizationAPI, serviceAPI, barberAPI } from '../api';
-import { Calendar, DollarSign, Users, LogOut, Menu, Scissors, Package, Monitor, Smartphone } from 'lucide-react';
+import { Calendar, DollarSign, Users, LogOut, Menu, Scissors, Package, Monitor, Smartphone, Building } from 'lucide-react';
 import { MANAGER, AUTH } from '../constants/testIds';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '../components/ui/sheet';
 import ThemeToggle from '../components/ThemeToggle';
@@ -207,6 +207,13 @@ const ManagerDashboard = () => {
                 )}
                 {selectedOrg && (
                   <>
+                    <button
+                      onClick={() => navigate(user.role === 'owner' ? `/manager/business-profile?org_id=${selectedOrg.organization_id}` : '/manager/business-profile')}
+                      className="flex items-center gap-2 min-h-[44px] px-3 sm:px-4 py-2 rounded-xl bg-indigo-500/20 border border-indigo-500/30 hover:bg-indigo-500/30 transition-all text-indigo-300"
+                    >
+                      <Building size={18} strokeWidth={1.5} />
+                      <span className="hidden sm:inline text-sm">Perfil Negocio</span>
+                    </button>
                     <button
                       onClick={() => navigate(user.role === 'owner' ? `/manager/appointments?org_id=${selectedOrg.organization_id}` : '/manager/appointments')}
                       className="flex items-center gap-2 min-h-[44px] px-3 sm:px-4 py-2 rounded-xl bg-orange-500/20 border border-orange-500/30 hover:bg-orange-500/30 transition-all text-orange-300"

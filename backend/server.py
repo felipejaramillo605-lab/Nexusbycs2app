@@ -1047,6 +1047,44 @@ async def get_clients(organization_id: Optional[str] = None, authorization: Opti
     
     return clients
 
+@api_router.put("/clients/{client_id}")
+async def update_client(
+    client_id: str,
+    accepts_marketing: Optional[bool] = None,
+    name: Optional[str] = None,
+    email: Optional[str] = None,
+    authorization: Optional[str] = Header(None),
+    session_token: Optional[str] = Cookie(None)
+):
+    """Update client information (manager/owner only)"""
+    current_user = await get_current_user(authorization, session_token)
+    
+    client = await db.clients.find_one({"client_id": client_id}, {"_id": 0})
+    if not client:
+        raise HTTPException(status_code=404, detail="Client not found")
+    
+    # RLS: Validate organization access
+    if not await validate_organization_access(current_user, client["organization_id"]):
+        raise HTTPException(status_code=403, detail="Access denied")
+    
+    update_data = {}
+    if accepts_marketing is not None:
+        update_data["accepts_marketing"] = accepts_marketing
+    if name:
+        update_data["name"] = name
+    if email:
+        update_data["email"] = email
+    
+    if update_data:
+        update_data["updated_at"] = datetime.now(timezone.utc).isoformat()
+        await db.clients.update_one(
+            {"client_id": client_id},
+            {"$set": update_data}
+        )
+    
+    updated_client = await db.clients.find_one({"client_id": client_id}, {"_id": 0})
+    return updated_client
+
 @api_router.get("/clients/{client_id}/history")
 async def get_client_history(client_id: str, authorization: Optional[str] = Header(None), session_token: Optional[str] = Cookie(None)):
     current_user = await get_current_user(authorization, session_token)
@@ -1155,6 +1193,64 @@ async def get_client_history_public(phone: str, organization_id: str):
     }
 
 # ==================== END CLIENTS ENDPOINTS ====================
+
+# ==================== MARKETING & CAMPAIGNS ====================
+
+class CampaignRequest(BaseModel):
+    client_ids: List[str]  # List of client IDs to send to
+    message: str
+    send_immediately: bool = True
+    scheduled_date: Optional[str] = None  # ISO format for scheduled campaigns
+
+@api_router.post("/marketing/campaigns")
+async def create_campaign(
+    data: CampaignRequest,
+    authorization: Optional[str] = Header(None),
+    session_token: Optional[str] = Cookie(None)
+):
+    """Send marketing campaign to selected clients (filters by accepts_marketing automatically)"""
+    current_user = await get_current_user(authorization, session_token)
+    
+    if not data.client_ids:
+        raise HTTPException(status_code=400, detail="No clients selected")
+    
+    # Get clients and filter by accepts_marketing
+    clients = await db.clients.find(
+        {
+            "client_id": {"$in": data.client_ids},
+            "accepts_marketing": True  # Automatic filter
+        },
+        {"_id": 0}
+    ).to_list(1000)
+    
+    # Verify organization access
+    for client in clients:
+        if not await validate_organization_access(current_user, client["organization_id"]):
+            raise HTTPException(status_code=403, detail="Access denied to one or more clients")
+    
+    # Simulate sending (mock WhatsApp API)
+    sent_count = 0
+    failed_count = 0
+    
+    for client in clients:
+        try:
+            # Mock WhatsApp send
+            print(f"📱 [MOCK WhatsApp] Sending to {client['name']} ({client['phone']}): {data.message}")
+            sent_count += 1
+        except Exception as e:
+            print(f"❌ Failed to send to {client['phone']}: {str(e)}")
+            failed_count += 1
+    
+    return {
+        "status": "success",
+        "total_selected": len(data.client_ids),
+        "eligible_clients": len(clients),
+        "sent": sent_count,
+        "failed": failed_count,
+        "message": f"Campaña enviada a {sent_count} clientes"
+    }
+
+# ==================== END MARKETING ====================
 
 # Inventory Endpoints
 @api_router.get("/inventory")

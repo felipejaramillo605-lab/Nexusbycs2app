@@ -22,6 +22,7 @@ const ManagerBarbers = lazy(() => import('./pages/ManagerBarbers'));
 const ManagerInventory = lazy(() => import('./pages/ManagerInventory'));
 const ManagerClients = lazy(() => import('./pages/ManagerClients'));
 const AppointmentsHistory = lazy(() => import('./pages/AppointmentsHistory'));
+const BusinessProfile = lazy(() => import('./pages/BusinessProfile'));
 const BookingFlow = lazy(() => import('./pages/BookingFlow'));
 
 // Loading fallback
@@ -129,6 +130,14 @@ function App() {
             </div>
           </AuthProvider>
         </ThemeProvider>
+      </BrowserRouter>
+      <ReactQueryDevtools initialIsOpen={false} />
+    </QueryClientProvider>
+  );
+}
+
+export default App;
+r>
       </BrowserRouter>
       <ReactQueryDevtools initialIsOpen={false} />
     </QueryClientProvider>
