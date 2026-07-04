@@ -208,6 +208,13 @@ const ManagerDashboard = () => {
                 {selectedOrg && (
                   <>
                     <button
+                      onClick={() => navigate(user.role === 'owner' ? `/manager/appointments?org_id=${selectedOrg.organization_id}` : '/manager/appointments')}
+                      className="flex items-center gap-2 min-h-[44px] px-3 sm:px-4 py-2 rounded-xl bg-orange-500/20 border border-orange-500/30 hover:bg-orange-500/30 transition-all text-orange-300"
+                    >
+                      <Calendar size={18} strokeWidth={1.5} />
+                      <span className="hidden sm:inline text-sm">Historial Citas</span>
+                    </button>
+                    <button
                       onClick={() => navigate(user.role === 'owner' ? `/manager/clients?org_id=${selectedOrg.organization_id}` : '/manager/clients')}
                       className="flex items-center gap-2 min-h-[44px] px-3 sm:px-4 py-2 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 transition-all text-white"
                     >
@@ -275,6 +282,13 @@ const ManagerDashboard = () => {
                     )}
                     {selectedOrg && (
                       <>
+                        <button
+                          onClick={() => navigate(user.role === 'owner' ? `/manager/appointments?org_id=${selectedOrg.organization_id}` : '/manager/appointments')}
+                          className="w-full flex items-center gap-3 px-4 py-3 rounded-xl bg-orange-500/20 border border-orange-500/30 hover:bg-orange-500/30 transition-all text-left group"
+                        >
+                          <Calendar size={20} strokeWidth={1.5} className="text-orange-400" />
+                          <span className="text-white font-medium">Historial de Citas</span>
+                        </button>
                         <button
                           onClick={() => navigate(user.role === 'owner' ? `/manager/clients?org_id=${selectedOrg.organization_id}` : '/manager/clients')}
                           className="w-full flex items-center gap-3 px-4 py-3 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 transition-all text-left group"

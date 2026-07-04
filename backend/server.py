@@ -808,6 +808,39 @@ async def get_today_appointments(authorization: Optional[str] = Header(None), se
     today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
     return await get_appointments(date=today, authorization=authorization, session_token=session_token)
 
+@api_router.put("/appointments/{appointment_id}/status")
+async def update_appointment_status(
+    appointment_id: str, 
+    status: str,
+    authorization: Optional[str] = Header(None), 
+    session_token: Optional[str] = Cookie(None)
+):
+    """Update appointment status to 'completed' or 'cancelled'"""
+    current_user = await get_current_user(authorization, session_token)
+    
+    if status not in ["confirmed", "completed", "cancelled"]:
+        raise HTTPException(status_code=400, detail="Invalid status")
+    
+    # Get appointment
+    appointment = await db.appointments.find_one({"appointment_id": appointment_id}, {"_id": 0})
+    if not appointment:
+        raise HTTPException(status_code=404, detail="Appointment not found")
+    
+    # RLS: Validate organization access
+    if not await validate_organization_access(current_user, appointment["organization_id"]):
+        raise HTTPException(status_code=403, detail="Access denied")
+    
+    # Update status
+    result = await db.appointments.update_one(
+        {"appointment_id": appointment_id},
+        {"$set": {"status": status}}
+    )
+    
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Appointment not found")
+    
+    return {"message": f"Appointment status updated to {status}", "appointment_id": appointment_id, "status": status}
+
 # Statistics Endpoints
 @api_router.get("/statistics")
 async def get_statistics(start_date: str, end_date: str, organization_id: Optional[str] = None, authorization: Optional[str] = Header(None), session_token: Optional[str] = Cookie(None)):
@@ -827,7 +860,7 @@ async def get_statistics(start_date: str, end_date: str, organization_id: Option
     # Add date range
     query["date"] = {"$gte": start_date, "$lte": end_date}
     
-    # Get appointments
+    # Get appointments (exclude cancelled from revenue calculations)
     appointments = await db.appointments.find(query, {"_id": 0}).to_list(10000)
     
     # Calculate statistics
@@ -836,6 +869,10 @@ async def get_statistics(start_date: str, end_date: str, organization_id: Option
     barber_count = {}
     
     for apt in appointments:
+        # Skip cancelled appointments for revenue calculations
+        if apt.get("status") == "cancelled":
+            continue
+            
         # Get service info
         service = await db.services.find_one({"service_id": apt["service_id"]}, {"_id": 0})
         service_price = service["price"] if service else 0
