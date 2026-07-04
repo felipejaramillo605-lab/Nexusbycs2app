@@ -112,6 +112,15 @@ function AppRouter() {
           }
         />
         
+        <Route
+          path="/manager/business-profile"
+          element={
+            <ProtectedRoute>
+              <BusinessProfile />
+            </ProtectedRoute>
+          }
+        />
+        
         <Route path="/" element={<Navigate to="/login" replace />} />
       </Routes>
     </Suspense>
@@ -130,14 +139,6 @@ function App() {
             </div>
           </AuthProvider>
         </ThemeProvider>
-      </BrowserRouter>
-      <ReactQueryDevtools initialIsOpen={false} />
-    </QueryClientProvider>
-  );
-}
-
-export default App;
-r>
       </BrowserRouter>
       <ReactQueryDevtools initialIsOpen={false} />
     </QueryClientProvider>
