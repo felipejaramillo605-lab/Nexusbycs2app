@@ -106,6 +106,11 @@ class Organization(BaseModel):
     organization_id: str
     name: str
     owner_id: str
+    # Enhanced fields for business profile
+    address: Optional[str] = None
+    business_hours: Optional[str] = None  # JSON string: {"mon": "9:00-18:00", ...}
+    phone: Optional[str] = None
+    whatsapp_link: Optional[str] = None
     created_at: datetime
 
 class Service(BaseModel):
@@ -149,6 +154,7 @@ class Client(BaseModel):
     phone: str  # Primary identifier
     name: str
     email: Optional[str] = None
+    accepts_marketing: bool = True  # Opt-in for notifications/campaigns
     total_visits: int = 0
     last_visit: Optional[str] = None
     created_at: datetime
@@ -215,6 +221,25 @@ class RegisterRequest(BaseModel):
     email: str
     password: str
     name: str
+
+class OrganizationCreate(BaseModel):
+    name: str
+    address: Optional[str] = None
+    business_hours: Optional[str] = None
+    phone: Optional[str] = None
+    whatsapp_link: Optional[str] = None
+
+class OrganizationUpdate(BaseModel):
+    name: Optional[str] = None
+    address: Optional[str] = None
+    business_hours: Optional[str] = None
+    phone: Optional[str] = None
+    whatsapp_link: Optional[str] = None
+
+class PasswordlessLoginRequest(BaseModel):
+    phone: str
+    name: Optional[str] = None  # Only required for first-time registration
+    organization_id: str  # Required to know which barbershop
 
 class LoginRequest(BaseModel):
     email: str
@@ -538,6 +563,95 @@ async def create_organization(name: str, authorization: Optional[str] = Header(N
     
     org_doc["created_at"] = datetime.fromisoformat(org_doc["created_at"])
     return Organization(**org_doc)
+
+@api_router.put("/organizations/{organization_id}")
+async def update_organization_profile(
+    organization_id: str,
+    data: OrganizationUpdate,
+    authorization: Optional[str] = Header(None),
+    session_token: Optional[str] = Cookie(None)
+):
+    """Update organization business profile (owner/manager only)"""
+    current_user = await get_current_user(authorization, session_token)
+    
+    # Verify user belongs to this organization
+    if current_user.get("organization_id") != organization_id and current_user.get("role") != "owner":
+        raise HTTPException(status_code=403, detail="Access denied")
+    
+    update_data = {k: v for k, v in data.dict().items() if v is not None}
+    
+    if not update_data:
+        raise HTTPException(status_code=400, detail="No fields to update")
+    
+    result = await db.organizations.update_one(
+        {"organization_id": organization_id},
+        {"$set": update_data}
+    )
+    
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Organization not found")
+    
+    # Return updated organization
+    updated_org = await db.organizations.find_one({"organization_id": organization_id}, {"_id": 0})
+    return updated_org
+
+@api_router.get("/organizations/{organization_id}/public")
+async def get_organization_public(organization_id: str):
+    """Get organization details (public endpoint for booking flow)"""
+    org = await db.organizations.find_one({"organization_id": organization_id}, {"_id": 0})
+    if not org:
+        raise HTTPException(status_code=404, detail="Organization not found")
+    return org
+
+@api_router.post("/public/auth/passwordless")
+async def passwordless_login(data: PasswordlessLoginRequest):
+    """Passwordless authentication for clients using phone number"""
+    # Check if client exists
+    client = await db.clients.find_one(
+        {
+            "phone": data.phone,
+            "organization_id": data.organization_id
+        },
+        {"_id": 0}
+    )
+    
+    if client:
+        # Existing client - return client data
+        return {
+            "status": "existing",
+            "client": client,
+            "message": f"Bienvenido de nuevo, {client['name']}!"
+        }
+    else:
+        # New client - require name
+        if not data.name or not data.name.strip():
+            raise HTTPException(
+                status_code=400,
+                detail="name_required"
+            )
+        
+        # Create new client
+        from uuid import uuid4
+        new_client = {
+            "client_id": f"client_{uuid4().hex[:12]}",
+            "organization_id": data.organization_id,
+            "phone": data.phone,
+            "name": data.name.strip(),
+            "email": None,
+            "accepts_marketing": True,  # Opt-in by default
+            "total_visits": 0,
+            "last_visit": None,
+            "created_at": datetime.now(timezone.utc).isoformat(),
+            "updated_at": datetime.now(timezone.utc).isoformat()
+        }
+        
+        await db.clients.insert_one(new_client)
+        
+        return {
+            "status": "new",
+            "client": new_client,
+            "message": f"¡Bienvenido, {new_client['name']}! Tu cuenta ha sido creada."
+        }
 
 # Services Endpoints
 @api_router.get("/services")
@@ -996,6 +1110,7 @@ async def upsert_client(organization_id: str, phone: str, name: str, email: Opti
             "phone": phone,
             "name": name,
             "email": email,
+            "accepts_marketing": True,  # Default opt-in
             "total_visits": 1,
             "last_visit": datetime.now(timezone.utc).isoformat(),
             "created_at": datetime.now(timezone.utc).isoformat(),
@@ -1003,6 +1118,41 @@ async def upsert_client(organization_id: str, phone: str, name: str, email: Opti
         }
         await db.clients.insert_one(client_doc)
         return client_doc
+
+@api_router.get("/public/clients/history")
+async def get_client_history_public(phone: str, organization_id: str):
+    """Get client appointment history by phone number (public endpoint for customer portal)"""
+    # Find client by phone and org
+    client = await db.clients.find_one(
+        {"phone": phone, "organization_id": organization_id},
+        {"_id": 0}
+    )
+    
+    if not client:
+        return {"client": None, "appointments": []}
+    
+    # Get all appointments for this client
+    appointments = await db.appointments.find(
+        {
+            "customer_phone": phone,
+            "organization_id": organization_id
+        },
+        {"_id": 0}
+    ).sort("date", -1).to_list(1000)
+    
+    # Enrich with service and barber info
+    for apt in appointments:
+        service = await db.services.find_one({"service_id": apt["service_id"]}, {"_id": 0})
+        barber = await db.barbers.find_one({"barber_id": apt["barber_id"]}, {"_id": 0})
+        
+        apt["service_name"] = service["name"] if service else "Unknown"
+        apt["service_price"] = service["price"] if service else 0
+        apt["barber_name"] = barber["name"] if barber else "Unknown"
+    
+    return {
+        "client": client,
+        "appointments": appointments
+    }
 
 # ==================== END CLIENTS ENDPOINTS ====================
 
