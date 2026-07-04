@@ -72,6 +72,7 @@ export const inventoryAPI = {
 };
 
 export const publicAPI = {
+  getOrganization: (orgId) => axios.get(`${API}/public/${orgId}/organization`),
   getServices: (orgId) => axios.get(`${API}/public/${orgId}/services`),
   getBarbers: (orgId) => axios.get(`${API}/public/${orgId}/barbers`),
   getAvailability: (orgId, barberId, date, serviceId) => axios.get(`${API}/public/${orgId}/availability`, { params: { barber_id: barberId, date, service_id: serviceId } }),

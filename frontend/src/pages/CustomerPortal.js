@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { publicAPI } from '../api';
 import { Calendar, Clock, User, DollarSign, Phone, MapPin, ExternalLink, LogOut, CheckCircle, XCircle, Loader2 } from 'lucide-react';
@@ -17,18 +17,7 @@ const CustomerPortal = () => {
   const [appointments, setAppointments] = useState([]);
   const [businessInfo, setBusinessInfo] = useState(null);
 
-  useEffect(() => {
-    loadBusinessInfo();
-    
-    // Check if already logged in (session storage)
-    const savedPhone = sessionStorage.getItem(`nexus_customer_phone_${orgId}`);
-    if (savedPhone) {
-      setPhone(savedPhone);
-      handleLogin(savedPhone, true);
-    }
-  }, [orgId]);
-
-  const loadBusinessInfo = async () => {
+  const loadBusinessInfo = useCallback(async () => {
     try {
       const response = await publicAPI.getOrganization(orgId);
       setBusinessInfo(response.data);
@@ -36,9 +25,24 @@ const CustomerPortal = () => {
       console.error('Error loading business info:', error);
       toast.error('Error al cargar información del negocio');
     }
-  };
+  }, [orgId]);
 
-  const handleLogin = async (phoneNum = phone, skipStorage = false) => {
+  const loadHistory = useCallback(async (phoneNum) => {
+    try {
+      const response = await fetch(
+        `${process.env.REACT_APP_BACKEND_URL}/api/public/clients/history?phone=${encodeURIComponent(phoneNum)}&organization_id=${orgId}`
+      );
+      const data = await response.json();
+      
+      if (data.appointments) {
+        setAppointments(data.appointments);
+      }
+    } catch (error) {
+      console.error('Error loading history:', error);
+    }
+  }, [orgId]);
+
+  const handleLogin = useCallback(async (phoneNum = phone, skipStorage = false) => {
     if (!phoneNum || phoneNum.length < 10) {
       toast.error('Por favor ingresa un número de teléfono válido');
       return;
@@ -87,22 +91,18 @@ const CustomerPortal = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [phone, name, orgId, loadHistory]);
 
-  const loadHistory = async (phoneNum) => {
-    try {
-      const response = await fetch(
-        `${process.env.REACT_APP_BACKEND_URL}/api/public/clients/history?phone=${encodeURIComponent(phoneNum)}&organization_id=${orgId}`
-      );
-      const data = await response.json();
-      
-      if (data.appointments) {
-        setAppointments(data.appointments);
-      }
-    } catch (error) {
-      console.error('Error loading history:', error);
+  useEffect(() => {
+    loadBusinessInfo();
+    
+    // Check if already logged in (session storage)
+    const savedPhone = sessionStorage.getItem(`nexus_customer_phone_${orgId}`);
+    if (savedPhone) {
+      setPhone(savedPhone);
+      handleLogin(savedPhone, true);
     }
-  };
+  }, [orgId, loadBusinessInfo, handleLogin]);
 
   const handleLogout = () => {
     sessionStorage.removeItem(`nexus_customer_phone_${orgId}`);

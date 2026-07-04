@@ -1,0 +1,41 @@
+{
+  "summary": "Regression test of the two HIGH-priority bugs from iteration_14 (new-client _id leak on passwordless auth, and missing publicAPI.getOrganization causing business info to error). Both HIGH bugs are FIXED and verified end-to-end via curl + Playwright. Customer Portal now completes the full new-client E2E: phone+name entry -> 200 client creation -> logged-in dashboard with client name, phone, visit counter, appointment history, business-info card, and 'Reservar Nueva Cita' CTA. The MEDIUM 'two 401 on load' from iteration_14 is still present but is benign (from global AuthContext /api/auth/me probe for manager/owner session) and does NOT block the portal flow.",
+  "tested_scope": ["backend", "frontend", "integration"],
+  "passed": [
+    "GET /api/ -> 200 running",
+    "POST /api/public/auth/passwordless (new client with phone+name+org) -> 200 with clean client object, NO _id field leaked (HIGH bug from iter_14 FIXED)",
+    "POST /api/public/auth/passwordless (existing client) -> 200 status=existing with client payload",
+    "GET /api/public/org_demo001/organization -> 200 with {organization_id, name: 'Demo Org', owner_id, created_at} (new route works, HIGH bug FIXED)",
+    "PUT /api/clients/:id?accepts_marketing=false without auth -> 401 (auth guard intact)",
+    "Frontend /portal/org_demo001 loads, renders phone-login form and shows business name 'Demo Org' in header (business info now loads without error toast)",
+    "Full E2E new-client via UI: unique +57 phone + name 'Regression NewClient' -> welcome toast '¡Bienvenido, ... Tu cuenta ha sido creada.' -> dashboard rendered with 'Mi Cuenta', client name, phone, Total de Visitas 0, 'Reservar Nueva Cita' button, 'Información del Negocio' card, and 'Historial de Citas' empty-state with 'Reservar Primera Cita'",
+    "No 'Error al cargar información del negocio' toast on portal load (previous HIGH bug fixed)"
+  ],
+  "failed": [
+    {
+      "area": "Frontend / Portal initial load - non-blocking",
+      "issue": "Two 401 responses on GET /api/auth/me still fire on initial portal page load (before any user action). These originate from the global AuthContext probing for an existing manager/owner session and are not portal-specific. Cosmetic (visible in console) but does not surface to the user or block the passwordless flow.",
+      "evidence": "Console: 'Failed to load resource: the server responded with a status of 401' x2 on GET /portal/org_demo001. No user-facing error. Portal renders and works correctly.",
+      "priority": "LOW"
+    }
+  ],
+  "action_items": [
+    "Optional: silence the two /api/auth/me 401s on public /portal/:orgId pages by skipping the AuthContext session probe on public routes, OR by treating 401 as expected/anonymous instead of logging as error. Non-blocking - defer to full testing pass."
+  ],
+  "success_rate": {"backend": "100% (5/5 checks passed)", "frontend": "100% for tested happy path (login + new-client E2E + dashboard render). Marketing UI + Reservar Nueva Cita -> /book navigation not re-clicked due to a Playwright phone-widget entry quirk on the second run, but the underlying route+button are present and iteration_13 previously verified /book flow works."},
+  "retest_needed": false,
+  "full_testing_deferred": true,
+  "not_tested_due_to_blockers_or_auth": [
+    "Marketing Campaigns page UI (requires Google OAuth manager/owner - cannot automate)",
+    "ManagerClients marketing toggle in UI (requires login)",
+    "Marketing button visibility on ManagerDashboard (requires login)",
+    "Authenticated PUT /api/clients/:id?accepts_marketing=true happy-path (requires valid session cookie)"
+  ],
+  "verified_fixes": [
+    "server.py ~L649: new_client.pop('_id', None) - CONFIRMED (200 with clean JSON)",
+    "server.py ~L598: /public/{id}/organization route - CONFIRMED (200 with org payload)",
+    "api/index.js L75: publicAPI.getOrganization - CONFIRMED ('Demo Org' rendered on portal)",
+    "CustomerPortal.js useCallback refactor - CONFIRMED (no error toast, dashboard renders after login)"
+  ],
+  "test_credentials": "Present in /app/memory/test_credentials.md. Google OAuth not automated; auth-gated features deferred to full test pass."
+}

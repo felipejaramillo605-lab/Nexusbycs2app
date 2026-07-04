@@ -595,7 +595,7 @@ async def update_organization_profile(
     updated_org = await db.organizations.find_one({"organization_id": organization_id}, {"_id": 0})
     return updated_org
 
-@api_router.get("/organizations/{organization_id}/public")
+@api_router.get("/public/{organization_id}/organization")
 async def get_organization_public(organization_id: str):
     """Get organization details (public endpoint for booking flow)"""
     org = await db.organizations.find_one({"organization_id": organization_id}, {"_id": 0})
@@ -646,6 +646,7 @@ async def passwordless_login(data: PasswordlessLoginRequest):
         }
         
         await db.clients.insert_one(new_client)
+        new_client.pop('_id', None)  # Remove MongoDB _id before returning
         
         return {
             "status": "new",
