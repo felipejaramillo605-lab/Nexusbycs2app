@@ -1,0 +1,49 @@
+{
+  "summary": "Latency-sensitive smoke test on new Customer Portal, Marketing Campaigns, Marketing Toggle, and related backend endpoints. Backend root healthy. Two HIGH-priority blockers found that break the primary Customer Portal flow end-to-end. Auth-required flows (Marketing page, Manager Clients toggle in UI, Dashboard nav) were NOT tested via UI because Google OAuth login cannot be automated in this environment; backend endpoints for those were sanity-checked (auth guarded correctly).",
+  "tested_scope": ["frontend", "backend", "integration"],
+  "passed": [
+    "GET /api/ returns 200 with expected running status",
+    "POST /api/public/auth/passwordless correctly returns 400 'name_required' when phone not found and no name provided (existing-client path reachable)",
+    "PUT /api/clients/:id?accepts_marketing= correctly returns 401 when unauthenticated (auth guard present)",
+    "POST /api/marketing/campaigns correctly returns 422 for missing body fields (validation working, endpoint reachable)",
+    "CustomerPortal (/portal/:orgId) route loads and renders phone-login UI with react-phone-number-input, name field, and Ingresar button",
+    "Frontend form submission wires to backend and surfaces server errors as toasts (e.g. 'Por favor ingresa tu nombre' on 400)"
+  ],
+  "failed": [
+    {
+      "area": "Backend / POST /api/public/auth/passwordless (new client creation)",
+      "issue": "Returns HTTP 500 when creating a NEW client. MongoDB insert_one mutates the new_client dict by injecting an ObjectId _id, then FastAPI's jsonable_encoder fails with: ValueError: [TypeError(\"'ObjectId' object is not iterable\"), TypeError('vars() argument must have __dict__ attribute')]. Fix: pop or exclude '_id' from new_client before returning (e.g. new_client.pop('_id', None) after insert, or build a response dict without _id).",
+      "evidence": "curl POST /api/public/auth/passwordless with {phone, name, organization_id} -> 500 'Internal Server Error'. Backend traceback in /var/log/supervisor/backend.err.log at server.py lines ~633-654.",
+      "priority": "HIGH"
+    },
+    {
+      "area": "Frontend / CustomerPortal.js loadBusinessInfo",
+      "issue": "TypeError: publicAPI.getOrganization is not a function. CustomerPortal.js line ~33 calls publicAPI.getOrganization(orgId), but /app/frontend/src/api/index.js exports publicAPI with only getServices, getBarbers, getAvailability, createAppointment, getAppointment, cancelAppointment. Method must be added (e.g. getOrganization: (orgId) => axios.get(`${API}/public/${orgId}/organization`)) and/or a corresponding backend public endpoint must exist. Currently the portal shows a red 'Error al cargar información del negocio' toast on every load and the business-info card cannot render.",
+      "evidence": "Browser console: 'Error loading business info: TypeError: _api__WEBPACK_IMPORTED_MODULE_2__.publicAPI.getOrganization is not a function' on GET /portal/test-org-123. Toast 'Error al cargar información del negocio' shown in top-right.",
+      "priority": "HIGH"
+    },
+    {
+      "area": "Frontend / CustomerPortal.js initial load",
+      "issue": "Two 401 responses fire on portal page load before user logs in. Likely a protected endpoint (e.g. /api/clients/history or similar) being called without a valid session token. Should be guarded to only call after successful passwordless login, or should use a truly public endpoint.",
+      "evidence": "Browser console shows two 'Failed to load resource: the server responded with a status of 401' on GET /portal/:orgId before any user interaction.",
+      "priority": "MEDIUM"
+    }
+  ],
+  "action_items": [
+    "Backend: In POST /api/public/auth/passwordless (server.py ~lines 633-654), strip Mongo _id from new_client before returning. Simplest fix: add `new_client.pop('_id', None)` right after `await db.clients.insert_one(new_client)`. This unblocks new-client signup which is the entire point of the passwordless portal.",
+    "Frontend: Add `getOrganization: (orgId) => axios.get(`${API}/public/${orgId}/organization`)` (or equivalent) to publicAPI in /app/frontend/src/api/index.js, AND confirm/create the matching backend public endpoint returning business name, address, hours, WhatsApp link.",
+    "Frontend: Audit CustomerPortal.js useEffect chain to ensure no auth-protected endpoint is called before login (fix the two 401s on load).",
+    "After both fixes, re-test: (a) existing-client login round-trip, (b) new-client creation returns 200 with client object (no _id leaked), (c) business info card renders, (d) 'Book New Appointment' navigation, (e) then proceed to auth-gated Marketing Campaigns & Marketing Toggle flows."
+  ],
+  "success_rate": {"backend": "50% (2/4 relevant checks passed; new-client passwordless flow broken)", "frontend": "40% (portal renders and form wired, but business info + new-client creation broken end-to-end)"},
+  "retest_needed": true,
+  "full_testing_deferred": true,
+  "not_tested_due_to_blockers_or_auth": [
+    "Marketing Campaigns page UI (requires manager/owner Google OAuth login)",
+    "ManagerClients marketing toggle UI (desktop & mobile) - requires login",
+    "ManagerDashboard 'Marketing' button visibility - requires login",
+    "org_id query preservation on navigation - requires login",
+    "Full customer portal dashboard (visits, appointment history, business info) - blocked by the two HIGH-priority bugs above"
+  ],
+  "test_credentials": "Present in /app/memory/test_credentials.md; Google OAuth cannot be automated in this env, so auth-gated UI flows are deferred."
+}

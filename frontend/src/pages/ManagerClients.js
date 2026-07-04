@@ -2,7 +2,7 @@ import React, { useEffect, useState, useCallback } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { clientAPI, organizationAPI } from '../api';
-import { Users, LogOut, ArrowLeft, Phone, Mail, Calendar, MessageSquare, Send, Eye, CheckCircle } from 'lucide-react';
+import { Users, LogOut, ArrowLeft, Phone, Mail, Calendar, MessageSquare, Send, Eye, CheckCircle, Bell, BellOff, Loader2 } from 'lucide-react';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '../components/ui/sheet';
 import { toast } from 'sonner';
 import whatsappService, { MESSAGE_TEMPLATES } from '../services/whatsappService';
@@ -21,6 +21,7 @@ const ManagerClients = () => {
   const [customMessage, setCustomMessage] = useState('');
   const [sendingMessage, setSendingMessage] = useState(false);
   const [organizationName, setOrganizationName] = useState('');
+  const [togglingMarketing, setTogglingMarketing] = useState(null); // client_id being toggled
 
   // Get org_id from query param (for owner) or user.organization_id (for manager)
   const organizationId = searchParams.get('org_id') || user?.organization_id;
@@ -121,6 +122,43 @@ const ManagerClients = () => {
       console.error(error);
     } finally {
       setSendingMessage(false);
+    }
+  };
+
+  const handleToggleMarketing = async (client) => {
+    setTogglingMarketing(client.client_id);
+    try {
+      const response = await fetch(
+        `${process.env.REACT_APP_BACKEND_URL}/api/clients/${client.client_id}?accepts_marketing=${!client.accepts_marketing}`,
+        {
+          method: 'PUT',
+          credentials: 'include',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+        }
+      );
+
+      if (response.ok) {
+        // Update local state
+        setClients(clients.map(c => 
+          c.client_id === client.client_id 
+            ? { ...c, accepts_marketing: !c.accepts_marketing }
+            : c
+        ));
+        toast.success(
+          client.accepts_marketing 
+            ? 'Notificaciones desactivadas' 
+            : 'Notificaciones activadas'
+        );
+      } else {
+        throw new Error('Failed to update');
+      }
+    } catch (error) {
+      console.error('Error toggling marketing:', error);
+      toast.error('Error al actualizar preferencias');
+    } finally {
+      setTogglingMarketing(null);
     }
   };
 
@@ -252,6 +290,33 @@ const ManagerClients = () => {
                         </div>
                       </td>
                       <td className="px-6 py-4">
+                        <div className="flex items-center justify-center">
+                          <button
+                            onClick={() => handleToggleMarketing(client)}
+                            disabled={togglingMarketing === client.client_id}
+                            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-[#0A84FF] focus:ring-offset-2 focus:ring-offset-[#0A0A0A] disabled:opacity-50 ${
+                              client.accepts_marketing ? 'bg-green-500' : 'bg-zinc-700'
+                            }`}
+                            title={client.accepts_marketing ? 'Notificaciones activadas' : 'Notificaciones desactivadas'}
+                          >
+                            {togglingMarketing === client.client_id ? (
+                              <Loader2 size={14} className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 text-white animate-spin" />
+                            ) : (
+                              <>
+                                <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                                  client.accepts_marketing ? 'translate-x-6' : 'translate-x-1'
+                                }`} />
+                                {client.accepts_marketing ? (
+                                  <Bell size={12} className="absolute left-1 text-white" />
+                                ) : (
+                                  <BellOff size={12} className="absolute right-1 text-zinc-400" />
+                                )}
+                              </>
+                            )}
+                          </button>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4">
                         <div className="flex items-center justify-end gap-2">
                           <Sheet>
                             <SheetTrigger asChild>
@@ -361,10 +426,33 @@ const ManagerClients = () => {
                         </div>
                       )}
                     </div>
-                    <div className="text-right">
+                    <div className="text-right flex flex-col items-end gap-2">
                       <div className="px-2 py-1 rounded-full bg-[#0A84FF]/20 text-[#0A84FF] text-xs font-medium">
                         {client.total_visits} visitas
                       </div>
+                      <button
+                        onClick={() => handleToggleMarketing(client)}
+                        disabled={togglingMarketing === client.client_id}
+                        className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none disabled:opacity-50 ${
+                          client.accepts_marketing ? 'bg-green-500' : 'bg-zinc-700'
+                        }`}
+                        title={client.accepts_marketing ? 'Notificaciones activadas' : 'Notificaciones desactivadas'}
+                      >
+                        {togglingMarketing === client.client_id ? (
+                          <Loader2 size={14} className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 text-white animate-spin" />
+                        ) : (
+                          <>
+                            <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                              client.accepts_marketing ? 'translate-x-6' : 'translate-x-1'
+                            }`} />
+                            {client.accepts_marketing ? (
+                              <Bell size={12} className="absolute left-1 text-white" />
+                            ) : (
+                              <BellOff size={12} className="absolute right-1 text-zinc-400" />
+                            )}
+                          </>
+                        )}
+                      </button>
                     </div>
                   </div>
                   

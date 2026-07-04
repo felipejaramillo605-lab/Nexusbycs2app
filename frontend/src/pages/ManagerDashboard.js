@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { appointmentAPI, organizationAPI, serviceAPI, barberAPI } from '../api';
-import { Calendar, DollarSign, Users, LogOut, Menu, Scissors, Package, Monitor, Smartphone, Building } from 'lucide-react';
+import { Calendar, DollarSign, Users, LogOut, Menu, Scissors, Package, Monitor, Smartphone, Building, MessageSquare } from 'lucide-react';
 import { MANAGER, AUTH } from '../constants/testIds';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '../components/ui/sheet';
 import ThemeToggle from '../components/ThemeToggle';
@@ -229,6 +229,13 @@ const ManagerDashboard = () => {
                       <span className="hidden sm:inline text-sm">Clientes</span>
                     </button>
                     <button
+                      onClick={() => navigate(user.role === 'owner' ? `/manager/marketing?org_id=${selectedOrg.organization_id}` : '/manager/marketing')}
+                      className="flex items-center gap-2 min-h-[44px] px-3 sm:px-4 py-2 rounded-xl bg-green-500/20 border border-green-500/30 hover:bg-green-500/30 transition-all text-green-400"
+                    >
+                      <MessageSquare size={18} strokeWidth={1.5} />
+                      <span className="hidden sm:inline text-sm">Marketing</span>
+                    </button>
+                    <button
                       onClick={() => navigate(user.role === 'owner' ? `/manager/services?org_id=${selectedOrg.organization_id}` : '/manager/services')}
                       className="flex items-center gap-2 min-h-[44px] px-3 sm:px-4 py-2 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 transition-all text-white"
                     >
@@ -302,6 +309,13 @@ const ManagerDashboard = () => {
                         >
                           <Users size={20} strokeWidth={1.5} className="text-zinc-400 group-hover:text-[#0A84FF] transition-colors" />
                           <span className="text-white font-medium">Clientes</span>
+                        </button>
+                        <button
+                          onClick={() => navigate(user.role === 'owner' ? `/manager/marketing?org_id=${selectedOrg.organization_id}` : '/manager/marketing')}
+                          className="w-full flex items-center gap-3 px-4 py-3 rounded-xl bg-green-500/20 border border-green-500/30 hover:bg-green-500/30 transition-all text-left"
+                        >
+                          <MessageSquare size={20} strokeWidth={1.5} className="text-green-400" />
+                          <span className="text-white font-medium">Campañas de Marketing</span>
                         </button>
                         <button
                           onClick={() => navigate(user.role === 'owner' ? `/manager/services?org_id=${selectedOrg.organization_id}` : '/manager/services')}

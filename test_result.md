@@ -188,23 +188,102 @@ test_plan:
 agent_communication:
   - agent: "main"
     message: |
-      Completed implementation of all P0, P1, and P2 tasks from handoff summary:
+      NEW SESSION - Forked agent continuing development.
       
-      P0 (COMPLETED):
-      - Weekly Calendar View: Fully implemented with grid layout, barber filtering,
-        week navigation, and appointment visualization. Needs UI testing.
+      COMPLETED IN THIS SESSION (P0 Priority):
       
-      P1 (COMPLETED):
-      - UI Spacing: Improved filter layout in ManagerDashboard with better spacing
-      - Date Filters: Already functional from previous implementation
+      1. ✅ Python Code Quality Issues Fixed:
+         - Removed unused variables in server.py (current_user, slots_needed)
+         - All Python linter checks now pass
       
-      P2 (COMPLETED):
-      - WhatsApp Mock: Already implemented in BookingFlow success screen
+      2. ✅ Marketing Toggle in ManagerClients.js:
+         - Added marketing opt-out toggle in BOTH desktop and mobile views
+         - Toggle updates accepts_marketing flag via PUT /api/clients/{client_id}
+         - Visual feedback with Bell/BellOff icons and loading states
       
-      Please test the Weekly Calendar component and UI spacing improvements to verify
-      visual rendering, interactions, and responsive behavior. Focus on:
-      1. Weekly Calendar renders correctly with proper grid layout
-      2. Filter buttons show improved spacing between Servicios and Barberos sections
-      3. Calendar navigation (prev/next week, today button) works properly
-      4. Barber filter dropdown functions correctly
-      5. Appointments display in correct time slots with proper details
+      3. ✅ Customer Portal with Passwordless Auth (NEW FEATURE):
+         - Created /app/frontend/src/pages/CustomerPortal.js
+         - Route: /portal/:orgId (public, no auth required)
+         - Features:
+           * Phone-based passwordless login
+           * Auto-creates client if new (requires name)
+           * Session storage for logged-in state
+           * Displays client info (name, phone, total visits)
+           * Appointment history with status indicators
+           * Business info card (address, hours, WhatsApp link)
+           * Button to book new appointments
+         - Backend endpoints used:
+           * POST /api/public/auth/passwordless (existing)
+           * GET /api/public/clients/history (existing)
+      
+      4. ✅ Marketing Campaigns Manager (NEW FEATURE):
+         - Created /app/frontend/src/pages/MarketingCampaigns.js
+         - Route: /manager/marketing (protected, manager/owner only)
+         - Features:
+           * Lists all clients with accepts_marketing=true
+           * Multi-select clients with "Select All" option
+           * 3 message templates: Reminder, Reactivation, Promotion
+           * Custom message composer
+           * Live message preview
+           * Bulk send via POST /api/marketing/campaigns
+           * Mock mode indicator (WhatsApp service simulation)
+         - Added navigation button in ManagerDashboard (desktop + mobile)
+      
+      5. ✅ App.js Routes Updated:
+         - Added lazy-loaded CustomerPortal component
+         - Added lazy-loaded MarketingCampaigns component
+         - Added /portal/:orgId route (public)
+         - Added /manager/marketing route (protected)
+      
+      TESTING REQUIRED:
+      Please test the following flows end-to-end:
+      
+      1. Marketing Toggle (Frontend + Backend):
+         - Login as manager/owner
+         - Navigate to Clientes
+         - Toggle accepts_marketing for a client (desktop AND mobile)
+         - Verify toggle updates correctly
+         - Check backend DB to confirm accepts_marketing flag changes
+      
+      2. Customer Portal (Frontend + Backend E2E):
+         - Navigate to /portal/{org_id} (use existing org from DB)
+         - Enter phone number (try existing client phone)
+         - Verify existing client login flow
+         - Try new client flow (provide name)
+         - Verify client info displays correctly
+         - Check appointment history displays
+         - Verify business info card shows
+         - Test WhatsApp link opens
+         - Test "Book New Appointment" button navigation
+         - Test logout and re-login with session storage
+      
+      3. Marketing Campaigns (Frontend + Backend E2E):
+         - Login as manager/owner
+         - Click "Marketing" button from dashboard
+         - Verify only clients with accepts_marketing=true appear
+         - Select multiple clients
+         - Test "Select All" functionality
+         - Switch between message templates
+         - Write custom message
+         - Send campaign
+         - Verify backend receives request correctly
+         - Check console for mock WhatsApp messages
+      
+      4. Navigation Flow:
+         - Verify all new routes accessible
+         - Test org_id query parameter preservation for owners
+         - Test back navigation from new pages
+      
+      KNOWN LIMITATIONS:
+      - WhatsApp service is MOCKED (messages log to console)
+      - No real SMS/WhatsApp integration yet
+      
+      FILES CREATED:
+      - /app/frontend/src/pages/CustomerPortal.js (435 lines)
+      - /app/frontend/src/pages/MarketingCampaigns.js (404 lines)
+      
+      FILES MODIFIED:
+      - /app/frontend/src/App.js (added routes)
+      - /app/frontend/src/pages/ManagerDashboard.js (added marketing button)
+      - /app/frontend/src/pages/ManagerClients.js (added mobile toggle)
+      - /app/backend/server.py (removed unused variables)

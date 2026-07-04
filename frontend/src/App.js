@@ -24,6 +24,8 @@ const ManagerClients = lazy(() => import('./pages/ManagerClients'));
 const AppointmentsHistory = lazy(() => import('./pages/AppointmentsHistory'));
 const BusinessProfile = lazy(() => import('./pages/BusinessProfile'));
 const BookingFlow = lazy(() => import('./pages/BookingFlow'));
+const CustomerPortal = lazy(() => import('./pages/CustomerPortal'));
+const MarketingCampaigns = lazy(() => import('./pages/MarketingCampaigns'));
 
 // Loading fallback
 const PageLoader = () => (
@@ -48,6 +50,7 @@ function AppRouter() {
         <Route path="/pending-approval" element={<PendingApproval />} />
         <Route path="/auth/callback" element={<AuthCallback />} />
         <Route path="/book/:orgId" element={<BookingFlow />} />
+        <Route path="/portal/:orgId" element={<CustomerPortal />} />
         
         <Route
           path="/owner/access-control"
@@ -117,6 +120,15 @@ function AppRouter() {
           element={
             <ProtectedRoute>
               <BusinessProfile />
+            </ProtectedRoute>
+          }
+        />
+        
+        <Route
+          path="/manager/marketing"
+          element={
+            <ProtectedRoute>
+              <MarketingCampaigns />
             </ProtectedRoute>
           }
         />

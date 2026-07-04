@@ -834,7 +834,7 @@ async def delete_barber(barber_id: str, authorization: Optional[str] = Header(No
 # Blocked Times Endpoints
 @api_router.get("/barbers/{barber_id}/blocked-times")
 async def get_blocked_times(barber_id: str, date: Optional[str] = None, authorization: Optional[str] = Header(None), session_token: Optional[str] = Cookie(None)):
-    current_user = await get_current_user(authorization, session_token)
+    await get_current_user(authorization, session_token)
     
     query = {"barber_id": barber_id}
     if date:
@@ -879,7 +879,7 @@ async def create_blocked_time(barber_id: str, data: BlockedTimeCreate, authoriza
 
 @api_router.delete("/barbers/{barber_id}/blocked-times/{block_id}")
 async def delete_blocked_time(barber_id: str, block_id: str, authorization: Optional[str] = Header(None), session_token: Optional[str] = Cookie(None)):
-    current_user = await get_current_user(authorization, session_token)
+    await get_current_user(authorization, session_token)
     await db.blocked_times.delete_one({"block_id": block_id, "barber_id": barber_id})
     return {"message": "Blocked time deleted"}
 
@@ -1510,7 +1510,6 @@ async def create_public_appointment(org_id: str, data: AppointmentCreate):
     # Parse the requested time
     hour, minute = map(int, data.time.split(":"))
     start_minutes = hour * 60 + minute
-    slots_needed = (service_duration + 29) // 30
     
     # Get current appointments
     appointments = await db.appointments.find({
