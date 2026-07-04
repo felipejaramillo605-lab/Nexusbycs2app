@@ -25,7 +25,7 @@ const BusinessProfile = () => {
     
     try {
       const response = await fetch(
-        `${process.env.REACT_APP_BACKEND_URL}/api/organizations/${organizationId}/public`
+        `${process.env.REACT_APP_BACKEND_URL}/api/public/${organizationId}/organization`
       );
       
       if (response.ok) {

@@ -945,6 +945,9 @@ async def update_appointment_status(
     if not await validate_organization_access(current_user, appointment["organization_id"]):
         raise HTTPException(status_code=403, detail="Access denied")
     
+    # Store previous status to check if this is a new completion
+    previous_status = appointment.get("status")
+    
     # Update status
     result = await db.appointments.update_one(
         {"appointment_id": appointment_id},
@@ -953,6 +956,24 @@ async def update_appointment_status(
     
     if result.matched_count == 0:
         raise HTTPException(status_code=404, detail="Appointment not found")
+    
+    # If marking as completed for the first time, increment client's total_visits
+    if status == "completed" and previous_status != "completed":
+        customer_phone = appointment.get("customer_phone")
+        if customer_phone:
+            await db.clients.update_one(
+                {
+                    "phone": customer_phone,
+                    "organization_id": appointment["organization_id"]
+                },
+                {
+                    "$inc": {"total_visits": 1},
+                    "$set": {
+                        "last_visit": appointment.get("date"),
+                        "updated_at": datetime.now(timezone.utc).isoformat()
+                    }
+                }
+            )
     
     return {"message": f"Appointment status updated to {status}", "appointment_id": appointment_id, "status": status}
 
@@ -1125,10 +1146,9 @@ async def upsert_client(organization_id: str, phone: str, name: str, email: Opti
     existing = await db.clients.find_one({"organization_id": organization_id, "phone": phone}, {"_id": 0})
     
     if existing:
-        # Update existing client
+        # Update existing client (don't increment visits here - only on appointment completion)
         update_data = {
             "name": name,
-            "total_visits": existing.get("total_visits", 0) + 1,
             "last_visit": datetime.now(timezone.utc).isoformat(),
             "updated_at": datetime.now(timezone.utc).isoformat()
         }
@@ -1150,8 +1170,8 @@ async def upsert_client(organization_id: str, phone: str, name: str, email: Opti
             "name": name,
             "email": email,
             "accepts_marketing": True,  # Default opt-in
-            "total_visits": 1,
-            "last_visit": datetime.now(timezone.utc).isoformat(),
+            "total_visits": 0,  # Starts at 0, increments only when appointments are completed
+            "last_visit": None,
             "created_at": datetime.now(timezone.utc).isoformat(),
             "updated_at": datetime.now(timezone.utc).isoformat()
         }
