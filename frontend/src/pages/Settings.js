@@ -35,14 +35,22 @@ const Settings = () => {
       
       if (response.ok) {
         const data = await response.json();
+        console.log('✅ Organization data loaded:', data);
         setProfileData({
           name: data.name || '',
           address: data.address || '',
           phone: data.phone || '',
         });
+      } else {
+        const errorData = await response.json();
+        console.error('❌ ERROR AL CARGAR ORGANIZACIÓN:', {
+          status: response.status,
+          errorData: errorData,
+          organizationId: organizationId
+        });
       }
     } catch (error) {
-      console.error('Error loading organization:', error);
+      console.error('❌ CATCH ERROR AL CARGAR ORGANIZACIÓN:', error);
       toast.error('Error al cargar configuración');
     }
   }, [organizationId]);
@@ -56,12 +64,20 @@ const Settings = () => {
 
       if (response.ok) {
         const data = await response.json();
+        console.log('✅ Team members loaded:', data);
         // Filter users by organization
         const orgMembers = data.filter(u => u.organization_id === organizationId);
+        console.log('✅ Filtered org members:', orgMembers);
         setTeamMembers(orgMembers);
+      } else {
+        const errorData = await response.json();
+        console.error('❌ ERROR AL CARGAR EQUIPO:', {
+          status: response.status,
+          errorData: errorData
+        });
       }
     } catch (error) {
-      console.error('Error loading team:', error);
+      console.error('❌ CATCH ERROR AL CARGAR EQUIPO:', error);
     } finally {
       setLoading(false);
     }
@@ -94,11 +110,19 @@ const Settings = () => {
       if (response.ok) {
         toast.success('✅ Perfil actualizado correctamente');
       } else {
-        throw new Error('Failed to update');
+        const errorData = await response.json();
+        console.error('❌ ERROR AL ACTUALIZAR PERFIL:', {
+          status: response.status,
+          statusText: response.statusText,
+          errorData: errorData,
+          sentData: profileData,
+          organizationId: organizationId
+        });
+        throw new Error(errorData.detail || 'Failed to update');
       }
     } catch (error) {
-      console.error('Error updating profile:', error);
-      toast.error('Error al actualizar el perfil');
+      console.error('❌ CATCH ERROR AL ACTUALIZAR PERFIL:', error);
+      toast.error(`Error al actualizar el perfil: ${error.message}`);
     } finally {
       setSaving(false);
     }
@@ -120,15 +144,15 @@ const Settings = () => {
     setUpdatingRole(userId);
     
     try {
+      // CORRECCIÓN: El backend espera 'role' como query parameter, no como JSON body
       const response = await fetch(
-        `${process.env.REACT_APP_BACKEND_URL}/api/owner/users/${userId}/role`,
+        `${process.env.REACT_APP_BACKEND_URL}/api/owner/users/${userId}/role?role=${encodeURIComponent(newRole)}`,
         {
           method: 'PUT',
           credentials: 'include',
           headers: {
             'Content-Type': 'application/json',
           },
-          body: JSON.stringify({ role: newRole }),
         }
       );
 
@@ -136,13 +160,22 @@ const Settings = () => {
         setTeamMembers(teamMembers.map(m => 
           m.user_id === userId ? { ...m, role: newRole } : m
         ));
-        toast.success('Rol actualizado');
+        toast.success('Rol actualizado correctamente');
       } else {
-        throw new Error('Failed to update role');
+        const errorData = await response.json();
+        console.error('❌ ERROR AL ACTUALIZAR ROL:', {
+          status: response.status,
+          statusText: response.statusText,
+          errorData: errorData,
+          userId: userId,
+          newRole: newRole,
+          endpoint: `${process.env.REACT_APP_BACKEND_URL}/api/owner/users/${userId}/role?role=${newRole}`
+        });
+        throw new Error(errorData.detail || 'Failed to update role');
       }
     } catch (error) {
-      console.error('Error updating role:', error);
-      toast.error('Error al actualizar el rol');
+      console.error('❌ CATCH ERROR AL ACTUALIZAR ROL:', error);
+      toast.error(`Error al actualizar el rol: ${error.message}`);
     } finally {
       setUpdatingRole(null);
     }
