@@ -26,6 +26,7 @@ const BusinessProfile = lazy(() => import('./pages/BusinessProfile'));
 const BookingFlow = lazy(() => import('./pages/BookingFlow'));
 const CustomerPortal = lazy(() => import('./pages/CustomerPortal'));
 const MarketingCampaigns = lazy(() => import('./pages/MarketingCampaigns'));
+const Settings = lazy(() => import('./pages/Settings'));
 
 // Loading fallback
 const PageLoader = () => (
@@ -129,6 +130,15 @@ function AppRouter() {
           element={
             <ProtectedRoute>
               <MarketingCampaigns />
+            </ProtectedRoute>
+          }
+        />
+        
+        <Route
+          path="/manager/settings"
+          element={
+            <ProtectedRoute>
+              <Settings />
             </ProtectedRoute>
           }
         />

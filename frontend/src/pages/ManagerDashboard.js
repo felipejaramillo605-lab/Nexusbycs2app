@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { appointmentAPI, organizationAPI, serviceAPI, barberAPI } from '../api';
-import { Calendar, DollarSign, Users, LogOut, Menu, Scissors, Package, Monitor, Smartphone, Building, MessageSquare } from 'lucide-react';
+import { Calendar, DollarSign, Users, LogOut, Menu, Scissors, Package, Monitor, Smartphone, Building, MessageSquare, Settings } from 'lucide-react';
 import { MANAGER, AUTH } from '../constants/testIds';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '../components/ui/sheet';
 import ThemeToggle from '../components/ThemeToggle';
@@ -259,6 +259,13 @@ const ManagerDashboard = () => {
                   </>
                 )}
                 <button
+                  onClick={() => navigate(user.role === 'owner' ? `/manager/settings?org_id=${selectedOrg.organization_id}` : '/manager/settings')}
+                  className="flex items-center gap-2 min-h-[44px] px-3 sm:px-4 py-2 rounded-xl bg-zinc-500/10 border border-zinc-500/20 hover:bg-zinc-500/20 transition-all text-zinc-300"
+                >
+                  <Settings size={18} strokeWidth={1.5} />
+                  <span className="hidden sm:inline text-sm">Configuración</span>
+                </button>
+                <button
                   data-testid={AUTH.logoutBtn}
                   onClick={handleLogout}
                   className="flex items-center gap-2 min-h-[44px] px-3 sm:px-4 py-2 rounded-xl bg-red-500/10 border border-red-500/20 hover:bg-red-500/20 transition-all text-red-400"
@@ -341,6 +348,13 @@ const ManagerDashboard = () => {
                       </>
                     )}
                     <div className="border-t border-white/10 my-4"></div>
+                    <button
+                      onClick={() => navigate(user.role === 'owner' ? `/manager/settings?org_id=${selectedOrg.organization_id}` : '/manager/settings')}
+                      className="w-full flex items-center gap-3 px-4 py-3 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 transition-all text-left group"
+                    >
+                      <Settings size={20} strokeWidth={1.5} className="text-zinc-400 group-hover:text-[#0A84FF] transition-colors" />
+                      <span className="text-white font-medium">Configuración</span>
+                    </button>
                     <button
                       onClick={handleLogout}
                       className="w-full flex items-center gap-3 px-4 py-3 rounded-xl bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 transition-all text-left group"

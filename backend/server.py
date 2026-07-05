@@ -41,7 +41,7 @@ class User(BaseModel):
     picture: Optional[str] = None
     password_hash: Optional[str] = None  # For manual auth
     auth_method: str = "google"  # google, apple, manual
-    role: str = "manager"
+    role: str = "manager"  # owner, manager, admin, staff
     access_status: str = "pending"  # pending, approved, rejected
     organization_id: Optional[str] = None
     created_at: datetime
@@ -520,6 +520,31 @@ async def delete_user(user_id: str, authorization: Optional[str] = Header(None),
     await db.users.delete_one({"user_id": user_id})
     await db.user_sessions.delete_many({"user_id": user_id})
     return {"message": "User deleted"}
+
+@api_router.put("/owner/users/{user_id}/role")
+async def update_user_role(
+    user_id: str, 
+    role: str,
+    authorization: Optional[str] = Header(None), 
+    session_token: Optional[str] = Cookie(None)
+):
+    """Update user role (owner/admin only)"""
+    current_user = await get_current_user(authorization, session_token)
+    if current_user.role not in ["owner", "admin"]:
+        raise HTTPException(status_code=403, detail="Access denied")
+    
+    if role not in ["owner", "manager", "admin", "staff"]:
+        raise HTTPException(status_code=400, detail="Invalid role")
+    
+    result = await db.users.update_one(
+        {"user_id": user_id},
+        {"$set": {"role": role}}
+    )
+    
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    return {"message": f"User role updated to {role}"}
 
 # Organization Endpoints
 @api_router.get("/organizations")

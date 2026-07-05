@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import { publicAPI } from '../api';
-import { ArrowRight, ArrowLeft, Check, Calendar as CalendarIcon, Clock, User, Mail, Phone, Sparkles } from 'lucide-react';
+import { ArrowRight, ArrowLeft, Check, Calendar as CalendarIcon, Clock, User, Mail, Phone, Sparkles, MapPin } from 'lucide-react';
 import { BOOKING } from '../constants/testIds';
 import { toast } from 'sonner';
 import PhoneInput from 'react-phone-number-input';
@@ -12,6 +12,7 @@ const BookingFlow = () => {
   const [step, setStep] = useState(1);
   const [services, setServices] = useState([]);
   const [barbers, setBarbers] = useState([]);
+  const [organizationInfo, setOrganizationInfo] = useState(null);
   const [selectedService, setSelectedService] = useState(null);
   const [selectedBarber, setSelectedBarber] = useState(null);
   const [selectedDate, setSelectedDate] = useState('');
@@ -27,6 +28,7 @@ const BookingFlow = () => {
   const [success, setSuccess] = useState(false);
 
   useEffect(() => {
+    loadOrganizationInfo();
     loadServices();
     loadBarbers();
     
@@ -48,6 +50,15 @@ const BookingFlow = () => {
       loadAvailability();
     }
   }, [selectedBarber, selectedDate, selectedService]);
+
+  const loadOrganizationInfo = async () => {
+    try {
+      const response = await publicAPI.getOrganization(orgId);
+      setOrganizationInfo(response.data);
+    } catch (error) {
+      console.error('Error loading organization info:', error);
+    }
+  };
 
   const loadServices = async () => {
     try {
@@ -221,11 +232,38 @@ const BookingFlow = () => {
       />
       
       <div className="relative z-10 max-w-4xl mx-auto px-6 py-12">
-        <div className="text-center mb-12">
+        <div className="text-center mb-8">
           <h1 className="text-5xl font-light tracking-tight text-white mb-4" style={{ fontFamily: 'Outfit, sans-serif' }}>
             Reserva tu cita
           </h1>
-          <p className="text-zinc-400 text-lg">Proceso rápido y sencillo</p>
+          <p className="text-zinc-400 text-lg mb-4">Proceso rápido y sencillo</p>
+          
+          {/* Organization Info */}
+          {organizationInfo && (
+            <div className="flex items-center justify-center gap-4 text-sm text-gray-400 flex-wrap">
+              {organizationInfo.name && (
+                <span className="font-medium text-white">{organizationInfo.name}</span>
+              )}
+              {organizationInfo.phone && (
+                <>
+                  <span className="text-gray-600">|</span>
+                  <div className="flex items-center gap-1.5">
+                    <Phone size={14} strokeWidth={1.5} />
+                    <span>{organizationInfo.phone}</span>
+                  </div>
+                </>
+              )}
+              {organizationInfo.address && (
+                <>
+                  <span className="text-gray-600">|</span>
+                  <div className="flex items-center gap-1.5">
+                    <MapPin size={14} strokeWidth={1.5} />
+                    <span>{organizationInfo.address}</span>
+                  </div>
+                </>
+              )}
+            </div>
+          )}
         </div>
 
         <div className="flex items-center justify-center mb-12">
