@@ -105,8 +105,67 @@
 user_problem_statement: |
   Multi-tenant ERP PWA for Barber Shops called "Nexus by CS2" with booking system,
   AI inventory management, owner access control, dark/light mode, analytics/charts,
-  and booking tools. Features include Weekly Calendar view for managers/barbers,
-  improved UI spacing, date-filtered stats, and WhatsApp confirmation simulation.
+  and booking tools. Sistema de notificaciones automáticas por email con Gmail SMTP.
+
+backend:
+  - task: "Sistema de Emails Automáticos (SMTP)"
+    implemented: true
+    working: true
+    file: "/app/backend/email_service.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: true
+        agent: "main"
+        comment: |
+          COMPLETADO Y AUDITADO AL 100%
+          - Configurado Gmail SMTP con App Password válida (mnxvuuwmyhpjswos)
+          - Sistema de emails funcionando perfectamente (9/9 tests exitosos)
+          - Tipos de email: confirmación, recordatorio, cancelación, agradecimiento, admin
+          - Emails enviados exitosamente a nexusbycs2@gmail.com y felipejaramillo605@gmail.com
+          - Agregado load_dotenv() para cargar variables de entorno correctamente
+          - Templates HTML con diseño "Apple liquid glass"
+          
+  - task: "Botón de Google Calendar en Emails"
+    implemented: true
+    working: true
+    file: "/app/backend/email_service.py"
+    stuck_count: 0
+    priority: "medium"
+    needs_retesting: false
+    status_history:
+      - working: true
+        agent: "main"
+        comment: |
+          COMPLETADO Y PROBADO
+          - Función _create_google_calendar_link() implementada
+          - Botón verde integrado en emails de confirmación
+          - Pre-rellena título, fecha, hora (duración 60min), ubicación, descripción
+          - Parseado correcto de formato "HH:MM AM/PM" a datetime
+          - URL encoding de parámetros
+          - Email de prueba enviado exitosamente con botón funcionando
+          
+  - task: "Daemon de Recordatorios Automáticos"
+    implemented: true
+    working: true
+    file: "/app/backend/reminder_daemon.py, /etc/supervisor/conf.d/reminder_daemon.conf"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: true
+        agent: "main"
+        comment: |
+          COMPLETADO - DAEMON CORRIENDO 24/7
+          - Reemplaza crontab (que no existe en el contenedor)
+          - Daemon Python con asyncio ejecutándose cada 1 hora
+          - Configurado en Supervisor con auto-restart
+          - Busca citas para mañana y envía recordatorios
+          - Marca citas como reminder_sent para evitar duplicados
+          - Graceful shutdown con señales SIGTERM/SIGINT
+          - Estado: RUNNING (pid 1738)
+          - Logs: /var/log/supervisor/reminder_daemon.out.log
 
 frontend:
   - task: "Weekly Calendar View for Managers/Barbers"

@@ -6,10 +6,11 @@ import os
 import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Optional
 from dotenv import load_dotenv
 from pathlib import Path
+from urllib.parse import quote
 
 # Load environment variables
 ROOT_DIR = Path(__file__).parent
@@ -23,6 +24,64 @@ class EmailService:
         self.smtp_password = os.environ.get('SMTP_PASSWORD', '')
         self.from_email = os.environ.get('SMTP_FROM_EMAIL', 'nexusbycs2@gmail.com')
         self.from_name = os.environ.get('SMTP_FROM_NAME', 'Nexus by CS2')
+    
+    def _create_google_calendar_link(
+        self, 
+        title: str, 
+        date: str, 
+        time: str, 
+        duration_minutes: int = 60,
+        description: str = "",
+        location: str = ""
+    ) -> str:
+        """
+        Creates a Google Calendar event link
+        
+        Args:
+            title: Event title
+            date: Date in format YYYY-MM-DD
+            time: Time in format HH:MM AM/PM
+            duration_minutes: Duration of appointment in minutes (default 60)
+            description: Event description
+            location: Event location
+            
+        Returns:
+            Google Calendar URL
+        """
+        try:
+            # Parse date and time
+            # Convert time from "10:30 AM" format to 24h format
+            time_obj = datetime.strptime(time, "%I:%M %p")
+            date_obj = datetime.strptime(date, "%Y-%m-%d")
+            
+            # Combine date and time
+            start_datetime = datetime.combine(date_obj.date(), time_obj.time())
+            end_datetime = start_datetime + timedelta(minutes=duration_minutes)
+            
+            # Format for Google Calendar (yyyyMMddTHHmmss)
+            start_str = start_datetime.strftime("%Y%m%dT%H%M%S")
+            end_str = end_datetime.strftime("%Y%m%dT%H%M%S")
+            
+            # URL encode parameters
+            title_encoded = quote(title)
+            description_encoded = quote(description)
+            location_encoded = quote(location)
+            
+            # Build Google Calendar URL
+            calendar_url = (
+                f"https://calendar.google.com/calendar/render?"
+                f"action=TEMPLATE"
+                f"&text={title_encoded}"
+                f"&dates={start_str}/{end_str}"
+                f"&details={description_encoded}"
+                f"&location={location_encoded}"
+            )
+            
+            return calendar_url
+            
+        except Exception as e:
+            print(f"Error creating Google Calendar link: {str(e)}")
+            return ""
         
     def _send_email(self, to_email: str, subject: str, html_body: str, text_body: Optional[str] = None) -> bool:
         """Send email via SMTP"""
@@ -68,6 +127,18 @@ class EmailService:
         """Send appointment confirmation email"""
         subject = f"✅ Cita Confirmada - {organization_name}"
         
+        # Create Google Calendar link
+        calendar_description = f"Cita para {service_name} con {barber_name} en {organization_name}"
+        calendar_location = organization_address or organization_name
+        google_calendar_link = self._create_google_calendar_link(
+            title=f"{service_name} - {organization_name}",
+            date=date,
+            time=time,
+            duration_minutes=60,
+            description=calendar_description,
+            location=calendar_location
+        )
+        
         html_body = f"""
         <!DOCTYPE html>
         <html>
@@ -84,6 +155,8 @@ class EmailService:
                 .info-row:last-child {{ border-bottom: none; }}
                 .label {{ color: #888; font-size: 14px; }}
                 .value {{ color: #fff; font-weight: 500; }}
+                .calendar-btn {{ display: inline-block; margin: 25px 0; padding: 14px 28px; background: linear-gradient(135deg, #34C759 0%, #30D158 100%); color: white; text-decoration: none; border-radius: 10px; font-weight: 500; font-size: 15px; text-align: center; box-shadow: 0 4px 12px rgba(52, 199, 89, 0.3); }}
+                .calendar-btn:hover {{ background: linear-gradient(135deg, #30D158 0%, #34C759 100%); }}
                 .footer {{ padding: 30px; text-align: center; color: #666; font-size: 12px; border-top: 1px solid rgba(255,255,255,0.1); }}
                 .emoji {{ font-size: 48px; margin: 20px 0; }}
             </style>
@@ -117,6 +190,8 @@ class EmailService:
                         </div>
                         {f'<div class="info-row"><span class="label">📍 Dirección</span><span class="value">{organization_address}</span></div>' if organization_address else ''}
                     </div>
+                    
+                    {f'<div style="text-align: center;"><a href="{google_calendar_link}" class="calendar-btn" target="_blank">📅 Agregar a Google Calendar</a></div>' if google_calendar_link else ''}
                     
                     <p style="color: #aaa; margin-top: 30px;">Te enviaremos un recordatorio 24 horas antes de tu cita.</p>
                     <p style="color: #aaa;">Si necesitas cancelar o reagendar, por favor contáctanos con anticipación.</p>
