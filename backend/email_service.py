@@ -271,5 +271,108 @@ class EmailService:
         
         return self._send_email(to_email, subject, html_body)
 
+    def send_appointment_completed(
+        self,
+        to_email: str,
+        customer_name: str,
+        organization_name: str,
+        date: str,
+        service_name: str
+    ) -> bool:
+        """Send thank you email after completed appointment"""
+        subject = f"✨ ¡Gracias por tu visita! - {organization_name}"
+        
+        html_body = f"""
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <meta charset="UTF-8">
+            <style>
+                body {{ font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; margin: 0; padding: 0; background-color: #000000; }}
+                .container {{ max-width: 600px; margin: 40px auto; background: linear-gradient(135deg, #1a1a1a 0%, #0a0a0a 100%); border-radius: 16px; overflow: hidden; border: 1px solid rgba(255,255,255,0.1); }}
+                .header {{ background: linear-gradient(135deg, #32D74B 0%, #28A745 100%); padding: 40px 20px; text-align: center; }}
+                .header h1 {{ color: white; margin: 0; font-size: 28px; font-weight: 300; }}
+                .content {{ padding: 40px 30px; color: #ffffff; }}
+                .footer {{ padding: 30px; text-align: center; color: #666; font-size: 12px; border-top: 1px solid rgba(255,255,255,0.1); }}
+                .emoji {{ font-size: 48px; margin: 20px 0; }}
+            </style>
+        </head>
+        <body>
+            <div class="container">
+                <div class="header">
+                    <div class="emoji">⭐</div>
+                    <h1>¡Gracias por tu visita!</h1>
+                </div>
+                <div class="content">
+                    <p style="font-size: 18px; color: #fff;">Hola <strong>{customer_name}</strong>,</p>
+                    <p style="color: #aaa;">Esperamos que hayas disfrutado tu experiencia del <strong>{date}</strong>.</p>
+                    <p style="color: #aaa; margin-top: 20px;">Tu satisfacción es nuestra prioridad. ¡Esperamos verte pronto!</p>
+                    <p style="color: #aaa; margin-top: 20px;">Si deseas agendar una nueva cita, estaremos encantados de atenderte.</p>
+                </div>
+                <div class="footer">
+                    <p><strong>{organization_name}</strong></p>
+                </div>
+            </div>
+        </body>
+        </html>
+        """
+        
+        return self._send_email(to_email, subject, html_body)
+    
+    def send_admin_new_appointment_notification(
+        self,
+        admin_email: str,
+        customer_name: str,
+        customer_phone: str,
+        service_name: str,
+        barber_name: str,
+        date: str,
+        time: str,
+        organization_name: str
+    ) -> bool:
+        """Notify admin of new appointment"""
+        subject = f"🔔 Nueva Reserva - {organization_name}"
+        
+        html_body = f"""
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <meta charset="UTF-8">
+            <style>
+                body {{ font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; margin: 0; padding: 0; background-color: #000000; }}
+                .container {{ max-width: 600px; margin: 40px auto; background: linear-gradient(135deg, #1a1a1a 0%, #0a0a0a 100%); border-radius: 16px; overflow: hidden; border: 1px solid rgba(255,255,255,0.1); }}
+                .header {{ background: linear-gradient(135deg, #0A84FF 0%, #0071E3 100%); padding: 30px 20px; text-align: center; }}
+                .header h1 {{ color: white; margin: 0; font-size: 24px; font-weight: 300; }}
+                .content {{ padding: 30px; color: #ffffff; }}
+                .info-card {{ background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); border-radius: 12px; padding: 20px; margin: 20px 0; }}
+                .footer {{ padding: 20px; text-align: center; color: #666; font-size: 12px; border-top: 1px solid rgba(255,255,255,0.1); }}
+            </style>
+        </head>
+        <body>
+            <div class="container">
+                <div class="header">
+                    <h1>🔔 Nueva Reserva Recibida</h1>
+                </div>
+                <div class="content">
+                    <div class="info-card">
+                        <p style="margin: 8px 0;"><strong>Cliente:</strong> {customer_name}</p>
+                        <p style="margin: 8px 0;"><strong>Teléfono:</strong> {customer_phone}</p>
+                        <p style="margin: 8px 0;"><strong>Servicio:</strong> {service_name}</p>
+                        <p style="margin: 8px 0;"><strong>Barbero:</strong> {barber_name}</p>
+                        <p style="margin: 8px 0;"><strong>Fecha:</strong> {date}</p>
+                        <p style="margin: 8px 0;"><strong>Hora:</strong> {time}</p>
+                    </div>
+                    <p style="color: #aaa; margin-top: 20px; font-size: 14px;">Revisa tu dashboard para más detalles.</p>
+                </div>
+                <div class="footer">
+                    <p><strong>{organization_name}</strong></p>
+                </div>
+            </div>
+        </body>
+        </html>
+        """
+        
+        return self._send_email(admin_email, subject, html_body)
+
 # Singleton instance
 email_service = EmailService()

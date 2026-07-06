@@ -115,6 +115,18 @@ class Organization(BaseModel):
     phone: Optional[str] = None
     whatsapp_link: Optional[str] = None
     created_at: datetime
+    # Notification settings (personalizable por admin)
+    notification_settings: Optional[dict] = Field(default_factory=lambda: {
+        "appointment_confirmation": True,
+        "appointment_reminder": True,
+        "appointment_reminder_hours": 24,
+        "appointment_completed": True,
+        "appointment_cancelled": True,
+        "admin_new_appointment": True,
+        "client_reactivation_enabled": False,
+        "client_reactivation_days": 60,
+        "marketing_campaigns_enabled": False
+    })
 
 class Service(BaseModel):
     model_config = ConfigDict(extra="ignore")
@@ -1020,6 +1032,28 @@ async def update_appointment_status(
                     }
                 }
             )
+        
+        # ✅ SEND COMPLETED EMAIL (if enabled)
+        try:
+            organization = await db.organizations.find_one(
+                {"organization_id": appointment["organization_id"]}, 
+                {"_id": 0}
+            )
+            if organization and organization.get("notification_settings", {}).get("appointment_completed", True):
+                if appointment.get("client_email"):
+                    service = await db.services.find_one(
+                        {"service_id": appointment["service_id"]}, 
+                        {"_id": 0}
+                    )
+                    email_service.send_appointment_completed(
+                        to_email=appointment["client_email"],
+                        customer_name=appointment.get("client_name", "Cliente"),
+                        organization_name=organization.get("name", "Nexus"),
+                        date=appointment.get("date"),
+                        service_name=service.get("name", "Servicio") if service else "Servicio"
+                    )
+        except Exception as email_error:
+            print(f"⚠️ Completed email failed: {email_error}")
     
     return {"message": f"Appointment status updated to {status}", "appointment_id": appointment_id, "status": status}
 
@@ -1623,6 +1657,7 @@ async def create_public_appointment(org_id: str, data: AppointmentCreate):
                 organization = await db.organizations.find_one({"organization_id": org_id}, {"_id": 0})
                 barber = await db.barbers.find_one({"barber_id": data.barber_id}, {"_id": 0})
                 
+                # Send confirmation to customer
                 email_service.send_appointment_confirmation(
                     to_email=data.client_email,
                     customer_name=data.client_name,
@@ -1633,6 +1668,25 @@ async def create_public_appointment(org_id: str, data: AppointmentCreate):
                     organization_name=organization.get("name", "Nexus") if organization else "Nexus",
                     organization_address=organization.get("address") if organization else None
                 )
+                
+                # ✅ SEND NOTIFICATION TO ADMIN (if enabled)
+                if organization and organization.get("notification_settings", {}).get("admin_new_appointment", True):
+                    admin_user = await db.users.find_one(
+                        {"organization_id": org_id, "role": {"$in": ["owner", "admin"]}},
+                        {"_id": 0}
+                    )
+                    if admin_user and admin_user.get("email"):
+                        email_service.send_admin_new_appointment_notification(
+                            admin_email=admin_user["email"],
+                            customer_name=data.client_name,
+                            customer_phone=data.client_phone,
+                            service_name=service.get("name", "Servicio"),
+                            barber_name=barber.get("name", "Barbero") if barber else "Barbero",
+                            date=data.date,
+                            time=data.time,
+                            organization_name=organization.get("name", "Nexus")
+                        )
+                
             except Exception as email_error:
                 # Don't fail appointment creation if email fails
                 print(f"⚠️ Email sending failed: {email_error}")
