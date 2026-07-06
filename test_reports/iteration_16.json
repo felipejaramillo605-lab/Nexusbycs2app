@@ -1,0 +1,28 @@
+{
+  "summary": "Static code review of Settings.js and server.py for the phone/name sanitization bug fix. Frontend changes look correct (type='text', frontend sanitization, no restrictive HTML), but a CRITICAL BACKEND BUG will cause PUT /api/organizations/{id} to return 500 preventing save even after frontend fix.",
+  "tested_scope": ["frontend", "backend", "integration"],
+  "passed": [
+    "Settings.js line 316-322: phone input uses type='text' (not type='tel') - HTML5 pattern validation removed",
+    "Settings.js line 298-306: name input has no 'required', minLength=1, maxLength=200 (permissive) - no restrictive HTML",
+    "Settings.js line 100-119: frontend sanitization strips spaces, dashes, parentheses and prepends '+' before fetch",
+    "Settings.js line 117-119, 135: debug logs '🔍 ENVIANDO PAYLOAD:', '📞 Teléfono original:', '📞 Teléfono sanitizado:', '✅ Organization updated successfully' are present",
+    "Backend server.py line 240-250: sanitize_phone() helper present and applied in line 622-623",
+    "Backend uses OrganizationUpdate Pydantic model (line 232) - no restrictive regex"
+  ],
+  "failed": [
+    {
+      "area": "backend PUT /api/organizations/{organization_id}",
+      "issue": "Line 616 uses current_user.get('organization_id') and current_user.get('role'), but current_user is a Pydantic User model (returned by get_current_user), not a dict. Calling .get() on a Pydantic model raises AttributeError -> HTTP 500. Save will FAIL for every user regardless of frontend fix.",
+      "evidence": "server.py line 613: current_user = await get_current_user(...)  which returns User(**user) (line 308). Line 616: if current_user.get('organization_id') != organization_id and current_user.get('role') != 'owner'  -- Pydantic BaseModel has no .get() method.",
+      "priority": "HIGH"
+    }
+  ],
+  "action_items": [
+    "URGENT: In /app/backend/server.py line 616, replace current_user.get('organization_id') with current_user.organization_id and current_user.get('role') with current_user.role. Correct code: `if current_user.organization_id != organization_id and current_user.role != 'owner':`",
+    "After fix, retest end-to-end by saving profile with name 'Barbería Premium & Spa 2024' and phone '+57 (300) 123-4567' via the Settings UI and verify 200 response + MongoDB update.",
+    "Note: I did NOT run the live Playwright/API smoke test because auth requires Google OAuth (Emergent-managed) and the bug is deterministic from static analysis. Main agent should apply the one-line fix and then request a full retest."
+  ],
+  "success_rate": {"backend": "0% (save endpoint broken)", "frontend": "100% (fix correctly applied)"},
+  "retest_needed": true,
+  "full_testing_deferred": true
+}

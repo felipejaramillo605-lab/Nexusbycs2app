@@ -97,6 +97,27 @@ const Settings = () => {
     setSaving(true);
 
     try {
+      // ✅ CORRECCIÓN: Sanitizar teléfono en el FRONTEND antes de enviar
+      const sanitizedPhone = profileData.phone 
+        ? profileData.phone.replace(/[\s\-\(\)]/g, '') 
+        : '';
+      
+      // ✅ CORRECCIÓN: Asegurar que tenga + si es número
+      const finalPhone = sanitizedPhone && !sanitizedPhone.startsWith('+') && /^\d/.test(sanitizedPhone)
+        ? '+' + sanitizedPhone
+        : sanitizedPhone;
+
+      const payload = {
+        name: profileData.name.trim(),
+        phone: finalPhone,
+        address: profileData.address.trim()
+      };
+
+      // ✅ DEBUGGING: Log del payload antes de enviar
+      console.log('🔍 ENVIANDO PAYLOAD:', payload);
+      console.log('📞 Teléfono original:', profileData.phone);
+      console.log('📞 Teléfono sanitizado:', finalPhone);
+
       const response = await fetch(
         `${process.env.REACT_APP_BACKEND_URL}/api/organizations/${organizationId}`,
         {
@@ -105,7 +126,7 @@ const Settings = () => {
           headers: {
             'Content-Type': 'application/json',
           },
-          body: JSON.stringify(profileData),
+          body: JSON.stringify(payload),
         }
       );
 
@@ -113,10 +134,10 @@ const Settings = () => {
         const updatedOrg = await response.json();
         console.log('✅ Organization updated successfully:', updatedOrg);
         
-        // CORRECCIÓN: Actualizar el estado global de la organización
+        // Actualizar el estado global de la organización
         updateOrganization(updatedOrg);
         
-        // CORRECCIÓN: Forzar re-fetch para sincronizar toda la app
+        // Forzar re-fetch para sincronizar toda la app
         await refreshOrganization(organizationId);
         
         toast.success('✅ Perfil actualizado correctamente');
@@ -126,7 +147,7 @@ const Settings = () => {
           status: response.status,
           statusText: response.statusText,
           errorData: errorData,
-          sentData: profileData,
+          sentPayload: payload,
           organizationId: organizationId
         });
         throw new Error(errorData.detail || 'Failed to update');
@@ -280,8 +301,12 @@ const Settings = () => {
                   onChange={(e) => setProfileData({ ...profileData, name: e.target.value })}
                   placeholder="Barbería Premium"
                   className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-zinc-500 focus:border-[#0A84FF] focus:ring-2 focus:ring-[#0A84FF]/20 outline-none transition-all"
-                  required
+                  minLength={1}
+                  maxLength={200}
                 />
+                <p className="text-xs text-zinc-500 mt-1">
+                  Acepta letras, números, espacios y caracteres especiales
+                </p>
               </div>
 
               <div>
@@ -289,12 +314,15 @@ const Settings = () => {
                   Teléfono de Contacto
                 </label>
                 <input
-                  type="tel"
+                  type="text"
                   value={profileData.phone}
                   onChange={(e) => setProfileData({ ...profileData, phone: e.target.value })}
                   placeholder="+57 300 123 4567"
                   className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-zinc-500 focus:border-[#0A84FF] focus:ring-2 focus:ring-[#0A84FF]/20 outline-none transition-all"
                 />
+                <p className="text-xs text-zinc-500 mt-1">
+                  Acepta cualquier formato: +57 300 123 4567, (300) 123-4567, etc.
+                </p>
               </div>
 
               <div>
