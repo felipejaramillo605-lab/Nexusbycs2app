@@ -16,6 +16,9 @@ import json
 import bcrypt
 import secrets
 
+# Email service
+from email_service import email_service
+
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
 
@@ -1612,6 +1615,28 @@ async def create_public_appointment(org_id: str, data: AppointmentCreate):
     
     try:
         await db.appointments.insert_one(appointment_doc)
+        
+        # ✅ SEND CONFIRMATION EMAIL
+        if data.client_email:
+            try:
+                # Get organization, barber and service details
+                organization = await db.organizations.find_one({"organization_id": org_id}, {"_id": 0})
+                barber = await db.barbers.find_one({"barber_id": data.barber_id}, {"_id": 0})
+                
+                email_service.send_appointment_confirmation(
+                    to_email=data.client_email,
+                    customer_name=data.client_name,
+                    barber_name=barber.get("name", "Barbero") if barber else "Barbero",
+                    service_name=service.get("name", "Servicio"),
+                    date=data.date,
+                    time=data.time,
+                    organization_name=organization.get("name", "Nexus") if organization else "Nexus",
+                    organization_address=organization.get("address") if organization else None
+                )
+            except Exception as email_error:
+                # Don't fail appointment creation if email fails
+                print(f"⚠️ Email sending failed: {email_error}")
+        
     except Exception as e:
         # Handle duplicate key error from unique index
         if "E11000" in str(e) or "duplicate key" in str(e).lower():
