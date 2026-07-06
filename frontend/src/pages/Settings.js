@@ -1,11 +1,13 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { useOrganization } from '../context/OrganizationContext';
 import { ArrowLeft, Save, Building, Users, Mail, UserCog, Trash2, Loader2, Check } from 'lucide-react';
 import { toast } from 'sonner';
 
 const Settings = () => {
   const { user, logout } = useAuth();
+  const { updateOrganization, refreshOrganization } = useOrganization();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const organizationId = searchParams.get('org_id') || user?.organization_id;
@@ -108,6 +110,15 @@ const Settings = () => {
       );
 
       if (response.ok) {
+        const updatedOrg = await response.json();
+        console.log('✅ Organization updated successfully:', updatedOrg);
+        
+        // CORRECCIÓN: Actualizar el estado global de la organización
+        updateOrganization(updatedOrg);
+        
+        // CORRECCIÓN: Forzar re-fetch para sincronizar toda la app
+        await refreshOrganization(organizationId);
+        
         toast.success('✅ Perfil actualizado correctamente');
       } else {
         const errorData = await response.json();

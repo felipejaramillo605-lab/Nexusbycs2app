@@ -4,6 +4,7 @@ import { QueryClientProvider } from '@tanstack/react-query';
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
 import { queryClient } from './lib/queryClient';
 import { AuthProvider } from './context/AuthContext';
+import { OrganizationProvider } from './context/OrganizationContext';
 import { ThemeProvider } from './context/ThemeContext';
 import { Toaster } from './components/ui/sonner';
 import AuthCallback from './components/AuthCallback';
@@ -155,10 +156,12 @@ function App() {
       <BrowserRouter>
         <ThemeProvider>
           <AuthProvider>
-            <div className="App">
-              <AppRouter />
-              <Toaster position="top-right" />
-            </div>
+            <OrganizationProvider>
+              <div className="App">
+                <AppRouter />
+                <Toaster position="top-right" />
+              </div>
+            </OrganizationProvider>
           </AuthProvider>
         </ThemeProvider>
       </BrowserRouter>

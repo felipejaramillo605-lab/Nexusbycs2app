@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import { publicAPI } from '../api';
+import { useOrganization } from '../context/OrganizationContext';
 import { ArrowRight, ArrowLeft, Check, Calendar as CalendarIcon, Clock, User, Mail, Phone, Sparkles, MapPin } from 'lucide-react';
 import { BOOKING } from '../constants/testIds';
 import { toast } from 'sonner';
@@ -9,10 +10,10 @@ import 'react-phone-number-input/style.css';
 
 const BookingFlow = () => {
   const { orgId } = useParams();
+  const { organization, loadOrganization } = useOrganization();
   const [step, setStep] = useState(1);
   const [services, setServices] = useState([]);
   const [barbers, setBarbers] = useState([]);
-  const [organizationInfo, setOrganizationInfo] = useState(null);
   const [selectedService, setSelectedService] = useState(null);
   const [selectedBarber, setSelectedBarber] = useState(null);
   const [selectedDate, setSelectedDate] = useState('');
@@ -28,7 +29,8 @@ const BookingFlow = () => {
   const [success, setSuccess] = useState(false);
 
   useEffect(() => {
-    loadOrganizationInfo();
+    // CORRECCIÓN: Cargar organización desde Context (siempre datos frescos)
+    loadOrganization(orgId);
     loadServices();
     loadBarbers();
     
@@ -50,15 +52,6 @@ const BookingFlow = () => {
       loadAvailability();
     }
   }, [selectedBarber, selectedDate, selectedService]);
-
-  const loadOrganizationInfo = async () => {
-    try {
-      const response = await publicAPI.getOrganization(orgId);
-      setOrganizationInfo(response.data);
-    } catch (error) {
-      console.error('Error loading organization info:', error);
-    }
-  };
 
   const loadServices = async () => {
     try {
@@ -238,27 +231,27 @@ const BookingFlow = () => {
           </h1>
           <p className="text-zinc-400 text-lg mb-4">Proceso rápido y sencillo</p>
           
-          {/* Organization Info */}
-          {organizationInfo && (
+          {/* Organization Info - CORRECCIÓN: Usa datos del Context (siempre actualizados) */}
+          {organization && (
             <div className="flex items-center justify-center gap-4 text-sm text-gray-400 flex-wrap">
-              {organizationInfo.name && (
-                <span className="font-medium text-white">{organizationInfo.name}</span>
+              {organization.name && (
+                <span className="font-medium text-white">{organization.name}</span>
               )}
-              {organizationInfo.phone && (
+              {organization.phone && (
                 <>
                   <span className="text-gray-600">|</span>
                   <div className="flex items-center gap-1.5">
                     <Phone size={14} strokeWidth={1.5} />
-                    <span>{organizationInfo.phone}</span>
+                    <span>{organization.phone}</span>
                   </div>
                 </>
               )}
-              {organizationInfo.address && (
+              {organization.address && (
                 <>
                   <span className="text-gray-600">|</span>
                   <div className="flex items-center gap-1.5">
                     <MapPin size={14} strokeWidth={1.5} />
-                    <span>{organizationInfo.address}</span>
+                    <span>{organization.address}</span>
                   </div>
                 </>
               )}

@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { publicAPI } from '../api';
+import { useOrganization } from '../context/OrganizationContext';
 import { Calendar, Clock, User, DollarSign, Phone, MapPin, ExternalLink, LogOut, CheckCircle, XCircle, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import PhoneInput from 'react-phone-number-input';
@@ -9,23 +10,13 @@ import 'react-phone-number-input/style.css';
 const CustomerPortal = () => {
   const { orgId } = useParams();
   const navigate = useNavigate();
+  const { organization, loadOrganization } = useOrganization();
   const [step, setStep] = useState('login'); // 'login' or 'portal'
   const [phone, setPhone] = useState('');
   const [name, setName] = useState('');
   const [loading, setLoading] = useState(false);
   const [clientData, setClientData] = useState(null);
   const [appointments, setAppointments] = useState([]);
-  const [businessInfo, setBusinessInfo] = useState(null);
-
-  const loadBusinessInfo = useCallback(async () => {
-    try {
-      const response = await publicAPI.getOrganization(orgId);
-      setBusinessInfo(response.data);
-    } catch (error) {
-      console.error('Error loading business info:', error);
-      toast.error('Error al cargar información del negocio');
-    }
-  }, [orgId]);
 
   const loadHistory = useCallback(async (phoneNum) => {
     try {
@@ -94,7 +85,8 @@ const CustomerPortal = () => {
   }, [phone, name, orgId, loadHistory]);
 
   useEffect(() => {
-    loadBusinessInfo();
+    // CORRECCIÓN: Cargar organización desde Context (siempre datos frescos)
+    loadOrganization(orgId);
     
     // Check if already logged in (session storage)
     const savedPhone = sessionStorage.getItem(`nexus_customer_phone_${orgId}`);
@@ -114,8 +106,8 @@ const CustomerPortal = () => {
   };
 
   const openWhatsApp = () => {
-    if (businessInfo?.whatsapp_link) {
-      window.open(businessInfo.whatsapp_link, '_blank');
+    if (organization?.whatsapp_link) {
+      window.open(organization.whatsapp_link, '_blank');
     }
   };
 
@@ -133,7 +125,7 @@ const CustomerPortal = () => {
                 Portal del Cliente
               </h1>
               <p className="text-zinc-400">
-                {businessInfo?.name || 'Bienvenido'}
+                {organization?.name || 'Bienvenido'}
               </p>
             </div>
 
@@ -280,35 +272,35 @@ const CustomerPortal = () => {
               </button>
             </div>
 
-            {/* Business Info Card */}
-            {businessInfo && (
+            {/* Business Info Card - CORRECCIÓN: Usa datos del Context */}
+            {organization && (
               <div className="backdrop-blur-xl bg-white/3 border border-white/10 rounded-2xl p-6 mt-6">
                 <h3 className="text-lg font-medium text-white mb-4">Información del Negocio</h3>
                 
                 <div className="space-y-3 text-sm">
-                  {businessInfo.address && (
+                  {organization.address && (
                     <div className="flex items-start gap-3 text-zinc-300">
                       <MapPin size={16} className="text-zinc-500 mt-0.5 flex-shrink-0" />
-                      <span>{businessInfo.address}</span>
+                      <span>{organization.address}</span>
                     </div>
                   )}
                   
-                  {businessInfo.phone && (
+                  {organization.phone && (
                     <div className="flex items-center gap-3 text-zinc-300">
                       <Phone size={16} className="text-zinc-500 flex-shrink-0" />
-                      <span>{businessInfo.phone}</span>
+                      <span>{organization.phone}</span>
                     </div>
                   )}
                   
-                  {businessInfo.business_hours && (
+                  {organization.business_hours && (
                     <div className="flex items-start gap-3 text-zinc-300">
                       <Clock size={16} className="text-zinc-500 mt-0.5 flex-shrink-0" />
-                      <span className="whitespace-pre-line">{businessInfo.business_hours}</span>
+                      <span className="whitespace-pre-line">{organization.business_hours}</span>
                     </div>
                   )}
                 </div>
 
-                {businessInfo.whatsapp_link && (
+                {organization.whatsapp_link && (
                   <button
                     onClick={openWhatsApp}
                     className="w-full mt-4 py-2 rounded-lg bg-green-500/20 hover:bg-green-500/30 border border-green-500/30 text-green-400 transition-all flex items-center justify-center gap-2"

@@ -236,6 +236,19 @@ class OrganizationUpdate(BaseModel):
     phone: Optional[str] = None
     whatsapp_link: Optional[str] = None
 
+# Helper function to sanitize phone numbers
+def sanitize_phone(phone: str) -> str:
+    """Remove spaces, dashes, and parentheses from phone, keep only + and digits"""
+    if not phone:
+        return phone
+    # Remove spaces, dashes, parentheses
+    sanitized = phone.replace(' ', '').replace('-', '').replace('(', '').replace(')', '')
+    # Ensure it starts with + if it has international format
+    if sanitized and not sanitized.startswith('+'):
+        # If it's a number without +, assume it needs formatting
+        sanitized = '+' + sanitized if sanitized[0].isdigit() else sanitized
+    return sanitized
+
 class PasswordlessLoginRequest(BaseModel):
     phone: str
     name: Optional[str] = None  # Only required for first-time registration
@@ -604,6 +617,10 @@ async def update_organization_profile(
         raise HTTPException(status_code=403, detail="Access denied")
     
     update_data = {k: v for k, v in data.dict().items() if v is not None}
+    
+    # Sanitize phone number if present
+    if 'phone' in update_data and update_data['phone']:
+        update_data['phone'] = sanitize_phone(update_data['phone'])
     
     if not update_data:
         raise HTTPException(status_code=400, detail="No fields to update")
