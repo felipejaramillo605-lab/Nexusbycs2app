@@ -612,8 +612,9 @@ async def update_organization_profile(
     """Update organization business profile (owner/manager only)"""
     current_user = await get_current_user(authorization, session_token)
     
+    # ✅ CORRECCIÓN CRÍTICA: Pydantic model usa atributos, no .get()
     # Verify user belongs to this organization
-    if current_user.get("organization_id") != organization_id and current_user.get("role") != "owner":
+    if current_user.organization_id != organization_id and current_user.role != "owner":
         raise HTTPException(status_code=403, detail="Access denied")
     
     update_data = {k: v for k, v in data.dict().items() if v is not None}
