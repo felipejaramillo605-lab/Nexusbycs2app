@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { clientAPI, organizationAPI } from '../api';
-import { Send, ArrowLeft, LogOut, Users, MessageSquare, CheckSquare, Loader2, Bell, BellOff, AlertCircle } from 'lucide-react';
+import { clientAPI, organizationAPI, marketingAPI } from '../api';
+import { Send, ArrowLeft, LogOut, Users, MessageSquare, CheckSquare, Loader2, Bell, BellOff, AlertCircle, Mail, MessageCircle } from 'lucide-react';
 import { toast } from 'sonner';
 import whatsappService, { MESSAGE_TEMPLATES } from '../services/whatsappService';
 
@@ -17,6 +17,8 @@ const MarketingCampaigns = () => {
   const [customMessage, setCustomMessage] = useState('');
   const [sending, setSending] = useState(false);
   const [organizationName, setOrganizationName] = useState('');
+  const [channel, setChannel] = useState('whatsapp'); // 'whatsapp', 'email', 'both'
+  const [emailSubject, setEmailSubject] = useState('');
 
   // Get org_id from query param (for owner) or user.organization_id (for manager)
   const organizationId = searchParams.get('org_id') || user?.organization_id;
@@ -100,42 +102,56 @@ const MarketingCampaigns = () => {
       return;
     }
 
+    // Validate email subject if channel is email or both
+    if ((channel === 'email' || channel === 'both') && !emailSubject.trim()) {
+      toast.error('El asunto del email es requerido');
+      return;
+    }
+
+    // Check if any selected client has email when email channel is selected
+    if (channel === 'email' || channel === 'both') {
+      const clientsWithEmail = clients.filter(c => 
+        selectedClients.includes(c.client_id) && c.email
+      );
+      if (clientsWithEmail.length === 0) {
+        toast.error('Ninguno de los clientes seleccionados tiene email');
+        return;
+      }
+    }
+
     setSending(true);
     try {
-      const response = await fetch(
-        `${process.env.REACT_APP_BACKEND_URL}/api/marketing/campaigns`,
-        {
-          method: 'POST',
-          credentials: 'include',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            client_ids: selectedClients,
-            message: message,
-            template_type: selectedTemplate
-          })
-        }
-      );
+      const response = await marketingAPI.sendCampaign({
+        client_ids: selectedClients,
+        message: message,
+        template_type: selectedTemplate,
+        channel: channel,
+        subject: emailSubject || undefined
+      });
 
-      if (!response.ok) {
-        throw new Error('Error al enviar campaña');
+      const result = response.data;
+
+      // Build success message
+      let successMsg = '✅ Campaña enviada: ';
+      const parts = [];
+      
+      if (result.whatsapp_sent > 0) {
+        parts.push(`${result.whatsapp_sent} WhatsApp${whatsappService.IS_MOCK_MODE ? ' (MOCK)' : ''}`);
       }
-
-      const result = await response.json();
-
-      toast.success(
-        whatsappService.IS_MOCK_MODE
-          ? `✅ Campaña enviada (MOCK): ${result.sent_count} mensajes`
-          : `✅ Campaña enviada: ${result.sent_count} mensajes`
-      );
+      if (result.email_sent > 0) {
+        parts.push(`${result.email_sent} Emails`);
+      }
+      
+      successMsg += parts.join(', ');
+      toast.success(successMsg);
 
       // Reset form
       setSelectedClients([]);
       setCustomMessage('');
+      setEmailSubject('');
     } catch (error) {
       console.error('Error sending campaign:', error);
-      toast.error('Error al enviar campaña');
+      toast.error(error.response?.data?.detail || 'Error al enviar campaña');
     } finally {
       setSending(false);
     }

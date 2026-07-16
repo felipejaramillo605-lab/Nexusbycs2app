@@ -20,13 +20,10 @@ const CustomerPortal = () => {
 
   const loadHistory = useCallback(async (phoneNum) => {
     try {
-      const response = await fetch(
-        `${process.env.REACT_APP_BACKEND_URL}/api/public/clients/history?phone=${encodeURIComponent(phoneNum)}&organization_id=${orgId}`
-      );
-      const data = await response.json();
+      const response = await publicAPI.getClientHistory(phoneNum, orgId);
       
-      if (data.appointments) {
-        setAppointments(data.appointments);
+      if (response.data.appointments) {
+        setAppointments(response.data.appointments);
       }
     } catch (error) {
       console.error('Error loading history:', error);
@@ -42,28 +39,13 @@ const CustomerPortal = () => {
     setLoading(true);
     try {
       // Try passwordless login
-      const response = await fetch(
-        `${process.env.REACT_APP_BACKEND_URL}/api/public/auth/passwordless`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            phone: phoneNum,
-            organization_id: orgId,
-            name: name || undefined
-          })
-        }
-      );
+      const response = await publicAPI.passwordlessAuth({
+        phone: phoneNum,
+        organization_id: orgId,
+        name: name || undefined
+      });
 
-      const data = await response.json();
-
-      if (!response.ok) {
-        if (data.detail === 'name_required') {
-          toast.error('Por favor ingresa tu nombre');
-          return;
-        }
-        throw new Error(data.detail || 'Error al iniciar sesión');
-      }
+      const data = response.data;
 
       // Save phone to session
       if (!skipStorage) {
@@ -78,7 +60,13 @@ const CustomerPortal = () => {
       loadHistory(phoneNum);
     } catch (error) {
       console.error('Error:', error);
-      toast.error(error.message || 'Error al iniciar sesión');
+      
+      if (error.response?.data?.detail === 'name_required') {
+        toast.error('Por favor ingresa tu nombre');
+        return;
+      }
+      
+      toast.error(error.response?.data?.detail || error.message || 'Error al iniciar sesión');
     } finally {
       setLoading(false);
     }

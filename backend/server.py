@@ -1079,6 +1079,18 @@ async def get_statistics(start_date: str, end_date: str, organization_id: Option
     # Get appointments (exclude cancelled from revenue calculations)
     appointments = await db.appointments.find(query, {"_id": 0}).to_list(10000)
     
+    # Batch fetch all unique services and barbers to avoid N+1 queries
+    service_ids = list(set(apt.get("service_id") for apt in appointments if apt.get("service_id")))
+    barber_ids = list(set(apt.get("barber_id") for apt in appointments if apt.get("barber_id")))
+    
+    # Fetch all services and barbers in single queries
+    services = await db.services.find({"service_id": {"$in": service_ids}}, {"_id": 0}).to_list(1000)
+    barbers = await db.barbers.find({"barber_id": {"$in": barber_ids}}, {"_id": 0}).to_list(1000)
+    
+    # Create lookup dictionaries for O(1) access
+    service_lookup = {s["service_id"]: s for s in services}
+    barber_lookup = {b["barber_id"]: b for b in barbers}
+    
     # Calculate statistics
     daily_revenue = {}
     service_count = {}
@@ -1089,13 +1101,13 @@ async def get_statistics(start_date: str, end_date: str, organization_id: Option
         if apt.get("status") == "cancelled":
             continue
             
-        # Get service info
-        service = await db.services.find_one({"service_id": apt["service_id"]}, {"_id": 0})
+        # Get service info from lookup
+        service = service_lookup.get(apt.get("service_id"))
         service_price = service["price"] if service else 0
         service_name = service["name"] if service else "Unknown"
         
-        # Get barber info
-        barber = await db.barbers.find_one({"barber_id": apt["barber_id"]}, {"_id": 0})
+        # Get barber info from lookup
+        barber = barber_lookup.get(apt.get("barber_id"))
         barber_name = barber["name"] if barber else "Unknown"
         
         # Daily revenue
@@ -1206,10 +1218,21 @@ async def get_client_history(client_id: str, authorization: Optional[str] = Head
         {"_id": 0}
     ).sort("created_at", -1).to_list(1000)
     
+    # Batch fetch all unique services and barbers to avoid N+1 queries
+    service_ids = list(set(apt.get("service_id") for apt in appointments if apt.get("service_id")))
+    barber_ids = list(set(apt.get("barber_id") for apt in appointments if apt.get("barber_id")))
+    
+    services = await db.services.find({"service_id": {"$in": service_ids}}, {"_id": 0}).to_list(1000)
+    barbers = await db.barbers.find({"barber_id": {"$in": barber_ids}}, {"_id": 0}).to_list(1000)
+    
+    # Create lookup dictionaries for O(1) access
+    service_lookup = {s["service_id"]: s for s in services}
+    barber_lookup = {b["barber_id"]: b for b in barbers}
+    
     # Enrich with service and barber names
     for apt in appointments:
-        service = await db.services.find_one({"service_id": apt["service_id"]}, {"_id": 0})
-        barber = await db.barbers.find_one({"barber_id": apt["barber_id"]}, {"_id": 0})
+        service = service_lookup.get(apt.get("service_id"))
+        barber = barber_lookup.get(apt.get("barber_id"))
         apt["service_name"] = service["name"] if service else "Unknown"
         apt["service_price"] = service["price"] if service else 0
         apt["barber_name"] = barber["name"] if barber else "Unknown"
@@ -1280,9 +1303,20 @@ async def get_client_history_public(phone: str, organization_id: str):
     ).sort("date", -1).to_list(1000)
     
     # Enrich with service and barber info
+    # Batch fetch all unique services and barbers to avoid N+1 queries
+    service_ids = list(set(apt.get("service_id") for apt in appointments if apt.get("service_id")))
+    barber_ids = list(set(apt.get("barber_id") for apt in appointments if apt.get("barber_id")))
+    
+    services = await db.services.find({"service_id": {"$in": service_ids}}, {"_id": 0}).to_list(1000)
+    barbers = await db.barbers.find({"barber_id": {"$in": barber_ids}}, {"_id": 0}).to_list(1000)
+    
+    # Create lookup dictionaries for O(1) access
+    service_lookup = {s["service_id"]: s for s in services}
+    barber_lookup = {b["barber_id"]: b for b in barbers}
+    
     for apt in appointments:
-        service = await db.services.find_one({"service_id": apt["service_id"]}, {"_id": 0})
-        barber = await db.barbers.find_one({"barber_id": apt["barber_id"]}, {"_id": 0})
+        service = service_lookup.get(apt.get("service_id"))
+        barber = barber_lookup.get(apt.get("barber_id"))
         
         apt["service_name"] = service["name"] if service else "Unknown"
         apt["service_price"] = service["price"] if service else 0
@@ -1302,6 +1336,8 @@ class CampaignRequest(BaseModel):
     message: str
     send_immediately: bool = True
     scheduled_date: Optional[str] = None  # ISO format for scheduled campaigns
+    channel: str = "whatsapp"  # "whatsapp", "email", or "both"
+    subject: Optional[str] = None  # Email subject (required if channel is email/both)
 
 @api_router.post("/marketing/campaigns")
 async def create_campaign(
@@ -1309,11 +1345,15 @@ async def create_campaign(
     authorization: Optional[str] = Header(None),
     session_token: Optional[str] = Cookie(None)
 ):
-    """Send marketing campaign to selected clients (filters by accepts_marketing automatically)"""
+    """Send marketing campaign to selected clients via WhatsApp and/or Email"""
     current_user = await get_current_user(authorization, session_token)
     
     if not data.client_ids:
         raise HTTPException(status_code=400, detail="No clients selected")
+    
+    # Validate email channel requires subject
+    if data.channel in ["email", "both"] and not data.subject:
+        raise HTTPException(status_code=400, detail="Subject is required for email campaigns")
     
     # Get clients and filter by accepts_marketing
     clients = await db.clients.find(
@@ -1329,26 +1369,106 @@ async def create_campaign(
         if not await validate_organization_access(current_user, client["organization_id"]):
             raise HTTPException(status_code=403, detail="Access denied to one or more clients")
     
-    # Simulate sending (mock WhatsApp API)
-    sent_count = 0
-    failed_count = 0
+    # Get organization info for email signature
+    org_id = clients[0]["organization_id"] if clients else None
+    organization = None
+    if org_id:
+        organization = await db.organizations.find_one({"organization_id": org_id}, {"_id": 0})
+    
+    org_name = organization.get("name", "Nexus") if organization else "Nexus"
+    
+    # Send campaigns
+    whatsapp_sent = 0
+    whatsapp_failed = 0
+    email_sent = 0
+    email_failed = 0
     
     for client in clients:
-        try:
-            # Mock WhatsApp send
-            print(f"📱 [MOCK WhatsApp] Sending to {client['name']} ({client['phone']}): {data.message}")
-            sent_count += 1
-        except Exception as e:
-            print(f"❌ Failed to send to {client['phone']}: {str(e)}")
-            failed_count += 1
+        # Send via WhatsApp (mocked)
+        if data.channel in ["whatsapp", "both"]:
+            try:
+                print(f"📱 [MOCK WhatsApp] Sending to {client['name']} ({client['phone']}): {data.message}")
+                whatsapp_sent += 1
+            except Exception as e:
+                print(f"❌ Failed WhatsApp to {client['phone']}: {str(e)}")
+                whatsapp_failed += 1
+        
+        # Send via Email (real SMTP)
+        if data.channel in ["email", "both"] and client.get("email"):
+            try:
+                # Create HTML email body with marketing message
+                html_body = f"""
+                <!DOCTYPE html>
+                <html>
+                <head>
+                    <meta charset="UTF-8">
+                    <style>
+                        body {{ font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; margin: 0; padding: 0; background-color: #000000; }}
+                        .container {{ max-width: 600px; margin: 40px auto; background: linear-gradient(135deg, #1a1a1a 0%, #0a0a0a 100%); border-radius: 16px; overflow: hidden; border: 1px solid rgba(255,255,255,0.1); }}
+                        .header {{ background: linear-gradient(135deg, #FF9500 0%, #FF6B00 100%); padding: 40px 20px; text-align: center; }}
+                        .header h1 {{ color: white; margin: 0; font-size: 28px; font-weight: 300; }}
+                        .content {{ padding: 40px 30px; color: #ffffff; }}
+                        .message-box {{ background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); border-radius: 12px; padding: 24px; margin: 20px 0; white-space: pre-wrap; line-height: 1.6; }}
+                        .footer {{ padding: 30px; text-align: center; color: #666; font-size: 12px; border-top: 1px solid rgba(255,255,255,0.1); }}
+                        .emoji {{ font-size: 48px; margin: 20px 0; }}
+                    </style>
+                </head>
+                <body>
+                    <div class="container">
+                        <div class="header">
+                            <div class="emoji">✨</div>
+                            <h1>{data.subject}</h1>
+                        </div>
+                        <div class="content">
+                            <p style="font-size: 18px; color: #fff;">Hola <strong>{client['name']}</strong>,</p>
+                            
+                            <div class="message-box">
+                                {data.message}
+                            </div>
+                            
+                            <p style="color: #aaa; margin-top: 30px;">¡Esperamos verte pronto!</p>
+                        </div>
+                        <div class="footer">
+                            <p><strong>{org_name}</strong></p>
+                            <p>Este es un email de marketing. Si no deseas recibir más emails, puedes desactivarlo desde tu perfil.</p>
+                        </div>
+                    </div>
+                </body>
+                </html>
+                """
+                
+                success = email_service._send_email(
+                    to_email=client["email"],
+                    subject=data.subject,
+                    html_body=html_body,
+                    text_body=data.message
+                )
+                
+                if success:
+                    email_sent += 1
+                else:
+                    email_failed += 1
+                    
+            except Exception as e:
+                print(f"❌ Failed Email to {client.get('email')}: {str(e)}")
+                email_failed += 1
+    
+    # Build response message
+    messages = []
+    if data.channel in ["whatsapp", "both"]:
+        messages.append(f"WhatsApp: {whatsapp_sent} enviados")
+    if data.channel in ["email", "both"]:
+        messages.append(f"Email: {email_sent} enviados")
     
     return {
         "status": "success",
         "total_selected": len(data.client_ids),
         "eligible_clients": len(clients),
-        "sent": sent_count,
-        "failed": failed_count,
-        "message": f"Campaña enviada a {sent_count} clientes"
+        "whatsapp_sent": whatsapp_sent,
+        "whatsapp_failed": whatsapp_failed,
+        "email_sent": email_sent,
+        "email_failed": email_failed,
+        "message": f"Campaña enviada: {', '.join(messages)}"
     }
 
 # ==================== END MARKETING ====================

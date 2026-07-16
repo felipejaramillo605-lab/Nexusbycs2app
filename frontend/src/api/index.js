@@ -61,6 +61,11 @@ export const appointmentAPI = {
 export const clientAPI = {
   getAll: (params = {}) => api.get('/clients', { params }),
   getHistory: (clientId) => api.get(`/clients/${clientId}/history`),
+  update: (clientId, data) => api.put(`/clients/${clientId}`, data),
+};
+
+export const marketingAPI = {
+  sendCampaign: (data) => api.post('/marketing/campaigns', data),
 };
 
 export const inventoryAPI = {
@@ -79,4 +84,7 @@ export const publicAPI = {
   createAppointment: (orgId, data) => axios.post(`${API}/public/${orgId}/appointments`, data),
   getAppointment: (appointmentId) => axios.get(`${API}/public/appointments/${appointmentId}`),
   cancelAppointment: (appointmentId) => axios.post(`${API}/public/appointments/${appointmentId}/cancel`),
+  // Customer Portal endpoints
+  passwordlessAuth: (data) => axios.post(`${API}/public/auth/passwordless`, data),
+  getClientHistory: (phone, organizationId) => axios.get(`${API}/public/clients/history`, { params: { phone, organization_id: organizationId } }),
 };
