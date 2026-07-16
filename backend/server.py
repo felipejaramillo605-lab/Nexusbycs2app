@@ -1888,7 +1888,7 @@ app.add_middleware(
     allow_credentials=True,
     allow_origins=os.environ.get('CORS_ORIGINS', '*').split(','),
     allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],  # Explicit methods only
-    allow_headers=["Content-Type", "Authorization", "Cookie"],  # Explicit headers only
+    allow_headers=["Content-Type", "Authorization", "Cookie", "X-Session-ID"],  # Explicit headers only
     expose_headers=["Set-Cookie"],
     max_age=600,  # Cache preflight requests for 10 minutes
 )
