@@ -4,6 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import { useOrganization } from '../context/OrganizationContext';
 import { ArrowLeft, Save, Building, Users, Mail, UserCog, Trash2, Loader2, Check } from 'lucide-react';
 import { toast } from 'sonner';
+import { teamAPI } from '../api';
 
 const Settings = () => {
   const { user, logout } = useAuth();
@@ -25,6 +26,9 @@ const Settings = () => {
   const [teamMembers, setTeamMembers] = useState([]);
   const [inviteEmail, setInviteEmail] = useState('');
   const [inviteRole, setInviteRole] = useState('staff');
+  const [invitations, setInvitations] = useState([]);
+  const [inviting, setInviting] = useState(false);
+  const [invitationAction, setInvitationAction] = useState(null);
   const [updatingRole, setUpdatingRole] = useState(null);
 
   const loadOrganization = useCallback(async () => {
@@ -58,30 +62,26 @@ const Settings = () => {
   }, [organizationId]);
 
   const loadTeamMembers = useCallback(async () => {
+    if (!organizationId) return;
     try {
-      const response = await fetch(
-        `${process.env.REACT_APP_BACKEND_URL}/api/owner/users`,
-        { credentials: 'include' }
-      );
-
-      if (response.ok) {
-        const data = await response.json();
-        console.log('✅ Team members loaded:', data);
-        // Filter users by organization
-        const orgMembers = data.filter(u => u.organization_id === organizationId);
-        console.log('✅ Filtered org members:', orgMembers);
-        setTeamMembers(orgMembers);
-      } else {
-        const errorData = await response.json();
-        console.error('❌ ERROR AL CARGAR EQUIPO:', {
-          status: response.status,
-          errorData: errorData
-        });
-      }
+      const response = await teamAPI.getMembers(organizationId);
+      setTeamMembers(response.data);
     } catch (error) {
-      console.error('❌ CATCH ERROR AL CARGAR EQUIPO:', error);
+      console.error('Error al cargar el equipo:', error);
+      toast.error(error.response?.data?.detail || 'Error al cargar el equipo');
     } finally {
       setLoading(false);
+    }
+  }, [organizationId]);
+
+  const loadInvitations = useCallback(async () => {
+    if (!organizationId) return;
+    try {
+      const response = await teamAPI.getInvitations(organizationId);
+      setInvitations(response.data);
+    } catch (error) {
+      console.error('Error al cargar invitaciones:', error);
+      toast.error(error.response?.data?.detail || 'Error al cargar invitaciones');
     }
   }, [organizationId]);
 
@@ -89,8 +89,9 @@ const Settings = () => {
     if (organizationId) {
       loadOrganization();
       loadTeamMembers();
+      loadInvitations();
     }
-  }, [organizationId, loadOrganization, loadTeamMembers]);
+  }, [organizationId, loadOrganization, loadTeamMembers, loadInvitations]);
 
   const handleSaveProfile = async (e) => {
     e.preventDefault();
@@ -160,78 +161,90 @@ const Settings = () => {
     }
   };
 
-  const handleInviteMember = () => {
-    if (!inviteEmail) {
+  const handleInviteMember = async () => {
+    const email = inviteEmail.trim().toLowerCase();
+    if (!email) {
       toast.error('Ingresa un correo electrónico');
       return;
     }
+    if (inviting) return;
 
-    // For now, this is a placeholder for invite functionality
-    // You would typically send an invite email or create a pending user
-    toast.info(`Invitación enviada a ${inviteEmail} como ${inviteRole === 'admin' ? 'Admin' : 'Staff'}`);
-    setInviteEmail('');
+    setInviting(true);
+    try {
+      const response = await teamAPI.createInvitation({
+        email,
+        role: inviteRole,
+        organization_id: organizationId
+      });
+      setInviteEmail('');
+      await loadInvitations();
+      if (response.data.delivery_status === 'sent') {
+        toast.success(`Invitación enviada a ${email}`);
+      } else {
+        toast.warning('La invitación fue creada, pero el correo no pudo enviarse. Puedes reenviarla.');
+      }
+    } catch (error) {
+      toast.error(error.response?.data?.detail || 'No fue posible crear la invitación');
+    } finally {
+      setInviting(false);
+    }
+  };
+
+  const handleResendInvitation = async (invitationId) => {
+    setInvitationAction(invitationId);
+    try {
+      const response = await teamAPI.resendInvitation(invitationId);
+      await loadInvitations();
+      if (response.data.delivery_status === 'sent') {
+        toast.success('Invitación reenviada correctamente');
+      } else {
+        toast.warning('El proveedor de correo no confirmó el envío');
+      }
+    } catch (error) {
+      toast.error(error.response?.data?.detail || 'No fue posible reenviar la invitación');
+    } finally {
+      setInvitationAction(null);
+    }
+  };
+
+  const handleRevokeInvitation = async (invitationId) => {
+    if (!window.confirm('¿Deseas revocar esta invitación?')) return;
+    setInvitationAction(invitationId);
+    try {
+      await teamAPI.revokeInvitation(invitationId);
+      await loadInvitations();
+      toast.success('Invitación revocada');
+    } catch (error) {
+      toast.error(error.response?.data?.detail || 'No fue posible revocar la invitación');
+    } finally {
+      setInvitationAction(null);
+    }
   };
 
   const handleChangeRole = async (userId, newRole) => {
     setUpdatingRole(userId);
-    
     try {
-      // CORRECCIÓN: El backend espera 'role' como query parameter, no como JSON body
-      const response = await fetch(
-        `${process.env.REACT_APP_BACKEND_URL}/api/owner/users/${userId}/role?role=${encodeURIComponent(newRole)}`,
-        {
-          method: 'PUT',
-          credentials: 'include',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-        }
-      );
-
-      if (response.ok) {
-        setTeamMembers(teamMembers.map(m => 
-          m.user_id === userId ? { ...m, role: newRole } : m
-        ));
-        toast.success('Rol actualizado correctamente');
-      } else {
-        const errorData = await response.json();
-        console.error('❌ ERROR AL ACTUALIZAR ROL:', {
-          status: response.status,
-          statusText: response.statusText,
-          errorData: errorData,
-          userId: userId,
-          newRole: newRole,
-          endpoint: `${process.env.REACT_APP_BACKEND_URL}/api/owner/users/${userId}/role?role=${newRole}`
-        });
-        throw new Error(errorData.detail || 'Failed to update role');
-      }
+      await teamAPI.updateRole(userId, newRole, organizationId);
+      setTeamMembers((members) => members.map((member) =>
+        member.user_id === userId ? { ...member, role: newRole } : member
+      ));
+      toast.success('Rol actualizado correctamente');
     } catch (error) {
-      console.error('❌ CATCH ERROR AL ACTUALIZAR ROL:', error);
-      toast.error(`Error al actualizar el rol: ${error.message}`);
+      toast.error(error.response?.data?.detail || 'Error al actualizar el rol');
+      await loadTeamMembers();
     } finally {
       setUpdatingRole(null);
     }
   };
 
   const handleDeleteMember = async (userId) => {
-    if (!window.confirm('¿Estás seguro de eliminar este miembro?')) return;
-
+    if (!window.confirm('¿Deseas desactivar este miembro? El historial se conservará.')) return;
     try {
-      const response = await fetch(
-        `${process.env.REACT_APP_BACKEND_URL}/api/owner/users/${userId}`,
-        {
-          method: 'DELETE',
-          credentials: 'include',
-        }
-      );
-
-      if (response.ok) {
-        setTeamMembers(teamMembers.filter(m => m.user_id !== userId));
-        toast.success('Miembro eliminado');
-      }
+      await teamAPI.deactivateMember(userId, organizationId);
+      setTeamMembers((members) => members.filter((member) => member.user_id !== userId));
+      toast.success('Miembro desactivado');
     } catch (error) {
-      console.error('Error deleting member:', error);
-      toast.error('Error al eliminar miembro');
+      toast.error(error.response?.data?.detail || 'Error al desactivar el miembro');
     }
   };
 
@@ -391,19 +404,89 @@ const Settings = () => {
                     onChange={(e) => setInviteRole(e.target.value)}
                     className="flex-1 px-4 py-2 bg-white/5 border border-white/10 rounded-lg text-white focus:border-[#0A84FF] focus:ring-2 focus:ring-[#0A84FF]/20 outline-none transition-all text-sm"
                   >
-                    <option value="admin">Admin (Acceso completo)</option>
+                    {user?.role === 'owner' && <option value="manager">Manager</option>}
+                    {user?.role === 'owner' && <option value="admin">Admin (Acceso completo)</option>}
                     <option value="staff">Staff (Barbero)</option>
                   </select>
 
                   <button
                     onClick={handleInviteMember}
-                    className="px-4 py-2 rounded-lg bg-[#0A84FF] hover:bg-[#0071E3] text-white font-medium transition-all text-sm flex items-center gap-2"
+                    disabled={inviting}
+                    className="px-4 py-2 rounded-lg bg-[#0A84FF] hover:bg-[#0071E3] text-white font-medium transition-all text-sm flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    <Mail size={16} strokeWidth={1.5} />
-                    Invitar
+                    {inviting ? <Loader2 size={16} className="animate-spin" /> : <Mail size={16} strokeWidth={1.5} />}
+                    {inviting ? 'Enviando...' : 'Invitar'}
                   </button>
                 </div>
               </div>
+            </div>
+
+
+
+            {/* Pending Invitations */}
+            <div className="mb-6">
+              <h3 className="text-sm font-medium text-zinc-400 mb-3">Invitaciones ({invitations.length})</h3>
+              {invitations.length === 0 ? (
+                <div className="text-center py-5 text-zinc-500 text-sm border border-dashed border-white/10 rounded-xl">
+                  No hay invitaciones registradas
+                </div>
+              ) : (
+                <div className="space-y-2 max-h-[280px] overflow-y-auto">
+                  {invitations.map((invitation) => {
+                    const actionLoading = invitationAction === invitation.invitation_id;
+                    const canManage = !['accepted', 'revoked'].includes(invitation.status);
+                    const statusStyles = {
+                      sent: 'bg-green-500/15 text-green-400 border-green-500/30',
+                      delivery_failed: 'bg-red-500/15 text-red-400 border-red-500/30',
+                      accepted: 'bg-blue-500/15 text-blue-400 border-blue-500/30',
+                      revoked: 'bg-zinc-500/15 text-zinc-400 border-zinc-500/30',
+                      expired: 'bg-amber-500/15 text-amber-400 border-amber-500/30'
+                    };
+                    const statusLabels = {
+                      sent: 'Enviada',
+                      delivery_failed: 'Falló el envío',
+                      accepted: 'Aceptada',
+                      revoked: 'Revocada',
+                      expired: 'Vencida'
+                    };
+                    return (
+                      <div key={invitation.invitation_id} className="p-3 bg-white/5 border border-white/10 rounded-xl">
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                          <div className="min-w-0">
+                            <p className="text-white text-sm font-medium truncate">{invitation.email}</p>
+                            <p className="text-zinc-500 text-xs mt-1">
+                              {invitation.role} · {new Date(invitation.expires_at).toLocaleDateString()}
+                            </p>
+                          </div>
+                          <span className={`self-start px-2.5 py-1 rounded-full text-xs border ${statusStyles[invitation.status] || statusStyles.revoked}`}>
+                            {statusLabels[invitation.status] || invitation.status}
+                          </span>
+                        </div>
+                        {canManage && (
+                          <div className="flex gap-2 mt-3">
+                            <button
+                              type="button"
+                              disabled={actionLoading}
+                              onClick={() => handleResendInvitation(invitation.invitation_id)}
+                              className="px-3 py-1.5 text-xs rounded-lg bg-[#0A84FF]/15 text-[#0A84FF] hover:bg-[#0A84FF]/25 disabled:opacity-50"
+                            >
+                              {actionLoading ? 'Procesando...' : 'Reenviar'}
+                            </button>
+                            <button
+                              type="button"
+                              disabled={actionLoading}
+                              onClick={() => handleRevokeInvitation(invitation.invitation_id)}
+                              className="px-3 py-1.5 text-xs rounded-lg bg-red-500/10 text-red-400 hover:bg-red-500/20 disabled:opacity-50"
+                            >
+                              Revocar
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
             </div>
 
             {/* Team Members List */}
@@ -446,8 +529,8 @@ const Settings = () => {
                                 onChange={(e) => handleChangeRole(member.user_id, e.target.value)}
                                 className="px-3 py-1 bg-white/5 border border-white/10 rounded-lg text-white text-xs focus:border-[#0A84FF] outline-none"
                               >
-                                <option value="admin">Admin</option>
-                                <option value="manager">Manager</option>
+                                {user?.role === 'owner' && <option value="admin">Admin</option>}
+                                {user?.role === 'owner' && <option value="manager">Manager</option>}
                                 <option value="staff">Staff</option>
                               </select>
                             )}

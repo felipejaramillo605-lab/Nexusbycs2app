@@ -27,6 +27,16 @@ export const ownerAPI = {
   deleteUser: (userId) => api.delete(`/owner/users/${userId}`),
 };
 
+export const teamAPI = {
+  getMembers: (organizationId) => api.get('/team/members', { params: { organization_id: organizationId } }),
+  updateRole: (userId, role, organizationId) => api.put(`/team/members/${userId}/role`, { role }, { params: { organization_id: organizationId } }),
+  deactivateMember: (userId, organizationId) => api.delete(`/team/members/${userId}`, { params: { organization_id: organizationId } }),
+  getInvitations: (organizationId) => api.get('/team/invitations', { params: { organization_id: organizationId } }),
+  createInvitation: (data) => api.post('/team/invitations', data),
+  resendInvitation: (invitationId) => api.post(`/team/invitations/${invitationId}/resend`),
+  revokeInvitation: (invitationId) => api.post(`/team/invitations/${invitationId}/revoke`),
+};
+
 export const organizationAPI = {
   getAll: () => api.get('/organizations'),
   create: (name) => api.post('/organizations', null, { params: { name } }),
@@ -77,6 +87,8 @@ export const inventoryAPI = {
 };
 
 export const publicAPI = {
+  validateInvitation: (token) => axios.get(`${API}/public/invitations/validate`, { params: { token } }),
+  acceptInvitation: (data) => axios.post(`${API}/public/invitations/accept`, data),
   getOrganization: (orgId) => axios.get(`${API}/public/${orgId}/organization`),
   getServices: (orgId) => axios.get(`${API}/public/${orgId}/services`),
   getBarbers: (orgId) => axios.get(`${API}/public/${orgId}/barbers`),

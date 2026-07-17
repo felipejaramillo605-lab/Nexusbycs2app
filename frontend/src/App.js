@@ -28,6 +28,9 @@ const BookingFlow = lazy(() => import('./pages/BookingFlow'));
 const CustomerPortal = lazy(() => import('./pages/CustomerPortal'));
 const MarketingCampaigns = lazy(() => import('./pages/MarketingCampaigns'));
 const Settings = lazy(() => import('./pages/Settings'));
+const AcceptInvitation = lazy(() => import('./pages/AcceptInvitation'));
+const ForgotPassword = lazy(() => import('./pages/ForgotPassword'));
+const ResetPassword = lazy(() => import('./pages/ResetPassword'));
 
 // Loading fallback
 const PageLoader = () => (
@@ -49,6 +52,9 @@ function AppRouter() {
       <Routes>
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
+        <Route path="/accept-invitation" element={<AcceptInvitation />} />
+        <Route path="/forgot-password" element={<ForgotPassword />} />
+        <Route path="/reset-password" element={<ResetPassword />} />
         <Route path="/pending-approval" element={<PendingApproval />} />
         <Route path="/auth/callback" element={<AuthCallback />} />
         <Route path="/book/:orgId" element={<BookingFlow />} />
