@@ -11,6 +11,7 @@ from typing import Optional
 from dotenv import load_dotenv
 from pathlib import Path
 from urllib.parse import quote
+from html import escape
 
 # Load environment variables
 ROOT_DIR = Path(__file__).parent
@@ -454,6 +455,85 @@ class EmailService:
         """
         
         return self._send_email(admin_email, subject, html_body)
+
+    def send_team_invitation(
+        self,
+        to_email: str,
+        organization_name: str,
+        inviter_name: str,
+        role: str,
+        invitation_url: str,
+        expires_days: int = 7
+    ) -> bool:
+        """Send a team invitation with a one-time registration link."""
+        safe_org = escape(organization_name)
+        safe_inviter = escape(inviter_name)
+        safe_role = escape(role)
+        safe_url = escape(invitation_url, quote=True)
+        subject = f"Invitación para unirte a {organization_name}"
+        html_body = f"""
+        <!DOCTYPE html>
+        <html>
+        <body style="margin:0;background:#080808;color:#f5f5f5;font-family:Arial,sans-serif;">
+          <div style="max-width:600px;margin:32px auto;padding:32px;background:#151515;border:1px solid #2a2a2a;border-radius:20px;">
+            <h1 style="margin:0 0 16px;font-size:28px;font-weight:500;">Únete a {safe_org}</h1>
+            <p style="color:#b7b7b7;line-height:1.6;">{safe_inviter} te invitó a Nexus by CS2 con el rol <strong style="color:#fff;">{safe_role}</strong>.</p>
+            <p style="color:#b7b7b7;line-height:1.6;">Completa tu registro, crea tu contraseña y configura tus datos personales.</p>
+            <p style="margin:28px 0;"><a href="{safe_url}" style="display:inline-block;padding:14px 22px;background:#0A84FF;color:#fff;text-decoration:none;border-radius:12px;font-weight:600;">Aceptar invitación</a></p>
+            <p style="color:#777;font-size:13px;">Este enlace vence en {expires_days} días y solo puede utilizarse una vez.</p>
+          </div>
+        </body>
+        </html>
+        """
+        text_body = f"""{inviter_name} te invitó a unirte a {organization_name} como {role}.
+
+Completa tu registro aquí: {invitation_url}
+
+El enlace vence en {expires_days} días y solo puede utilizarse una vez."""
+        return self._send_email(to_email, subject, html_body, text_body)
+
+    def send_password_reset(self, to_email: str, user_name: str, reset_url: str) -> bool:
+        """Send a one-time password reset link."""
+        safe_name = escape(user_name)
+        safe_url = escape(reset_url, quote=True)
+        subject = "Restablece tu contraseña de Nexus by CS2"
+        html_body = f"""
+        <!DOCTYPE html>
+        <html>
+        <body style="margin:0;background:#080808;color:#f5f5f5;font-family:Arial,sans-serif;">
+          <div style="max-width:600px;margin:32px auto;padding:32px;background:#151515;border:1px solid #2a2a2a;border-radius:20px;">
+            <h1 style="margin:0 0 16px;font-size:28px;font-weight:500;">Restablecer contraseña</h1>
+            <p style="color:#b7b7b7;line-height:1.6;">Hola {safe_name}. Recibimos una solicitud para restablecer tu contraseña.</p>
+            <p style="margin:28px 0;"><a href="{safe_url}" style="display:inline-block;padding:14px 22px;background:#0A84FF;color:#fff;text-decoration:none;border-radius:12px;font-weight:600;">Crear nueva contraseña</a></p>
+            <p style="color:#777;font-size:13px;">El enlace vence en una hora y solo puede utilizarse una vez. Si no solicitaste el cambio, ignora este correo.</p>
+          </div>
+        </body>
+        </html>
+        """
+        text_body = f"""Hola {user_name}. Usa este enlace para restablecer tu contraseña:
+
+{reset_url}
+
+El enlace vence en una hora y solo puede utilizarse una vez."""
+        return self._send_email(to_email, subject, html_body, text_body)
+
+    def send_password_changed(self, to_email: str, user_name: str) -> bool:
+        """Notify a user after a successful password change."""
+        safe_name = escape(user_name)
+        subject = "Tu contraseña de Nexus by CS2 fue actualizada"
+        html_body = f"""
+        <!DOCTYPE html>
+        <html>
+        <body style="margin:0;background:#080808;color:#f5f5f5;font-family:Arial,sans-serif;">
+          <div style="max-width:600px;margin:32px auto;padding:32px;background:#151515;border:1px solid #2a2a2a;border-radius:20px;">
+            <h1 style="margin:0 0 16px;font-size:26px;font-weight:500;">Contraseña actualizada</h1>
+            <p style="color:#b7b7b7;line-height:1.6;">Hola {safe_name}. Tu contraseña fue actualizada correctamente y las sesiones anteriores fueron cerradas.</p>
+            <p style="color:#777;font-size:13px;">Si no realizaste este cambio, contacta al administrador de tu organización.</p>
+          </div>
+        </body>
+        </html>
+        """
+        return self._send_email(to_email, subject, html_body)
 
 # Singleton instance
 email_service = EmailService()

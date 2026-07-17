@@ -6,7 +6,7 @@ from motor.motor_asyncio import AsyncIOMotorClient
 import os
 import logging
 from pathlib import Path
-from pydantic import BaseModel, Field, ConfigDict
+from pydantic import BaseModel, Field, ConfigDict, EmailStr
 from typing import List, Optional
 import uuid
 from datetime import datetime, timezone, timedelta
@@ -15,6 +15,8 @@ from emergentintegrations.llm.chat import LlmChat, UserMessage, TextDelta, Strea
 import json
 import bcrypt
 import secrets
+import hashlib
+import re
 
 # Email service
 from email_service import email_service
@@ -42,6 +44,10 @@ class User(BaseModel):
     email: str
     name: str
     picture: Optional[str] = None
+    first_name: Optional[str] = None
+    last_name: Optional[str] = None
+    phone: Optional[str] = None
+    address: Optional[str] = None
     password_hash: Optional[str] = None  # For manual auth
     auth_method: str = "google"  # google, apple, manual
     role: str = "manager"  # owner, manager, admin, staff
@@ -142,6 +148,9 @@ class Barber(BaseModel):
     barber_id: str
     organization_id: str
     name: str
+    user_id: Optional[str] = None
+    phone: Optional[str] = None
+    address: Optional[str] = None
     avatar: Optional[str] = None
     available_days: List[int] = Field(default_factory=lambda: [1, 2, 3, 4, 5])
     start_time: str = "09:00"
@@ -279,6 +288,24 @@ class ForgotPasswordRequest(BaseModel):
 class ResetPasswordRequest(BaseModel):
     token: str
     new_password: str
+    confirm_password: Optional[str] = None
+
+class TeamInvitationCreate(BaseModel):
+    email: EmailStr
+    role: str = "staff"
+    organization_id: Optional[str] = None
+
+class TeamRoleUpdate(BaseModel):
+    role: str
+
+class InvitationAcceptRequest(BaseModel):
+    token: str
+    first_name: str
+    last_name: str
+    phone: str
+    address: Optional[str] = None
+    password: str
+    confirm_password: str
 
 # Password Helper Functions
 def hash_password(password: str) -> str:
@@ -289,6 +316,49 @@ def hash_password(password: str) -> str:
 def verify_password(password: str, hashed: str) -> bool:
     """Verify a password against its hash"""
     return bcrypt.checkpw(password.encode('utf-8'), hashed.encode('utf-8'))
+
+
+def normalize_email(email: str) -> str:
+    return str(email).strip().lower()
+
+
+def token_digest(token: str) -> str:
+    return hashlib.sha256(token.encode("utf-8")).hexdigest()
+
+
+def validate_password_policy(password: str) -> None:
+    if len(password) < 8 or not re.search(r"[A-Z]", password) or not re.search(r"[0-9]", password):
+        raise HTTPException(
+            status_code=400,
+            detail="Password must contain at least 8 characters, one uppercase letter and one number"
+        )
+
+
+def safe_delivery_error() -> str:
+    return "Email provider rejected the delivery attempt"
+
+
+async def resolve_team_organization(current_user: User, requested_org_id: Optional[str]) -> str:
+    if current_user.role not in ["owner", "manager", "admin"]:
+        raise HTTPException(status_code=403, detail="Access denied")
+
+    if current_user.role == "owner":
+        organization_id = requested_org_id or current_user.organization_id
+        if not organization_id:
+            raise HTTPException(status_code=400, detail="organization_id is required")
+    else:
+        if not current_user.organization_id:
+            raise HTTPException(status_code=403, detail="No organization assigned")
+        if requested_org_id and requested_org_id != current_user.organization_id:
+            raise HTTPException(status_code=403, detail="Access denied to this organization")
+        organization_id = current_user.organization_id
+
+    organization = await db.organizations.find_one(
+        {"organization_id": organization_id}, {"_id": 0}
+    )
+    if not organization:
+        raise HTTPException(status_code=404, detail="Organization not found")
+    return organization_id
 
 # Auth Helper
 async def get_current_user(authorization: Optional[str] = Header(None), session_token: Optional[str] = Cookie(None)):
@@ -479,36 +549,474 @@ async def login_user(data: LoginRequest, response: Response):
 
 @api_router.post("/auth/forgot-password")
 async def forgot_password(data: ForgotPasswordRequest):
-    """Initiate password reset (mock)."""
-    user = await db.users.find_one({"email": data.email}, {"_id": 0})
-    if user and user.get("auth_method") == "manual":
-        reset_token = secrets.token_urlsafe(32)
-        expires_at = datetime.now(timezone.utc) + timedelta(hours=1)
-        await db.password_resets.insert_one({
-            "user_id": user["user_id"],
-            "token": reset_token,
-            "expires_at": expires_at.isoformat(),
-            "used": False,
-            "created_at": datetime.now(timezone.utc).isoformat()
-        })
-        logger.info(f"[MOCK] Password reset token: {reset_token}")
-    return {"message": "If the email exists, a reset link has been sent"}
+    """Create and deliver a one-time password reset token without disclosing account existence."""
+    generic_response = {"message": "If the email exists, a reset link has been sent"}
+    normalized_email = normalize_email(data.email)
+    user = await db.users.find_one(
+        {"email": {"$regex": f"^{re.escape(normalized_email)}$", "$options": "i"}},
+        {"_id": 0}
+    )
+
+    if not user or user.get("auth_method") != "manual":
+        return generic_response
+
+    raw_token = secrets.token_urlsafe(32)
+    now = datetime.now(timezone.utc)
+    expires_at = now + timedelta(hours=1)
+    await db.password_resets.update_many(
+        {"user_id": user["user_id"], "used": False},
+        {"$set": {"used": True, "invalidated_at": now.isoformat()}}
+    )
+    await db.password_resets.insert_one({
+        "reset_id": f"reset_{uuid.uuid4().hex[:12]}",
+        "user_id": user["user_id"],
+        "token_hash": token_digest(raw_token),
+        "expires_at": expires_at.isoformat(),
+        "used": False,
+        "created_at": now.isoformat()
+    })
+
+    frontend_url = os.environ.get("FRONTEND_URL", "").rstrip("/")
+    if not frontend_url:
+        logger.error("FRONTEND_URL is not configured; password reset email was not sent")
+        return generic_response
+
+    reset_url = f"{frontend_url}/reset-password?token={raw_token}"
+    sent = email_service.send_password_reset(
+        to_email=user["email"],
+        user_name=user.get("name", "usuario"),
+        reset_url=reset_url
+    )
+    if not sent:
+        logger.warning("Password reset email delivery failed for user_id=%s", user["user_id"])
+    return generic_response
+
 
 @api_router.post("/auth/reset-password")
 async def reset_password(data: ResetPasswordRequest):
-    """Reset password with token."""
-    reset_doc = await db.password_resets.find_one({"token": data.token, "used": False}, {"_id": 0})
+    """Reset a manual account password using a hashed, expiring, one-time token."""
+    if data.confirm_password is not None and data.new_password != data.confirm_password:
+        raise HTTPException(status_code=400, detail="Passwords do not match")
+    validate_password_policy(data.new_password)
+
+    digest = token_digest(data.token)
+    reset_doc = await db.password_resets.find_one(
+        {"token_hash": digest, "used": False}, {"_id": 0}
+    )
     if not reset_doc:
         raise HTTPException(status_code=400, detail="Invalid or expired token")
-    
+
     expires_at = datetime.fromisoformat(reset_doc["expires_at"])
+    if expires_at.tzinfo is None:
+        expires_at = expires_at.replace(tzinfo=timezone.utc)
     if datetime.now(timezone.utc) > expires_at:
-        raise HTTPException(status_code=400, detail="Token expired")
-    
+        await db.password_resets.update_one(
+            {"reset_id": reset_doc["reset_id"]},
+            {"$set": {"used": True, "expired_at": datetime.now(timezone.utc).isoformat()}}
+        )
+        raise HTTPException(status_code=400, detail="Invalid or expired token")
+
     password_hash = hash_password(data.new_password)
-    await db.users.update_one({"user_id": reset_doc["user_id"]}, {"$set": {"password_hash": password_hash}})
-    await db.password_resets.update_one({"token": data.token}, {"$set": {"used": True}})
+    await db.users.update_one(
+        {"user_id": reset_doc["user_id"]},
+        {"$set": {"password_hash": password_hash}}
+    )
+    await db.password_resets.update_one(
+        {"reset_id": reset_doc["reset_id"]},
+        {"$set": {"used": True, "used_at": datetime.now(timezone.utc).isoformat()}}
+    )
+    await db.user_sessions.delete_many({"user_id": reset_doc["user_id"]})
+
+    user = await db.users.find_one({"user_id": reset_doc["user_id"]}, {"_id": 0})
+    if user:
+        email_service.send_password_changed(
+            to_email=user["email"],
+            user_name=user.get("name", "usuario")
+        )
     return {"message": "Password reset successful"}
+
+
+# Team management endpoints
+@api_router.get("/team/members")
+async def list_team_members(
+    organization_id: Optional[str] = None,
+    authorization: Optional[str] = Header(None),
+    session_token: Optional[str] = Cookie(None)
+):
+    current_user = await get_current_user(authorization, session_token)
+    resolved_org_id = await resolve_team_organization(current_user, organization_id)
+    members = await db.users.find(
+        {"organization_id": resolved_org_id},
+        {"_id": 0, "password_hash": 0}
+    ).sort("name", 1).to_list(1000)
+    return members
+
+
+@api_router.put("/team/members/{user_id}/role")
+async def update_team_member_role(
+    user_id: str,
+    data: TeamRoleUpdate,
+    organization_id: Optional[str] = None,
+    authorization: Optional[str] = Header(None),
+    session_token: Optional[str] = Cookie(None)
+):
+    current_user = await get_current_user(authorization, session_token)
+    resolved_org_id = await resolve_team_organization(current_user, organization_id)
+    member = await db.users.find_one(
+        {"user_id": user_id, "organization_id": resolved_org_id}, {"_id": 0}
+    )
+    if not member:
+        raise HTTPException(status_code=404, detail="Team member not found")
+    if member.get("role") == "owner":
+        raise HTTPException(status_code=403, detail="Owner role cannot be changed here")
+    allowed_roles = ["manager", "admin", "staff"] if current_user.role == "owner" else ["staff"]
+    if data.role not in allowed_roles:
+        raise HTTPException(status_code=403, detail="You cannot assign this role")
+    if current_user.role != "owner" and member.get("role") != "staff":
+        raise HTTPException(status_code=403, detail="You cannot modify this member")
+    await db.users.update_one({"user_id": user_id}, {"$set": {"role": data.role}})
+    return {"message": "Team member role updated", "role": data.role}
+
+
+@api_router.delete("/team/members/{user_id}")
+async def deactivate_team_member(
+    user_id: str,
+    organization_id: Optional[str] = None,
+    authorization: Optional[str] = Header(None),
+    session_token: Optional[str] = Cookie(None)
+):
+    current_user = await get_current_user(authorization, session_token)
+    resolved_org_id = await resolve_team_organization(current_user, organization_id)
+    if user_id == current_user.user_id:
+        raise HTTPException(status_code=400, detail="You cannot deactivate your own account")
+    member = await db.users.find_one(
+        {"user_id": user_id, "organization_id": resolved_org_id}, {"_id": 0}
+    )
+    if not member:
+        raise HTTPException(status_code=404, detail="Team member not found")
+    if member.get("role") == "owner":
+        raise HTTPException(status_code=403, detail="Owner cannot be deactivated")
+    if current_user.role != "owner" and member.get("role") != "staff":
+        raise HTTPException(status_code=403, detail="You cannot deactivate this member")
+    now = datetime.now(timezone.utc).isoformat()
+    await db.users.update_one(
+        {"user_id": user_id},
+        {"$set": {"access_status": "rejected", "deactivated_at": now}}
+    )
+    await db.user_sessions.delete_many({"user_id": user_id})
+    await db.barbers.update_many({"user_id": user_id}, {"$set": {"active": False, "updated_at": now}})
+    return {"message": "Team member deactivated"}
+
+
+# Team invitation endpoints
+@api_router.get("/team/invitations")
+async def list_team_invitations(
+    organization_id: Optional[str] = None,
+    authorization: Optional[str] = Header(None),
+    session_token: Optional[str] = Cookie(None)
+):
+    current_user = await get_current_user(authorization, session_token)
+    resolved_org_id = await resolve_team_organization(current_user, organization_id)
+    invitations = await db.invitations.find(
+        {"organization_id": resolved_org_id},
+        {"_id": 0, "token_hash": 0, "last_delivery_error": 0}
+    ).sort("created_at", -1).to_list(500)
+
+    now = datetime.now(timezone.utc)
+    for invitation in invitations:
+        expires_at = datetime.fromisoformat(invitation["expires_at"])
+        if expires_at.tzinfo is None:
+            expires_at = expires_at.replace(tzinfo=timezone.utc)
+        if invitation.get("status") in ["sent", "delivery_failed"] and expires_at < now:
+            invitation["status"] = "expired"
+    return invitations
+
+
+@api_router.post("/team/invitations")
+async def create_team_invitation(
+    data: TeamInvitationCreate,
+    authorization: Optional[str] = Header(None),
+    session_token: Optional[str] = Cookie(None)
+):
+    current_user = await get_current_user(authorization, session_token)
+    organization_id = await resolve_team_organization(current_user, data.organization_id)
+
+    allowed_roles = ["manager", "admin", "staff"] if current_user.role == "owner" else ["staff"]
+    if data.role not in allowed_roles:
+        raise HTTPException(status_code=403, detail="You cannot invite this role")
+
+    normalized_email = normalize_email(data.email)
+    existing_user = await db.users.find_one(
+        {"email": {"$regex": f"^{re.escape(normalized_email)}$", "$options": "i"}},
+        {"_id": 0}
+    )
+    if existing_user:
+        raise HTTPException(status_code=409, detail="A user with this email already exists")
+
+    active_invitation = await db.invitations.find_one({
+        "organization_id": organization_id,
+        "normalized_email": normalized_email,
+        "status": {"$in": ["sent", "delivery_failed"]},
+        "expires_at": {"$gt": datetime.now(timezone.utc).isoformat()}
+    }, {"_id": 0})
+    if active_invitation:
+        raise HTTPException(status_code=409, detail="An active invitation already exists for this email")
+
+    organization = await db.organizations.find_one(
+        {"organization_id": organization_id}, {"_id": 0}
+    )
+    raw_token = secrets.token_urlsafe(32)
+    now = datetime.now(timezone.utc)
+    expires_at = now + timedelta(days=7)
+    invitation_id = f"inv_{uuid.uuid4().hex[:12]}"
+    frontend_url = os.environ.get("FRONTEND_URL", "").rstrip("/")
+    if not frontend_url:
+        raise HTTPException(status_code=500, detail="Invitation delivery is not configured")
+    invitation_url = f"{frontend_url}/accept-invitation?token={raw_token}"
+
+    invitation_doc = {
+        "invitation_id": invitation_id,
+        "organization_id": organization_id,
+        "organization_name": organization.get("name", "Nexus by CS2"),
+        "email": normalized_email,
+        "normalized_email": normalized_email,
+        "role": data.role,
+        "invited_by_user_id": current_user.user_id,
+        "token_hash": token_digest(raw_token),
+        "status": "pending_send",
+        "delivery_status": "pending",
+        "send_attempts": 1,
+        "last_send_attempt_at": now.isoformat(),
+        "expires_at": expires_at.isoformat(),
+        "created_at": now.isoformat(),
+        "updated_at": now.isoformat()
+    }
+    await db.invitations.insert_one(invitation_doc)
+
+    sent = email_service.send_team_invitation(
+        to_email=normalized_email,
+        organization_name=organization.get("name", "Nexus by CS2"),
+        inviter_name=current_user.name,
+        role=data.role,
+        invitation_url=invitation_url,
+        expires_days=7
+    )
+    status_value = "sent" if sent else "delivery_failed"
+    update_fields = {
+        "status": status_value,
+        "delivery_status": status_value,
+        "updated_at": datetime.now(timezone.utc).isoformat()
+    }
+    if not sent:
+        update_fields["last_delivery_error"] = safe_delivery_error()
+    await db.invitations.update_one(
+        {"invitation_id": invitation_id}, {"$set": update_fields}
+    )
+
+    return {
+        "invitation_id": invitation_id,
+        "email": normalized_email,
+        "role": data.role,
+        "status": status_value,
+        "delivery_status": status_value,
+        "expires_at": expires_at.isoformat(),
+        "invitation_url": invitation_url if not sent else None,
+        "message": "Invitation sent successfully" if sent else "Invitation created, but email delivery failed"
+    }
+
+
+@api_router.post("/team/invitations/{invitation_id}/resend")
+async def resend_team_invitation(
+    invitation_id: str,
+    authorization: Optional[str] = Header(None),
+    session_token: Optional[str] = Cookie(None)
+):
+    current_user = await get_current_user(authorization, session_token)
+    invitation = await db.invitations.find_one({"invitation_id": invitation_id}, {"_id": 0})
+    if not invitation:
+        raise HTTPException(status_code=404, detail="Invitation not found")
+    await resolve_team_organization(current_user, invitation["organization_id"])
+    if current_user.role != "owner" and invitation.get("role") != "staff":
+        raise HTTPException(status_code=403, detail="You cannot manage this invitation")
+    if invitation.get("status") in ["accepted", "revoked"]:
+        raise HTTPException(status_code=400, detail="Invitation cannot be resent")
+
+    raw_token = secrets.token_urlsafe(32)
+    now = datetime.now(timezone.utc)
+    expires_at = now + timedelta(days=7)
+    frontend_url = os.environ.get("FRONTEND_URL", "").rstrip("/")
+    if not frontend_url:
+        raise HTTPException(status_code=500, detail="Invitation delivery is not configured")
+    invitation_url = f"{frontend_url}/accept-invitation?token={raw_token}"
+
+    sent = email_service.send_team_invitation(
+        to_email=invitation["email"],
+        organization_name=invitation.get("organization_name", "Nexus by CS2"),
+        inviter_name=current_user.name,
+        role=invitation["role"],
+        invitation_url=invitation_url,
+        expires_days=7
+    )
+    status_value = "sent" if sent else "delivery_failed"
+    update_fields = {
+        "token_hash": token_digest(raw_token),
+        "status": status_value,
+        "delivery_status": status_value,
+        "expires_at": expires_at.isoformat(),
+        "last_send_attempt_at": now.isoformat(),
+        "updated_at": now.isoformat(),
+        "send_attempts": invitation.get("send_attempts", 0) + 1
+    }
+    if sent:
+        update_fields["last_delivery_error"] = None
+    else:
+        update_fields["last_delivery_error"] = safe_delivery_error()
+    await db.invitations.update_one(
+        {"invitation_id": invitation_id}, {"$set": update_fields}
+    )
+    return {
+        "invitation_id": invitation_id,
+        "status": status_value,
+        "delivery_status": status_value,
+        "expires_at": expires_at.isoformat(),
+        "invitation_url": invitation_url if not sent else None,
+        "message": "Invitation sent successfully" if sent else "Invitation delivery failed"
+    }
+
+
+@api_router.post("/team/invitations/{invitation_id}/revoke")
+async def revoke_team_invitation(
+    invitation_id: str,
+    authorization: Optional[str] = Header(None),
+    session_token: Optional[str] = Cookie(None)
+):
+    current_user = await get_current_user(authorization, session_token)
+    invitation = await db.invitations.find_one({"invitation_id": invitation_id}, {"_id": 0})
+    if not invitation:
+        raise HTTPException(status_code=404, detail="Invitation not found")
+    await resolve_team_organization(current_user, invitation["organization_id"])
+    if current_user.role != "owner" and invitation.get("role") != "staff":
+        raise HTTPException(status_code=403, detail="You cannot manage this invitation")
+    if invitation.get("status") == "accepted":
+        raise HTTPException(status_code=400, detail="Accepted invitation cannot be revoked")
+    await db.invitations.update_one(
+        {"invitation_id": invitation_id},
+        {"$set": {
+            "status": "revoked",
+            "revoked_at": datetime.now(timezone.utc).isoformat(),
+            "updated_at": datetime.now(timezone.utc).isoformat()
+        }}
+    )
+    return {"message": "Invitation revoked"}
+
+
+@api_router.get("/public/invitations/validate")
+async def validate_public_invitation(token: str):
+    invitation = await db.invitations.find_one(
+        {"token_hash": token_digest(token)}, {"_id": 0, "token_hash": 0, "last_delivery_error": 0}
+    )
+    if not invitation or invitation.get("status") not in ["sent", "delivery_failed"]:
+        raise HTTPException(status_code=400, detail="Invalid or expired invitation")
+    expires_at = datetime.fromisoformat(invitation["expires_at"])
+    if expires_at.tzinfo is None:
+        expires_at = expires_at.replace(tzinfo=timezone.utc)
+    if expires_at < datetime.now(timezone.utc):
+        raise HTTPException(status_code=400, detail="Invalid or expired invitation")
+    return {
+        "email": invitation["email"],
+        "role": invitation["role"],
+        "organization_name": invitation.get("organization_name", "Nexus by CS2"),
+        "expires_at": invitation["expires_at"]
+    }
+
+
+@api_router.post("/public/invitations/accept")
+async def accept_public_invitation(data: InvitationAcceptRequest):
+    if data.password != data.confirm_password:
+        raise HTTPException(status_code=400, detail="Passwords do not match")
+    validate_password_policy(data.password)
+
+    digest = token_digest(data.token)
+    invitation = await db.invitations.find_one(
+        {"token_hash": digest, "status": {"$in": ["sent", "delivery_failed"]}}, {"_id": 0}
+    )
+    if not invitation:
+        raise HTTPException(status_code=400, detail="Invalid or expired invitation")
+    expires_at = datetime.fromisoformat(invitation["expires_at"])
+    if expires_at.tzinfo is None:
+        expires_at = expires_at.replace(tzinfo=timezone.utc)
+    if expires_at < datetime.now(timezone.utc):
+        raise HTTPException(status_code=400, detail="Invalid or expired invitation")
+
+    existing_user = await db.users.find_one(
+        {"email": {"$regex": f"^{re.escape(invitation['normalized_email'])}$", "$options": "i"}},
+        {"_id": 0}
+    )
+    if existing_user:
+        raise HTTPException(status_code=409, detail="A user with this email already exists")
+
+    first_name = data.first_name.strip()
+    last_name = data.last_name.strip()
+    phone = sanitize_phone(data.phone)
+    if not first_name or not last_name or not phone:
+        raise HTTPException(status_code=400, detail="First name, last name and phone are required")
+
+    now = datetime.now(timezone.utc)
+    user_id = f"user_{uuid.uuid4().hex[:12]}"
+    full_name = f"{first_name} {last_name}".strip()
+    user_doc = {
+        "user_id": user_id,
+        "email": invitation["normalized_email"],
+        "name": full_name,
+        "first_name": first_name,
+        "last_name": last_name,
+        "phone": phone,
+        "address": data.address.strip() if data.address else None,
+        "password_hash": hash_password(data.password),
+        "auth_method": "manual",
+        "picture": None,
+        "role": invitation["role"],
+        "access_status": "approved",
+        "organization_id": invitation["organization_id"],
+        "created_at": now.isoformat(),
+        "last_login": None
+    }
+    await db.users.insert_one(user_doc)
+
+    try:
+        if invitation["role"] == "staff":
+            barber_doc = {
+                "barber_id": f"barber_{uuid.uuid4().hex[:12]}",
+                "organization_id": invitation["organization_id"],
+                "user_id": user_id,
+                "name": full_name,
+                "phone": phone,
+                "address": data.address.strip() if data.address else None,
+                "avatar": None,
+                "available_days": [1, 2, 3, 4, 5],
+                "start_time": "09:00",
+                "end_time": "18:00",
+                "created_at": now.isoformat()
+            }
+            await db.barbers.insert_one(barber_doc)
+
+        result = await db.invitations.update_one(
+            {"invitation_id": invitation["invitation_id"], "status": {"$in": ["sent", "delivery_failed"]}},
+            {"$set": {
+                "status": "accepted",
+                "accepted_at": now.isoformat(),
+                "accepted_user_id": user_id,
+                "updated_at": now.isoformat()
+            }}
+        )
+        if result.modified_count != 1:
+            raise RuntimeError("Invitation acceptance conflict")
+    except Exception:
+        await db.users.delete_one({"user_id": user_id})
+        await db.barbers.delete_many({"user_id": user_id})
+        raise
+
+    return {"message": "Invitation accepted successfully", "user_id": user_id}
 
 # Owner Endpoints
 @api_router.get("/owner/users")
@@ -828,6 +1336,9 @@ async def create_barber(data: BarberCreate, authorization: Optional[str] = Heade
         "barber_id": barber_id,
         "organization_id": current_user.organization_id,
         "name": data.name,
+        "user_id": None,
+        "phone": None,
+        "address": None,
         "avatar": data.avatar,
         "available_days": data.available_days or [1, 2, 3, 4, 5],
         "start_time": data.start_time or "09:00",
@@ -1922,6 +2433,26 @@ async def add_security_headers(request, call_next):
     return response
 
 # ==================== END SECURITY MIDDLEWARE ====================
+
+@app.on_event("startup")
+async def create_application_indexes():
+    await db.invitations.create_index(
+        "token_hash",
+        unique=True,
+        partialFilterExpression={"token_hash": {"$exists": True}}
+    )
+    await db.invitations.create_index([
+        ("organization_id", 1),
+        ("normalized_email", 1),
+        ("status", 1)
+    ])
+    await db.password_resets.create_index(
+        "token_hash",
+        unique=True,
+        partialFilterExpression={"token_hash": {"$exists": True}}
+    )
+    await db.password_resets.create_index("expires_at")
+
 
 @app.on_event("shutdown")
 async def shutdown_db_client():
