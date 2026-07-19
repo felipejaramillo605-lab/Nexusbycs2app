@@ -2227,6 +2227,10 @@ async def get_availability(org_id: str, barber_id: str, date: str, service_id: s
     }, {"_id": 0})
     if not barber:
         raise HTTPException(status_code=404, detail="Barber not found")
+
+    service_ids = barber.get("service_ids") or []
+    if service_ids and service_id not in service_ids:
+        raise HTTPException(status_code=400, detail="Barber does not provide this service")
     
     # Get service to know duration
     service = await db.services.find_one({"service_id": service_id, "organization_id": org_id}, {"_id": 0})
@@ -2320,6 +2324,17 @@ async def create_public_appointment(org_id: str, data: AppointmentCreate):
     service = await db.services.find_one({"service_id": data.service_id, "organization_id": org_id}, {"_id": 0})
     if not service:
         raise HTTPException(status_code=404, detail="Service not found")
+
+    barber = await db.barbers.find_one({
+        "barber_id": data.barber_id,
+        "organization_id": org_id,
+        "$or": [{"active": True}, {"active": {"$exists": False}}]
+    }, {"_id": 0})
+    if not barber:
+        raise HTTPException(status_code=404, detail="Barber not found")
+    service_ids = barber.get("service_ids") or []
+    if service_ids and data.service_id not in service_ids:
+        raise HTTPException(status_code=400, detail="Barber does not provide this service")
     
     service_duration = service["duration"]
     

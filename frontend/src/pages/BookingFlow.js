@@ -28,6 +28,13 @@ const BookingFlow = () => {
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
 
+  const eligibleBarbers = selectedService
+    ? barbers.filter((barber) => {
+        const serviceIds = barber.service_ids || [];
+        return serviceIds.length === 0 || serviceIds.includes(selectedService.service_id);
+      })
+    : barbers;
+
   useEffect(() => {
     // CORRECCIÓN: Cargar organización desde Context (siempre datos frescos)
     loadOrganization(orgId);
@@ -52,6 +59,17 @@ const BookingFlow = () => {
       loadAvailability();
     }
   }, [selectedBarber, selectedDate, selectedService]);
+
+  useEffect(() => {
+    if (!selectedBarber || !selectedService) return;
+    const serviceIds = selectedBarber.service_ids || [];
+    if (serviceIds.length > 0 && !serviceIds.includes(selectedService.service_id)) {
+      setSelectedBarber(null);
+      setSelectedDate('');
+      setSelectedTime('');
+      setAvailableSlots([]);
+    }
+  }, [selectedService, selectedBarber]);
 
   const loadServices = async () => {
     try {
@@ -312,30 +330,50 @@ const BookingFlow = () => {
               <h2 className="text-2xl font-medium text-white mb-6" style={{ fontFamily: 'Outfit, sans-serif' }}>
                 Elige tu barbero
               </h2>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {barbers.map((barber) => (
-                  <button
-                    key={barber.barber_id}
-                    data-testid={BOOKING.barberCard}
-                    onClick={() => setSelectedBarber(barber)}
-                    className={`p-6 rounded-2xl border-2 transition-all ${
-                      selectedBarber?.barber_id === barber.barber_id
-                        ? 'border-[#0A84FF] bg-[#0A84FF]/10'
-                        : 'border-white/10 bg-white/5 hover:bg-white/10'
-                    }`}
-                  >
-                    <div className="flex items-center gap-4">
-                      <div className="w-16 h-16 rounded-full bg-[#0A84FF] flex items-center justify-center text-white text-xl font-medium">
-                        {barber.name.charAt(0)}
-                      </div>
-                      <div className="flex-1 text-left">
-                        <h3 className="text-white font-medium text-lg">{barber.name}</h3>
-                        <p className="text-zinc-400 text-sm">{barber.start_time} - {barber.end_time}</p>
-                      </div>
-                    </div>
-                  </button>
-                ))}
-              </div>
+              {eligibleBarbers.length === 0 ? (
+                <div className="rounded-2xl border border-white/10 bg-white/5 p-8 text-center">
+                  <User size={36} strokeWidth={1.5} className="text-zinc-600 mx-auto mb-3" />
+                  <p className="text-white font-medium mb-2">No hay profesionales disponibles</p>
+                  <p className="text-zinc-400 text-sm">No encontramos barberos asignados al servicio seleccionado.</p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {eligibleBarbers.map((barber) => {
+                    const displayName = barber.display_name || barber.name || 'Barbero';
+                    const serviceNames = services
+                      .filter((service) => (barber.service_ids || []).includes(service.service_id))
+                      .map((service) => service.name);
+                    return (
+                      <button
+                        key={barber.barber_id}
+                        data-testid={BOOKING.barberCard}
+                        onClick={() => setSelectedBarber(barber)}
+                        className={`p-6 rounded-2xl border-2 transition-all text-left ${
+                          selectedBarber?.barber_id === barber.barber_id
+                            ? 'border-[#0A84FF] bg-[#0A84FF]/10'
+                            : 'border-white/10 bg-white/5 hover:bg-white/10'
+                        }`}
+                      >
+                        <div className="flex items-start gap-4">
+                          {barber.avatar ? (
+                            <img src={barber.avatar} alt="" className="w-16 h-16 rounded-full object-cover border border-white/10 shrink-0" />
+                          ) : (
+                            <div className="w-16 h-16 rounded-full bg-[#0A84FF] flex items-center justify-center text-white text-xl font-medium shrink-0">
+                              {displayName.charAt(0).toUpperCase()}
+                            </div>
+                          )}
+                          <div className="flex-1 min-w-0">
+                            <h3 className="text-white font-medium text-lg">{displayName}</h3>
+                            {barber.bio && <p className="text-zinc-400 text-sm mt-1 line-clamp-2">{barber.bio}</p>}
+                            <p className="text-zinc-500 text-sm mt-2">{barber.start_time || '09:00'} - {barber.end_time || '18:00'}</p>
+                            {serviceNames.length > 0 && <p className="text-purple-300 text-xs mt-2 line-clamp-2">{serviceNames.join(' · ')}</p>}
+                          </div>
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
             </div>
           )}
 
