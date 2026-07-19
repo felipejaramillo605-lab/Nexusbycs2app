@@ -149,13 +149,20 @@ class Barber(BaseModel):
     organization_id: str
     name: str
     user_id: Optional[str] = None
+    first_name: Optional[str] = None
+    last_name: Optional[str] = None
+    display_name: Optional[str] = None
     phone: Optional[str] = None
     address: Optional[str] = None
+    bio: Optional[str] = None
     avatar: Optional[str] = None
+    active: bool = True
     available_days: List[int] = Field(default_factory=lambda: [1, 2, 3, 4, 5])
     start_time: str = "09:00"
     end_time: str = "18:00"
+    service_ids: List[str] = Field(default_factory=list)
     created_at: datetime
+    updated_at: Optional[datetime] = None
 
 class Appointment(BaseModel):
     model_config = ConfigDict(extra="ignore")
@@ -218,10 +225,19 @@ class ServiceCreate(BaseModel):
 
 class BarberCreate(BaseModel):
     name: str
+    organization_id: Optional[str] = None
+    first_name: Optional[str] = None
+    last_name: Optional[str] = None
+    display_name: Optional[str] = None
+    phone: Optional[str] = None
+    address: Optional[str] = None
+    bio: Optional[str] = None
     avatar: Optional[str] = None
+    active: bool = True
     available_days: Optional[List[int]] = None
     start_time: Optional[str] = "09:00"
     end_time: Optional[str] = "18:00"
+    service_ids: Optional[List[str]] = None
 
 class AppointmentCreate(BaseModel):
     service_id: str
@@ -990,13 +1006,20 @@ async def accept_public_invitation(data: InvitationAcceptRequest):
                 "organization_id": invitation["organization_id"],
                 "user_id": user_id,
                 "name": full_name,
+                "display_name": full_name,
+                "first_name": first_name,
+                "last_name": last_name,
                 "phone": phone,
                 "address": data.address.strip() if data.address else None,
+                "bio": None,
                 "avatar": None,
+                "active": True,
                 "available_days": [1, 2, 3, 4, 5],
                 "start_time": "09:00",
                 "end_time": "18:00",
-                "created_at": now.isoformat()
+                "service_ids": [],
+                "created_at": now.isoformat(),
+                "updated_at": now.isoformat()
             }
             await db.barbers.insert_one(barber_doc)
 
@@ -1324,82 +1347,120 @@ async def get_barbers(organization_id: Optional[str] = None, authorization: Opti
 @api_router.post("/barbers")
 async def create_barber(data: BarberCreate, authorization: Optional[str] = Header(None), session_token: Optional[str] = Cookie(None)):
     current_user = await get_current_user(authorization, session_token)
-    
-    if not current_user.organization_id:
-        raise HTTPException(status_code=400, detail="No organization assigned")
-    
-    # RLS: Enforce write access
-    await enforce_rls_on_write(current_user, {}, current_user.organization_id)
-    
-    barber_id = f"barber_{uuid.uuid4().hex[:12]}"
+    organization_id = await resolve_team_organization(current_user, data.organization_id)
+    await enforce_rls_on_write(current_user, {}, organization_id)
+
+    name = data.name.strip()
+    first_name = data.first_name.strip() if data.first_name else None
+    last_name = data.last_name.strip() if data.last_name else None
+    display_name = data.display_name.strip() if data.display_name else name
+    if not name or not display_name:
+        raise HTTPException(status_code=400, detail="Name is required")
+    if data.bio and len(data.bio.strip()) > 500:
+        raise HTTPException(status_code=400, detail="Bio must contain 500 characters or fewer")
+
+    service_ids = list(dict.fromkeys(data.service_ids or []))
+    if service_ids:
+        service_count = await db.services.count_documents({
+            "organization_id": organization_id,
+            "service_id": {"$in": service_ids}
+        })
+        if service_count != len(service_ids):
+            raise HTTPException(status_code=400, detail="One or more services are invalid")
+
+    now = datetime.now(timezone.utc).isoformat()
     barber_doc = {
-        "barber_id": barber_id,
-        "organization_id": current_user.organization_id,
-        "name": data.name,
+        "barber_id": f"barber_{uuid.uuid4().hex[:12]}",
+        "organization_id": organization_id,
+        "name": display_name,
+        "display_name": display_name,
+        "first_name": first_name,
+        "last_name": last_name,
         "user_id": None,
-        "phone": None,
-        "address": None,
+        "phone": sanitize_phone(data.phone) if data.phone else None,
+        "address": data.address.strip() if data.address else None,
+        "bio": data.bio.strip() if data.bio else None,
         "avatar": data.avatar,
+        "active": data.active,
         "available_days": data.available_days or [1, 2, 3, 4, 5],
         "start_time": data.start_time or "09:00",
         "end_time": data.end_time or "18:00",
-        "created_at": datetime.now(timezone.utc).isoformat()
+        "service_ids": service_ids,
+        "created_at": now,
+        "updated_at": now
     }
     await db.barbers.insert_one(barber_doc)
     barber_doc["created_at"] = datetime.fromisoformat(barber_doc["created_at"])
+    barber_doc["updated_at"] = datetime.fromisoformat(barber_doc["updated_at"])
     return Barber(**barber_doc)
 
 @api_router.put("/barbers/{barber_id}")
 async def update_barber(barber_id: str, data: BarberCreate, authorization: Optional[str] = Header(None), session_token: Optional[str] = Cookie(None)):
     current_user = await get_current_user(authorization, session_token)
-    
-    # Get the barber first to verify it exists and belongs to accessible organization
     barber = await db.barbers.find_one({"barber_id": barber_id}, {"_id": 0})
     if not barber:
         raise HTTPException(status_code=404, detail="Barber not found")
-    
-    # RLS: Validate organization access
     if not await validate_organization_access(current_user, barber["organization_id"]):
         raise HTTPException(status_code=403, detail="Access denied to this organization")
-    
-    # RLS: Enforce write access
     await enforce_rls_on_write(current_user, barber, barber["organization_id"])
-    
+
+    name = data.name.strip()
+    display_name = data.display_name.strip() if data.display_name else name
+    if not name or not display_name:
+        raise HTTPException(status_code=400, detail="Name is required")
+    if data.bio and len(data.bio.strip()) > 500:
+        raise HTTPException(status_code=400, detail="Bio must contain 500 characters or fewer")
+
+    service_ids = list(dict.fromkeys(data.service_ids or []))
+    if service_ids:
+        service_count = await db.services.count_documents({
+            "organization_id": barber["organization_id"],
+            "service_id": {"$in": service_ids}
+        })
+        if service_count != len(service_ids):
+            raise HTTPException(status_code=400, detail="One or more services are invalid")
+
     update_data = {
-        "name": data.name,
+        "name": display_name,
+        "display_name": display_name,
+        "first_name": data.first_name.strip() if data.first_name else None,
+        "last_name": data.last_name.strip() if data.last_name else None,
+        "phone": sanitize_phone(data.phone) if data.phone else None,
+        "address": data.address.strip() if data.address else None,
+        "bio": data.bio.strip() if data.bio else None,
         "avatar": data.avatar,
+        "active": data.active,
         "available_days": data.available_days or [1, 2, 3, 4, 5],
         "start_time": data.start_time or "09:00",
-        "end_time": data.end_time or "18:00"
+        "end_time": data.end_time or "18:00",
+        "service_ids": service_ids,
+        "updated_at": datetime.now(timezone.utc).isoformat()
     }
-    
-    result = await db.barbers.update_one(
-        {"barber_id": barber_id},
-        {"$set": update_data}
-    )
-    
+    result = await db.barbers.update_one({"barber_id": barber_id}, {"$set": update_data})
     if result.matched_count == 0:
         raise HTTPException(status_code=404, detail="Barber not found")
-    
     updated_barber = await db.barbers.find_one({"barber_id": barber_id}, {"_id": 0})
     if isinstance(updated_barber["created_at"], str):
         updated_barber["created_at"] = datetime.fromisoformat(updated_barber["created_at"])
+    if isinstance(updated_barber.get("updated_at"), str):
+        updated_barber["updated_at"] = datetime.fromisoformat(updated_barber["updated_at"])
     return Barber(**updated_barber)
 
 @api_router.delete("/barbers/{barber_id}")
 async def delete_barber(barber_id: str, authorization: Optional[str] = Header(None), session_token: Optional[str] = Cookie(None)):
     current_user = await get_current_user(authorization, session_token)
-    
-    # RLS: Get barber and validate access
     barber = await db.barbers.find_one({"barber_id": barber_id}, {"_id": 0})
     if not barber:
         raise HTTPException(status_code=404, detail="Barber not found")
-    
     if not await validate_organization_access(current_user, barber["organization_id"]):
         raise HTTPException(status_code=403, detail="Access denied")
-    
-    await db.barbers.delete_one({"barber_id": barber_id})
-    return {"message": "Barber deleted"}
+    await enforce_rls_on_write(current_user, barber, barber["organization_id"])
+    now = datetime.now(timezone.utc).isoformat()
+    await db.barbers.update_one(
+        {"barber_id": barber_id},
+        {"$set": {"active": False, "updated_at": now}}
+    )
+    return {"message": "Barber deactivated"}
 
 # Blocked Times Endpoints
 @api_router.get("/barbers/{barber_id}/blocked-times")
@@ -2130,16 +2191,40 @@ async def get_public_services(org_id: str):
 
 @api_router.get("/public/{org_id}/barbers")
 async def get_public_barbers(org_id: str):
-    barbers = await db.barbers.find({"organization_id": org_id}, {"_id": 0}).to_list(1000)
+    query = {
+        "organization_id": org_id,
+        "$or": [{"active": True}, {"active": {"$exists": False}}]
+    }
+    projection = {
+        "_id": 0,
+        "barber_id": 1,
+        "name": 1,
+        "display_name": 1,
+        "bio": 1,
+        "avatar": 1,
+        "available_days": 1,
+        "start_time": 1,
+        "end_time": 1,
+        "service_ids": 1
+    }
+    barbers = await db.barbers.find(query, projection).to_list(1000)
     for barber in barbers:
-        if isinstance(barber["created_at"], str):
-            barber["created_at"] = datetime.fromisoformat(barber["created_at"])
+        barber["display_name"] = barber.get("display_name") or barber.get("name")
+        barber["name"] = barber.get("name") or barber["display_name"]
+        barber["available_days"] = barber.get("available_days") or [1, 2, 3, 4, 5]
+        barber["start_time"] = barber.get("start_time") or "09:00"
+        barber["end_time"] = barber.get("end_time") or "18:00"
+        barber["service_ids"] = barber.get("service_ids") or []
     return barbers
 
 @api_router.get("/public/{org_id}/availability")
 async def get_availability(org_id: str, barber_id: str, date: str, service_id: str):
     # Get barber
-    barber = await db.barbers.find_one({"barber_id": barber_id, "organization_id": org_id}, {"_id": 0})
+    barber = await db.barbers.find_one({
+        "barber_id": barber_id,
+        "organization_id": org_id,
+        "$or": [{"active": True}, {"active": {"$exists": False}}]
+    }, {"_id": 0})
     if not barber:
         raise HTTPException(status_code=404, detail="Barber not found")
     
