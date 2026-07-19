@@ -2,7 +2,7 @@ import React, { useEffect, useState, useCallback } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { barberAPI, organizationAPI } from '../api';
-import { Plus, Trash2, ArrowLeft, Users, Edit2, Clock, Calendar } from 'lucide-react';
+import { Plus, Trash2, ArrowLeft, Users, Edit2, Clock, Calendar, Mail } from 'lucide-react';
 import { MANAGER } from '../constants/testIds';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '../components/ui/dialog';
 import { toast } from 'sonner';
@@ -172,8 +172,8 @@ const ManagerBarbers = () => {
   return (
     <div className="min-h-screen bg-[#000000] p-6">
       <div className="max-w-6xl mx-auto">
-        <div className="flex items-center justify-between mb-8">
-          <div className="flex items-center gap-4">
+        <div className="flex flex-wrap items-center gap-3 mb-8">
+          <div className="flex items-center gap-4 mr-auto min-w-0">
             <button
               onClick={() => navigate(organizationId && user?.role === 'owner' ? `/manager/dashboard?org_id=${organizationId}` : '/manager/dashboard')}
               className="p-2 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 transition-all text-white"
@@ -197,6 +197,16 @@ const ManagerBarbers = () => {
             </div>
           </div>
           
+          <button
+            type="button"
+            onClick={() => navigate(organizationId ? `/manager/settings?org_id=${organizationId}` : '/manager/settings')}
+            className="flex items-center gap-2 px-5 py-3 bg-purple-500/15 border border-purple-500/30 hover:bg-purple-500/25 text-purple-300 rounded-xl font-medium transition-all whitespace-nowrap"
+            title="Invitar una persona y crear su cuenta de acceso"
+          >
+            <Mail size={20} strokeWidth={1.5} />
+            Invitar por correo
+          </button>
+
           {/* Create Dialog */}
           <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
             <DialogTrigger asChild>
@@ -205,7 +215,7 @@ const ManagerBarbers = () => {
                 className="flex items-center gap-2 px-6 py-3 bg-[#0A84FF] hover:bg-[#0071E3] text-white rounded-xl font-medium transition-all hover:-translate-y-1 active:scale-95"
               >
                 <Plus size={20} strokeWidth={1.5} />
-                Nuevo Barbero
+                Crear manualmente
               </button>
             </DialogTrigger>
             <DialogContent className="bg-[#0A0A0A] border-white/10 max-w-lg">

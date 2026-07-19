@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { appointmentAPI, organizationAPI, serviceAPI, barberAPI } from '../api';
-import { Calendar, DollarSign, Users, LogOut, Menu, Scissors, Package, Monitor, Smartphone, Building, MessageSquare, Settings } from 'lucide-react';
+import { Calendar, DollarSign, Users, LogOut, Menu, Scissors, Package, Monitor, Smartphone, Building, MessageSquare, Settings, MoreHorizontal } from 'lucide-react';
 import { MANAGER, AUTH } from '../constants/testIds';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '../components/ui/sheet';
 import ThemeToggle from '../components/ThemeToggle';
@@ -194,85 +194,55 @@ const ManagerDashboard = () => {
 
               <ThemeToggle />
 
-              {/* Desktop: Botones completos */}
-              <div className={`${forceDesktopView ? 'flex' : 'hidden lg:flex'} items-center gap-1 sm:gap-2`}>
+              {/* Desktop: navegación principal compacta */}
+              <div className="hidden lg:flex items-center gap-2 min-w-0">
                 {user.role === 'owner' && (
-                  <button
-                    onClick={() => navigate('/owner/access-control')}
-                    className="flex items-center gap-2 min-h-[44px] px-3 sm:px-4 py-2 rounded-xl bg-purple-500/20 border border-purple-500/30 hover:bg-purple-500/30 transition-all text-purple-300"
-                  >
+                  <button onClick={() => navigate('/owner/access-control')} className="flex items-center gap-2 min-h-[44px] px-3 py-2 rounded-xl bg-purple-500/20 border border-purple-500/30 hover:bg-purple-500/30 transition-all text-purple-300 whitespace-nowrap" title="Control de Accesos">
                     <Users size={18} strokeWidth={1.5} />
-                    <span className="hidden sm:inline text-sm">Control de Accesos</span>
+                    <span className="hidden 2xl:inline text-sm">Accesos</span>
                   </button>
                 )}
                 {selectedOrg && (
                   <>
-                    <button
-                      onClick={() => navigate(user.role === 'owner' ? `/manager/business-profile?org_id=${selectedOrg.organization_id}` : '/manager/business-profile')}
-                      className="flex items-center gap-2 min-h-[44px] px-3 sm:px-4 py-2 rounded-xl bg-indigo-500/20 border border-indigo-500/30 hover:bg-indigo-500/30 transition-all text-indigo-300"
-                    >
-                      <Building size={18} strokeWidth={1.5} />
-                      <span className="hidden sm:inline text-sm">Perfil Negocio</span>
+                    <button onClick={() => navigate(user.role === 'owner' ? `/manager/appointments?org_id=${selectedOrg.organization_id}` : '/manager/appointments')} className="flex items-center gap-2 min-h-[44px] px-3 py-2 rounded-xl bg-orange-500/20 border border-orange-500/30 hover:bg-orange-500/30 transition-all text-orange-300 whitespace-nowrap" title="Historial de Citas">
+                      <Calendar size={18} strokeWidth={1.5} /><span className="hidden xl:inline text-sm">Citas</span>
                     </button>
-                    <button
-                      onClick={() => navigate(user.role === 'owner' ? `/manager/appointments?org_id=${selectedOrg.organization_id}` : '/manager/appointments')}
-                      className="flex items-center gap-2 min-h-[44px] px-3 sm:px-4 py-2 rounded-xl bg-orange-500/20 border border-orange-500/30 hover:bg-orange-500/30 transition-all text-orange-300"
-                    >
-                      <Calendar size={18} strokeWidth={1.5} />
-                      <span className="hidden sm:inline text-sm">Historial Citas</span>
+                    <button onClick={() => navigate(user.role === 'owner' ? `/manager/clients?org_id=${selectedOrg.organization_id}` : '/manager/clients')} className="flex items-center gap-2 min-h-[44px] px-3 py-2 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 transition-all text-white whitespace-nowrap">
+                      <Users size={18} strokeWidth={1.5} /><span className="hidden xl:inline text-sm">Clientes</span>
                     </button>
-                    <button
-                      onClick={() => navigate(user.role === 'owner' ? `/manager/clients?org_id=${selectedOrg.organization_id}` : '/manager/clients')}
-                      className="flex items-center gap-2 min-h-[44px] px-3 sm:px-4 py-2 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 transition-all text-white"
-                    >
-                      <Users size={18} strokeWidth={1.5} />
-                      <span className="hidden sm:inline text-sm">Clientes</span>
+                    <button onClick={() => navigate(user.role === 'owner' ? `/manager/services?org_id=${selectedOrg.organization_id}` : '/manager/services')} className="flex items-center gap-2 min-h-[44px] px-3 py-2 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 transition-all text-white whitespace-nowrap">
+                      <Scissors size={18} strokeWidth={1.5} /><span className="hidden xl:inline text-sm">Servicios</span>
                     </button>
-                    <button
-                      onClick={() => navigate(user.role === 'owner' ? `/manager/marketing?org_id=${selectedOrg.organization_id}` : '/manager/marketing')}
-                      className="flex items-center gap-2 min-h-[44px] px-3 sm:px-4 py-2 rounded-xl bg-green-500/20 border border-green-500/30 hover:bg-green-500/30 transition-all text-green-400"
-                    >
-                      <MessageSquare size={18} strokeWidth={1.5} />
-                      <span className="hidden sm:inline text-sm">Marketing</span>
-                    </button>
-                    <button
-                      onClick={() => navigate(user.role === 'owner' ? `/manager/services?org_id=${selectedOrg.organization_id}` : '/manager/services')}
-                      className="flex items-center gap-2 min-h-[44px] px-3 sm:px-4 py-2 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 transition-all text-white"
-                    >
-                      <Scissors size={18} strokeWidth={1.5} />
-                      <span className="hidden sm:inline text-sm">Servicios</span>
-                    </button>
-                    <button
-                      onClick={() => navigate(user.role === 'owner' ? `/manager/barbers?org_id=${selectedOrg.organization_id}` : '/manager/barbers')}
-                      className="flex items-center gap-2 min-h-[44px] px-3 sm:px-4 py-2 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 transition-all text-white"
-                    >
-                      <Users size={18} strokeWidth={1.5} />
-                      <span className="hidden sm:inline text-sm">Barberos</span>
-                    </button>
-                    <button
-                      onClick={() => navigate(user.role === 'owner' ? `/manager/inventory?org_id=${selectedOrg.organization_id}` : '/manager/inventory')}
-                      className="flex items-center gap-2 min-h-[44px] px-3 sm:px-4 py-2 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 transition-all text-white"
-                    >
-                      <Package size={18} strokeWidth={1.5} />
-                      <span className="hidden sm:inline text-sm">Inventario</span>
+                    <button onClick={() => navigate(user.role === 'owner' ? `/manager/barbers?org_id=${selectedOrg.organization_id}` : '/manager/barbers')} className="flex items-center gap-2 min-h-[44px] px-3 py-2 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 transition-all text-white whitespace-nowrap">
+                      <Users size={18} strokeWidth={1.5} /><span className="hidden xl:inline text-sm">Barberos</span>
                     </button>
                   </>
                 )}
-                <button
-                  onClick={() => navigate(user.role === 'owner' ? `/manager/settings?org_id=${selectedOrg.organization_id}` : '/manager/settings')}
-                  className="flex items-center gap-2 min-h-[44px] px-3 sm:px-4 py-2 rounded-xl bg-zinc-500/10 border border-zinc-500/20 hover:bg-zinc-500/20 transition-all text-zinc-300"
-                >
-                  <Settings size={18} strokeWidth={1.5} />
-                  <span className="hidden sm:inline text-sm">Configuración</span>
-                </button>
-                <button
-                  data-testid={AUTH.logoutBtn}
-                  onClick={handleLogout}
-                  className="flex items-center gap-2 min-h-[44px] px-3 sm:px-4 py-2 rounded-xl bg-red-500/10 border border-red-500/20 hover:bg-red-500/20 transition-all text-red-400"
-                >
-                  <LogOut size={18} strokeWidth={1.5} />
-                  <span className="hidden sm:inline text-sm">Salir</span>
-                </button>
+                <Sheet>
+                  <SheetTrigger asChild>
+                    <button className="flex items-center gap-2 min-h-[44px] px-3 py-2 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 transition-all text-white whitespace-nowrap" title="Más opciones">
+                      <MoreHorizontal size={20} strokeWidth={1.5} /><span className="hidden xl:inline text-sm">Más</span>
+                    </button>
+                  </SheetTrigger>
+                  <SheetContent side="right" className="bg-[#0A0A0A] border-l border-white/10 w-[320px]">
+                    <SheetHeader className="mb-6">
+                      <SheetTitle className="text-white text-left">Más opciones</SheetTitle>
+                      {selectedOrg && <p className="text-zinc-400 text-sm text-left">{selectedOrg.name}</p>}
+                    </SheetHeader>
+                    <div className="space-y-2">
+                      {selectedOrg && (
+                        <>
+                          <button onClick={() => navigate(user.role === 'owner' ? `/manager/business-profile?org_id=${selectedOrg.organization_id}` : '/manager/business-profile')} className="w-full flex items-center gap-3 px-4 py-3 rounded-xl bg-indigo-500/10 border border-indigo-500/20 hover:bg-indigo-500/20 text-left text-indigo-300"><Building size={20} strokeWidth={1.5} /> Perfil del Negocio</button>
+                          <button onClick={() => navigate(user.role === 'owner' ? `/manager/marketing?org_id=${selectedOrg.organization_id}` : '/manager/marketing')} className="w-full flex items-center gap-3 px-4 py-3 rounded-xl bg-green-500/10 border border-green-500/20 hover:bg-green-500/20 text-left text-green-400"><MessageSquare size={20} strokeWidth={1.5} /> Marketing</button>
+                          <button onClick={() => navigate(user.role === 'owner' ? `/manager/inventory?org_id=${selectedOrg.organization_id}` : '/manager/inventory')} className="w-full flex items-center gap-3 px-4 py-3 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 text-left text-white"><Package size={20} strokeWidth={1.5} /> Inventario</button>
+                        </>
+                      )}
+                      <button onClick={() => navigate(user.role === 'owner' && selectedOrg ? `/manager/settings?org_id=${selectedOrg.organization_id}` : '/manager/settings')} className="w-full flex items-center gap-3 px-4 py-3 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 text-left text-white"><Settings size={20} strokeWidth={1.5} /> Configuración y Equipo</button>
+                      <div className="border-t border-white/10 my-4" />
+                      <button onClick={handleLogout} className="w-full flex items-center gap-3 px-4 py-3 rounded-xl bg-red-500/10 border border-red-500/20 hover:bg-red-500/20 text-left text-red-400"><LogOut size={20} strokeWidth={1.5} /> Cerrar Sesión</button>
+                    </div>
+                  </SheetContent>
+                </Sheet>
               </div>
 
               {/* Mobile: Menu Drawer */}
