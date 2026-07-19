@@ -1,8 +1,17 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
-import { UserPlus, Loader2, ArrowLeft } from 'lucide-react';
+import { UserPlus, Loader2, ArrowLeft, RefreshCw } from 'lucide-react';
 import { publicAPI } from '../api';
 import { toast } from 'sonner';
+
+const getValidationError = (requestError) => {
+  if (requestError?.code === 'ECONNABORTED') return { type: 'timeout', message: 'La validación está tardando más de lo esperado. Intenta nuevamente.' };
+  if (!requestError?.response) return { type: 'network', message: 'No fue posible conectar con el servidor. Revisa tu conexión e intenta nuevamente.' };
+  const status = requestError.response.status;
+  if (status === 400) return { type: 'invalid', message: requestError.response?.data?.detail || 'La invitación no es válida, expiró o ya fue utilizada.' };
+  if (status === 404) return { type: 'version', message: 'El servicio de invitaciones no está disponible en esta versión. Solicita una invitación nueva después de actualizar la aplicación.' };
+  return { type: 'server', message: 'No fue posible validar la invitación. Intenta nuevamente.' };
+};
 
 const AcceptInvitation = () => {
   const [searchParams] = useSearchParams();
@@ -11,29 +20,31 @@ const AcceptInvitation = () => {
   const [invitation, setInvitation] = useState(null);
   const [validating, setValidating] = useState(true);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
+  const [error, setError] = useState(null);
+  const [validationAttempt, setValidationAttempt] = useState(0);
   const [formData, setFormData] = useState({ firstName: '', lastName: '', phone: '', address: '', password: '', confirmPassword: '' });
 
-  useEffect(() => {
-    let active = true;
-    const validate = async () => {
-      if (!token) {
-        setError('El enlace no contiene una invitación válida');
-        setValidating(false);
-        return;
-      }
-      try {
-        const response = await publicAPI.validateInvitation(token);
-        if (active) setInvitation(response.data);
-      } catch (requestError) {
-        if (active) setError(requestError.response?.data?.detail || 'La invitación es inválida o venció');
-      } finally {
-        if (active) setValidating(false);
-      }
-    };
-    validate();
-    return () => { active = false; };
+  const validateInvitation = useCallback(async () => {
+    if (!token) {
+      setError({ type: 'invalid', message: 'El enlace no contiene una invitación válida.' });
+      setValidating(false);
+      return;
+    }
+    setValidating(true);
+    setError(null);
+    try {
+      const response = await publicAPI.validateInvitation(token);
+      setInvitation(response.data);
+    } catch (requestError) {
+      setInvitation(null);
+      setError(getValidationError(requestError));
+    } finally {
+      setValidating(false);
+    }
   }, [token]);
+
+  useEffect(() => { validateInvitation(); }, [validateInvitation, validationAttempt]);
+  const retryValidation = () => setValidationAttempt((current) => current + 1);
 
   const validPassword = formData.password.length >= 8 && /[A-Z]/.test(formData.password) && /[0-9]/.test(formData.password);
 
@@ -55,7 +66,9 @@ const AcceptInvitation = () => {
       toast.success('Cuenta creada. Ya puedes iniciar sesión.');
       navigate('/login', { replace: true });
     } catch (requestError) {
-      toast.error(requestError.response?.data?.detail || 'No fue posible aceptar la invitación');
+      if (requestError?.code === 'ECONNABORTED') toast.error('La solicitud tardó demasiado. Verifica si la cuenta fue creada antes de volver a intentar.');
+      else if (!requestError?.response) toast.error('No fue posible conectar con el servidor.');
+      else toast.error(requestError.response?.data?.detail || 'No fue posible aceptar la invitación');
     } finally {
       setLoading(false);
     }
@@ -69,14 +82,20 @@ const AcceptInvitation = () => {
         <Link to="/login" className="inline-flex items-center gap-2 mb-6 text-zinc-400 hover:text-white"><ArrowLeft size={18} /> Volver al login</Link>
         <div className="backdrop-blur-xl bg-white/5 border border-white/10 rounded-3xl p-7 sm:p-10">
           {validating ? (
-            <div className="py-20 flex items-center justify-center"><Loader2 size={38} className="text-[#0A84FF] animate-spin" /></div>
+            <div className="py-20 text-center"><Loader2 size={38} className="text-[#0A84FF] animate-spin mx-auto mb-4" /><p className="text-zinc-400">Validando invitación...</p></div>
           ) : error ? (
-            <div role="alert" className="text-center py-8"><h1 className="text-2xl text-white mb-3">Invitación no disponible</h1><p className="text-zinc-400">{error}</p></div>
+            <div role="alert" className="text-center py-8">
+              <h1 className="text-2xl text-white mb-3">Invitación no disponible</h1>
+              <p className="text-zinc-400 mb-6">{error.message}</p>
+              {(error.type === 'timeout' || error.type === 'network' || error.type === 'server') && (
+                <button type="button" onClick={retryValidation} className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-[#0A84FF] hover:bg-[#0071E3] px-5 text-white font-medium transition-colors"><RefreshCw size={17} />Reintentar</button>
+              )}
+            </div>
           ) : (
             <>
               <div className="w-14 h-14 rounded-2xl bg-purple-500/20 flex items-center justify-center mb-5"><UserPlus className="text-purple-400" /></div>
-              <h1 className="text-3xl font-light text-white mb-2">Únete a {invitation.organization_name}</h1>
-              <p className="text-zinc-400 text-sm mb-7">Completa tus datos para activar <strong className="text-white">{invitation.email}</strong> como {invitation.role}.</p>
+              <h1 className="text-3xl font-light text-white mb-2">Únete a {invitation?.organization_name || 'Nexus by CS2'}</h1>
+              <p className="text-zinc-400 text-sm mb-7">Completa tus datos para activar <strong className="text-white">{invitation?.email}</strong> como {invitation?.role}.</p>
               <form onSubmit={handleSubmit} className="space-y-5">
                 <div className="grid sm:grid-cols-2 gap-4">
                   <div><label htmlFor="invite-first" className="block text-sm text-zinc-400 mb-2">Nombre</label><input id="invite-first" type="text" autoComplete="given-name" required value={formData.firstName} onChange={(event) => setFormData({ ...formData, firstName: event.target.value })} className={fieldClass} /></div>

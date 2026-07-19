@@ -6,6 +6,7 @@ export const API = `${BACKEND_URL}/api`;
 export const api = axios.create({
   baseURL: API,
   withCredentials: true,
+  timeout: 15000,
 });
 
 export const authAPI = {
@@ -87,8 +88,8 @@ export const inventoryAPI = {
 };
 
 export const publicAPI = {
-  validateInvitation: (token) => axios.get(`${API}/public/invitations/validate`, { params: { token } }),
-  acceptInvitation: (data) => axios.post(`${API}/public/invitations/accept`, data),
+  validateInvitation: (token) => axios.get(`${API}/public/invitations/validate`, { params: { token }, timeout: 15000 }),
+  acceptInvitation: (data) => axios.post(`${API}/public/invitations/accept`, data, { timeout: 15000 }),
   getOrganization: (orgId) => axios.get(`${API}/public/${orgId}/organization`),
   getServices: (orgId) => axios.get(`${API}/public/${orgId}/services`),
   getBarbers: (orgId) => axios.get(`${API}/public/${orgId}/barbers`),

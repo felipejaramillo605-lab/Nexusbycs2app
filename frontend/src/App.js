@@ -9,6 +9,8 @@ import { ThemeProvider } from './context/ThemeContext';
 import { Toaster } from './components/ui/sonner';
 import AuthCallback from './components/AuthCallback';
 import ProtectedRoute from './components/ProtectedRoute';
+import ErrorBoundary from './components/ErrorBoundary';
+import NotFound from './pages/NotFound';
 import Login from './pages/Login';
 import Register from './pages/Register';
 import PendingApproval from './pages/PendingApproval';
@@ -151,6 +153,7 @@ function AppRouter() {
         />
         
         <Route path="/" element={<Navigate to="/login" replace />} />
+        <Route path="*" element={<NotFound />} />
       </Routes>
     </Suspense>
   );
@@ -163,10 +166,12 @@ function App() {
         <ThemeProvider>
           <AuthProvider>
             <OrganizationProvider>
-              <div className="App">
-                <AppRouter />
-                <Toaster position="top-right" />
-              </div>
+              <ErrorBoundary>
+                <div className="App">
+                  <AppRouter />
+                  <Toaster position="top-right" />
+                </div>
+              </ErrorBoundary>
             </OrganizationProvider>
           </AuthProvider>
         </ThemeProvider>
