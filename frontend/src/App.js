@@ -33,6 +33,7 @@ const Settings = lazy(() => import('./pages/Settings'));
 const AcceptInvitation = lazy(() => import('./pages/AcceptInvitation'));
 const ForgotPassword = lazy(() => import('./pages/ForgotPassword'));
 const ResetPassword = lazy(() => import('./pages/ResetPassword'));
+const StaffProfile = lazy(() => import('./pages/StaffProfile'));
 
 // Loading fallback
 const PageLoader = () => (
@@ -74,7 +75,7 @@ function AppRouter() {
         <Route
           path="/manager/dashboard"
           element={
-            <ProtectedRoute>
+            <ProtectedRoute allowedRoles={['owner', 'manager', 'admin']}>
               <ManagerDashboard />
             </ProtectedRoute>
           }
@@ -83,7 +84,7 @@ function AppRouter() {
         <Route
           path="/manager/services"
           element={
-            <ProtectedRoute>
+            <ProtectedRoute allowedRoles={['owner', 'manager', 'admin']}>
               <ManagerServices />
             </ProtectedRoute>
           }
@@ -92,7 +93,7 @@ function AppRouter() {
         <Route
           path="/manager/barbers"
           element={
-            <ProtectedRoute>
+            <ProtectedRoute allowedRoles={['owner', 'manager', 'admin']}>
               <ManagerBarbers />
             </ProtectedRoute>
           }
@@ -101,7 +102,7 @@ function AppRouter() {
         <Route
           path="/manager/inventory"
           element={
-            <ProtectedRoute>
+            <ProtectedRoute allowedRoles={['owner', 'manager', 'admin']}>
               <ManagerInventory />
             </ProtectedRoute>
           }
@@ -110,7 +111,7 @@ function AppRouter() {
         <Route
           path="/manager/clients"
           element={
-            <ProtectedRoute>
+            <ProtectedRoute allowedRoles={['owner', 'manager', 'admin']}>
               <ManagerClients />
             </ProtectedRoute>
           }
@@ -119,7 +120,7 @@ function AppRouter() {
         <Route
           path="/manager/appointments"
           element={
-            <ProtectedRoute>
+            <ProtectedRoute allowedRoles={['owner', 'manager', 'admin']}>
               <AppointmentsHistory />
             </ProtectedRoute>
           }
@@ -128,7 +129,7 @@ function AppRouter() {
         <Route
           path="/manager/business-profile"
           element={
-            <ProtectedRoute>
+            <ProtectedRoute allowedRoles={['owner', 'manager', 'admin']}>
               <BusinessProfile />
             </ProtectedRoute>
           }
@@ -137,7 +138,7 @@ function AppRouter() {
         <Route
           path="/manager/marketing"
           element={
-            <ProtectedRoute>
+            <ProtectedRoute allowedRoles={['owner', 'manager', 'admin']}>
               <MarketingCampaigns />
             </ProtectedRoute>
           }
@@ -146,12 +147,21 @@ function AppRouter() {
         <Route
           path="/manager/settings"
           element={
-            <ProtectedRoute>
+            <ProtectedRoute allowedRoles={['owner', 'manager', 'admin']}>
               <Settings />
             </ProtectedRoute>
           }
         />
         
+        <Route
+          path="/staff/profile"
+          element={
+            <ProtectedRoute requiredRole="staff">
+              <StaffProfile />
+            </ProtectedRoute>
+          }
+        />
+
         <Route path="/" element={<Navigate to="/login" replace />} />
         <Route path="*" element={<NotFound />} />
       </Routes>

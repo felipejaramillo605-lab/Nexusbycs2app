@@ -108,6 +108,12 @@ async def enforce_rls_on_write(user: User, document: dict, organization_id: str)
         if organization_id != user.organization_id:
             raise HTTPException(status_code=403, detail="Cannot modify data outside your organization")
 
+def require_management_role(user: User) -> None:
+    """Restrict administrative operations to management roles."""
+    if user.role not in ["owner", "manager", "admin"]:
+        raise HTTPException(status_code=403, detail="Management access required")
+
+
 # ==================== END RLS HELPERS ====================
 
 class Organization(BaseModel):
@@ -238,6 +244,18 @@ class BarberCreate(BaseModel):
     start_time: Optional[str] = "09:00"
     end_time: Optional[str] = "18:00"
     service_ids: Optional[List[str]] = None
+
+class StaffBarberProfileUpdate(BaseModel):
+    first_name: Optional[str] = None
+    last_name: Optional[str] = None
+    display_name: str
+    phone: str
+    address: Optional[str] = None
+    bio: Optional[str] = None
+    avatar: Optional[str] = None
+    available_days: List[int]
+    start_time: str
+    end_time: str
 
 class AppointmentCreate(BaseModel):
     service_id: str
@@ -865,6 +883,29 @@ async def resend_team_invitation(
         raise HTTPException(status_code=500, detail="Invitation delivery is not configured")
     invitation_url = f"{frontend_url}/accept-invitation?token={raw_token}"
 
+    # Rotate the token in the database BEFORE sending the email. This makes
+    # every resend immediately invalidate all previous links and avoids a race
+    # where the recipient opens the fresh email before the new hash is stored.
+    rotation_result = await db.invitations.update_one(
+        {
+            "invitation_id": invitation_id,
+            "status": {"$nin": ["accepted", "revoked"]}
+        },
+        {"$set": {
+            "token_hash": token_digest(raw_token),
+            "status": "sent",
+            "delivery_status": "pending",
+            "expires_at": expires_at.isoformat(),
+            "last_send_attempt_at": now.isoformat(),
+            "token_rotated_at": now.isoformat(),
+            "updated_at": now.isoformat(),
+            "send_attempts": invitation.get("send_attempts", 0) + 1,
+            "last_delivery_error": None
+        }}
+    )
+    if rotation_result.modified_count != 1:
+        raise HTTPException(status_code=409, detail="Invitation changed before it could be resent")
+
     sent = email_service.send_team_invitation(
         to_email=invitation["email"],
         organization_name=invitation.get("organization_name", "Nexus by CS2"),
@@ -874,21 +915,16 @@ async def resend_team_invitation(
         expires_days=7
     )
     status_value = "sent" if sent else "delivery_failed"
-    update_fields = {
-        "token_hash": token_digest(raw_token),
+    final_fields = {
         "status": status_value,
         "delivery_status": status_value,
-        "expires_at": expires_at.isoformat(),
-        "last_send_attempt_at": now.isoformat(),
-        "updated_at": now.isoformat(),
-        "send_attempts": invitation.get("send_attempts", 0) + 1
+        "updated_at": datetime.now(timezone.utc).isoformat()
     }
-    if sent:
-        update_fields["last_delivery_error"] = None
-    else:
-        update_fields["last_delivery_error"] = safe_delivery_error()
+    if not sent:
+        final_fields["last_delivery_error"] = safe_delivery_error()
     await db.invitations.update_one(
-        {"invitation_id": invitation_id}, {"$set": update_fields}
+        {"invitation_id": invitation_id},
+        {"$set": final_fields}
     )
     return {
         "invitation_id": invitation_id,
@@ -931,13 +967,19 @@ async def validate_public_invitation(token: str):
     invitation = await db.invitations.find_one(
         {"token_hash": token_digest(token)}, {"_id": 0, "token_hash": 0, "last_delivery_error": 0}
     )
-    if not invitation or invitation.get("status") not in ["sent", "delivery_failed"]:
-        raise HTTPException(status_code=400, detail="Invalid or expired invitation")
+    if not invitation:
+        raise HTTPException(status_code=400, detail="invitation_replaced_or_invalid")
+    if invitation.get("status") == "accepted":
+        raise HTTPException(status_code=400, detail="invitation_already_used")
+    if invitation.get("status") == "revoked":
+        raise HTTPException(status_code=400, detail="invitation_revoked")
+    if invitation.get("status") not in ["sent", "delivery_failed"]:
+        raise HTTPException(status_code=400, detail="invitation_not_available")
     expires_at = datetime.fromisoformat(invitation["expires_at"])
     if expires_at.tzinfo is None:
         expires_at = expires_at.replace(tzinfo=timezone.utc)
     if expires_at < datetime.now(timezone.utc):
-        raise HTTPException(status_code=400, detail="Invalid or expired invitation")
+        raise HTTPException(status_code=400, detail="invitation_expired")
     return {
         "email": invitation["email"],
         "role": invitation["role"],
@@ -954,15 +996,21 @@ async def accept_public_invitation(data: InvitationAcceptRequest):
 
     digest = token_digest(data.token)
     invitation = await db.invitations.find_one(
-        {"token_hash": digest, "status": {"$in": ["sent", "delivery_failed"]}}, {"_id": 0}
+        {"token_hash": digest}, {"_id": 0}
     )
     if not invitation:
-        raise HTTPException(status_code=400, detail="Invalid or expired invitation")
+        raise HTTPException(status_code=400, detail="invitation_replaced_or_invalid")
+    if invitation.get("status") == "accepted":
+        raise HTTPException(status_code=400, detail="invitation_already_used")
+    if invitation.get("status") == "revoked":
+        raise HTTPException(status_code=400, detail="invitation_revoked")
+    if invitation.get("status") not in ["sent", "delivery_failed"]:
+        raise HTTPException(status_code=400, detail="invitation_not_available")
     expires_at = datetime.fromisoformat(invitation["expires_at"])
     if expires_at.tzinfo is None:
         expires_at = expires_at.replace(tzinfo=timezone.utc)
     if expires_at < datetime.now(timezone.utc):
-        raise HTTPException(status_code=400, detail="Invalid or expired invitation")
+        raise HTTPException(status_code=400, detail="invitation_expired")
 
     existing_user = await db.users.find_one(
         {"email": {"$regex": f"^{re.escape(invitation['normalized_email'])}$", "$options": "i"}},
@@ -1331,9 +1379,122 @@ async def delete_service(service_id: str, authorization: Optional[str] = Header(
     return {"message": "Service deleted"}
 
 # Barbers Endpoints
+@api_router.get("/barbers/me/profile")
+async def get_my_barber_profile(
+    authorization: Optional[str] = Header(None),
+    session_token: Optional[str] = Cookie(None)
+):
+    current_user = await get_current_user(authorization, session_token)
+    if current_user.role != "staff":
+        raise HTTPException(status_code=403, detail="Staff access required")
+    if current_user.access_status != "approved":
+        raise HTTPException(status_code=403, detail="Account is not approved")
+
+    barber = await db.barbers.find_one(
+        {"user_id": current_user.user_id},
+        {"_id": 0}
+    )
+    if not barber:
+        raise HTTPException(status_code=404, detail="Professional profile not found")
+
+    barber["display_name"] = barber.get("display_name") or barber.get("name") or current_user.name
+    barber["first_name"] = barber.get("first_name") or current_user.first_name
+    barber["last_name"] = barber.get("last_name") or current_user.last_name
+    barber["phone"] = barber.get("phone") or current_user.phone
+    barber["address"] = barber.get("address") or current_user.address
+    barber["available_days"] = barber.get("available_days") or [1, 2, 3, 4, 5]
+    barber["start_time"] = barber.get("start_time") or "09:00"
+    barber["end_time"] = barber.get("end_time") or "18:00"
+    barber["service_ids"] = barber.get("service_ids") or []
+    barber["active"] = barber.get("active", True)
+    return barber
+
+
+@api_router.put("/barbers/me/profile")
+async def update_my_barber_profile(
+    data: StaffBarberProfileUpdate,
+    authorization: Optional[str] = Header(None),
+    session_token: Optional[str] = Cookie(None)
+):
+    current_user = await get_current_user(authorization, session_token)
+    if current_user.role != "staff":
+        raise HTTPException(status_code=403, detail="Staff access required")
+    if current_user.access_status != "approved":
+        raise HTTPException(status_code=403, detail="Account is not approved")
+
+    barber = await db.barbers.find_one(
+        {"user_id": current_user.user_id},
+        {"_id": 0}
+    )
+    if not barber:
+        raise HTTPException(status_code=404, detail="Professional profile not found")
+
+    display_name = data.display_name.strip()
+    phone = sanitize_phone(data.phone)
+    first_name = data.first_name.strip() if data.first_name else None
+    last_name = data.last_name.strip() if data.last_name else None
+    address = data.address.strip() if data.address else None
+    bio = data.bio.strip() if data.bio else None
+    avatar = data.avatar.strip() if data.avatar else None
+    available_days = list(dict.fromkeys(data.available_days))
+
+    if not display_name:
+        raise HTTPException(status_code=400, detail="Display name is required")
+    if not phone:
+        raise HTTPException(status_code=400, detail="Phone is required")
+    if bio and len(bio) > 500:
+        raise HTTPException(status_code=400, detail="Bio must contain 500 characters or fewer")
+    if not available_days or any(day not in [0, 1, 2, 3, 4, 5, 6] for day in available_days):
+        raise HTTPException(status_code=400, detail="Select at least one valid working day")
+    if not re.fullmatch(r"([01]\d|2[0-3]):[0-5]\d", data.start_time) or not re.fullmatch(r"([01]\d|2[0-3]):[0-5]\d", data.end_time):
+        raise HTTPException(status_code=400, detail="Invalid working hours")
+    if data.end_time <= data.start_time:
+        raise HTTPException(status_code=400, detail="End time must be later than start time")
+
+    now = datetime.now(timezone.utc).isoformat()
+    barber_updates = {
+        "name": display_name,
+        "display_name": display_name,
+        "first_name": first_name,
+        "last_name": last_name,
+        "phone": phone,
+        "address": address,
+        "bio": bio,
+        "avatar": avatar,
+        "available_days": available_days,
+        "start_time": data.start_time,
+        "end_time": data.end_time,
+        "updated_at": now
+    }
+    user_updates = {
+        "name": display_name,
+        "first_name": first_name,
+        "last_name": last_name,
+        "phone": phone,
+        "address": address,
+        "picture": avatar
+    }
+
+    await db.barbers.update_one(
+        {"barber_id": barber["barber_id"], "user_id": current_user.user_id},
+        {"$set": barber_updates}
+    )
+    await db.users.update_one(
+        {"user_id": current_user.user_id},
+        {"$set": user_updates}
+    )
+
+    updated = await db.barbers.find_one(
+        {"barber_id": barber["barber_id"], "user_id": current_user.user_id},
+        {"_id": 0}
+    )
+    return updated
+
+
 @api_router.get("/barbers")
 async def get_barbers(organization_id: Optional[str] = None, authorization: Optional[str] = Header(None), session_token: Optional[str] = Cookie(None)):
     current_user = await get_current_user(authorization, session_token)
+    require_management_role(current_user)
     
     # RLS: Get organization filter
     org_filter = await get_organization_filter(current_user, organization_id)
@@ -1347,6 +1508,7 @@ async def get_barbers(organization_id: Optional[str] = None, authorization: Opti
 @api_router.post("/barbers")
 async def create_barber(data: BarberCreate, authorization: Optional[str] = Header(None), session_token: Optional[str] = Cookie(None)):
     current_user = await get_current_user(authorization, session_token)
+    require_management_role(current_user)
     organization_id = await resolve_team_organization(current_user, data.organization_id)
     await enforce_rls_on_write(current_user, {}, organization_id)
 
@@ -1397,6 +1559,7 @@ async def create_barber(data: BarberCreate, authorization: Optional[str] = Heade
 @api_router.put("/barbers/{barber_id}")
 async def update_barber(barber_id: str, data: BarberCreate, authorization: Optional[str] = Header(None), session_token: Optional[str] = Cookie(None)):
     current_user = await get_current_user(authorization, session_token)
+    require_management_role(current_user)
     barber = await db.barbers.find_one({"barber_id": barber_id}, {"_id": 0})
     if not barber:
         raise HTTPException(status_code=404, detail="Barber not found")
@@ -1449,6 +1612,7 @@ async def update_barber(barber_id: str, data: BarberCreate, authorization: Optio
 @api_router.delete("/barbers/{barber_id}")
 async def delete_barber(barber_id: str, authorization: Optional[str] = Header(None), session_token: Optional[str] = Cookie(None)):
     current_user = await get_current_user(authorization, session_token)
+    require_management_role(current_user)
     barber = await db.barbers.find_one({"barber_id": barber_id}, {"_id": 0})
     if not barber:
         raise HTTPException(status_code=404, detail="Barber not found")
@@ -1465,9 +1629,15 @@ async def delete_barber(barber_id: str, authorization: Optional[str] = Header(No
 # Blocked Times Endpoints
 @api_router.get("/barbers/{barber_id}/blocked-times")
 async def get_blocked_times(barber_id: str, date: Optional[str] = None, authorization: Optional[str] = Header(None), session_token: Optional[str] = Cookie(None)):
-    await get_current_user(authorization, session_token)
+    current_user = await get_current_user(authorization, session_token)
+    require_management_role(current_user)
+    barber = await db.barbers.find_one({"barber_id": barber_id}, {"_id": 0})
+    if not barber:
+        raise HTTPException(status_code=404, detail="Barber not found")
+    if not await validate_organization_access(current_user, barber["organization_id"]):
+        raise HTTPException(status_code=403, detail="Access denied")
     
-    query = {"barber_id": barber_id}
+    query = {"barber_id": barber_id, "organization_id": barber["organization_id"]}
     if date:
         query["date"] = date
     
@@ -1480,6 +1650,7 @@ async def get_blocked_times(barber_id: str, date: Optional[str] = None, authoriz
 @api_router.post("/barbers/{barber_id}/blocked-times")
 async def create_blocked_time(barber_id: str, data: BlockedTimeCreate, authorization: Optional[str] = Header(None), session_token: Optional[str] = Cookie(None)):
     current_user = await get_current_user(authorization, session_token)
+    require_management_role(current_user)
     
     # Get barber to obtain organization_id
     barber = await db.barbers.find_one({"barber_id": barber_id}, {"_id": 0})
@@ -1510,8 +1681,20 @@ async def create_blocked_time(barber_id: str, data: BlockedTimeCreate, authoriza
 
 @api_router.delete("/barbers/{barber_id}/blocked-times/{block_id}")
 async def delete_blocked_time(barber_id: str, block_id: str, authorization: Optional[str] = Header(None), session_token: Optional[str] = Cookie(None)):
-    await get_current_user(authorization, session_token)
-    await db.blocked_times.delete_one({"block_id": block_id, "barber_id": barber_id})
+    current_user = await get_current_user(authorization, session_token)
+    require_management_role(current_user)
+    barber = await db.barbers.find_one({"barber_id": barber_id}, {"_id": 0})
+    if not barber:
+        raise HTTPException(status_code=404, detail="Barber not found")
+    if not await validate_organization_access(current_user, barber["organization_id"]):
+        raise HTTPException(status_code=403, detail="Access denied")
+    result = await db.blocked_times.delete_one({
+        "block_id": block_id,
+        "barber_id": barber_id,
+        "organization_id": barber["organization_id"]
+    })
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Blocked time not found")
     return {"message": "Blocked time deleted"}
 
 # Appointments Endpoints

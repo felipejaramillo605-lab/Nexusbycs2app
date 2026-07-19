@@ -4,11 +4,20 @@ import { UserPlus, Loader2, ArrowLeft, RefreshCw } from 'lucide-react';
 import { publicAPI } from '../api';
 import { toast } from 'sonner';
 
+const INVITATION_ERROR_MESSAGES = {
+  invitation_replaced_or_invalid: 'Este enlace ya no es válido o fue reemplazado por una invitación más reciente. Abre únicamente el último correo recibido o solicita un nuevo reenvío.',
+  invitation_expired: 'Esta invitación venció. Solicita al administrador que la reenvíe y abre únicamente el correo más reciente.',
+  invitation_already_used: 'Esta invitación ya fue utilizada para crear una cuenta.',
+  invitation_revoked: 'Esta invitación fue revocada por la administración.',
+  invitation_not_available: 'La invitación todavía no está disponible. Intenta nuevamente o solicita un nuevo reenvío.'
+};
+
 const getValidationError = (requestError) => {
   if (requestError?.code === 'ECONNABORTED') return { type: 'timeout', message: 'La validación está tardando más de lo esperado. Intenta nuevamente.' };
   if (!requestError?.response) return { type: 'network', message: 'No fue posible conectar con el servidor. Revisa tu conexión e intenta nuevamente.' };
   const status = requestError.response.status;
-  if (status === 400) return { type: 'invalid', message: requestError.response?.data?.detail || 'La invitación no es válida, expiró o ya fue utilizada.' };
+  const detail = requestError.response?.data?.detail;
+  if (status === 400) return { type: 'invalid', message: INVITATION_ERROR_MESSAGES[detail] || detail || 'La invitación no es válida, expiró o ya fue utilizada.' };
   if (status === 404) return { type: 'version', message: 'El servicio de invitaciones no está disponible en esta versión. Solicita una invitación nueva después de actualizar la aplicación.' };
   return { type: 'server', message: 'No fue posible validar la invitación. Intenta nuevamente.' };
 };
@@ -68,7 +77,10 @@ const AcceptInvitation = () => {
     } catch (requestError) {
       if (requestError?.code === 'ECONNABORTED') toast.error('La solicitud tardó demasiado. Verifica si la cuenta fue creada antes de volver a intentar.');
       else if (!requestError?.response) toast.error('No fue posible conectar con el servidor.');
-      else toast.error(requestError.response?.data?.detail || 'No fue posible aceptar la invitación');
+      else {
+        const detail = requestError.response?.data?.detail;
+        toast.error(INVITATION_ERROR_MESSAGES[detail] || detail || 'No fue posible aceptar la invitación');
+      }
     } finally {
       setLoading(false);
     }

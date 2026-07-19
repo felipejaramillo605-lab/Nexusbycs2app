@@ -1,8 +1,9 @@
 import React from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { getHomeForRole } from '../lib/roleNavigation';
 
-const ProtectedRoute = ({ children, requiredRole }) => {
+const ProtectedRoute = ({ children, requiredRole, allowedRoles }) => {
   const { user, loading } = useAuth();
   const location = useLocation();
 
@@ -15,17 +16,19 @@ const ProtectedRoute = ({ children, requiredRole }) => {
   }
 
   if (!user) {
-    return (
-      <Navigate
-        to="/login"
-        replace
-        state={{ from: location.pathname }}
-      />
-    );
+    return <Navigate to="/login" replace state={{ from: location.pathname }} />;
   }
 
-  if (requiredRole && user.role !== requiredRole) {
-    return <Navigate to="/manager/dashboard" replace />;
+  if (user.access_status !== 'approved') {
+    return <Navigate to="/pending-approval" replace />;
+  }
+
+  const roleAllowed = requiredRole
+    ? user.role === requiredRole
+    : !allowedRoles || allowedRoles.includes(user.role);
+
+  if (!roleAllowed) {
+    return <Navigate to={getHomeForRole(user.role)} replace />;
   }
 
   return children;

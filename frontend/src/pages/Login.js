@@ -5,6 +5,7 @@ import { AUTH } from '../constants/testIds';
 import { authAPI } from '../api';
 import { toast } from 'sonner';
 import { useAuth } from '../context/AuthContext';
+import { getHomeForRole } from '../lib/roleNavigation';
 
 const Login = () => {
   const navigate = useNavigate();
@@ -55,10 +56,7 @@ const Login = () => {
       completeLogin(authenticatedUser);
       toast.success('¡Bienvenido de nuevo!');
 
-      const destination =
-        authenticatedUser.role === 'owner'
-          ? '/owner/access-control'
-          : '/manager/dashboard';
+      const destination = getHomeForRole(authenticatedUser.role);
 
       navigate(destination, { replace: true });
     } catch (error) {

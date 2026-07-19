@@ -2,6 +2,7 @@ import React, { useEffect, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { authAPI } from '../api';
 import { useAuth } from '../context/AuthContext';
+import { getHomeForRole } from '../lib/roleNavigation';
 
 const AuthCallback = () => {
   const navigate = useNavigate();
@@ -36,10 +37,7 @@ const AuthCallback = () => {
 
         completeLogin(authenticatedUser);
 
-        const destination =
-          authenticatedUser.role === 'owner'
-            ? '/owner/access-control'
-            : '/manager/dashboard';
+        const destination = getHomeForRole(authenticatedUser.role);
 
         navigate(destination, {
           replace: true

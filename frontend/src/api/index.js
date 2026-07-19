@@ -51,6 +51,8 @@ export const serviceAPI = {
 };
 
 export const barberAPI = {
+  getMyProfile: () => api.get('/barbers/me/profile'),
+  updateMyProfile: (data) => api.put('/barbers/me/profile', data),
   getAll: (params = {}) => api.get('/barbers', { params }),
   create: (data) => api.post('/barbers', data),
   update: (id, data) => api.put(`/barbers/${id}`, data),
