@@ -1,22 +1,153 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { barberAPI, organizationAPI } from '../api';
+import { barberAPI, organizationAPI, serviceAPI } from '../api';
 import { Plus, Trash2, ArrowLeft, Users, Edit2, Clock, Calendar, Mail } from 'lucide-react';
 import { MANAGER } from '../constants/testIds';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '../components/ui/dialog';
 import { toast } from 'sonner';
+
+const DAYS = [
+  { value: 1, label: 'Lun' },
+  { value: 2, label: 'Mar' },
+  { value: 3, label: 'Mié' },
+  { value: 4, label: 'Jue' },
+  { value: 5, label: 'Vie' },
+  { value: 6, label: 'Sáb' },
+  { value: 0, label: 'Dom' }
+];
+
+const createEmptyBarber = () => ({
+  name: '',
+  first_name: '',
+  last_name: '',
+  display_name: '',
+  phone: '',
+  address: '',
+  bio: '',
+  avatar: '',
+  active: true,
+  available_days: [1, 2, 3, 4, 5],
+  start_time: '09:00',
+  end_time: '18:00',
+  service_ids: []
+});
+
+const ProfileForm = ({ value, onChange, services, saving, actionLabel, onSubmit }) => {
+  const setField = (field, fieldValue) => onChange({ ...value, [field]: fieldValue });
+  const toggleDay = (day) => {
+    const selected = value.available_days || [];
+    setField(
+      'available_days',
+      selected.includes(day) ? selected.filter((item) => item !== day) : [...selected, day]
+    );
+  };
+  const toggleService = (serviceId) => {
+    const selected = value.service_ids || [];
+    setField(
+      'service_ids',
+      selected.includes(serviceId) ? selected.filter((item) => item !== serviceId) : [...selected, serviceId]
+    );
+  };
+  const inputClass = 'w-full px-4 py-3 bg-transparent border border-white/20 rounded-xl text-white placeholder-zinc-600 focus:border-[#0A84FF] focus:ring-1 focus:ring-[#0A84FF] outline-none';
+
+  return (
+    <div className="space-y-6 mt-4">
+      <section>
+        <h3 className="text-sm font-medium text-white mb-3">Información personal</h3>
+        <div className="grid sm:grid-cols-2 gap-4">
+          <div>
+            <label className="text-sm text-zinc-400 mb-2 block">Nombre</label>
+            <input type="text" value={value.first_name || ''} onChange={(event) => setField('first_name', event.target.value)} className={inputClass} placeholder="Juan" />
+          </div>
+          <div>
+            <label className="text-sm text-zinc-400 mb-2 block">Apellido</label>
+            <input type="text" value={value.last_name || ''} onChange={(event) => setField('last_name', event.target.value)} className={inputClass} placeholder="Pérez" />
+          </div>
+          <div className="sm:col-span-2">
+            <label className="text-sm text-zinc-400 mb-2 block">Nombre visible</label>
+            <input type="text" value={value.display_name || ''} onChange={(event) => setField('display_name', event.target.value)} className={inputClass} placeholder="Juan Pérez" />
+          </div>
+          <div>
+            <label className="text-sm text-zinc-400 mb-2 block">Teléfono</label>
+            <input type="tel" value={value.phone || ''} onChange={(event) => setField('phone', event.target.value)} className={inputClass} placeholder="+57 300 000 0000" />
+          </div>
+          <div>
+            <label className="text-sm text-zinc-400 mb-2 block">Dirección</label>
+            <input type="text" value={value.address || ''} onChange={(event) => setField('address', event.target.value)} className={inputClass} placeholder="Opcional" />
+          </div>
+          <div className="sm:col-span-2">
+            <label className="text-sm text-zinc-400 mb-2 flex justify-between"><span>Biografía profesional</span><span>{(value.bio || '').length}/500</span></label>
+            <textarea value={value.bio || ''} onChange={(event) => setField('bio', event.target.value.slice(0, 500))} className={`${inputClass} min-h-[100px] resize-y`} placeholder="Experiencia, especialidades y estilo profesional" />
+          </div>
+          <div className="sm:col-span-2">
+            <label className="text-sm text-zinc-400 mb-2 block">URL de avatar <span className="text-zinc-600">(temporal)</span></label>
+            <input type="url" value={value.avatar || ''} onChange={(event) => setField('avatar', event.target.value)} className={inputClass} placeholder="https://..." />
+          </div>
+        </div>
+      </section>
+
+      <section>
+        <h3 className="text-sm font-medium text-white mb-3">Disponibilidad</h3>
+        <div className="flex flex-wrap gap-2 mb-4">
+          {DAYS.map((day) => (
+            <button key={day.value} type="button" onClick={() => toggleDay(day.value)} className={`px-3 py-2 rounded-lg border text-sm transition-all ${(value.available_days || []).includes(day.value) ? 'bg-[#0A84FF]/20 border-[#0A84FF]/50 text-[#5EB1FF]' : 'bg-white/5 border-white/10 text-zinc-400 hover:bg-white/10'}`}>
+              {day.label}
+            </button>
+          ))}
+        </div>
+        <div className="grid sm:grid-cols-2 gap-4">
+          <div>
+            <label className="text-sm text-zinc-400 mb-2 block">Hora inicio</label>
+            <input type="time" value={value.start_time || '09:00'} onChange={(event) => setField('start_time', event.target.value)} className={inputClass} />
+          </div>
+          <div>
+            <label className="text-sm text-zinc-400 mb-2 block">Hora fin</label>
+            <input type="time" value={value.end_time || '18:00'} onChange={(event) => setField('end_time', event.target.value)} className={inputClass} />
+          </div>
+        </div>
+      </section>
+
+      <section>
+        <h3 className="text-sm font-medium text-white mb-3">Servicios que presta</h3>
+        {services.length === 0 ? (
+          <p className="text-sm text-zinc-500 rounded-xl border border-white/10 bg-white/3 p-4">No hay servicios creados en esta barbería.</p>
+        ) : (
+          <div className="grid sm:grid-cols-2 gap-2">
+            {services.map((service) => (
+              <label key={service.service_id} className="flex items-center gap-3 rounded-xl border border-white/10 bg-white/3 p-3 text-sm text-zinc-300 cursor-pointer hover:bg-white/5">
+                <input type="checkbox" checked={(value.service_ids || []).includes(service.service_id)} onChange={() => toggleService(service.service_id)} className="accent-[#0A84FF]" />
+                <span>{service.name}</span>
+              </label>
+            ))}
+          </div>
+        )}
+      </section>
+
+      <label className="flex items-center justify-between rounded-xl border border-white/10 bg-white/3 p-4">
+        <span><span className="block text-sm text-white">Perfil activo</span><span className="block text-xs text-zinc-500 mt-1">Los perfiles inactivos no aparecen para nuevas reservas.</span></span>
+        <input type="checkbox" checked={value.active !== false} onChange={(event) => setField('active', event.target.checked)} className="h-5 w-5 accent-[#0A84FF]" />
+      </label>
+
+      <button type="button" onClick={onSubmit} disabled={saving} className="w-full px-6 py-3 bg-[#0A84FF] hover:bg-[#0071E3] text-white rounded-xl font-medium transition-all disabled:opacity-50">
+        {saving ? 'Guardando...' : actionLabel}
+      </button>
+    </div>
+  );
+};
 
 const ManagerBarbers = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
   const [searchParams] = useSearchParams();
   const [barbers, setBarbers] = useState([]);
+  const [services, setServices] = useState([]);
+  const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(true);
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isBlockDialogOpen, setIsBlockDialogOpen] = useState(false);
-  const [newBarber, setNewBarber] = useState({ name: '', avatar: '', available_days: [1, 2, 3, 4, 5], start_time: '09:00', end_time: '18:00' });
+  const [newBarber, setNewBarber] = useState(createEmptyBarber);
   const [editingBarber, setEditingBarber] = useState(null);
   const [selectedBarberForBlock, setSelectedBarberForBlock] = useState(null);
   const [blockedTimes, setBlockedTimes] = useState([]);
@@ -41,8 +172,12 @@ const ManagerBarbers = () => {
     if (!organizationId) return;
     try {
       const params = { organization_id: organizationId };
-      const response = await barberAPI.getAll(params);
-      setBarbers(response.data);
+      const [barbersResponse, servicesResponse] = await Promise.all([
+        barberAPI.getAll(params),
+        serviceAPI.getAll(params)
+      ]);
+      setBarbers(barbersResponse.data);
+      setServices(servicesResponse.data);
     } catch (error) {
       console.error('Error loading barbers:', error);
     } finally {
@@ -67,59 +202,101 @@ const ManagerBarbers = () => {
     }
   };
 
+  const validateProfile = (profile) => {
+    const displayName = (profile.display_name || `${profile.first_name || ''} ${profile.last_name || ''}`).trim();
+    if (!displayName) return 'El nombre visible es obligatorio';
+    if (!profile.phone?.trim()) return 'El teléfono es obligatorio';
+    if (!(profile.available_days || []).length) return 'Selecciona al menos un día laboral';
+    if (!profile.start_time || !profile.end_time || profile.end_time <= profile.start_time) return 'La hora final debe ser posterior a la hora inicial';
+    if ((profile.bio || '').length > 500) return 'La biografía no puede superar 500 caracteres';
+    return null;
+  };
+
+  const buildPayload = (profile, includeOrganization = false) => {
+    const displayName = (profile.display_name || `${profile.first_name || ''} ${profile.last_name || ''}`).trim();
+    return {
+      name: displayName,
+      first_name: (profile.first_name || '').trim() || null,
+      last_name: (profile.last_name || '').trim() || null,
+      display_name: displayName,
+      phone: (profile.phone || '').trim(),
+      address: (profile.address || '').trim() || null,
+      bio: (profile.bio || '').trim() || null,
+      avatar: (profile.avatar || '').trim() || null,
+      active: profile.active !== false,
+      available_days: profile.available_days || [],
+      start_time: profile.start_time,
+      end_time: profile.end_time,
+      service_ids: profile.service_ids || [],
+      ...(includeOrganization ? { organization_id: organizationId } : {})
+    };
+  };
+
   const handleCreate = async () => {
+    const validationError = validateProfile(newBarber);
+    if (validationError) return toast.error(validationError);
+    setSaving(true);
     try {
-      await barberAPI.create(newBarber);
+      await barberAPI.create(buildPayload(newBarber, true));
       setIsCreateDialogOpen(false);
-      setNewBarber({ name: '', avatar: '', available_days: [1, 2, 3, 4, 5], start_time: '09:00', end_time: '18:00' });
-      loadBarbers();
+      setNewBarber(createEmptyBarber());
+      await loadBarbers();
       toast.success('Barbero creado exitosamente');
     } catch (error) {
       console.error('Error creating barber:', error);
-      toast.error('Error al crear barbero');
+      toast.error(error.response?.data?.detail || 'Error al crear barbero');
+    } finally {
+      setSaving(false);
     }
   };
 
   const handleEdit = (barber) => {
     setEditingBarber({
       barber_id: barber.barber_id,
-      name: barber.name,
-      avatar: barber.avatar,
+      name: barber.name || '',
+      first_name: barber.first_name || '',
+      last_name: barber.last_name || '',
+      display_name: barber.display_name || barber.name || '',
+      phone: barber.phone || '',
+      address: barber.address || '',
+      bio: barber.bio || '',
+      avatar: barber.avatar || '',
+      active: barber.active !== false,
       available_days: barber.available_days || [1, 2, 3, 4, 5],
-      start_time: barber.start_time,
-      end_time: barber.end_time
+      start_time: barber.start_time || '09:00',
+      end_time: barber.end_time || '18:00',
+      service_ids: barber.service_ids || []
     });
     setIsEditDialogOpen(true);
   };
 
   const handleUpdate = async () => {
+    const validationError = validateProfile(editingBarber);
+    if (validationError) return toast.error(validationError);
+    setSaving(true);
     try {
-      await barberAPI.update(editingBarber.barber_id, {
-        name: editingBarber.name,
-        avatar: editingBarber.avatar,
-        available_days: editingBarber.available_days,
-        start_time: editingBarber.start_time,
-        end_time: editingBarber.end_time
-      });
+      await barberAPI.update(editingBarber.barber_id, buildPayload(editingBarber));
       setIsEditDialogOpen(false);
       setEditingBarber(null);
-      loadBarbers();
+      await loadBarbers();
       toast.success('Barbero actualizado exitosamente');
     } catch (error) {
       console.error('Error updating barber:', error);
-      toast.error('Error al actualizar barbero');
+      toast.error(error.response?.data?.detail || 'Error al actualizar barbero');
+    } finally {
+      setSaving(false);
     }
   };
 
   const handleDelete = async (id) => {
-    if (!window.confirm('¿Eliminar este barbero?')) return;
+    if (!window.confirm('¿Desactivar este barbero? Dejará de aparecer para nuevas reservas, pero se conservarán sus citas y su historial.')) return;
     try {
       await barberAPI.delete(id);
-      loadBarbers();
-      toast.success('Barbero eliminado');
+      await loadBarbers();
+      toast.success('Barbero desactivado');
     } catch (error) {
-      console.error('Error deleting barber:', error);
-      toast.error('Error al eliminar barbero');
+      console.error('Error deactivating barber:', error);
+      toast.error(error.response?.data?.detail || 'Error al desactivar barbero');
     }
   };
 
@@ -210,105 +387,23 @@ const ManagerBarbers = () => {
           {/* Create Dialog */}
           <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
             <DialogTrigger asChild>
-              <button
-                data-testid={MANAGER.addBarberBtn}
-                className="flex items-center gap-2 px-6 py-3 bg-[#0A84FF] hover:bg-[#0071E3] text-white rounded-xl font-medium transition-all hover:-translate-y-1 active:scale-95"
-              >
+              <button data-testid={MANAGER.addBarberBtn} className="flex items-center gap-2 px-6 py-3 bg-[#0A84FF] hover:bg-[#0071E3] text-white rounded-xl font-medium transition-all hover:-translate-y-1 active:scale-95">
                 <Plus size={20} strokeWidth={1.5} />
                 Crear manualmente
               </button>
             </DialogTrigger>
-            <DialogContent className="bg-[#0A0A0A] border-white/10 max-w-lg">
-              <DialogHeader>
-                <DialogTitle className="text-white">Crear Barbero</DialogTitle>
-              </DialogHeader>
-              <div className="space-y-4 mt-4">
-                <div>
-                  <label className="text-sm text-zinc-400 mb-2 block">Nombre</label>
-                  <input
-                    type="text"
-                    value={newBarber.name}
-                    onChange={(e) => setNewBarber({ ...newBarber, name: e.target.value })}
-                    className="w-full px-4 py-3 bg-transparent border border-white/20 rounded-xl text-white focus:border-[#0A84FF] focus:ring-1 focus:ring-[#0A84FF] outline-none"
-                    placeholder="Ej: Juan Pérez"
-                  />
-                </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="text-sm text-zinc-400 mb-2 block">Hora inicio</label>
-                    <input
-                      type="time"
-                      value={newBarber.start_time}
-                      onChange={(e) => setNewBarber({ ...newBarber, start_time: e.target.value })}
-                      className="w-full px-4 py-3 bg-transparent border border-white/20 rounded-xl text-white focus:border-[#0A84FF] focus:ring-1 focus:ring-[#0A84FF] outline-none"
-                    />
-                  </div>
-                  <div>
-                    <label className="text-sm text-zinc-400 mb-2 block">Hora fin</label>
-                    <input
-                      type="time"
-                      value={newBarber.end_time}
-                      onChange={(e) => setNewBarber({ ...newBarber, end_time: e.target.value })}
-                      className="w-full px-4 py-3 bg-transparent border border-white/20 rounded-xl text-white focus:border-[#0A84FF] focus:ring-1 focus:ring-[#0A84FF] outline-none"
-                    />
-                  </div>
-                </div>
-                <button
-                  onClick={handleCreate}
-                  className="w-full px-6 py-3 bg-[#0A84FF] hover:bg-[#0071E3] text-white rounded-xl font-medium transition-all"
-                >
-                  Crear Barbero
-                </button>
-              </div>
+            <DialogContent className="bg-[#0A0A0A] border-white/10 max-w-3xl max-h-[90vh] overflow-y-auto">
+              <DialogHeader><DialogTitle className="text-white">Crear perfil profesional</DialogTitle></DialogHeader>
+              <ProfileForm value={newBarber} onChange={setNewBarber} services={services} saving={saving} actionLabel="Crear Barbero" onSubmit={handleCreate} />
             </DialogContent>
           </Dialog>
         </div>
 
         {/* Edit Dialog */}
         <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-          <DialogContent className="bg-[#0A0A0A] border-white/10 max-w-lg">
-            <DialogHeader>
-              <DialogTitle className="text-white">Editar Barbero</DialogTitle>
-            </DialogHeader>
-            {editingBarber && (
-              <div className="space-y-4 mt-4">
-                <div>
-                  <label className="text-sm text-zinc-400 mb-2 block">Nombre</label>
-                  <input
-                    type="text"
-                    value={editingBarber.name}
-                    onChange={(e) => setEditingBarber({ ...editingBarber, name: e.target.value })}
-                    className="w-full px-4 py-3 bg-transparent border border-white/20 rounded-xl text-white focus:border-[#0A84FF] focus:ring-1 focus:ring-[#0A84FF] outline-none"
-                  />
-                </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="text-sm text-zinc-400 mb-2 block">Hora inicio</label>
-                    <input
-                      type="time"
-                      value={editingBarber.start_time}
-                      onChange={(e) => setEditingBarber({ ...editingBarber, start_time: e.target.value })}
-                      className="w-full px-4 py-3 bg-transparent border border-white/20 rounded-xl text-white focus:border-[#0A84FF] focus:ring-1 focus:ring-[#0A84FF] outline-none"
-                    />
-                  </div>
-                  <div>
-                    <label className="text-sm text-zinc-400 mb-2 block">Hora fin</label>
-                    <input
-                      type="time"
-                      value={editingBarber.end_time}
-                      onChange={(e) => setEditingBarber({ ...editingBarber, end_time: e.target.value })}
-                      className="w-full px-4 py-3 bg-transparent border border-white/20 rounded-xl text-white focus:border-[#0A84FF] focus:ring-1 focus:ring-[#0A84FF] outline-none"
-                    />
-                  </div>
-                </div>
-                <button
-                  onClick={handleUpdate}
-                  className="w-full px-6 py-3 bg-[#0A84FF] hover:bg-[#0071E3] text-white rounded-xl font-medium transition-all"
-                >
-                  Guardar Cambios
-                </button>
-              </div>
-            )}
+          <DialogContent className="bg-[#0A0A0A] border-white/10 max-w-3xl max-h-[90vh] overflow-y-auto">
+            <DialogHeader><DialogTitle className="text-white">Editar perfil profesional</DialogTitle></DialogHeader>
+            {editingBarber && <ProfileForm value={editingBarber} onChange={setEditingBarber} services={services} saving={saving} actionLabel="Guardar Cambios" onSubmit={handleUpdate} />}
           </DialogContent>
         </Dialog>
 
@@ -419,46 +514,39 @@ const ManagerBarbers = () => {
         </Dialog>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {barbers.map((barber) => (
-            <div
-              key={barber.barber_id}
-              data-testid={MANAGER.barberCard}
-              className="backdrop-blur-xl bg-white/3 border border-white/10 rounded-2xl p-6 hover:bg-white/6 transition-all group"
-            >
-              <div className="flex items-start justify-between mb-4">
-                <div className="w-16 h-16 rounded-full bg-[#0A84FF] flex items-center justify-center text-white text-xl font-medium">
-                  {barber.name.charAt(0)}
+          {barbers.map((barber) => {
+            const displayName = barber.display_name || barber.name || 'Barbero';
+            const selectedServices = services.filter((service) => (barber.service_ids || []).includes(service.service_id));
+            return (
+              <div key={barber.barber_id} data-testid={MANAGER.barberCard} className={`backdrop-blur-xl border rounded-2xl p-6 transition-all group ${barber.active === false ? 'bg-zinc-900/40 border-zinc-700/50 opacity-75' : 'bg-white/3 border-white/10 hover:bg-white/6'}`}>
+                <div className="flex items-start justify-between mb-4">
+                  {barber.avatar ? (
+                    <img src={barber.avatar} alt="" className="w-16 h-16 rounded-full object-cover border border-white/10" />
+                  ) : (
+                    <div className="w-16 h-16 rounded-full bg-[#0A84FF] flex items-center justify-center text-white text-xl font-medium">{displayName.charAt(0).toUpperCase()}</div>
+                  )}
+                  <div className="flex items-center gap-2">
+                    <button onClick={() => handleEdit(barber)} className="p-2 rounded-lg bg-white/5 hover:bg-[#0A84FF]/20 text-zinc-400 hover:text-[#0A84FF] transition-all" title="Editar perfil"><Edit2 size={18} strokeWidth={1.5} /></button>
+                    {barber.active !== false && <button onClick={() => handleDelete(barber.barber_id)} className="p-2 rounded-lg bg-white/5 hover:bg-red-500/20 text-zinc-400 hover:text-red-300 transition-all" title="Desactivar"><Trash2 size={18} strokeWidth={1.5} /></button>}
+                  </div>
                 </div>
-                <div className="flex items-center gap-2">
-                  <button
-                    onClick={() => handleEdit(barber)}
-                    className="p-2 rounded-lg bg-white/5 hover:bg-[#0A84FF]/20 text-zinc-400 hover:text-[#0A84FF] transition-all opacity-0 group-hover:opacity-100"
-                    title="Editar"
-                  >
-                    <Edit2 size={18} strokeWidth={1.5} />
-                  </button>
-                  <button
-                    onClick={() => handleDelete(barber.barber_id)}
-                    className="p-2 rounded-lg bg-white/5 hover:bg-red-500/20 text-zinc-400 hover:text-red-300 transition-all opacity-0 group-hover:opacity-100"
-                    title="Eliminar"
-                  >
-                    <Trash2 size={18} strokeWidth={1.5} />
-                  </button>
+                <div className="flex items-center gap-2 mb-2">
+                  <h3 className="text-white font-medium text-lg">{displayName}</h3>
+                  <span className={`px-2 py-1 rounded-full text-[11px] ${barber.active === false ? 'bg-zinc-500/20 text-zinc-400' : 'bg-emerald-500/15 text-emerald-400'}`}>{barber.active === false ? 'Inactivo' : 'Activo'}</span>
                 </div>
+                {barber.phone && <p className="text-sm text-zinc-400 mb-2">{barber.phone}</p>}
+                {barber.bio && <p className="text-sm text-zinc-500 line-clamp-2 mb-3">{barber.bio}</p>}
+                <div className="text-sm text-zinc-400 mb-3">{barber.start_time || '09:00'} - {barber.end_time || '18:00'}</div>
+                <div className="flex flex-wrap gap-1.5 mb-4">
+                  {DAYS.filter((day) => (barber.available_days || [1, 2, 3, 4, 5]).includes(day.value)).map((day) => <span key={day.value} className="px-2 py-1 rounded-md bg-white/5 text-xs text-zinc-400">{day.label}</span>)}
+                </div>
+                {selectedServices.length > 0 && <div className="flex flex-wrap gap-1.5 mb-4">{selectedServices.map((service) => <span key={service.service_id} className="px-2 py-1 rounded-md bg-purple-500/10 text-xs text-purple-300">{service.name}</span>)}</div>}
+                <button onClick={() => handleManageBlocks(barber)} disabled={barber.active === false} className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl text-zinc-300 hover:text-white transition-all text-sm disabled:opacity-40 disabled:cursor-not-allowed">
+                  <Clock size={16} strokeWidth={1.5} /> Gestionar Horarios
+                </button>
               </div>
-              <h3 className="text-white font-medium text-lg mb-2">{barber.name}</h3>
-              <div className="text-sm text-zinc-400 mb-4">
-                {barber.start_time} - {barber.end_time}
-              </div>
-              <button
-                onClick={() => handleManageBlocks(barber)}
-                className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl text-zinc-300 hover:text-white transition-all text-sm"
-              >
-                <Clock size={16} strokeWidth={1.5} />
-                Gestionar Horarios
-              </button>
-            </div>
-          ))}
+            );
+          })}
         </div>
 
         {barbers.length === 0 && (
