@@ -332,6 +332,18 @@ class TeamInvitationCreate(BaseModel):
 class TeamRoleUpdate(BaseModel):
     role: str
 
+# NEXUS_COMMISSION_FOUNDATION_V1
+class CommissionSettingsUpdate(BaseModel):
+    default_staff_percent: float
+    default_business_percent: float
+    commission_base: str = "net_service_amount"
+    tip_policy: str = "full_tip_to_staff"
+
+class StaffCommissionOverrideUpdate(BaseModel):
+    staff_percent: float
+    business_percent: float
+    reason: str
+
 class InvitationAcceptRequest(BaseModel):
     token: str
     first_name: str
@@ -1088,6 +1100,93 @@ async def accept_public_invitation(data: InvitationAcceptRequest):
         raise
 
     return {"message": "Invitation accepted successfully", "user_id": user_id}
+
+# ==================== COMMISSION FOUNDATION ====================
+# NEXUS_COMMISSION_FOUNDATION_V1
+DEFAULT_COMMISSION_SETTINGS = {"default_staff_percent": 60.0, "default_business_percent": 40.0, "commission_base": "net_service_amount", "tip_policy": "full_tip_to_staff", "currency": "COP"}
+
+def validate_commission_split(staff_percent: float, business_percent: float) -> None:
+    if not 0 <= staff_percent <= 100 or not 0 <= business_percent <= 100:
+        raise HTTPException(status_code=400, detail="Commission percentages must be between 0 and 100")
+    if abs(staff_percent + business_percent - 100.0) > 0.001:
+        raise HTTPException(status_code=400, detail="Staff and business percentages must add up to 100")
+
+async def commission_audit(org_id, event_type, entity_id, actor_id, previous, new_value, reason=None):
+    await db.audit_events.insert_one({"audit_id": f"audit_{uuid.uuid4().hex[:12]}", "organization_id": org_id, "event_type": event_type, "entity_type": "commission", "entity_id": entity_id, "actor_user_id": actor_id, "previous_value": previous, "new_value": new_value, "reason": reason, "created_at": datetime.now(timezone.utc).isoformat()})
+
+async def commission_org(user: User, requested_org_id: Optional[str]) -> str:
+    require_management_role(user)
+    return await resolve_team_organization(user, requested_org_id)
+
+@api_router.get("/commissions/settings")
+async def get_commission_settings(organization_id: Optional[str] = None, authorization: Optional[str] = Header(None), session_token: Optional[str] = Cookie(None)):
+    user = await get_current_user(authorization, session_token)
+    org_id = await commission_org(user, organization_id)
+    item = await db.commission_settings.find_one({"organization_id": org_id}, {"_id": 0})
+    return {**({"organization_id": org_id, **DEFAULT_COMMISSION_SETTINGS} if not item else item), "is_default": not bool(item)}
+
+@api_router.put("/commissions/settings")
+async def put_commission_settings(data: CommissionSettingsUpdate, organization_id: Optional[str] = None, authorization: Optional[str] = Header(None), session_token: Optional[str] = Cookie(None)):
+    user = await get_current_user(authorization, session_token)
+    org_id = await commission_org(user, organization_id)
+    validate_commission_split(data.default_staff_percent, data.default_business_percent)
+    if data.commission_base != "net_service_amount" or data.tip_policy != "full_tip_to_staff":
+        raise HTTPException(status_code=400, detail="Unsupported commission policy")
+    previous = await db.commission_settings.find_one({"organization_id": org_id}, {"_id": 0})
+    now = datetime.now(timezone.utc).isoformat()
+    item = {"organization_id": org_id, "default_staff_percent": round(data.default_staff_percent, 2), "default_business_percent": round(data.default_business_percent, 2), "commission_base": data.commission_base, "tip_policy": data.tip_policy, "currency": "COP", "updated_by": user.user_id, "updated_at": now}
+    await db.commission_settings.update_one({"organization_id": org_id}, {"$set": item, "$setOnInsert": {"created_at": now}}, upsert=True)
+    await commission_audit(org_id, "commission_settings_updated", org_id, user.user_id, previous, item)
+    return {**item, "is_default": False}
+
+@api_router.get("/commissions/staff")
+async def get_staff_commissions(organization_id: Optional[str] = None, authorization: Optional[str] = Header(None), session_token: Optional[str] = Cookie(None)):
+    user = await get_current_user(authorization, session_token)
+    org_id = await commission_org(user, organization_id)
+    settings = await db.commission_settings.find_one({"organization_id": org_id}, {"_id": 0}) or {"organization_id": org_id, **DEFAULT_COMMISSION_SETTINGS}
+    barbers = await db.barbers.find({"organization_id": org_id}, {"_id": 0}).sort("name", 1).to_list(1000)
+    overrides = await db.staff_commission_overrides.find({"organization_id": org_id, "active": True}, {"_id": 0}).to_list(1000)
+    by_barber = {x["barber_id"]: x for x in overrides}
+    staff = []
+    for barber in barbers:
+        override = by_barber.get(barber["barber_id"])
+        staff.append({"barber_id": barber["barber_id"], "name": barber.get("display_name") or barber.get("name") or "Profesional", "active": barber.get("active", True), "source": "override" if override else "default", "staff_percent": override.get("staff_percent") if override else settings["default_staff_percent"], "business_percent": override.get("business_percent") if override else settings["default_business_percent"], "reason": override.get("reason") if override else None})
+    return {"settings": settings, "staff": staff}
+
+@api_router.put("/commissions/staff/{barber_id}")
+async def put_staff_commission(barber_id: str, data: StaffCommissionOverrideUpdate, organization_id: Optional[str] = None, authorization: Optional[str] = Header(None), session_token: Optional[str] = Cookie(None)):
+    user = await get_current_user(authorization, session_token)
+    org_id = await commission_org(user, organization_id)
+    validate_commission_split(data.staff_percent, data.business_percent)
+    reason = data.reason.strip()
+    if len(reason) < 3:
+        raise HTTPException(status_code=400, detail="A reason of at least 3 characters is required")
+    barber = await db.barbers.find_one({"barber_id": barber_id, "organization_id": org_id}, {"_id": 0})
+    if not barber:
+        raise HTTPException(status_code=404, detail="Professional not found")
+    previous = await db.staff_commission_overrides.find_one({"organization_id": org_id, "barber_id": barber_id, "active": True}, {"_id": 0})
+    now = datetime.now(timezone.utc).isoformat()
+    item = {"override_id": previous.get("override_id") if previous else f"override_{uuid.uuid4().hex[:12]}", "organization_id": org_id, "barber_id": barber_id, "staff_percent": round(data.staff_percent, 2), "business_percent": round(data.business_percent, 2), "reason": reason, "active": True, "effective_from": previous.get("effective_from") if previous else now, "effective_to": None, "created_by": previous.get("created_by") if previous else user.user_id, "created_at": previous.get("created_at") if previous else now, "updated_by": user.user_id, "updated_at": now}
+    await db.staff_commission_overrides.update_one({"organization_id": org_id, "barber_id": barber_id, "active": True}, {"$set": item}, upsert=True)
+    await commission_audit(org_id, "staff_commission_override_updated", barber_id, user.user_id, previous, item, reason)
+    return item
+
+@api_router.delete("/commissions/staff/{barber_id}")
+async def delete_staff_commission(barber_id: str, organization_id: Optional[str] = None, authorization: Optional[str] = Header(None), session_token: Optional[str] = Cookie(None)):
+    user = await get_current_user(authorization, session_token)
+    org_id = await commission_org(user, organization_id)
+    barber = await db.barbers.find_one({"barber_id": barber_id, "organization_id": org_id}, {"_id": 0})
+    if not barber:
+        raise HTTPException(status_code=404, detail="Professional not found")
+    previous = await db.staff_commission_overrides.find_one({"organization_id": org_id, "barber_id": barber_id, "active": True}, {"_id": 0})
+    if not previous:
+        return {"message": "Professional already uses default commission"}
+    now = datetime.now(timezone.utc).isoformat()
+    await db.staff_commission_overrides.update_one({"override_id": previous["override_id"]}, {"$set": {"active": False, "effective_to": now, "updated_by": user.user_id, "updated_at": now}})
+    await commission_audit(org_id, "staff_commission_override_reset", barber_id, user.user_id, previous, None, "Reset to organization default")
+    return {"message": "Commission reset to organization default"}
+
+# ==================== END COMMISSION FOUNDATION ====================
 
 # Owner Endpoints
 @api_router.get("/owner/users")
@@ -2750,6 +2849,10 @@ async def add_security_headers(request, call_next):
 
 @app.on_event("startup")
 async def create_application_indexes():
+    # NEXUS_COMMISSION_FOUNDATION_V1
+    await db.commission_settings.create_index("organization_id", unique=True)
+    await db.staff_commission_overrides.create_index([("organization_id", 1), ("barber_id", 1), ("active", 1)])
+    await db.audit_events.create_index([("organization_id", 1), ("created_at", -1)])
     await db.invitations.create_index(
         "token_hash",
         unique=True,

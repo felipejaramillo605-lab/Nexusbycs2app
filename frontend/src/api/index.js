@@ -89,6 +89,15 @@ export const inventoryAPI = {
   generateOrder: () => api.post('/inventory/generate-order', {}, { responseType: 'stream' }),
 };
 
+// NEXUS_COMMISSION_FOUNDATION_V1
+export const commissionAPI = {
+  getSettings: (organizationId) => api.get('/commissions/settings', { params: { organization_id: organizationId } }),
+  updateSettings: (data, organizationId) => api.put('/commissions/settings', data, { params: { organization_id: organizationId } }),
+  getStaff: (organizationId) => api.get('/commissions/staff', { params: { organization_id: organizationId } }),
+  updateStaff: (barberId, data, organizationId) => api.put(`/commissions/staff/${barberId}`, data, { params: { organization_id: organizationId } }),
+  resetStaff: (barberId, organizationId) => api.delete(`/commissions/staff/${barberId}`, { params: { organization_id: organizationId } }),
+};
+
 export const publicAPI = {
   validateInvitation: (token) => axios.get(`${API}/public/invitations/validate`, { params: { token }, timeout: 15000 }),
   acceptInvitation: (data) => axios.post(`${API}/public/invitations/accept`, data, { timeout: 15000 }),

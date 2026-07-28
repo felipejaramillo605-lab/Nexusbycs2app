@@ -2,9 +2,9 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useOrganization } from '../context/OrganizationContext';
-import { ArrowLeft, Save, Building, Users, Mail, UserCog, Trash2, Loader2, Check } from 'lucide-react';
+import { ArrowLeft, Save, Building, Users, Mail, UserCog, Trash2, Loader2, Check, Percent, RotateCcw, Pencil } from 'lucide-react';
 import { toast } from 'sonner';
-import { teamAPI } from '../api';
+import { teamAPI, commissionAPI } from '../api';
 
 const Settings = () => {
   const { user, logout } = useAuth();
@@ -30,6 +30,13 @@ const Settings = () => {
   const [inviting, setInviting] = useState(false);
   const [invitationAction, setInvitationAction] = useState(null);
   const [updatingRole, setUpdatingRole] = useState(null);
+  // NEXUS_COMMISSION_FOUNDATION_V1
+  const [commissionSettings, setCommissionSettings] = useState({ default_staff_percent: 60, default_business_percent: 40, commission_base: 'net_service_amount', tip_policy: 'full_tip_to_staff' });
+  const [staffCommissions, setStaffCommissions] = useState([]);
+  const [commissionLoading, setCommissionLoading] = useState(true);
+  const [commissionSaving, setCommissionSaving] = useState(false);
+  const [editingCommission, setEditingCommission] = useState(null);
+  const [commissionAction, setCommissionAction] = useState(null);
 
   const loadOrganization = useCallback(async () => {
     if (!organizationId) return;
@@ -85,13 +92,22 @@ const Settings = () => {
     }
   }, [organizationId]);
 
+  const loadCommissions = useCallback(async () => {
+    if (!organizationId) return;
+    try {
+      setCommissionLoading(true);
+      const [settingsResponse, staffResponse] = await Promise.all([commissionAPI.getSettings(organizationId), commissionAPI.getStaff(organizationId)]);
+      setCommissionSettings({ default_staff_percent: settingsResponse.data.default_staff_percent, default_business_percent: settingsResponse.data.default_business_percent, commission_base: settingsResponse.data.commission_base, tip_policy: settingsResponse.data.tip_policy });
+      setStaffCommissions(staffResponse.data.staff || []);
+    } catch (error) { toast.error(error.response?.data?.detail || 'No fue posible cargar las comisiones'); }
+    finally { setCommissionLoading(false); }
+  }, [organizationId]);
+
   useEffect(() => {
     if (organizationId) {
-      loadOrganization();
-      loadTeamMembers();
-      loadInvitations();
+      loadOrganization(); loadTeamMembers(); loadInvitations(); loadCommissions();
     }
-  }, [organizationId, loadOrganization, loadTeamMembers, loadInvitations]);
+  }, [organizationId, loadOrganization, loadTeamMembers, loadInvitations, loadCommissions]);
 
   const handleSaveProfile = async (e) => {
     e.preventDefault();
@@ -246,6 +262,36 @@ const Settings = () => {
     } catch (error) {
       toast.error(error.response?.data?.detail || 'Error al desactivar el miembro');
     }
+  };
+
+  const changeDefaultStaff = (value) => {
+    const staff = Math.max(0, Math.min(100, Number(value) || 0));
+    setCommissionSettings((current) => ({ ...current, default_staff_percent: staff, default_business_percent: Number((100 - staff).toFixed(2)) }));
+  };
+  const saveCommissionSettings = async () => {
+    setCommissionSaving(true);
+    try { await commissionAPI.updateSettings(commissionSettings, organizationId); await loadCommissions(); toast.success('Configuración de comisiones actualizada'); }
+    catch (error) { toast.error(error.response?.data?.detail || 'No fue posible guardar las comisiones'); }
+    finally { setCommissionSaving(false); }
+  };
+  const editStaffCommission = (item) => setEditingCommission({ ...item, reason: item.reason || '' });
+  const changeOverrideStaff = (value) => {
+    const staff = Math.max(0, Math.min(100, Number(value) || 0));
+    setEditingCommission((current) => ({ ...current, staff_percent: staff, business_percent: Number((100 - staff).toFixed(2)) }));
+  };
+  const saveStaffCommission = async () => {
+    if (!editingCommission?.reason.trim() || editingCommission.reason.trim().length < 3) return toast.error('Indica un motivo para la excepción');
+    setCommissionAction(editingCommission.barber_id);
+    try { await commissionAPI.updateStaff(editingCommission.barber_id, { staff_percent: Number(editingCommission.staff_percent), business_percent: Number(editingCommission.business_percent), reason: editingCommission.reason.trim() }, organizationId); setEditingCommission(null); await loadCommissions(); toast.success('Comisión personalizada guardada'); }
+    catch (error) { toast.error(error.response?.data?.detail || 'No fue posible guardar la excepción'); }
+    finally { setCommissionAction(null); }
+  };
+  const resetStaffCommission = async (item) => {
+    if (!window.confirm(`¿Restablecer la comisión de ${item.name}?`)) return;
+    setCommissionAction(item.barber_id);
+    try { await commissionAPI.resetStaff(item.barber_id, organizationId); await loadCommissions(); toast.success('Comisión restablecida'); }
+    catch (error) { toast.error(error.response?.data?.detail || 'No fue posible restablecer la comisión'); }
+    finally { setCommissionAction(null); }
   };
 
   const getRoleBadgeColor = (role) => {
@@ -553,6 +599,20 @@ const Settings = () => {
               )}
             </div>
           </div>
+
+          {/* NEXUS_COMMISSION_FOUNDATION_V1 */}
+          <div className="lg:col-span-2 backdrop-blur-xl bg-white/3 border border-white/10 rounded-2xl p-6">
+            <div className="flex items-center gap-3 mb-6"><Percent className="text-emerald-400" /><div><h2 className="text-lg font-medium text-white">Comisiones del equipo</h2><p className="text-sm text-zinc-400">Regla general y excepciones por profesional</p></div></div>
+            {commissionLoading ? <div className="py-10 flex justify-center"><Loader2 className="animate-spin text-[#0A84FF]" /></div> : <div className="space-y-5">
+              <div className="grid md:grid-cols-2 gap-4 rounded-xl border border-white/10 bg-white/5 p-4">
+                <label className="text-sm text-zinc-400">Porcentaje Staff<input type="number" min="0" max="100" step="0.01" value={commissionSettings.default_staff_percent} onChange={(e) => changeDefaultStaff(e.target.value)} className="mt-2 w-full px-4 py-3 bg-black/30 border border-white/10 rounded-xl text-white" /></label>
+                <label className="text-sm text-zinc-400">Porcentaje negocio<input readOnly value={commissionSettings.default_business_percent} className="mt-2 w-full px-4 py-3 bg-black/20 border border-white/10 rounded-xl text-zinc-300" /></label>
+                <div className="md:col-span-2 flex flex-wrap justify-between gap-3"><p className="text-xs text-zinc-500">Base neta después de descuentos. Propina completa para el profesional.</p><button type="button" onClick={saveCommissionSettings} disabled={commissionSaving} className="px-5 py-2.5 rounded-xl bg-[#0A84FF] text-white disabled:opacity-50">Guardar regla general</button></div>
+              </div>
+              <div className="space-y-3">{staffCommissions.map((item) => <div key={item.barber_id} className="rounded-xl border border-white/10 bg-white/5 p-4 flex flex-col md:flex-row md:items-center justify-between gap-4"><div><p className="text-white font-medium">{item.name} <span className="text-xs text-zinc-400">{item.source === 'override' ? 'Personalizada' : 'Predeterminada'}</span></p><p className="text-sm text-zinc-400">Staff {item.staff_percent}% · Negocio {item.business_percent}%</p>{item.reason && <p className="text-xs text-zinc-500">Motivo: {item.reason}</p>}</div><div className="flex gap-2"><button type="button" onClick={() => editStaffCommission(item)} className="px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-zinc-300"><Pencil size={15} className="inline mr-1" />Personalizar</button>{item.source === 'override' && <button type="button" onClick={() => resetStaffCommission(item)} disabled={commissionAction === item.barber_id} className="px-3 py-2 rounded-lg bg-amber-500/10 text-amber-300"><RotateCcw size={15} className="inline mr-1" />Restablecer</button>}</div></div>)}</div>
+            </div>}
+          </div>
+          {editingCommission && <div className="fixed inset-0 z-[100] bg-black/80 flex items-center justify-center p-4"><div className="w-full max-w-lg rounded-2xl border border-white/10 bg-[#101010] p-6"><h3 className="text-xl text-white">Comisión de {editingCommission.name}</h3><div className="grid sm:grid-cols-2 gap-4 mt-5"><label className="text-sm text-zinc-400">Staff<input type="number" min="0" max="100" step="0.01" value={editingCommission.staff_percent} onChange={(e) => changeOverrideStaff(e.target.value)} className="mt-2 w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white" /></label><label className="text-sm text-zinc-400">Negocio<input readOnly value={editingCommission.business_percent} className="mt-2 w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-zinc-300" /></label></div><label className="block text-sm text-zinc-400 mt-4">Motivo<textarea rows={3} value={editingCommission.reason} onChange={(e) => setEditingCommission({ ...editingCommission, reason: e.target.value })} className="mt-2 w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white" /></label><div className="flex justify-end gap-3 mt-5"><button type="button" onClick={() => setEditingCommission(null)} className="px-4 py-2 text-zinc-300">Cancelar</button><button type="button" onClick={saveStaffCommission} className="px-4 py-2 rounded-xl bg-[#0A84FF] text-white">Guardar</button></div></div></div>}
         </div>
       </div>
     </div>
