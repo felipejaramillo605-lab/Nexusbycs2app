@@ -2323,6 +2323,140 @@ async def get_my_income_summary(
 
 # ==================== END STAFF INCOME PORTAL ====================
 
+# ==================== STAFF APPOINTMENTS PORTAL ====================
+# NEXUS_STAFF_APPOINTMENTS_BACKEND_V1
+
+STAFF_APPOINTMENT_STATUSES = {"confirmed", "completed", "cancelled"}
+
+
+def staff_appointment_date_filter(start_date: Optional[str], end_date: Optional[str]) -> Optional[dict]:
+    if not start_date and not end_date:
+        return None
+    try:
+        if start_date:
+            datetime.strptime(start_date, "%Y-%m-%d")
+        if end_date:
+            datetime.strptime(end_date, "%Y-%m-%d")
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Dates must use YYYY-MM-DD format")
+    if start_date and end_date and start_date > end_date:
+        raise HTTPException(status_code=400, detail="start_date cannot be after end_date")
+    date_filter = {}
+    if start_date:
+        date_filter["$gte"] = start_date
+    if end_date:
+        date_filter["$lte"] = end_date
+    return date_filter
+
+
+async def current_staff_appointment_query(
+    current_user: User,
+    start_date: Optional[str],
+    end_date: Optional[str],
+    status: Optional[str]
+) -> dict:
+    barber = await resolve_current_staff_barber(current_user)
+    query = {
+        "organization_id": barber["organization_id"],
+        "barber_id": barber["barber_id"]
+    }
+    date_filter = staff_appointment_date_filter(start_date, end_date)
+    if date_filter:
+        query["date"] = date_filter
+    if status:
+        if status not in STAFF_APPOINTMENT_STATUSES:
+            raise HTTPException(status_code=400, detail="Unsupported appointment status")
+        query["status"] = status
+    return query
+
+
+async def enrich_staff_appointments(items: List[dict], organization_id: str) -> List[dict]:
+    service_ids = list({item.get("service_id") for item in items if item.get("service_id")})
+    services = await db.services.find(
+        {"organization_id": organization_id, "service_id": {"$in": service_ids}},
+        {"_id": 0, "service_id": 1, "name": 1, "duration": 1}
+    ).to_list(1000) if service_ids else []
+    service_lookup = {service["service_id"]: service for service in services}
+    appointment_ids = [item["appointment_id"] for item in items if item.get("appointment_id")]
+    transactions = await db.transactions.find(
+        {
+            "organization_id": organization_id,
+            "appointment_id": {"$in": appointment_ids},
+            "status": "confirmed"
+        },
+        {"_id": 0, "appointment_id": 1, "transaction_id": 1}
+    ).to_list(1000) if appointment_ids else []
+    transaction_lookup = {item["appointment_id"]: item["transaction_id"] for item in transactions}
+    for item in items:
+        service = service_lookup.get(item.get("service_id"), {})
+        item["service_name"] = service.get("name", "Servicio")
+        item["service_duration"] = service.get("duration", 30)
+        item["transaction_id"] = transaction_lookup.get(item.get("appointment_id"))
+    return items
+
+
+@api_router.get("/staff/appointments")
+async def get_my_staff_appointments(
+    start_date: Optional[str] = None,
+    end_date: Optional[str] = None,
+    status: Optional[str] = None,
+    limit: int = 500,
+    authorization: Optional[str] = Header(None),
+    session_token: Optional[str] = Cookie(None)
+):
+    current_user = await get_current_user(authorization, session_token)
+    barber = await resolve_current_staff_barber(current_user)
+    query = await current_staff_appointment_query(current_user, start_date, end_date, status)
+    safe_limit = max(1, min(limit, 1000))
+    items = await db.appointments.find(query, {
+        "_id": 0,
+        "appointment_id": 1,
+        "organization_id": 1,
+        "service_id": 1,
+        "barber_id": 1,
+        "client_name": 1,
+        "client_phone": 1,
+        "client_email": 1,
+        "date": 1,
+        "time": 1,
+        "status": 1,
+        "created_at": 1,
+        "completed_at": 1
+    }).sort([("date", 1), ("time", 1)]).to_list(safe_limit)
+    return await enrich_staff_appointments(items, barber["organization_id"])
+
+
+@api_router.get("/staff/appointments/summary")
+async def get_my_staff_appointments_summary(
+    start_date: Optional[str] = None,
+    end_date: Optional[str] = None,
+    authorization: Optional[str] = Header(None),
+    session_token: Optional[str] = Cookie(None)
+):
+    current_user = await get_current_user(authorization, session_token)
+    query = await current_staff_appointment_query(current_user, start_date, end_date, None)
+    items = await db.appointments.find(query, {"_id": 0, "date": 1, "time": 1, "status": 1}).to_list(100000)
+    today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    now_time = datetime.now(timezone.utc).strftime("%H:%M")
+    return {
+        "total_appointments": len(items),
+        "confirmed_count": sum(1 for item in items if item.get("status") == "confirmed"),
+        "completed_count": sum(1 for item in items if item.get("status") == "completed"),
+        "cancelled_count": sum(1 for item in items if item.get("status") == "cancelled"),
+        "today_count": sum(1 for item in items if item.get("date") == today),
+        "upcoming_count": sum(
+            1 for item in items
+            if item.get("status") == "confirmed"
+            and (
+                item.get("date", "") > today
+                or (item.get("date") == today and item.get("time", "") >= now_time)
+            )
+        )
+    }
+
+
+# ==================== END STAFF APPOINTMENTS PORTAL ====================
+
 # ==================== CLIENTS ENDPOINTS ====================
 
 @api_router.get("/clients")
@@ -3188,6 +3322,9 @@ async def create_application_indexes():
     # NEXUS_COMMISSION_FOUNDATION_V1
     await db.commission_settings.create_index("organization_id", unique=True)
     await db.staff_commission_overrides.create_index([("organization_id", 1), ("barber_id", 1), ("active", 1)])
+    # NEXUS_STAFF_APPOINTMENTS_BACKEND_V1
+    await db.appointments.create_index([("organization_id", 1), ("barber_id", 1), ("date", 1), ("time", 1)])
+    await db.appointments.create_index([("organization_id", 1), ("barber_id", 1), ("status", 1), ("date", 1)])
     await db.audit_events.create_index([("organization_id", 1), ("created_at", -1)])
     await db.invitations.create_index(
         "token_hash",

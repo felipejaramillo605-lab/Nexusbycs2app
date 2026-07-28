@@ -61,6 +61,10 @@ const StaffIncome = () => {
           <button type="button" onClick={() => navigate('/staff/profile')} className="flex items-center gap-2 text-zinc-400 hover:text-white">
             <ArrowLeft size={20} /> Mi perfil
           </button>
+          {/* NEXUS_STAFF_APPOINTMENTS_UI_V1 */}
+          <button type="button" onClick={() => navigate('/staff/appointments')} className="flex items-center gap-2 px-3 py-2 rounded-xl bg-blue-500/10 border border-blue-500/20 text-blue-400">
+            <CalendarDays size={18} /> Mis citas
+          </button>
           <div className="text-right">
             <h1 className="text-xl sm:text-2xl font-medium">Mis ingresos</h1>
             <p className="text-xs text-zinc-500">Comisiones y propinas propias</p>
