@@ -93,6 +93,13 @@ export const inventoryAPI = {
 };
 
 // NEXUS_COMMISSION_FOUNDATION_V1
+// NEXUS_TRANSACTION_REVENUE_STATISTICS_V1
+export const transactionAPI = {
+  getAll: (params = {}) => api.get('/transactions', { params }),
+  getSummary: (params = {}) => api.get('/transactions/summary', { params }),
+  getById: (transactionId) => api.get(`/transactions/${transactionId}`),
+};
+
 export const commissionAPI = {
   getSettings: (organizationId) => api.get('/commissions/settings', { params: { organization_id: organizationId } }),
   updateSettings: (data, organizationId) => api.put('/commissions/settings', data, { params: { organization_id: organizationId } }),

@@ -1,8 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
-import { appointmentAPI, organizationAPI, serviceAPI, barberAPI } from '../api';
-import { Calendar, DollarSign, Users, LogOut, Menu, Scissors, Package, Monitor, Smartphone, Building, MessageSquare, Settings, MoreHorizontal } from 'lucide-react';
+import { appointmentAPI, organizationAPI, serviceAPI, barberAPI, transactionAPI } from '../api';
+import { Calendar, DollarSign, Users, LogOut, Menu, Scissors, Package, Monitor, Smartphone, Building, MessageSquare, Settings, MoreHorizontal, WalletCards } from 'lucide-react';
 import { MANAGER, AUTH } from '../constants/testIds';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '../components/ui/sheet';
 import ThemeToggle from '../components/ThemeToggle';
@@ -21,6 +21,8 @@ const ManagerDashboard = () => {
   const [services, setServices] = useState([]);
   const [barbers, setBarbers] = useState([]);
   const [selectedAppointment, setSelectedAppointment] = useState(null);
+  // NEXUS_FINANCIAL_DASHBOARD_V1
+  const [todayRevenue, setTodayRevenue] = useState(0);
   const [forceDesktopView, setForceDesktopView] = useState(() => {
     return localStorage.getItem('nexus_force_desktop') === 'true';
   });
@@ -53,14 +55,18 @@ const ManagerDashboard = () => {
   const loadOrgData = async (orgId) => {
     try {
       const params = user.role === 'owner' ? { organization_id: orgId } : {};
-      const [aptsRes, servicesRes, barbersRes] = await Promise.all([
+      const today = new Date().toISOString().split('T')[0];
+      const financialParams = { ...params, start_date: today, end_date: today };
+      const [aptsRes, servicesRes, barbersRes, revenueRes] = await Promise.all([
         appointmentAPI.getToday(params),
         serviceAPI.getAll(params),
-        barberAPI.getAll(params)
+        barberAPI.getAll(params),
+        transactionAPI.getSummary(financialParams)
       ]);
       setAppointments(aptsRes.data);
       setServices(servicesRes.data);
       setBarbers(barbersRes.data);
+      setTodayRevenue(Number(revenueRes.data.total_received) || 0);
     } catch (error) {
       console.error('Error loading org data:', error);
     }
@@ -77,7 +83,7 @@ const ManagerDashboard = () => {
     localStorage.setItem('nexus_force_desktop', newValue.toString());
   };
 
-  const totalRevenue = appointments.reduce((sum, apt) => sum + (apt.service_price || 0), 0);
+  const totalRevenue = todayRevenue;
 
   const filteredAppointments = appointments.filter(apt => {
     if (filter === 'all') return true;
@@ -207,6 +213,8 @@ const ManagerDashboard = () => {
                     <button onClick={() => navigate(user.role === 'owner' ? `/manager/appointments?org_id=${selectedOrg.organization_id}` : '/manager/appointments')} className="flex items-center gap-2 min-h-[44px] px-3 py-2 rounded-xl bg-orange-500/20 border border-orange-500/30 hover:bg-orange-500/30 transition-all text-orange-300 whitespace-nowrap" title="Historial de Citas">
                       <Calendar size={18} strokeWidth={1.5} /><span className="hidden xl:inline text-sm">Citas</span>
                     </button>
+                    {/* NEXUS_REVENUE_MODULE_V1 */}
+                    <button onClick={() => navigate(user.role === 'owner' ? `/manager/revenue?org_id=${selectedOrg.organization_id}` : '/manager/revenue')} className="flex items-center gap-2 min-h-[44px] px-3 py-2 rounded-xl bg-emerald-500/20 border border-emerald-500/30 text-emerald-300 whitespace-nowrap" title="Ingresos"><WalletCards size={18} /><span className="hidden xl:inline text-sm">Ingresos</span></button>
                     <button onClick={() => navigate(user.role === 'owner' ? `/manager/clients?org_id=${selectedOrg.organization_id}` : '/manager/clients')} className="flex items-center gap-2 min-h-[44px] px-3 py-2 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 transition-all text-white whitespace-nowrap">
                       <Users size={18} strokeWidth={1.5} /><span className="hidden xl:inline text-sm">Clientes</span>
                     </button>
@@ -280,6 +288,7 @@ const ManagerDashboard = () => {
                           <Calendar size={20} strokeWidth={1.5} className="text-orange-400" />
                           <span className="text-white font-medium">Historial de Citas</span>
                         </button>
+                        <button onClick={() => navigate(user.role === 'owner' ? `/manager/revenue?org_id=${selectedOrg.organization_id}` : '/manager/revenue')} className="w-full flex items-center gap-3 px-4 py-3 rounded-xl bg-emerald-500/20 border border-emerald-500/30 text-left"><WalletCards size={20} className="text-emerald-400"/><span className="text-white font-medium">Ingresos</span></button>
                         <button
                           onClick={() => navigate(user.role === 'owner' ? `/manager/clients?org_id=${selectedOrg.organization_id}` : '/manager/clients')}
                           className="w-full flex items-center gap-3 px-4 py-3 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 transition-all text-left group"

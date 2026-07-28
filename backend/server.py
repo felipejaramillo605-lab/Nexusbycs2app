@@ -1969,6 +1969,156 @@ async def get_appointment_transaction(appointment_id: str, authorization: Option
     if not item: raise HTTPException(status_code=404,detail="Transaction not found")
     return item
 
+# ==================== TRANSACTION REVENUE STATISTICS ====================
+# NEXUS_TRANSACTION_REVENUE_STATISTICS_V1
+
+def transaction_date_filter(start_date: Optional[str], end_date: Optional[str]) -> Optional[dict]:
+    if not start_date and not end_date:
+        return None
+    date_filter = {}
+    try:
+        if start_date:
+            start_value = datetime.strptime(start_date, "%Y-%m-%d").replace(tzinfo=timezone.utc)
+            date_filter["$gte"] = start_value.isoformat()
+        if end_date:
+            end_value = datetime.strptime(end_date, "%Y-%m-%d").replace(
+                hour=23, minute=59, second=59, microsecond=999999, tzinfo=timezone.utc
+            )
+            date_filter["$lte"] = end_value.isoformat()
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Dates must use YYYY-MM-DD format")
+    if start_date and end_date and start_date > end_date:
+        raise HTTPException(status_code=400, detail="start_date cannot be after end_date")
+    return date_filter
+
+
+async def transaction_query(
+    current_user: User,
+    organization_id: Optional[str],
+    start_date: Optional[str],
+    end_date: Optional[str],
+    barber_id: Optional[str],
+    payment_method: Optional[str]
+) -> dict:
+    require_management_role(current_user)
+    resolved_org_id = await resolve_team_organization(current_user, organization_id)
+    query = {"organization_id": resolved_org_id, "status": "confirmed"}
+    created_filter = transaction_date_filter(start_date, end_date)
+    if created_filter:
+        query["created_at"] = created_filter
+    if barber_id:
+        barber = await db.barbers.find_one(
+            {"barber_id": barber_id, "organization_id": resolved_org_id}, {"_id": 0}
+        )
+        if not barber:
+            raise HTTPException(status_code=404, detail="Professional not found")
+        query["barber_id"] = barber_id
+    if payment_method:
+        if payment_method not in CHECKOUT_PAYMENT_METHODS:
+            raise HTTPException(status_code=400, detail="Unsupported payment method")
+        query["payment_method"] = payment_method
+    return query
+
+
+@api_router.get("/transactions")
+async def list_transactions(
+    organization_id: Optional[str] = None,
+    start_date: Optional[str] = None,
+    end_date: Optional[str] = None,
+    barber_id: Optional[str] = None,
+    payment_method: Optional[str] = None,
+    limit: int = 200,
+    authorization: Optional[str] = Header(None),
+    session_token: Optional[str] = Cookie(None)
+):
+    current_user = await get_current_user(authorization, session_token)
+    query = await transaction_query(
+        current_user, organization_id, start_date, end_date, barber_id, payment_method
+    )
+    safe_limit = max(1, min(limit, 1000))
+    return await db.transactions.find(query, {"_id": 0}).sort("created_at", -1).to_list(safe_limit)
+
+
+@api_router.get("/transactions/summary")
+async def transaction_summary(
+    organization_id: Optional[str] = None,
+    start_date: Optional[str] = None,
+    end_date: Optional[str] = None,
+    barber_id: Optional[str] = None,
+    payment_method: Optional[str] = None,
+    authorization: Optional[str] = Header(None),
+    session_token: Optional[str] = Cookie(None)
+):
+    current_user = await get_current_user(authorization, session_token)
+    query = await transaction_query(
+        current_user, organization_id, start_date, end_date, barber_id, payment_method
+    )
+    items = await db.transactions.find(query, {"_id": 0}).to_list(100000)
+    totals = {
+        "transaction_count": len(items),
+        "total_service_price": 0.0,
+        "total_discount": 0.0,
+        "total_net_service_amount": 0.0,
+        "total_tips": 0.0,
+        "total_received": 0.0,
+        "total_staff_commission": 0.0,
+        "total_business_amount": 0.0,
+        "total_staff_amount": 0.0
+    }
+    payment_totals = {}
+    daily_totals = {}
+    for item in items:
+        totals["total_service_price"] += float(item.get("service_price_snapshot", 0) or 0)
+        totals["total_discount"] += float(item.get("discount_amount", 0) or 0)
+        totals["total_net_service_amount"] += float(item.get("net_service_amount", 0) or 0)
+        totals["total_tips"] += float(item.get("tip_amount", 0) or 0)
+        totals["total_received"] += float(item.get("total_received", 0) or 0)
+        totals["total_staff_commission"] += float(item.get("staff_commission_amount", 0) or 0)
+        totals["total_business_amount"] += float(item.get("business_amount", 0) or 0)
+        totals["total_staff_amount"] += float(item.get("staff_total_amount", 0) or 0)
+        method = item.get("payment_method", "other")
+        method_row = payment_totals.setdefault(method, {"method": method, "count": 0, "total_received": 0.0})
+        method_row["count"] += 1
+        method_row["total_received"] += float(item.get("total_received", 0) or 0)
+        day = str(item.get("created_at", ""))[:10] or "unknown"
+        day_row = daily_totals.setdefault(day, {"date": day, "total_received": 0.0, "net_service_amount": 0.0, "transaction_count": 0})
+        day_row["total_received"] += float(item.get("total_received", 0) or 0)
+        day_row["net_service_amount"] += float(item.get("net_service_amount", 0) or 0)
+        day_row["transaction_count"] += 1
+    for key in totals:
+        if key != "transaction_count":
+            totals[key] = round(totals[key], 2)
+    for row in payment_totals.values():
+        row["total_received"] = round(row["total_received"], 2)
+    for row in daily_totals.values():
+        row["total_received"] = round(row["total_received"], 2)
+        row["net_service_amount"] = round(row["net_service_amount"], 2)
+    totals["average_ticket"] = round(totals["total_received"] / len(items), 2) if items else 0.0
+    totals["payment_methods"] = sorted(payment_totals.values(), key=lambda row: row["total_received"], reverse=True)
+    totals["daily_totals"] = [daily_totals[key] for key in sorted(daily_totals)]
+    return totals
+
+
+@api_router.get("/transactions/{transaction_id}")
+async def get_transaction_detail(
+    transaction_id: str,
+    authorization: Optional[str] = Header(None),
+    session_token: Optional[str] = Cookie(None)
+):
+    current_user = await get_current_user(authorization, session_token)
+    require_management_role(current_user)
+    item = await db.transactions.find_one(
+        {"transaction_id": transaction_id, "status": "confirmed"}, {"_id": 0}
+    )
+    if not item:
+        raise HTTPException(status_code=404, detail="Transaction not found")
+    if not await validate_organization_access(current_user, item["organization_id"]):
+        raise HTTPException(status_code=403, detail="Access denied")
+    return item
+
+
+# ==================== END TRANSACTION REVENUE STATISTICS ====================
+
 # Statistics Endpoints
 @api_router.get("/statistics")
 async def get_statistics(start_date: str, end_date: str, organization_id: Optional[str] = None, authorization: Optional[str] = Header(None), session_token: Optional[str] = Cookie(None)):
@@ -2911,6 +3061,10 @@ async def create_application_indexes():
     await db.transactions.create_index("transaction_id",unique=True)
     await db.transactions.create_index("appointment_id",unique=True,partialFilterExpression={"status":"confirmed"})
     await db.transactions.create_index([("organization_id",1),("created_at",-1)])
+    # NEXUS_TRANSACTION_REVENUE_STATISTICS_V1
+    await db.transactions.create_index([("organization_id", 1), ("status", 1), ("created_at", -1)])
+    await db.transactions.create_index([("organization_id", 1), ("barber_id", 1), ("status", 1), ("created_at", -1)])
+    await db.transactions.create_index([("organization_id", 1), ("payment_method", 1), ("status", 1), ("created_at", -1)])
     # NEXUS_COMMISSION_FOUNDATION_V1
     await db.commission_settings.create_index("organization_id", unique=True)
     await db.staff_commission_overrides.create_index([("organization_id", 1), ("barber_id", 1), ("active", 1)])
