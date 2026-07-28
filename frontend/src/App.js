@@ -26,6 +26,7 @@ const ManagerBarbers = lazy(() => import('./pages/ManagerBarbers'));
 const ManagerInventory = lazy(() => import('./pages/ManagerInventory'));
 const ManagerClients = lazy(() => import('./pages/ManagerClients'));
 const RevenueDashboard = lazy(() => import('./pages/RevenueDashboard'));
+const SettlementsDashboard = lazy(() => import('./pages/SettlementsDashboard'));
 const AppointmentsHistory = lazy(() => import('./pages/AppointmentsHistory'));
 const BusinessProfile = lazy(() => import('./pages/BusinessProfile'));
 const BookingFlow = lazy(() => import('./pages/BookingFlow'));
@@ -132,6 +133,8 @@ function AppRouter() {
         
         {/* NEXUS_REVENUE_MODULE_V1 */}
         <Route path="/manager/revenue" element={<ProtectedRoute allowedRoles={['owner', 'manager', 'admin']}><RevenueDashboard /></ProtectedRoute>} />
+        {/* NEXUS_STAFF_SETTLEMENTS_UI_V1 */}
+        <Route path="/manager/settlements" element={<ProtectedRoute allowedRoles={['owner', 'manager', 'admin']}><SettlementsDashboard /></ProtectedRoute>} />
 
         <Route
           path="/manager/business-profile"

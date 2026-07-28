@@ -274,6 +274,25 @@ class AppointmentCheckoutRequest(BaseModel):
     notes: Optional[str] = None
 
 
+# NEXUS_STAFF_SETTLEMENTS_FOUNDATION_V1
+class SettlementCreateRequest(BaseModel):
+    barber_id: str
+    period_start: str
+    period_end: str
+    notes: Optional[str] = None
+
+
+# NEXUS_STAFF_SETTLEMENTS_WORKFLOW_V1
+class SettlementPaymentRequest(BaseModel):
+    payment_method: str
+    payment_reference: Optional[str] = None
+    notes: Optional[str] = None
+
+
+class SettlementCancelRequest(BaseModel):
+    reason: str
+
+
 class InventoryCreate(BaseModel):
     name: str
     quantity: int
@@ -2323,6 +2342,117 @@ async def get_my_income_summary(
 
 # ==================== END STAFF INCOME PORTAL ====================
 
+# ==================== STAFF SETTLEMENT HISTORY ====================
+# NEXUS_STAFF_SETTLEMENTS_COMPLETION_V1
+
+@api_router.get("/staff/settlements/summary")
+async def get_my_settlement_summary(
+    authorization: Optional[str] = Header(None),
+    session_token: Optional[str] = Cookie(None)
+):
+    current_user = await get_current_user(authorization, session_token)
+    barber = await resolve_current_staff_barber(current_user)
+    base = {"organization_id": barber["organization_id"], "barber_id": barber["barber_id"]}
+    pending_items = await db.transactions.find({
+        **base,
+        "status": "confirmed",
+        "$or": [
+            {"settlement_id": {"$exists": False}},
+            {"settlement_id": None},
+            {"settlement_status": "cancelled"}
+        ]
+    }, {"_id": 0, "staff_total_amount": 1}).to_list(100000)
+    settlements = await db.staff_settlements.find(
+        {**base, "status": {"$in": ["draft", "approved", "paid"]}},
+        {"_id": 0, "status": 1, "total_amount": 1}
+    ).to_list(100000)
+    def amount_for(status_value: str) -> float:
+        return round(sum(float(item.get("total_amount", 0) or 0) for item in settlements if item.get("status") == status_value), 2)
+    return {
+        "barber_id": barber["barber_id"],
+        "pending_amount": round(sum(float(item.get("staff_total_amount", 0) or 0) for item in pending_items), 2),
+        "draft_amount": amount_for("draft"),
+        "approved_amount": amount_for("approved"),
+        "paid_amount": amount_for("paid"),
+        "pending_transaction_count": len(pending_items),
+        "draft_settlement_count": sum(1 for item in settlements if item.get("status") == "draft"),
+        "approved_settlement_count": sum(1 for item in settlements if item.get("status") == "approved"),
+        "paid_settlement_count": sum(1 for item in settlements if item.get("status") == "paid"),
+        "settlement_count": len(settlements)
+    }
+
+
+@api_router.get("/staff/settlements")
+async def list_my_settlements(
+    status: Optional[str] = None,
+    limit: int = 200,
+    authorization: Optional[str] = Header(None),
+    session_token: Optional[str] = Cookie(None)
+):
+    current_user = await get_current_user(authorization, session_token)
+    barber = await resolve_current_staff_barber(current_user)
+    query = {"organization_id": barber["organization_id"], "barber_id": barber["barber_id"]}
+    if status:
+        if status not in SETTLEMENT_STATUSES:
+            raise HTTPException(status_code=400, detail="Unsupported settlement status")
+        query["status"] = status
+    safe_limit = max(1, min(limit, 500))
+    return await db.staff_settlements.find(query, {
+        "_id": 0,
+        "settlement_id": 1,
+        "staff_name_snapshot": 1,
+        "period_start": 1,
+        "period_end": 1,
+        "transaction_count": 1,
+        "commission_amount": 1,
+        "tip_amount": 1,
+        "total_amount": 1,
+        "status": 1,
+        "payment_method": 1,
+        "payment_reference": 1,
+        "created_at": 1,
+        "approved_at": 1,
+        "paid_at": 1,
+        "cancelled_at": 1
+    }).sort("created_at", -1).to_list(safe_limit)
+
+
+@api_router.get("/staff/settlements/{settlement_id}")
+async def get_my_settlement_detail(
+    settlement_id: str,
+    authorization: Optional[str] = Header(None),
+    session_token: Optional[str] = Cookie(None)
+):
+    current_user = await get_current_user(authorization, session_token)
+    barber = await resolve_current_staff_barber(current_user)
+    settlement = await db.staff_settlements.find_one({
+        "settlement_id": settlement_id,
+        "organization_id": barber["organization_id"],
+        "barber_id": barber["barber_id"]
+    }, {"_id": 0, "created_by": 0, "approved_by": 0, "paid_by": 0, "cancelled_by": 0})
+    if not settlement:
+        raise HTTPException(status_code=404, detail="Settlement not found")
+    transactions = await db.transactions.find({
+        "settlement_id": settlement_id,
+        "organization_id": barber["organization_id"],
+        "barber_id": barber["barber_id"]
+    }, {
+        "_id": 0,
+        "transaction_id": 1,
+        "appointment_id": 1,
+        "service_name_snapshot": 1,
+        "staff_percent_snapshot": 1,
+        "staff_commission_amount": 1,
+        "tip_amount": 1,
+        "staff_total_amount": 1,
+        "created_at": 1,
+        "settlement_status": 1
+    }).sort("created_at", 1).to_list(100000)
+    return {**settlement, "transactions": transactions}
+
+
+# ==================== END STAFF SETTLEMENT HISTORY ====================
+
 # ==================== STAFF APPOINTMENTS PORTAL ====================
 # NEXUS_STAFF_APPOINTMENTS_BACKEND_V1
 
@@ -2456,6 +2586,378 @@ async def get_my_staff_appointments_summary(
 
 
 # ==================== END STAFF APPOINTMENTS PORTAL ====================
+
+# ==================== STAFF SETTLEMENTS FOUNDATION ====================
+# NEXUS_STAFF_SETTLEMENTS_FOUNDATION_V1
+
+SETTLEMENT_STATUSES = {"draft", "approved", "paid", "cancelled"}
+
+
+def settlement_period_filter(period_start: str, period_end: str) -> dict:
+    try:
+        start_value = datetime.strptime(period_start, "%Y-%m-%d").replace(tzinfo=timezone.utc)
+        end_value = datetime.strptime(period_end, "%Y-%m-%d").replace(
+            hour=23, minute=59, second=59, microsecond=999999, tzinfo=timezone.utc
+        )
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Dates must use YYYY-MM-DD format")
+    if period_start > period_end:
+        raise HTTPException(status_code=400, detail="period_start cannot be after period_end")
+    return {"$gte": start_value.isoformat(), "$lte": end_value.isoformat()}
+
+
+async def settlement_organization(current_user: User, organization_id: Optional[str]) -> str:
+    require_management_role(current_user)
+    return await resolve_team_organization(current_user, organization_id)
+
+
+@api_router.get("/settlements/pending")
+async def get_pending_settlements(
+    organization_id: Optional[str] = None,
+    barber_id: Optional[str] = None,
+    period_start: Optional[str] = None,
+    period_end: Optional[str] = None,
+    authorization: Optional[str] = Header(None),
+    session_token: Optional[str] = Cookie(None)
+):
+    current_user = await get_current_user(authorization, session_token)
+    org_id = await settlement_organization(current_user, organization_id)
+    match = {
+        "organization_id": org_id,
+        "status": "confirmed",
+        "$or": [
+            {"settlement_id": {"$exists": False}},
+            {"settlement_id": None},
+            {"settlement_status": "cancelled"}
+        ]
+    }
+    if barber_id:
+        barber = await db.barbers.find_one(
+            {"organization_id": org_id, "barber_id": barber_id}, {"_id": 0}
+        )
+        if not barber:
+            raise HTTPException(status_code=404, detail="Professional not found")
+        match["barber_id"] = barber_id
+    if period_start or period_end:
+        if not period_start or not period_end:
+            raise HTTPException(status_code=400, detail="period_start and period_end are both required")
+        match["created_at"] = settlement_period_filter(period_start, period_end)
+    rows = await db.transactions.aggregate([
+        {"$match": match},
+        {"$group": {
+            "_id": {
+                "barber_id": "$barber_id",
+                "staff_name": "$barber_name_snapshot"
+            },
+            "transaction_count": {"$sum": 1},
+            "commission_amount": {"$sum": "$staff_commission_amount"},
+            "tip_amount": {"$sum": "$tip_amount"},
+            "total_amount": {"$sum": "$staff_total_amount"},
+            "oldest_transaction_at": {"$min": "$created_at"},
+            "newest_transaction_at": {"$max": "$created_at"}
+        }},
+        {"$sort": {"_id.staff_name": 1}}
+    ]).to_list(1000)
+    return [{
+        "organization_id": org_id,
+        "barber_id": row["_id"]["barber_id"],
+        "staff_name": row["_id"].get("staff_name") or "Profesional",
+        "transaction_count": row["transaction_count"],
+        "commission_amount": round(float(row.get("commission_amount", 0) or 0), 2),
+        "tip_amount": round(float(row.get("tip_amount", 0) or 0), 2),
+        "total_amount": round(float(row.get("total_amount", 0) or 0), 2),
+        "oldest_transaction_at": row.get("oldest_transaction_at"),
+        "newest_transaction_at": row.get("newest_transaction_at")
+    } for row in rows]
+
+
+@api_router.post("/settlements")
+async def create_staff_settlement(
+    data: SettlementCreateRequest,
+    organization_id: Optional[str] = None,
+    authorization: Optional[str] = Header(None),
+    session_token: Optional[str] = Cookie(None)
+):
+    current_user = await get_current_user(authorization, session_token)
+    org_id = await settlement_organization(current_user, organization_id)
+    barber = await db.barbers.find_one(
+        {"organization_id": org_id, "barber_id": data.barber_id}, {"_id": 0}
+    )
+    if not barber:
+        raise HTTPException(status_code=404, detail="Professional not found")
+    created_filter = settlement_period_filter(data.period_start, data.period_end)
+    available_query = {
+        "organization_id": org_id,
+        "barber_id": data.barber_id,
+        "status": "confirmed",
+        "created_at": created_filter,
+        "$or": [
+            {"settlement_id": {"$exists": False}},
+            {"settlement_id": None},
+            {"settlement_status": "cancelled"}
+        ]
+    }
+    transactions = await db.transactions.find(available_query, {"_id": 0}).sort("created_at", 1).to_list(100000)
+    if not transactions:
+        raise HTTPException(status_code=409, detail="No pending transactions for this professional and period")
+    transaction_ids = [item["transaction_id"] for item in transactions]
+    settlement_id = f"stl_{uuid.uuid4().hex[:12]}"
+    now = datetime.now(timezone.utc).isoformat()
+    claim_filter = {
+        "transaction_id": {"$in": transaction_ids},
+        "organization_id": org_id,
+        "barber_id": data.barber_id,
+        "status": "confirmed",
+        "$or": [
+            {"settlement_id": {"$exists": False}},
+            {"settlement_id": None},
+            {"settlement_status": "cancelled"}
+        ]
+    }
+    claim = await db.transactions.update_many(claim_filter, {"$set": {
+        "settlement_id": settlement_id,
+        "settlement_status": "draft",
+        "settled_at": now
+    }})
+    if claim.modified_count != len(transaction_ids):
+        await db.transactions.update_many(
+            {"settlement_id": settlement_id, "settlement_status": "draft"},
+            {"$unset": {"settlement_id": "", "settlement_status": "", "settled_at": ""}}
+        )
+        raise HTTPException(status_code=409, detail="One or more transactions were already included in another settlement")
+    notes = (data.notes or "").strip()[:500] or None
+    settlement = {
+        "settlement_id": settlement_id,
+        "organization_id": org_id,
+        "barber_id": data.barber_id,
+        "staff_name_snapshot": barber.get("display_name") or barber.get("name") or "Profesional",
+        "period_start": data.period_start,
+        "period_end": data.period_end,
+        "transaction_ids": transaction_ids,
+        "transaction_count": len(transaction_ids),
+        "commission_amount": round(sum(float(item.get("staff_commission_amount", 0) or 0) for item in transactions), 2),
+        "tip_amount": round(sum(float(item.get("tip_amount", 0) or 0) for item in transactions), 2),
+        "total_amount": round(sum(float(item.get("staff_total_amount", 0) or 0) for item in transactions), 2),
+        "status": "draft",
+        "notes": notes,
+        "created_by": current_user.user_id,
+        "created_at": now,
+        "updated_at": now
+    }
+    try:
+        await db.staff_settlements.insert_one(settlement.copy())
+    except Exception:
+        await db.transactions.update_many(
+            {"settlement_id": settlement_id, "settlement_status": "draft"},
+            {"$unset": {"settlement_id": "", "settlement_status": "", "settled_at": ""}}
+        )
+        raise
+    return settlement
+
+
+@api_router.get("/settlements")
+async def list_staff_settlements(
+    organization_id: Optional[str] = None,
+    barber_id: Optional[str] = None,
+    status: Optional[str] = None,
+    limit: int = 500,
+    authorization: Optional[str] = Header(None),
+    session_token: Optional[str] = Cookie(None)
+):
+    current_user = await get_current_user(authorization, session_token)
+    org_id = await settlement_organization(current_user, organization_id)
+    query = {"organization_id": org_id}
+    if barber_id:
+        query["barber_id"] = barber_id
+    if status:
+        if status not in SETTLEMENT_STATUSES:
+            raise HTTPException(status_code=400, detail="Unsupported settlement status")
+        query["status"] = status
+    safe_limit = max(1, min(limit, 1000))
+    return await db.staff_settlements.find(query, {"_id": 0}).sort("created_at", -1).to_list(safe_limit)
+
+
+@api_router.get("/settlements/{settlement_id}")
+async def get_staff_settlement(
+    settlement_id: str,
+    authorization: Optional[str] = Header(None),
+    session_token: Optional[str] = Cookie(None)
+):
+    current_user = await get_current_user(authorization, session_token)
+    require_management_role(current_user)
+    settlement = await db.staff_settlements.find_one({"settlement_id": settlement_id}, {"_id": 0})
+    if not settlement:
+        raise HTTPException(status_code=404, detail="Settlement not found")
+    if not await validate_organization_access(current_user, settlement["organization_id"]):
+        raise HTTPException(status_code=403, detail="Access denied")
+    transactions = await db.transactions.find(
+        {"settlement_id": settlement_id},
+        {"_id": 0, "management_token_hash": 0}
+    ).sort("created_at", 1).to_list(100000)
+    return {**settlement, "transactions": transactions}
+
+
+# ==================== END STAFF SETTLEMENTS FOUNDATION ====================
+
+# ==================== STAFF SETTLEMENTS WORKFLOW ====================
+# NEXUS_STAFF_SETTLEMENTS_WORKFLOW_V1
+
+SETTLEMENT_PAYMENT_METHODS = {"cash", "transfer", "bank_transfer", "nequi", "daviplata", "other"}
+
+
+async def get_authorized_settlement(current_user: User, settlement_id: str) -> dict:
+    require_management_role(current_user)
+    settlement = await db.staff_settlements.find_one({"settlement_id": settlement_id}, {"_id": 0})
+    if not settlement:
+        raise HTTPException(status_code=404, detail="Settlement not found")
+    if not await validate_organization_access(current_user, settlement["organization_id"]):
+        raise HTTPException(status_code=403, detail="Access denied")
+    return settlement
+
+
+@api_router.post("/settlements/{settlement_id}/approve")
+async def approve_staff_settlement(
+    settlement_id: str,
+    authorization: Optional[str] = Header(None),
+    session_token: Optional[str] = Cookie(None)
+):
+    current_user = await get_current_user(authorization, session_token)
+    settlement = await get_authorized_settlement(current_user, settlement_id)
+    if settlement.get("status") != "draft":
+        raise HTTPException(status_code=409, detail="Only draft settlements can be approved")
+    now = datetime.now(timezone.utc).isoformat()
+    result = await db.staff_settlements.update_one(
+        {"settlement_id": settlement_id, "status": "draft"},
+        {"$set": {
+            "status": "approved",
+            "approved_by": current_user.user_id,
+            "approved_at": now,
+            "updated_at": now
+        }}
+    )
+    if result.modified_count != 1:
+        raise HTTPException(status_code=409, detail="Settlement state changed")
+    transaction_result = await db.transactions.update_many(
+        {"settlement_id": settlement_id, "settlement_status": "draft", "status": "confirmed"},
+        {"$set": {"settlement_status": "approved"}}
+    )
+    if transaction_result.modified_count != settlement.get("transaction_count", 0):
+        await db.staff_settlements.update_one(
+            {"settlement_id": settlement_id, "status": "approved"},
+            {"$set": {"status": "draft", "updated_at": now}, "$unset": {"approved_by": "", "approved_at": ""}}
+        )
+        await db.transactions.update_many(
+            {"settlement_id": settlement_id, "settlement_status": "approved"},
+            {"$set": {"settlement_status": "draft"}}
+        )
+        raise HTTPException(status_code=409, detail="Settlement transactions are inconsistent")
+    updated = await db.staff_settlements.find_one({"settlement_id": settlement_id}, {"_id": 0})
+    await commission_audit(
+        settlement["organization_id"], "staff_settlement_approved", settlement_id,
+        current_user.user_id, settlement, updated, "Settlement approved"
+    )
+    return updated
+
+
+@api_router.post("/settlements/{settlement_id}/pay")
+async def pay_staff_settlement(
+    settlement_id: str,
+    data: SettlementPaymentRequest,
+    authorization: Optional[str] = Header(None),
+    session_token: Optional[str] = Cookie(None)
+):
+    current_user = await get_current_user(authorization, session_token)
+    settlement = await get_authorized_settlement(current_user, settlement_id)
+    if settlement.get("status") != "approved":
+        raise HTTPException(status_code=409, detail="Only approved settlements can be paid")
+    if data.payment_method not in SETTLEMENT_PAYMENT_METHODS:
+        raise HTTPException(status_code=400, detail="Unsupported settlement payment method")
+    reference = (data.payment_reference or "").strip()[:200] or None
+    notes = (data.notes or "").strip()[:500] or settlement.get("notes")
+    now = datetime.now(timezone.utc).isoformat()
+    result = await db.staff_settlements.update_one(
+        {"settlement_id": settlement_id, "status": "approved"},
+        {"$set": {
+            "status": "paid",
+            "payment_method": data.payment_method,
+            "payment_reference": reference,
+            "notes": notes,
+            "paid_by": current_user.user_id,
+            "paid_at": now,
+            "updated_at": now
+        }}
+    )
+    if result.modified_count != 1:
+        raise HTTPException(status_code=409, detail="Settlement state changed")
+    transaction_result = await db.transactions.update_many(
+        {"settlement_id": settlement_id, "settlement_status": "approved", "status": "confirmed"},
+        {"$set": {"settlement_status": "paid", "settlement_paid_at": now}}
+    )
+    if transaction_result.modified_count != settlement.get("transaction_count", 0):
+        await db.staff_settlements.update_one(
+            {"settlement_id": settlement_id, "status": "paid"},
+            {"$set": {"status": "approved", "updated_at": now}, "$unset": {
+                "payment_method": "", "payment_reference": "", "paid_by": "", "paid_at": ""
+            }}
+        )
+        await db.transactions.update_many(
+            {"settlement_id": settlement_id, "settlement_status": "paid"},
+            {"$set": {"settlement_status": "approved"}, "$unset": {"settlement_paid_at": ""}}
+        )
+        raise HTTPException(status_code=409, detail="Settlement transactions are inconsistent")
+    updated = await db.staff_settlements.find_one({"settlement_id": settlement_id}, {"_id": 0})
+    await commission_audit(
+        settlement["organization_id"], "staff_settlement_paid", settlement_id,
+        current_user.user_id, settlement, updated, reference or data.payment_method
+    )
+    return updated
+
+
+@api_router.post("/settlements/{settlement_id}/cancel")
+async def cancel_staff_settlement(
+    settlement_id: str,
+    data: SettlementCancelRequest,
+    authorization: Optional[str] = Header(None),
+    session_token: Optional[str] = Cookie(None)
+):
+    current_user = await get_current_user(authorization, session_token)
+    settlement = await get_authorized_settlement(current_user, settlement_id)
+    if settlement.get("status") == "paid":
+        raise HTTPException(status_code=409, detail="Paid settlements cannot be cancelled")
+    if settlement.get("status") == "cancelled":
+        raise HTTPException(status_code=409, detail="Settlement is already cancelled")
+    reason = data.reason.strip()[:500]
+    if len(reason) < 5:
+        raise HTTPException(status_code=400, detail="Cancellation reason must contain at least 5 characters")
+    previous_status = settlement.get("status")
+    now = datetime.now(timezone.utc).isoformat()
+    result = await db.staff_settlements.update_one(
+        {"settlement_id": settlement_id, "status": previous_status},
+        {"$set": {
+            "status": "cancelled",
+            "cancel_reason": reason,
+            "cancelled_by": current_user.user_id,
+            "cancelled_at": now,
+            "updated_at": now
+        }}
+    )
+    if result.modified_count != 1:
+        raise HTTPException(status_code=409, detail="Settlement state changed")
+    await db.transactions.update_many(
+        {"settlement_id": settlement_id, "settlement_status": previous_status},
+        {"$unset": {
+            "settlement_id": "", "settlement_status": "", "settled_at": "", "settlement_paid_at": ""
+        }}
+    )
+    updated = await db.staff_settlements.find_one({"settlement_id": settlement_id}, {"_id": 0})
+    await commission_audit(
+        settlement["organization_id"], "staff_settlement_cancelled", settlement_id,
+        current_user.user_id, settlement, updated, reason
+    )
+    return updated
+
+
+# ==================== END STAFF SETTLEMENTS WORKFLOW ====================
 
 # ==================== CLIENTS ENDPOINTS ====================
 
@@ -3325,6 +3827,11 @@ async def create_application_indexes():
     # NEXUS_STAFF_APPOINTMENTS_BACKEND_V1
     await db.appointments.create_index([("organization_id", 1), ("barber_id", 1), ("date", 1), ("time", 1)])
     await db.appointments.create_index([("organization_id", 1), ("barber_id", 1), ("status", 1), ("date", 1)])
+    # NEXUS_STAFF_SETTLEMENTS_FOUNDATION_V1
+    await db.staff_settlements.create_index("settlement_id", unique=True)
+    await db.staff_settlements.create_index([("organization_id", 1), ("status", 1), ("created_at", -1)])
+    await db.staff_settlements.create_index([("organization_id", 1), ("barber_id", 1), ("created_at", -1)])
+    await db.transactions.create_index([("organization_id", 1), ("barber_id", 1), ("settlement_id", 1), ("created_at", 1)])
     await db.audit_events.create_index([("organization_id", 1), ("created_at", -1)])
     await db.invitations.create_index(
         "token_hash",

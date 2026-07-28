@@ -94,6 +94,21 @@ export const inventoryAPI = {
 
 // NEXUS_COMMISSION_FOUNDATION_V1
 // NEXUS_TRANSACTION_REVENUE_STATISTICS_V1
+// NEXUS_STAFF_SETTLEMENTS_WORKFLOW_V1
+export const settlementWorkflowAPI = {
+  approve: (settlementId) => api.post(`/settlements/${settlementId}/approve`),
+  pay: (settlementId, data) => api.post(`/settlements/${settlementId}/pay`, data),
+  cancel: (settlementId, data) => api.post(`/settlements/${settlementId}/cancel`, data),
+};
+
+// NEXUS_STAFF_SETTLEMENTS_FOUNDATION_V1
+export const settlementAPI = {
+  getPending: (params = {}) => api.get('/settlements/pending', { params }),
+  create: (data, params = {}) => api.post('/settlements', data, { params }),
+  getAll: (params = {}) => api.get('/settlements', { params }),
+  getById: (settlementId) => api.get(`/settlements/${settlementId}`),
+};
+
 // NEXUS_STAFF_APPOINTMENTS_BACKEND_V1
 export const staffAppointmentAPI = {
   getAll: (params = {}) => api.get('/staff/appointments', { params }),
@@ -101,9 +116,13 @@ export const staffAppointmentAPI = {
 };
 
 // NEXUS_STAFF_INCOME_BACKEND_V1
+// NEXUS_STAFF_SETTLEMENTS_COMPLETION_V1
 export const staffIncomeAPI = {
   getSummary: (params = {}) => api.get('/staff/income/summary', { params }),
   getTransactions: (params = {}) => api.get('/staff/income/transactions', { params }),
+  getSettlementSummary: () => api.get('/staff/settlements/summary'),
+  getSettlements: (params = {}) => api.get('/staff/settlements', { params }),
+  getSettlementById: (settlementId) => api.get(`/staff/settlements/${settlementId}`),
 };
 
 export const transactionAPI = {
