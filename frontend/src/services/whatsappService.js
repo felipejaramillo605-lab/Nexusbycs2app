@@ -163,7 +163,10 @@ export const sendWhatsAppMessage = async (phoneNumber, message, templateId = nul
  * Send appointment confirmation with cancellation link
  */
 export const sendAppointmentConfirmation = async (appointment) => {
-  const cancelUrl = `${window.location.origin}/cancel/${appointment.appointment_id}`;
+  if (!appointment.management_token) {
+    throw new Error('Missing appointment management token');
+  }
+  const cancelUrl = `${window.location.origin}/cancel/${appointment.appointment_id}?token=${encodeURIComponent(appointment.management_token)}`;
   const message = generateConfirmationMessage(appointment, cancelUrl);
   
   return await sendWhatsAppMessage(

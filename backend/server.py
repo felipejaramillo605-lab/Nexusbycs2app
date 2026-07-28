@@ -2528,8 +2528,10 @@ async def create_public_appointment(org_id: str, data: AppointmentCreate):
     
     # Get current appointments
     appointments = await db.appointments.find({
+        "organization_id": org_id,
         "barber_id": data.barber_id,
-        "date": data.date
+        "date": data.date,
+        "status": {"$ne": "cancelled"}
     }, {"_id": 0}).to_list(1000)
     
     # Check for conflicts
@@ -2546,7 +2548,10 @@ async def create_public_appointment(org_id: str, data: AppointmentCreate):
         if not (new_end_minutes <= apt_start_minutes or start_minutes >= apt_end_minutes):
             raise HTTPException(status_code=409, detail="This time slot is no longer available")
     
+    # NEXUS_PUBLIC_APPOINTMENT_TOKEN_V1
     appointment_id = f"apt_{uuid.uuid4().hex[:12]}"
+    management_token = secrets.token_urlsafe(32)
+    management_token_hash = hashlib.sha256(management_token.encode("utf-8")).hexdigest()
     appointment_doc = {
         "appointment_id": appointment_id,
         "organization_id": org_id,
@@ -2558,6 +2563,7 @@ async def create_public_appointment(org_id: str, data: AppointmentCreate):
         "date": data.date,
         "time": data.time,
         "status": "confirmed",
+        "management_token_hash": management_token_hash,
         "created_at": datetime.now(timezone.utc).isoformat()
     }
     
@@ -2580,7 +2586,11 @@ async def create_public_appointment(org_id: str, data: AppointmentCreate):
                     date=data.date,
                     time=data.time,
                     organization_name=organization.get("name", "Nexus") if organization else "Nexus",
-                    organization_address=organization.get("address") if organization else None
+                    organization_address=organization.get("address") if organization else None,
+                    cancellation_url=(
+                        f"{os.environ.get('FRONTEND_URL', '').rstrip('/')}/cancel/"
+                        f"{appointment_id}?token={management_token}"
+                    )
                 )
                 
                 # ✅ SEND NOTIFICATION TO ADMIN (if enabled)
@@ -2619,58 +2629,79 @@ async def create_public_appointment(org_id: str, data: AppointmentCreate):
         email=data.client_email
     )
     
-    logger.info(f"[MOCK] WhatsApp confirmation sent to {data.client_phone}: Appointment {appointment_id} confirmed for {data.date} at {data.time}")
+    logger.info(f"[MOCK] Appointment {appointment_id} confirmed for {data.date} at {data.time}")
     
     appointment_doc["created_at"] = datetime.fromisoformat(appointment_doc["created_at"])
-    return Appointment(**appointment_doc)
+    response_doc = Appointment(**appointment_doc).model_dump()
+    response_doc["management_token"] = management_token
+    return response_doc
 
-# Public Cancellation Endpoint
-@api_router.post("/public/appointments/{appointment_id}/cancel")
-async def cancel_public_appointment(appointment_id: str):
-    """
-    Public endpoint for clients to cancel their appointments via unique link.
-    No authentication required - secured by unique appointment_id.
-    """
-    appointment = await db.appointments.find_one({"appointment_id": appointment_id}, {"_id": 0})
-    
-    if not appointment:
-        raise HTTPException(status_code=404, detail="Appointment not found")
-    
-    if appointment["status"] == "cancelled":
-        raise HTTPException(status_code=400, detail="Appointment already cancelled")
-    
-    # Cancel the appointment
-    await db.appointments.update_one(
-        {"appointment_id": appointment_id},
-        {"$set": {"status": "cancelled"}}
+# Public appointment management endpoints
+# NEXUS_PUBLIC_APPOINTMENT_TOKEN_V1
+def _appointment_token_hash(token: str) -> str:
+    return hashlib.sha256(token.encode("utf-8")).hexdigest()
+
+
+async def _get_public_appointment_with_token(appointment_id: str, token: str):
+    if not token or len(token) < 32:
+        raise HTTPException(status_code=403, detail="Invalid or missing appointment link")
+
+    appointment = await db.appointments.find_one(
+        {"appointment_id": appointment_id}, {"_id": 0}
     )
-    
-    logger.info(f"[MOCK] WhatsApp cancellation notification sent to {appointment['client_phone']}: Appointment {appointment_id} cancelled")
-    
+    stored_hash = appointment.get("management_token_hash") if appointment else None
+    supplied_hash = _appointment_token_hash(token)
+    if not appointment or not stored_hash or not secrets.compare_digest(stored_hash, supplied_hash):
+        raise HTTPException(status_code=403, detail="Invalid or expired appointment link")
+    return appointment
+
+
+@api_router.post("/public/appointments/{appointment_id}/cancel")
+async def cancel_public_appointment(appointment_id: str, token: str):
+    appointment = await _get_public_appointment_with_token(appointment_id, token)
+    if appointment.get("status") == "cancelled":
+        raise HTTPException(status_code=400, detail="Appointment already cancelled")
+    if appointment.get("status") == "completed":
+        raise HTTPException(status_code=400, detail="Completed appointments cannot be cancelled")
+
+    result = await db.appointments.update_one(
+        {
+            "appointment_id": appointment_id,
+            "management_token_hash": appointment["management_token_hash"],
+            "status": {"$nin": ["cancelled", "completed"]}
+        },
+        {"$set": {
+            "status": "cancelled",
+            "cancelled_at": datetime.now(timezone.utc).isoformat(),
+            "cancelled_by": "client_public_link"
+        }}
+    )
+    if result.modified_count != 1:
+        raise HTTPException(status_code=409, detail="Appointment status changed; refresh the page")
+
+    logger.info(f"Public appointment {appointment_id} cancelled using a valid management token")
     return {"message": "Appointment cancelled successfully", "appointment_id": appointment_id}
 
+
 @api_router.get("/public/appointments/{appointment_id}")
-async def get_public_appointment(appointment_id: str):
-    """
-    Public endpoint to view appointment details for cancellation page.
-    """
-    appointment = await db.appointments.find_one({"appointment_id": appointment_id}, {"_id": 0})
-    
-    if not appointment:
-        raise HTTPException(status_code=404, detail="Appointment not found")
-    
-    # Enrich with service and barber names
-    service = await db.services.find_one({"service_id": appointment["service_id"]}, {"_id": 0})
-    barber = await db.barbers.find_one({"barber_id": appointment["barber_id"]}, {"_id": 0})
-    
-    appointment["service_name"] = service["name"] if service else "Unknown"
-    appointment["service_price"] = service["price"] if service else 0
-    appointment["barber_name"] = barber["name"] if barber else "Unknown"
-    
-    if isinstance(appointment.get("created_at"), str):
-        appointment["created_at"] = datetime.fromisoformat(appointment["created_at"])
-    
-    return appointment
+async def get_public_appointment(appointment_id: str, token: str):
+    appointment = await _get_public_appointment_with_token(appointment_id, token)
+    organization_id = appointment["organization_id"]
+    service = await db.services.find_one(
+        {"service_id": appointment["service_id"], "organization_id": organization_id}, {"_id": 0}
+    )
+    barber = await db.barbers.find_one(
+        {"barber_id": appointment["barber_id"], "organization_id": organization_id}, {"_id": 0}
+    )
+    return {
+        "appointment_id": appointment["appointment_id"],
+        "date": appointment["date"],
+        "time": appointment["time"],
+        "status": appointment.get("status", "confirmed"),
+        "service_name": service.get("name", "Servicio") if service else "Servicio",
+        "service_price": service.get("price", 0) if service else 0,
+        "barber_name": (barber.get("display_name") or barber.get("name") or "Profesional") if barber else "Profesional"
+    }
 
 app.include_router(api_router)
 

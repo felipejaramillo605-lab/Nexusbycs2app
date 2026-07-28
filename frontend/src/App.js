@@ -16,6 +16,7 @@ import Register from './pages/Register';
 import PendingApproval from './pages/PendingApproval';
 import { Loader2 } from 'lucide-react';
 import './App.css';
+import CancelAppointment from './pages/CancelAppointment';
 
 // Lazy load pages for code splitting
 const OwnerAccessControl = lazy(() => import('./pages/OwnerAccessControl'));
@@ -164,7 +165,8 @@ function AppRouter() {
 
         <Route path="/" element={<Navigate to="/login" replace />} />
         <Route path="*" element={<NotFound />} />
-      </Routes>
+        <Route path="/cancel/:appointmentId" element={<CancelAppointment />} />
+        </Routes>
     </Suspense>
   );
 }

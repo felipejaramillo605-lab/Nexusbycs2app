@@ -134,7 +134,7 @@ const BookingFlow = () => {
 
     setLoading(true);
     try {
-      await publicAPI.createAppointment(orgId, {
+      const appointmentResponse = await publicAPI.createAppointment(orgId, {
         service_id: selectedService.service_id,
         barber_id: selectedBarber.barber_id,
         client_name: clientData.name,
@@ -143,6 +143,14 @@ const BookingFlow = () => {
         date: selectedDate,
         time: selectedTime
       });
+
+      const createdAppointment = appointmentResponse.data;
+      if (createdAppointment?.appointment_id && createdAppointment?.management_token) {
+        sessionStorage.setItem(
+          'nexus_last_appointment_link',
+          `/cancel/${createdAppointment.appointment_id}?token=${encodeURIComponent(createdAppointment.management_token)}`
+        );
+      }
 
       if (rememberData) {
         localStorage.setItem('nexus_client_data', JSON.stringify(clientData));

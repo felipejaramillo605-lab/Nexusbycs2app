@@ -97,8 +97,8 @@ export const publicAPI = {
   getBarbers: (orgId) => axios.get(`${API}/public/${orgId}/barbers`),
   getAvailability: (orgId, barberId, date, serviceId) => axios.get(`${API}/public/${orgId}/availability`, { params: { barber_id: barberId, date, service_id: serviceId } }),
   createAppointment: (orgId, data) => axios.post(`${API}/public/${orgId}/appointments`, data),
-  getAppointment: (appointmentId) => axios.get(`${API}/public/appointments/${appointmentId}`),
-  cancelAppointment: (appointmentId) => axios.post(`${API}/public/appointments/${appointmentId}/cancel`),
+  getAppointment: (appointmentId, token) => axios.get(`${API}/public/appointments/${appointmentId}`, { params: { token } }),
+  cancelAppointment: (appointmentId, token) => axios.post(`${API}/public/appointments/${appointmentId}/cancel`, {}, { params: { token } }),
   // Customer Portal endpoints
   passwordlessAuth: (data) => axios.post(`${API}/public/auth/passwordless`, data),
   getClientHistory: (phone, organizationId) => axios.get(`${API}/public/clients/history`, { params: { phone, organization_id: organizationId } }),

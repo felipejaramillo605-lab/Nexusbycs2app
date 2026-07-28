@@ -123,7 +123,8 @@ class EmailService:
         date: str,
         time: str,
         organization_name: str,
-        organization_address: Optional[str] = None
+        organization_address: Optional[str] = None,
+        cancellation_url: Optional[str] = None
     ) -> bool:
         """Send appointment confirmation email"""
         subject = f"✅ Cita Confirmada - {organization_name}"
@@ -140,6 +141,12 @@ class EmailService:
             location=calendar_location
         )
         
+        cancellation_html = (
+            f'<p style="text-align:center;margin:24px 0;"><a href="{cancellation_url}" '
+            f'style="display:inline-block;padding:12px 22px;background:#FF453A;color:#fff;'
+            f'text-decoration:none;border-radius:10px;">Ver o cancelar cita</a></p>'
+            if cancellation_url else ""
+        )
         html_body = f"""
         <!DOCTYPE html>
         <html>
@@ -197,6 +204,7 @@ class EmailService:
                     <p style="color: #aaa; margin-top: 30px;">Te enviaremos un recordatorio 24 horas antes de tu cita.</p>
                     <p style="color: #aaa;">Si necesitas cancelar o reagendar, por favor contáctanos con anticipación.</p>
                 </div>
+                {cancellation_html}
                 <div class="footer">
                     <p><strong>{organization_name}</strong></p>
                     <p>Este es un email automático, por favor no respondas a este mensaje.</p>
