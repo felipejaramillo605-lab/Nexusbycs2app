@@ -266,6 +266,14 @@ class AppointmentCreate(BaseModel):
     date: str
     time: str
 
+# NEXUS_CHECKOUT_BACKEND_V1
+class AppointmentCheckoutRequest(BaseModel):
+    discount_amount: float = 0
+    tip_amount: float = 0
+    payment_method: str
+    notes: Optional[str] = None
+
+
 class InventoryCreate(BaseModel):
     name: str
     quantity: int
@@ -1845,7 +1853,9 @@ async def update_appointment_status(
     """Update appointment status to 'completed' or 'cancelled'"""
     current_user = await get_current_user(authorization, session_token)
     
-    if status not in ["confirmed", "completed", "cancelled"]:
+    if status not in ["confirmed", "cancelled"]:
+        if status == "completed":
+            raise HTTPException(status_code=400, detail="Use checkout to complete and charge this appointment")
         raise HTTPException(status_code=400, detail="Invalid status")
     
     # Get appointment
@@ -1910,6 +1920,54 @@ async def update_appointment_status(
             print(f"⚠️ Completed email failed: {email_error}")
     
     return {"message": f"Appointment status updated to {status}", "appointment_id": appointment_id, "status": status}
+
+# NEXUS_CHECKOUT_BACKEND_V1
+CHECKOUT_PAYMENT_METHODS = {"cash", "card", "transfer", "nequi", "daviplata", "other"}
+
+@api_router.post("/appointments/{appointment_id}/checkout")
+async def checkout_appointment(appointment_id: str, data: AppointmentCheckoutRequest, authorization: Optional[str] = Header(None), session_token: Optional[str] = Cookie(None)):
+    user = await get_current_user(authorization, session_token)
+    require_management_role(user)
+    apt = await db.appointments.find_one({"appointment_id": appointment_id}, {"_id": 0})
+    if not apt: raise HTTPException(status_code=404, detail="Appointment not found")
+    if not await validate_organization_access(user, apt["organization_id"]): raise HTTPException(status_code=403, detail="Access denied")
+    if apt.get("status") == "cancelled": raise HTTPException(status_code=409, detail="Cancelled appointments cannot be charged")
+    if apt.get("status") == "completed" or await db.transactions.find_one({"appointment_id": appointment_id, "status": "confirmed"}, {"_id": 0}): raise HTTPException(status_code=409, detail="Appointment has already been charged")
+    if data.payment_method not in CHECKOUT_PAYMENT_METHODS: raise HTTPException(status_code=400, detail="Unsupported payment method")
+    if data.discount_amount < 0 or data.tip_amount < 0: raise HTTPException(status_code=400, detail="Discount and tip cannot be negative")
+    org_id=apt["organization_id"]
+    service=await db.services.find_one({"service_id":apt["service_id"],"organization_id":org_id},{"_id":0})
+    barber=await db.barbers.find_one({"barber_id":apt["barber_id"],"organization_id":org_id},{"_id":0})
+    if not service or not barber: raise HTTPException(status_code=409, detail="Service or professional unavailable")
+    price=round(float(service.get("price",0)),2); discount=round(float(data.discount_amount),2); tip=round(float(data.tip_amount),2)
+    if discount > price: raise HTTPException(status_code=400, detail="Discount cannot exceed service price")
+    override=await db.staff_commission_overrides.find_one({"organization_id":org_id,"barber_id":apt["barber_id"],"active":True},{"_id":0})
+    settings=await db.commission_settings.find_one({"organization_id":org_id},{"_id":0}) or DEFAULT_COMMISSION_SETTINGS
+    staff_pct=float(override["staff_percent"] if override else settings["default_staff_percent"]); business_pct=float(override["business_percent"] if override else settings["default_business_percent"])
+    validate_commission_split(staff_pct,business_pct)
+    net=round(price-discount,2); staff_amount=round(net*staff_pct/100,2); business_amount=round(net-staff_amount,2); now=datetime.now(timezone.utc).isoformat()
+    item={"transaction_id":f"txn_{uuid.uuid4().hex[:12]}","organization_id":org_id,"appointment_id":appointment_id,"barber_id":apt["barber_id"],"barber_name_snapshot":barber.get("display_name") or barber.get("name"),"service_id":apt["service_id"],"service_name_snapshot":service.get("name"),"service_price_snapshot":price,"discount_amount":discount,"net_service_amount":net,"tip_amount":tip,"total_received":round(net+tip,2),"payment_method":data.payment_method,"staff_percent_snapshot":staff_pct,"business_percent_snapshot":business_pct,"commission_source_snapshot":"override" if override else "default","staff_commission_amount":staff_amount,"business_amount":business_amount,"staff_total_amount":round(staff_amount+tip,2),"notes":(data.notes or "").strip()[:500] or None,"status":"confirmed","created_by":user.user_id,"created_at":now}
+    try: await db.transactions.insert_one(item.copy())
+    except Exception as exc:
+        if "duplicate" in str(exc).lower() or "E11000" in str(exc): raise HTTPException(status_code=409, detail="Appointment has already been charged")
+        raise
+    result=await db.appointments.update_one({"appointment_id":appointment_id,"status":"confirmed"},{"$set":{"status":"completed","completed_at":now,"transaction_id":item["transaction_id"],"updated_at":now}})
+    if result.modified_count != 1:
+        await db.transactions.update_one({"transaction_id":item["transaction_id"]},{"$set":{"status":"voided","void_reason":"Appointment state changed","voided_at":now}})
+        raise HTTPException(status_code=409, detail="Appointment state changed during checkout")
+    if apt.get("client_phone"): await db.clients.update_one({"phone":apt["client_phone"],"organization_id":org_id},{"$inc":{"total_visits":1},"$set":{"last_visit":apt.get("date"),"updated_at":now}})
+    await commission_audit(org_id,"appointment_checkout_completed",item["transaction_id"],user.user_id,None,{k:v for k,v in item.items() if k!="notes"},data.notes)
+    return item
+
+@api_router.get("/appointments/{appointment_id}/transaction")
+async def get_appointment_transaction(appointment_id: str, authorization: Optional[str] = Header(None), session_token: Optional[str] = Cookie(None)):
+    user=await get_current_user(authorization,session_token); require_management_role(user)
+    apt=await db.appointments.find_one({"appointment_id":appointment_id},{"_id":0})
+    if not apt: raise HTTPException(status_code=404,detail="Appointment not found")
+    if not await validate_organization_access(user,apt["organization_id"]): raise HTTPException(status_code=403,detail="Access denied")
+    item=await db.transactions.find_one({"appointment_id":appointment_id,"status":"confirmed"},{"_id":0})
+    if not item: raise HTTPException(status_code=404,detail="Transaction not found")
+    return item
 
 # Statistics Endpoints
 @api_router.get("/statistics")
@@ -2849,6 +2907,10 @@ async def add_security_headers(request, call_next):
 
 @app.on_event("startup")
 async def create_application_indexes():
+    # NEXUS_CHECKOUT_BACKEND_V1
+    await db.transactions.create_index("transaction_id",unique=True)
+    await db.transactions.create_index("appointment_id",unique=True,partialFilterExpression={"status":"confirmed"})
+    await db.transactions.create_index([("organization_id",1),("created_at",-1)])
     # NEXUS_COMMISSION_FOUNDATION_V1
     await db.commission_settings.create_index("organization_id", unique=True)
     await db.staff_commission_overrides.create_index([("organization_id", 1), ("barber_id", 1), ("active", 1)])

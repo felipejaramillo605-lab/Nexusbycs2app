@@ -69,6 +69,9 @@ export const appointmentAPI = {
     return api.get('/appointments', { params: { ...params, date: today } });
   },
   getStats: (params = {}) => api.get('/appointments/stats', { params }),
+  // NEXUS_CHECKOUT_BACKEND_V1
+  checkout: (appointmentId, data) => api.post(`/appointments/${appointmentId}/checkout`, data),
+  getTransaction: (appointmentId) => api.get(`/appointments/${appointmentId}/transaction`),
 };
 
 export const clientAPI = {

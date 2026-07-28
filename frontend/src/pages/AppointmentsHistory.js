@@ -2,10 +2,10 @@ import React, { useState, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { Calendar, Filter, ArrowLeft, ChevronLeft, ChevronRight, CheckCircle, XCircle, Clock, Loader2 } from 'lucide-react';
+import { Calendar, Filter, ArrowLeft, ChevronLeft, ChevronRight, CheckCircle, XCircle, Clock, Loader2, CreditCard, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { TableSkeleton } from '../components/ui/skeleton';
-import { authAPI } from '../api';
+import { authAPI, appointmentAPI } from '../api';
 
 const ITEMS_PER_PAGE = 10;
 
@@ -23,6 +23,9 @@ const AppointmentsHistory = () => {
     startDate: '',
     endDate: ''
   });
+  // NEXUS_CHECKOUT_UI_V1
+  const [checkoutAppointment, setCheckoutAppointment] = useState(null);
+  const [checkoutForm, setCheckoutForm] = useState({ discount_amount: 0, tip_amount: 0, payment_method: 'cash', notes: '' });
 
   // Fetch appointments with React Query
   const { data: appointments = [], isLoading, error } = useQuery({
@@ -75,6 +78,19 @@ const AppointmentsHistory = () => {
       console.error(error);
     },
   });
+
+  const checkoutMutation = useMutation({
+    mutationFn: ({ appointmentId, payload }) => appointmentAPI.checkout(appointmentId, payload),
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['appointments'] }); queryClient.invalidateQueries({ queryKey: ['statistics'] }); setCheckoutAppointment(null); toast.success('Cita completada y cobrada correctamente'); },
+    onError: (error) => toast.error(error.response?.data?.detail || 'No fue posible completar el cobro'),
+  });
+  const openCheckout = (appointment) => { setCheckoutAppointment(appointment); setCheckoutForm({ discount_amount: 0, tip_amount: 0, payment_method: 'cash', notes: '' }); };
+  const submitCheckout = () => {
+    const discount=Number(checkoutForm.discount_amount)||0, tip=Number(checkoutForm.tip_amount)||0, price=Number(checkoutAppointment?.service_price)||0;
+    if (discount < 0 || tip < 0) return toast.error('Descuento y propina no pueden ser negativos');
+    if (discount > price) return toast.error('El descuento no puede superar el precio del servicio');
+    checkoutMutation.mutate({ appointmentId: checkoutAppointment.appointment_id, payload: { ...checkoutForm, discount_amount: discount, tip_amount: tip, notes: checkoutForm.notes.trim() } });
+  };
 
   // Filter and sort appointments
   const filteredAppointments = useMemo(() => {
@@ -299,18 +315,7 @@ const AppointmentsHistory = () => {
                           <div className="flex items-center justify-end gap-2">
                             {apt.status === 'confirmed' && (
                               <>
-                                <button
-                                  onClick={() => handleStatusUpdate(apt.appointment_id, 'completed')}
-                                  disabled={updateStatusMutation.isPending}
-                                  className="p-2 rounded-lg bg-green-500/20 hover:bg-green-500/30 border border-green-500/30 text-green-400 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-                                  title="Marcar como completada"
-                                >
-                                  {updateStatusMutation.isPending ? (
-                                    <Loader2 size={16} className="animate-spin" />
-                                  ) : (
-                                    <CheckCircle size={16} />
-                                  )}
-                                </button>
+                                <button onClick={() => openCheckout(apt)} disabled={checkoutMutation.isPending} className="p-2 rounded-lg bg-green-500/20 hover:bg-green-500/30 border border-green-500/30 text-green-400 disabled:opacity-50" title="Completar y cobrar"><CreditCard size={16} /></button>
                                 <button
                                   onClick={() => handleStatusUpdate(apt.appointment_id, 'cancelled')}
                                   disabled={updateStatusMutation.isPending}
@@ -367,20 +372,7 @@ const AppointmentsHistory = () => {
 
                     {apt.status === 'confirmed' && (
                       <div className="flex gap-2 pt-2">
-                        <button
-                          onClick={() => handleStatusUpdate(apt.appointment_id, 'completed')}
-                          disabled={updateStatusMutation.isPending}
-                          className="flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-lg bg-green-500/20 hover:bg-green-500/30 border border-green-500/30 text-green-400 transition-all text-sm disabled:opacity-50"
-                        >
-                          {updateStatusMutation.isPending ? (
-                            <Loader2 size={16} className="animate-spin" />
-                          ) : (
-                            <>
-                              <CheckCircle size={16} />
-                              Completar
-                            </>
-                          )}
-                        </button>
+                        <button onClick={() => openCheckout(apt)} disabled={checkoutMutation.isPending} className="flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-lg bg-green-500/20 border border-green-500/30 text-green-400 text-sm disabled:opacity-50"><CreditCard size={16} />Completar y cobrar</button>
                         <button
                           onClick={() => handleStatusUpdate(apt.appointment_id, 'cancelled')}
                           disabled={updateStatusMutation.isPending}
@@ -433,6 +425,21 @@ const AppointmentsHistory = () => {
               )}
             </>
           )}
+        {checkoutAppointment && (
+          <div className="fixed inset-0 z-[100] bg-black/80 flex items-center justify-center p-4">
+            <div className="w-full max-w-xl rounded-2xl border border-white/10 bg-[#101010] p-6 max-h-[95vh] overflow-y-auto">
+              <div className="flex justify-between mb-5"><div><h2 className="text-xl text-white">Completar y cobrar</h2><p className="text-sm text-zinc-400">{checkoutAppointment.service_name} · {checkoutAppointment.barber_name}</p></div><button onClick={() => setCheckoutAppointment(null)} disabled={checkoutMutation.isPending}><X className="text-zinc-400" size={20} /></button></div>
+              {(() => { const price=Number(checkoutAppointment.service_price)||0, discount=Number(checkoutForm.discount_amount)||0, tip=Number(checkoutForm.tip_amount)||0, net=Math.max(0,price-discount); return (
+                <div className="space-y-4">
+                  <div className="grid grid-cols-2 gap-3 text-sm bg-white/5 border border-white/10 rounded-xl p-4"><span className="text-zinc-400">Precio original</span><span className="text-right text-white">{formatCurrency(price)}</span><span className="text-zinc-400">Descuento</span><span className="text-right text-white">{formatCurrency(discount)}</span><span className="text-zinc-400">Valor neto</span><span className="text-right text-white">{formatCurrency(net)}</span><span className="text-zinc-400">Propina</span><span className="text-right text-white">{formatCurrency(tip)}</span><span className="text-white">Total recibido</span><span className="text-right text-[#0A84FF]">{formatCurrency(net+tip)}</span></div>
+                  <div className="grid sm:grid-cols-2 gap-4"><label className="text-sm text-zinc-400">Descuento<input type="number" min="0" value={checkoutForm.discount_amount} onChange={(e)=>setCheckoutForm({...checkoutForm,discount_amount:e.target.value})} className="mt-2 w-full p-3 bg-white/5 border border-white/10 rounded-xl text-white" /></label><label className="text-sm text-zinc-400">Propina<input type="number" min="0" value={checkoutForm.tip_amount} onChange={(e)=>setCheckoutForm({...checkoutForm,tip_amount:e.target.value})} className="mt-2 w-full p-3 bg-white/5 border border-white/10 rounded-xl text-white" /></label></div>
+                  <label className="block text-sm text-zinc-400">Medio de pago<select value={checkoutForm.payment_method} onChange={(e)=>setCheckoutForm({...checkoutForm,payment_method:e.target.value})} className="mt-2 w-full p-3 bg-[#18181b] border border-white/10 rounded-xl text-white"><option value="cash">Efectivo</option><option value="card">Tarjeta</option><option value="transfer">Transferencia</option><option value="nequi">Nequi</option><option value="daviplata">Daviplata</option><option value="other">Otro</option></select></label>
+                  <label className="block text-sm text-zinc-400">Observaciones<textarea rows={3} maxLength={500} value={checkoutForm.notes} onChange={(e)=>setCheckoutForm({...checkoutForm,notes:e.target.value})} className="mt-2 w-full p-3 bg-white/5 border border-white/10 rounded-xl text-white" /></label>
+                  <p className="text-xs text-zinc-500">La comisión se calcula en el servidor con la regla vigente.</p><div className="flex justify-end gap-3"><button onClick={()=>setCheckoutAppointment(null)} disabled={checkoutMutation.isPending} className="px-4 py-2 text-zinc-300">Cancelar</button><button onClick={submitCheckout} disabled={checkoutMutation.isPending} className="px-4 py-2 rounded-xl bg-green-600 text-white disabled:opacity-50">{checkoutMutation.isPending ? 'Procesando...' : 'Confirmar cobro'}</button></div>
+                </div>); })()}
+            </div>
+          </div>
+        )}
         </div>
       </div>
     </div>
