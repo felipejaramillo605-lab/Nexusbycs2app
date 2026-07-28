@@ -94,6 +94,12 @@ export const inventoryAPI = {
 
 // NEXUS_COMMISSION_FOUNDATION_V1
 // NEXUS_TRANSACTION_REVENUE_STATISTICS_V1
+// NEXUS_STAFF_INCOME_BACKEND_V1
+export const staffIncomeAPI = {
+  getSummary: (params = {}) => api.get('/staff/income/summary', { params }),
+  getTransactions: (params = {}) => api.get('/staff/income/transactions', { params }),
+};
+
 export const transactionAPI = {
   getAll: (params = {}) => api.get('/transactions', { params }),
   getSummary: (params = {}) => api.get('/transactions/summary', { params }),

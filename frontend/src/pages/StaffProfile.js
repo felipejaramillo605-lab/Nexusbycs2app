@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Clock, LogOut, Save, Scissors, User } from 'lucide-react';
+import { ArrowLeft, Clock, LogOut, Save, Scissors, User, WalletCards } from 'lucide-react';
 import { barberAPI, serviceAPI } from '../api';
 import { useAuth } from '../context/AuthContext';
 import { toast } from 'sonner';
@@ -132,6 +132,8 @@ const StaffProfile = () => {
             <h1 className="text-3xl sm:text-4xl font-light">Mi perfil profesional</h1>
             <p className="text-zinc-400 text-sm mt-1">Actualiza cómo apareces ante los clientes.</p>
           </div>
+          {/* NEXUS_STAFF_INCOME_UI_V1 */}
+          <button type="button" onClick={() => navigate('/staff/income')} className="flex items-center gap-2 px-4 py-2 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400"><WalletCards size={18} /> Mis ingresos</button>
           <button type="button" onClick={handleLogout} className="flex items-center gap-2 px-4 py-2 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400"><LogOut size={18} /> Cerrar sesión</button>
         </header>
 

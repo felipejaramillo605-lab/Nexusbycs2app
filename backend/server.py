@@ -2205,6 +2205,124 @@ async def get_statistics(start_date: str, end_date: str, organization_id: Option
     }
 
 
+# ==================== STAFF INCOME PORTAL ====================
+# NEXUS_STAFF_INCOME_BACKEND_V1
+
+async def resolve_current_staff_barber(current_user: User) -> dict:
+    if current_user.role != "staff":
+        raise HTTPException(status_code=403, detail="Staff access required")
+    if current_user.access_status != "approved":
+        raise HTTPException(status_code=403, detail="Account is not approved")
+    barber = await db.barbers.find_one(
+        {"user_id": current_user.user_id, "organization_id": current_user.organization_id},
+        {"_id": 0}
+    )
+    if not barber:
+        raise HTTPException(status_code=404, detail="Professional profile not found")
+    return barber
+
+
+async def current_staff_income_query(
+    current_user: User,
+    start_date: Optional[str],
+    end_date: Optional[str]
+) -> dict:
+    barber = await resolve_current_staff_barber(current_user)
+    query = {
+        "organization_id": barber["organization_id"],
+        "barber_id": barber["barber_id"],
+        "status": "confirmed"
+    }
+    created_filter = transaction_date_filter(start_date, end_date)
+    if created_filter:
+        query["created_at"] = created_filter
+    return query
+
+
+@api_router.get("/staff/income/transactions")
+async def get_my_income_transactions(
+    start_date: Optional[str] = None,
+    end_date: Optional[str] = None,
+    limit: int = 500,
+    authorization: Optional[str] = Header(None),
+    session_token: Optional[str] = Cookie(None)
+):
+    current_user = await get_current_user(authorization, session_token)
+    query = await current_staff_income_query(current_user, start_date, end_date)
+    safe_limit = max(1, min(limit, 1000))
+    items = await db.transactions.find(query, {
+        "_id": 0,
+        "transaction_id": 1,
+        "appointment_id": 1,
+        "service_name_snapshot": 1,
+        "net_service_amount": 1,
+        "tip_amount": 1,
+        "staff_percent_snapshot": 1,
+        "staff_commission_amount": 1,
+        "staff_total_amount": 1,
+        "payment_method": 1,
+        "created_at": 1,
+        "status": 1
+    }).sort("created_at", -1).to_list(safe_limit)
+    return items
+
+
+@api_router.get("/staff/income/summary")
+async def get_my_income_summary(
+    start_date: Optional[str] = None,
+    end_date: Optional[str] = None,
+    authorization: Optional[str] = Header(None),
+    session_token: Optional[str] = Cookie(None)
+):
+    current_user = await get_current_user(authorization, session_token)
+    barber = await resolve_current_staff_barber(current_user)
+    query = await current_staff_income_query(current_user, start_date, end_date)
+    items = await db.transactions.find(query, {
+        "_id": 0,
+        "net_service_amount": 1,
+        "tip_amount": 1,
+        "staff_commission_amount": 1,
+        "staff_total_amount": 1,
+        "created_at": 1
+    }).to_list(100000)
+    service_count = len(items)
+    total_net = round(sum(float(item.get("net_service_amount", 0) or 0) for item in items), 2)
+    total_commission = round(sum(float(item.get("staff_commission_amount", 0) or 0) for item in items), 2)
+    total_tips = round(sum(float(item.get("tip_amount", 0) or 0) for item in items), 2)
+    total_staff = round(sum(float(item.get("staff_total_amount", 0) or 0) for item in items), 2)
+    daily = {}
+    for item in items:
+        day = str(item.get("created_at", ""))[:10] or "unknown"
+        row = daily.setdefault(day, {
+            "date": day,
+            "service_count": 0,
+            "commission_amount": 0.0,
+            "tip_amount": 0.0,
+            "staff_total_amount": 0.0
+        })
+        row["service_count"] += 1
+        row["commission_amount"] += float(item.get("staff_commission_amount", 0) or 0)
+        row["tip_amount"] += float(item.get("tip_amount", 0) or 0)
+        row["staff_total_amount"] += float(item.get("staff_total_amount", 0) or 0)
+    for row in daily.values():
+        row["commission_amount"] = round(row["commission_amount"], 2)
+        row["tip_amount"] = round(row["tip_amount"], 2)
+        row["staff_total_amount"] = round(row["staff_total_amount"], 2)
+    return {
+        "barber_id": barber["barber_id"],
+        "professional_name": barber.get("display_name") or barber.get("name") or current_user.name,
+        "service_count": service_count,
+        "total_net_service_amount": total_net,
+        "total_commission_amount": total_commission,
+        "total_tip_amount": total_tips,
+        "total_staff_amount": total_staff,
+        "average_staff_amount": round(total_staff / service_count, 2) if service_count else 0.0,
+        "daily_totals": [daily[key] for key in sorted(daily)]
+    }
+
+
+# ==================== END STAFF INCOME PORTAL ====================
+
 # ==================== CLIENTS ENDPOINTS ====================
 
 @api_router.get("/clients")
@@ -3065,6 +3183,8 @@ async def create_application_indexes():
     await db.transactions.create_index([("organization_id", 1), ("status", 1), ("created_at", -1)])
     await db.transactions.create_index([("organization_id", 1), ("barber_id", 1), ("status", 1), ("created_at", -1)])
     await db.transactions.create_index([("organization_id", 1), ("payment_method", 1), ("status", 1), ("created_at", -1)])
+    # NEXUS_STAFF_INCOME_BACKEND_V1
+    await db.transactions.create_index([("organization_id", 1), ("barber_id", 1), ("status", 1), ("created_at", -1)])
     # NEXUS_COMMISSION_FOUNDATION_V1
     await db.commission_settings.create_index("organization_id", unique=True)
     await db.staff_commission_overrides.create_index([("organization_id", 1), ("barber_id", 1), ("active", 1)])

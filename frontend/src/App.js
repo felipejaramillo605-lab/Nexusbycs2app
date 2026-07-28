@@ -36,6 +36,7 @@ const AcceptInvitation = lazy(() => import('./pages/AcceptInvitation'));
 const ForgotPassword = lazy(() => import('./pages/ForgotPassword'));
 const ResetPassword = lazy(() => import('./pages/ResetPassword'));
 const StaffProfile = lazy(() => import('./pages/StaffProfile'));
+const StaffIncome = lazy(() => import('./pages/StaffIncome'));
 
 // Loading fallback
 const PageLoader = () => (
@@ -163,6 +164,16 @@ function AppRouter() {
           element={
             <ProtectedRoute requiredRole="staff">
               <StaffProfile />
+            </ProtectedRoute>
+          }
+        />
+
+        {/* NEXUS_STAFF_INCOME_UI_V1 */}
+        <Route
+          path="/staff/income"
+          element={
+            <ProtectedRoute requiredRole="staff">
+              <StaffIncome />
             </ProtectedRoute>
           }
         />
