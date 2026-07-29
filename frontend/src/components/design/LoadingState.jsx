@@ -1,0 +1,1 @@
+import React from 'react'; export function LoadingState({rows=4}){return <div className="nexus-loading-state" aria-label="Cargando">{Array.from({length:rows}).map((_,index)=><div key={index} className="nexus-skeleton-row" style={{'--delay':`${index*70}ms`}}/>)}</div>}

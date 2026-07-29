@@ -1,6 +1,20 @@
 import React, { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import { publicAPI } from '../api';
+// NEXUS_STRICT_AVAILABILITY_V1
+const nexusWeekday = (dateValue) => {
+  if (!dateValue) return null;
+  const [year, month, day] = dateValue.split('-').map(Number);
+  return new Date(year, month - 1, day).getDay();
+};
+
+const barberWorksOnDate = (barber, dateValue) => {
+  if (!barber || !dateValue) return false;
+  const days = barber.available_days || [1, 2, 3, 4, 5];
+  return days.includes(nexusWeekday(dateValue));
+};
+
+
 import { useOrganization } from '../context/OrganizationContext';
 import { ArrowRight, ArrowLeft, Check, Calendar as CalendarIcon, Clock, User, Mail, Phone, Sparkles, MapPin } from 'lucide-react';
 import { BOOKING } from '../constants/testIds';
@@ -55,7 +69,12 @@ const BookingFlow = () => {
   }, [orgId]);
 
   useEffect(() => {
+    setSelectedTime('');
     if (selectedBarber && selectedDate && selectedService) {
+      if (!barberWorksOnDate(selectedBarber, selectedDate)) {
+        setAvailableSlots([]);
+        return;
+      }
       loadAvailability();
     }
   }, [selectedBarber, selectedDate, selectedService]);
@@ -401,11 +420,14 @@ const BookingFlow = () => {
                     data-testid={BOOKING.dateInput}
                     min={getMinDate()}
                     value={selectedDate}
-                    onChange={(e) => setSelectedDate(e.target.value)}
+                    onChange={(e) => { const value = e.target.value; setSelectedTime(''); if (value && selectedBarber && !barberWorksOnDate(selectedBarber, value)) { setSelectedDate(''); setAvailableSlots([]); return; } setSelectedDate(value); }}
                     className="w-full px-4 py-3 bg-transparent border border-white/20 rounded-xl text-white focus:border-[#0A84FF] focus:ring-1 focus:ring-[#0A84FF] outline-none"
                   />
                 </div>
                 
+                {selectedDate && selectedBarber && !barberWorksOnDate(selectedBarber, selectedDate) && (
+                  <p className="mt-3 text-sm text-[var(--app-danger)]">El profesional no trabaja en la fecha seleccionada.</p>
+                )}
                 {selectedDate && (
                   <div>
                     <label className="text-sm text-zinc-400 mb-2 block flex items-center gap-2">

@@ -14,6 +14,7 @@ export const authAPI = {
   createSession: (sessionId) => api.post('/auth/session', {}, { headers: { 'X-Session-ID': sessionId } }),
   getMe: () => api.get('/auth/me'),
   logout: () => api.post('/auth/logout'),
+  deleteAccount: (data) => api.delete('/account/me', { data }),
   
   // Manual Auth
   register: (data) => api.post('/auth/register', data),

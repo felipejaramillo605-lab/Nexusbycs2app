@@ -56,6 +56,13 @@ class User(BaseModel):
     created_at: datetime
     last_login: Optional[datetime] = None
 
+
+# NEXUS_ACCOUNT_SAFETY_V1
+class AccountDeletionRequest(BaseModel):
+    confirmation: str
+    password: Optional[str] = None
+    understood: bool = False
+
 # ==================== ROW LEVEL SECURITY (RLS) HELPERS ====================
 async def validate_organization_access(user: User, organization_id: str) -> bool:
     """
@@ -1278,6 +1285,93 @@ async def update_user_role(
         raise HTTPException(status_code=404, detail="User not found")
     
     return {"message": f"User role updated to {role}"}
+
+
+# NEXUS_ACCOUNT_SAFETY_V1
+@api_router.delete("/account/me")
+async def delete_my_account(
+    data: AccountDeletionRequest,
+    authorization: Optional[str] = Header(None),
+    session_token: Optional[str] = Cookie(None)
+):
+    current_user = await get_current_user(authorization, session_token)
+    if data.confirmation != "ELIMINAR MI CUENTA" or data.understood is not True:
+        raise HTTPException(status_code=400, detail="Account deletion confirmation is incomplete")
+
+    stored_user = await db.users.find_one({"user_id": current_user.user_id}, {"_id": 0})
+    if not stored_user or stored_user.get("access_status") == "deleted":
+        raise HTTPException(status_code=404, detail="Account not found")
+
+    if stored_user.get("password_hash"):
+        if not data.password or not verify_password(data.password, stored_user["password_hash"]):
+            raise HTTPException(status_code=403, detail="Current password is incorrect")
+    elif data.password:
+        raise HTTPException(status_code=400, detail="This account uses external authentication")
+
+    if current_user.role == "owner":
+        active_owners = await db.users.count_documents({
+            "role": "owner",
+            "access_status": {"$ne": "deleted"}
+        })
+        if active_owners <= 1:
+            raise HTTPException(
+                status_code=409,
+                detail="Transfer ownership or designate another owner before deleting this account"
+            )
+
+    now = datetime.now(timezone.utc).isoformat()
+    anonymous_email = f"deleted+{current_user.user_id}@nexus.invalid"
+    linked_barbers = await db.barbers.find(
+        {"user_id": current_user.user_id}, {"_id": 0, "barber_id": 1}
+    ).to_list(1000)
+    barber_ids = [item["barber_id"] for item in linked_barbers if item.get("barber_id")]
+
+    await db.user_sessions.delete_many({"user_id": current_user.user_id})
+    await db.barbers.update_many(
+        {"user_id": current_user.user_id},
+        {"$set": {
+            "active": False,
+            "display_name": "Perfil no disponible",
+            "name": "Perfil no disponible",
+            "first_name": None,
+            "last_name": None,
+            "phone": None,
+            "address": None,
+            "bio": None,
+            "avatar": None,
+            "deleted_at": now,
+            "updated_at": now
+        }, "$unset": {"user_id": ""}}
+    )
+    await db.users.update_one(
+        {"user_id": current_user.user_id, "access_status": {"$ne": "deleted"}},
+        {"$set": {
+            "email": anonymous_email,
+            "name": "Cuenta eliminada",
+            "first_name": None,
+            "last_name": None,
+            "phone": None,
+            "address": None,
+            "picture": None,
+            "password_hash": None,
+            "access_status": "deleted",
+            "deleted_at": now,
+            "deletion_kind": "self_service_anonymization"
+        }}
+    )
+    await db.audit_logs.insert_one({
+        "audit_id": f"audit_{uuid.uuid4().hex[:12]}",
+        "event": "account_self_deleted",
+        "actor_user_id": current_user.user_id,
+        "organization_id": current_user.organization_id,
+        "role": current_user.role,
+        "linked_barber_ids": barber_ids,
+        "created_at": now
+    })
+    return {
+        "message": "Account deleted",
+        "retained_records": "Financial and audit records may remain anonymized when retention is required"
+    }
 
 # Organization Endpoints
 @api_router.get("/organizations")
@@ -3424,6 +3518,174 @@ Formatea la respuesta como una lista clara y accionable."""
         headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"}
     )
 
+
+# ==================== STRICT PUBLIC AVAILABILITY ====================
+# NEXUS_STRICT_AVAILABILITY_V1
+
+def _strict_date(value: str):
+    try:
+        return datetime.strptime(value, "%Y-%m-%d").date()
+    except (TypeError, ValueError):
+        raise HTTPException(status_code=400, detail="Date must use YYYY-MM-DD format")
+
+
+def _strict_minutes(value: str, field: str = "time") -> int:
+    if not isinstance(value, str) or not re.fullmatch(r"([01]\d|2[0-3]):[0-5]\d", value):
+        raise HTTPException(status_code=400, detail=f"Invalid {field}")
+    hour, minute = map(int, value.split(":"))
+    return hour * 60 + minute
+
+
+def _nexus_weekday(value) -> int:
+    # Python: Monday=0. Nexus: Sunday=0, Monday=1 ... Saturday=6.
+    return (value.weekday() + 1) % 7
+
+
+def _intervals_overlap(start_a: int, end_a: int, start_b: int, end_b: int) -> bool:
+    return start_a < end_b and end_a > start_b
+
+
+async def _strict_booking_context(org_id: str, barber_id: str, service_id: str, date_value: str):
+    appointment_date = _strict_date(date_value)
+    today = datetime.now(timezone.utc).date()
+    if appointment_date < today:
+        raise HTTPException(status_code=400, detail="Cannot book appointments in the past")
+
+    barber = await db.barbers.find_one({
+        "barber_id": barber_id,
+        "organization_id": org_id,
+        "$or": [{"active": True}, {"active": {"$exists": False}}]
+    }, {"_id": 0})
+    if not barber:
+        raise HTTPException(status_code=404, detail="Professional not found")
+
+    service = await db.services.find_one({
+        "service_id": service_id,
+        "organization_id": org_id
+    }, {"_id": 0})
+    if not service:
+        raise HTTPException(status_code=404, detail="Service not found")
+
+    service_ids = barber.get("service_ids") or []
+    if service_ids and service_id not in service_ids:
+        raise HTTPException(status_code=409, detail="The selected professional does not provide this service")
+
+    available_days = barber.get("available_days") or [1, 2, 3, 4, 5]
+    weekday = _nexus_weekday(appointment_date)
+    if weekday not in available_days:
+        raise HTTPException(status_code=409, detail="The selected professional does not work on this day")
+
+    start_time = barber.get("start_time") or "09:00"
+    end_time = barber.get("end_time") or "18:00"
+    work_start = _strict_minutes(start_time, "professional start time")
+    work_end = _strict_minutes(end_time, "professional end time")
+    if work_end <= work_start:
+        raise HTTPException(status_code=409, detail="The professional schedule is not configured correctly")
+
+    try:
+        duration = int(service.get("duration") or 0)
+    except (TypeError, ValueError):
+        duration = 0
+    if duration <= 0 or duration > 24 * 60:
+        raise HTTPException(status_code=409, detail="The service duration is not configured correctly")
+
+    appointments = await db.appointments.find({
+        "organization_id": org_id,
+        "barber_id": barber_id,
+        "date": date_value,
+        "status": {"$ne": "cancelled"}
+    }, {"_id": 0, "time": 1, "service_id": 1}).to_list(1000)
+
+    appointment_service_ids = list({item.get("service_id") for item in appointments if item.get("service_id")})
+    appointment_services = await db.services.find({
+        "organization_id": org_id,
+        "service_id": {"$in": appointment_service_ids}
+    }, {"_id": 0, "service_id": 1, "duration": 1}).to_list(1000) if appointment_service_ids else []
+    duration_lookup = {
+        item["service_id"]: int(item.get("duration") or 30)
+        for item in appointment_services
+    }
+
+    occupied = []
+    for item in appointments:
+        try:
+            item_start = _strict_minutes(item.get("time"), "existing appointment time")
+        except HTTPException:
+            logger.warning("Skipping appointment with invalid time: %s", item.get("appointment_id"))
+            continue
+        item_duration = max(1, duration_lookup.get(item.get("service_id"), 30))
+        occupied.append((item_start, item_start + item_duration, "appointment"))
+
+    blocked_times = await db.blocked_times.find({
+        "organization_id": org_id,
+        "barber_id": barber_id,
+        "date": date_value
+    }, {"_id": 0, "start_time": 1, "end_time": 1}).to_list(1000)
+    for item in blocked_times:
+        block_start = _strict_minutes(item.get("start_time"), "blocked start time")
+        block_end = _strict_minutes(item.get("end_time"), "blocked end time")
+        if block_end > block_start:
+            occupied.append((block_start, block_end, "blocked"))
+
+    return {
+        "date": appointment_date,
+        "weekday": weekday,
+        "barber": barber,
+        "service": service,
+        "duration": duration,
+        "work_start": work_start,
+        "work_end": work_end,
+        "occupied": occupied
+    }
+
+
+def _strict_slot_is_available(context: dict, requested_start: int) -> bool:
+    requested_end = requested_start + context["duration"]
+    if requested_start < context["work_start"] or requested_end > context["work_end"]:
+        return False
+    return not any(
+        _intervals_overlap(requested_start, requested_end, busy_start, busy_end)
+        for busy_start, busy_end, _ in context["occupied"]
+    )
+
+
+async def _strict_available_slots(org_id: str, barber_id: str, service_id: str, date_value: str):
+    context = await _strict_booking_context(org_id, barber_id, service_id, date_value)
+    slots = []
+    current = context["work_start"]
+    remainder = current % 30
+    if remainder:
+        current += 30 - remainder
+    while current + context["duration"] <= context["work_end"]:
+        if _strict_slot_is_available(context, current):
+            slots.append(f"{current // 60:02d}:{current % 60:02d}")
+        current += 30
+    return context, slots
+
+
+async def _acquire_booking_lock(org_id: str, barber_id: str, date_value: str) -> str:
+    lock_id = f"booking:{org_id}:{barber_id}:{date_value}"
+    now = datetime.now(timezone.utc)
+    expires_at = now + timedelta(seconds=15)
+    await db.booking_locks.delete_many({"_id": lock_id, "expires_at": {"$lte": now}})
+    try:
+        await db.booking_locks.insert_one({
+            "_id": lock_id,
+            "organization_id": org_id,
+            "barber_id": barber_id,
+            "date": date_value,
+            "created_at": now,
+            "expires_at": expires_at
+        })
+    except Exception as error:
+        if "E11000" in str(error) or "duplicate key" in str(error).lower():
+            raise HTTPException(status_code=409, detail="This schedule is being updated. Please try again")
+        raise
+    return lock_id
+
+
+# ==================== END STRICT PUBLIC AVAILABILITY ====================
+
 # Public Endpoints (for clients)
 @api_router.get("/public/{org_id}/services")
 async def get_public_services(org_id: str):
@@ -3463,103 +3725,22 @@ async def get_public_barbers(org_id: str):
 
 @api_router.get("/public/{org_id}/availability")
 async def get_availability(org_id: str, barber_id: str, date: str, service_id: str):
-    # Get barber
-    barber = await db.barbers.find_one({
-        "barber_id": barber_id,
-        "organization_id": org_id,
-        "$or": [{"active": True}, {"active": {"$exists": False}}]
-    }, {"_id": 0})
-    if not barber:
-        raise HTTPException(status_code=404, detail="Barber not found")
-
-    service_ids = barber.get("service_ids") or []
-    if service_ids and service_id not in service_ids:
-        raise HTTPException(status_code=400, detail="Barber does not provide this service")
-    
-    # Get service to know duration
-    service = await db.services.find_one({"service_id": service_id, "organization_id": org_id}, {"_id": 0})
-    if not service:
-        raise HTTPException(status_code=404, detail="Service not found")
-    
-    service_duration = service["duration"]  # in minutes
-    
-    # Get all appointments for this barber on this date
-    appointments = await db.appointments.find({"barber_id": barber_id, "date": date}, {"_id": 0}).to_list(1000)
-    
-    # Get blocked times for this barber on this date
-    blocked_times = await db.blocked_times.find({"barber_id": barber_id, "date": date}, {"_id": 0}).to_list(1000)
-    
-    # Build set of blocked time slots considering service durations
-    blocked_slots = set()
-    
-    # Block appointment slots
-    for apt in appointments:
-        apt_service = await db.services.find_one({"service_id": apt["service_id"]}, {"_id": 0})
-        apt_duration = apt_service["duration"] if apt_service else 30
-        apt_time = apt["time"]
-        
-        # Parse time
-        hour, minute = map(int, apt_time.split(":"))
-        start_minutes = hour * 60 + minute
-        
-        # Block all 30-minute slots covered by this appointment
-        slots_needed = (apt_duration + 29) // 30  # Round up
-        for i in range(slots_needed):
-            slot_minutes = start_minutes + (i * 30)
-            slot_hour = slot_minutes // 60
-            slot_minute = slot_minutes % 60
-            blocked_slots.add(f"{slot_hour:02d}:{slot_minute:02d}")
-    
-    # Block manually blocked time ranges
-    for blocked in blocked_times:
-        start_hour, start_minute = map(int, blocked["start_time"].split(":"))
-        end_hour, end_minute = map(int, blocked["end_time"].split(":"))
-        
-        start_total_minutes = start_hour * 60 + start_minute
-        end_total_minutes = end_hour * 60 + end_minute
-        
-        # Block all 30-minute slots in this range
-        current_minutes = start_total_minutes
-        while current_minutes < end_total_minutes:
-            slot_hour = current_minutes // 60
-            slot_minute = current_minutes % 60
-            blocked_slots.add(f"{slot_hour:02d}:{slot_minute:02d}")
-            current_minutes += 30
-    
-    # Generate available slots
-    start_hour = int(barber["start_time"].split(":")[0])
-    end_hour = int(barber["end_time"].split(":")[0])
-    
-    available_slots = []
-    for hour in range(start_hour, end_hour):
-        for minute in [0, 30]:
-            time_slot = f"{hour:02d}:{minute:02d}"
-            
-            # Check if this slot and required consecutive slots are available
-            slot_minutes = hour * 60 + minute
-            slots_needed = (service_duration + 29) // 30
-            
-            is_available = True
-            for i in range(slots_needed):
-                check_minutes = slot_minutes + (i * 30)
-                check_hour = check_minutes // 60
-                check_minute = check_minutes % 60
-                check_slot = f"{check_hour:02d}:{check_minute:02d}"
-                
-                # Check if within barber hours and not blocked
-                if check_hour >= end_hour or check_slot in blocked_slots:
-                    is_available = False
-                    break
-            
-            if is_available:
-                available_slots.append(time_slot)
-    
-    return {"available_slots": available_slots}
+    context, slots = await _strict_available_slots(org_id, barber_id, service_id, date)
+    return {
+        "available_slots": slots,
+        "date": date,
+        "weekday": context["weekday"],
+        "working_day": True,
+        "start_time": context["barber"].get("start_time") or "09:00",
+        "end_time": context["barber"].get("end_time") or "18:00",
+        "service_duration": context["duration"]
+    }
 
 @api_router.post("/public/{org_id}/appointments")
 async def create_public_appointment(org_id: str, data: AppointmentCreate):
-    # Validate date is not in the past
-    appointment_date = datetime.strptime(data.date, "%Y-%m-%d").date()
+    # NEXUS_STRICT_AVAILABILITY_V1
+    # Parse safely so malformed requests return 400 instead of 500.
+    appointment_date = _strict_date(data.date)
     today = datetime.now(timezone.utc).date()
     if appointment_date < today:
         raise HTTPException(status_code=400, detail="Cannot book appointments in the past")
@@ -3581,12 +3762,21 @@ async def create_public_appointment(org_id: str, data: AppointmentCreate):
         raise HTTPException(status_code=400, detail="Barber does not provide this service")
     
     service_duration = service["duration"]
-    
-    # ATOMIC CHECK: Verify the slot is still available
-    # Parse the requested time
-    hour, minute = map(int, data.time.split(":"))
-    start_minutes = hour * 60 + minute
-    
+
+    # NEXUS_STRICT_AVAILABILITY_V1: backend is the final authority.
+    booking_lock_id = await _acquire_booking_lock(org_id, data.barber_id, data.date)
+    try:
+        strict_context, available_slots = await _strict_available_slots(
+            org_id, data.barber_id, data.service_id, data.date
+        )
+        start_minutes = _strict_minutes(data.time, "appointment time")
+        if data.time not in available_slots or not _strict_slot_is_available(strict_context, start_minutes):
+            raise HTTPException(status_code=409, detail="This time slot is no longer available")
+    except Exception:
+        await db.booking_locks.delete_one({"_id": booking_lock_id})
+        raise
+
+    # Compatibility check retained as defense in depth.
     # Get current appointments
     appointments = await db.appointments.find({
         "organization_id": org_id,
@@ -3630,8 +3820,10 @@ async def create_public_appointment(org_id: str, data: AppointmentCreate):
     
     try:
         await db.appointments.insert_one(appointment_doc)
-        
-        # ✅ SEND CONFIRMATION EMAIL
+        await db.booking_locks.delete_one({"_id": booking_lock_id})
+        booking_lock_id = None
+
+        # SEND CONFIRMATION EMAIL
         if data.client_email:
             try:
                 # Get organization, barber and service details
@@ -3677,11 +3869,13 @@ async def create_public_appointment(org_id: str, data: AppointmentCreate):
                 print(f"⚠️ Email sending failed: {email_error}")
         
     except Exception as e:
+        if booking_lock_id:
+            await db.booking_locks.delete_one({"_id": booking_lock_id})
         # Handle duplicate key error from unique index
         if "E11000" in str(e) or "duplicate key" in str(e).lower():
             raise HTTPException(status_code=409, detail="This time slot is no longer available")
         raise
-    
+
     # Create or update client record
     await upsert_client(
         organization_id=org_id,

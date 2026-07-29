@@ -1,0 +1,4 @@
+import React from 'react';
+import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
+import { X } from 'lucide-react';
+export function DetailDrawer({ open, onClose, title, description, children }) { const reduced = useReducedMotion(); return <AnimatePresence>{open && <><motion.button aria-label="Cerrar panel" className="nexus-drawer-overlay" onClick={onClose} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}/><motion.aside className="nexus-detail-drawer" initial={reduced ? false : { x: '100%' }} animate={{ x: 0 }} exit={reduced ? undefined : { x: '100%' }} transition={{ type: 'spring', stiffness: 380, damping: 36 }}><header><div><h2>{title}</h2>{description && <p>{description}</p>}</div><button onClick={onClose} className="nexus-icon-button"><X size={18}/></button></header><div className="nexus-drawer-content">{children}</div></motion.aside></>}</AnimatePresence>; }

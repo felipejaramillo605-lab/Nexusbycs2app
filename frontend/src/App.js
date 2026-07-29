@@ -17,6 +17,7 @@ import PendingApproval from './pages/PendingApproval';
 import { Loader2 } from 'lucide-react';
 import './App.css';
 import CancelAppointment from './pages/CancelAppointment';
+import { RouteExperienceFrame } from './components/design';
 
 // Lazy load pages for code splitting
 const OwnerAccessControl = lazy(() => import('./pages/OwnerAccessControl'));
@@ -39,10 +40,11 @@ const ResetPassword = lazy(() => import('./pages/ResetPassword'));
 const StaffProfile = lazy(() => import('./pages/StaffProfile'));
 const StaffIncome = lazy(() => import('./pages/StaffIncome'));
 const StaffAppointments = lazy(() => import('./pages/StaffAppointments'));
+const AccountPrivacy = lazy(() => import('./pages/AccountPrivacy'));
 
 // Loading fallback
 const PageLoader = () => (
-  <div className="min-h-screen bg-[#000000] flex items-center justify-center">
+  <div className="min-h-screen nexus-screen flex items-center justify-center">
     <Loader2 size={48} className="text-[#0A84FF] animate-spin" />
   </div>
 );
@@ -57,6 +59,7 @@ function AppRouter() {
   
   return (
     <Suspense fallback={<PageLoader />}>
+      <RouteExperienceFrame>
       <Routes>
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
@@ -192,10 +195,12 @@ function AppRouter() {
           }
         />
 
+        <Route path="/account/privacy" element={<ProtectedRoute allowedRoles={['owner', 'manager', 'admin', 'staff']}><AccountPrivacy /></ProtectedRoute>} />
         <Route path="/" element={<Navigate to="/login" replace />} />
         <Route path="*" element={<NotFound />} />
         <Route path="/cancel/:appointmentId" element={<CancelAppointment />} />
         </Routes>
+      </RouteExperienceFrame>
     </Suspense>
   );
 }
