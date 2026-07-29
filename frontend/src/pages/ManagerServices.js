@@ -107,20 +107,20 @@ const ManagerServices = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-[#000000] flex items-center justify-center">
-        <div className="text-white text-lg">Cargando...</div>
+      <div className="min-h-screen nexus-screen flex items-center justify-center">
+        <div className="text-[var(--app-text-primary)] text-lg">Cargando...</div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-[#000000] p-6">
+    <div className="min-h-screen nexus-screen p-6">
       <div className="max-w-6xl mx-auto">
         <div className="flex items-center justify-between mb-8">
           <div className="flex items-center gap-4">
             <button
               onClick={() => navigate(organizationId && user?.role === 'owner' ? `/manager/dashboard?org_id=${organizationId}` : '/manager/dashboard')}
-              className="p-2 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 transition-all text-white"
+              className="p-2 rounded-xl bg-white/5 border border-[var(--app-border)] hover:bg-white/10 transition-all text-[var(--app-text-primary)]"
             >
               <ArrowLeft size={20} strokeWidth={1.5} />
             </button>
@@ -129,7 +129,7 @@ const ManagerServices = () => {
                 <Scissors size={24} strokeWidth={1.5} />
               </div>
               <div>
-                <h1 className="text-4xl font-light tracking-tight text-white" style={{ fontFamily: 'Outfit, sans-serif' }}>
+                <h1 className="text-4xl font-light tracking-tight text-[var(--app-text-primary)]" style={{ fontFamily: 'Outfit, sans-serif' }}>
                   Servicios
                 </h1>
                 {organizationName && (
@@ -145,15 +145,15 @@ const ManagerServices = () => {
             <DialogTrigger asChild>
               <button
                 data-testid={MANAGER.addServiceBtn}
-                className="flex items-center gap-2 px-6 py-3 bg-[#0A84FF] hover:bg-[#0071E3] text-white rounded-xl font-medium transition-all hover:-translate-y-1 active:scale-95"
+                className="flex items-center gap-2 px-6 py-3 bg-[#0A84FF] hover:bg-[#0071E3] text-[var(--app-text-primary)] rounded-xl font-medium transition-all hover:-translate-y-1 active:scale-95"
               >
                 <Plus size={20} strokeWidth={1.5} />
                 Nuevo Servicio
               </button>
             </DialogTrigger>
-            <DialogContent className="bg-[#0A0A0A] border-white/10">
+            <DialogContent className="bg-[var(--app-surface-elevated)] border-[var(--app-border)]">
               <DialogHeader>
-                <DialogTitle className="text-white">Crear Servicio</DialogTitle>
+                <DialogTitle className="text-[var(--app-text-primary)]">Crear Servicio</DialogTitle>
               </DialogHeader>
               <div className="space-y-4 mt-4">
                 <div>
@@ -162,7 +162,7 @@ const ManagerServices = () => {
                     type="text"
                     value={newService.name}
                     onChange={(e) => setNewService({ ...newService, name: e.target.value })}
-                    className="w-full px-4 py-3 bg-transparent border border-white/20 rounded-xl text-white focus:border-[#0A84FF] focus:ring-1 focus:ring-[#0A84FF] outline-none"
+                    className="w-full px-4 py-3 bg-transparent border border-[var(--app-border)] rounded-xl text-[var(--app-text-primary)] focus:border-[#0A84FF] focus:ring-1 focus:ring-[#0A84FF] outline-none"
                     placeholder="Ej: Corte de cabello"
                   />
                 </div>
@@ -172,7 +172,7 @@ const ManagerServices = () => {
                     type="number"
                     value={newService.duration}
                     onChange={(e) => setNewService({ ...newService, duration: parseInt(e.target.value) })}
-                    className="w-full px-4 py-3 bg-transparent border border-white/20 rounded-xl text-white focus:border-[#0A84FF] focus:ring-1 focus:ring-[#0A84FF] outline-none"
+                    className="w-full px-4 py-3 bg-transparent border border-[var(--app-border)] rounded-xl text-[var(--app-text-primary)] focus:border-[#0A84FF] focus:ring-1 focus:ring-[#0A84FF] outline-none"
                   />
                 </div>
                 <div>
@@ -182,12 +182,12 @@ const ManagerServices = () => {
                     step="0.01"
                     value={newService.price}
                     onChange={(e) => setNewService({ ...newService, price: parseFloat(e.target.value) })}
-                    className="w-full px-4 py-3 bg-transparent border border-white/20 rounded-xl text-white focus:border-[#0A84FF] focus:ring-1 focus:ring-[#0A84FF] outline-none"
+                    className="w-full px-4 py-3 bg-transparent border border-[var(--app-border)] rounded-xl text-[var(--app-text-primary)] focus:border-[#0A84FF] focus:ring-1 focus:ring-[#0A84FF] outline-none"
                   />
                 </div>
                 <button
                   onClick={handleCreate}
-                  className="w-full px-6 py-3 bg-[#0A84FF] hover:bg-[#0071E3] text-white rounded-xl font-medium transition-all"
+                  className="w-full px-6 py-3 bg-[#0A84FF] hover:bg-[#0071E3] text-[var(--app-text-primary)] rounded-xl font-medium transition-all"
                 >
                   Crear Servicio
                 </button>
@@ -198,9 +198,9 @@ const ManagerServices = () => {
 
         {/* Edit Dialog */}
         <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-          <DialogContent className="bg-[#0A0A0A] border-white/10">
+          <DialogContent className="bg-[var(--app-surface-elevated)] border-[var(--app-border)]">
             <DialogHeader>
-              <DialogTitle className="text-white">Editar Servicio</DialogTitle>
+              <DialogTitle className="text-[var(--app-text-primary)]">Editar Servicio</DialogTitle>
             </DialogHeader>
             {editingService && (
               <div className="space-y-4 mt-4">
@@ -210,7 +210,7 @@ const ManagerServices = () => {
                     type="text"
                     value={editingService.name}
                     onChange={(e) => setEditingService({ ...editingService, name: e.target.value })}
-                    className="w-full px-4 py-3 bg-transparent border border-white/20 rounded-xl text-white focus:border-[#0A84FF] focus:ring-1 focus:ring-[#0A84FF] outline-none"
+                    className="w-full px-4 py-3 bg-transparent border border-[var(--app-border)] rounded-xl text-[var(--app-text-primary)] focus:border-[#0A84FF] focus:ring-1 focus:ring-[#0A84FF] outline-none"
                   />
                 </div>
                 <div>
@@ -219,7 +219,7 @@ const ManagerServices = () => {
                     type="number"
                     value={editingService.duration}
                     onChange={(e) => setEditingService({ ...editingService, duration: parseInt(e.target.value) })}
-                    className="w-full px-4 py-3 bg-transparent border border-white/20 rounded-xl text-white focus:border-[#0A84FF] focus:ring-1 focus:ring-[#0A84FF] outline-none"
+                    className="w-full px-4 py-3 bg-transparent border border-[var(--app-border)] rounded-xl text-[var(--app-text-primary)] focus:border-[#0A84FF] focus:ring-1 focus:ring-[#0A84FF] outline-none"
                   />
                 </div>
                 <div>
@@ -229,12 +229,12 @@ const ManagerServices = () => {
                     step="0.01"
                     value={editingService.price}
                     onChange={(e) => setEditingService({ ...editingService, price: parseFloat(e.target.value) })}
-                    className="w-full px-4 py-3 bg-transparent border border-white/20 rounded-xl text-white focus:border-[#0A84FF] focus:ring-1 focus:ring-[#0A84FF] outline-none"
+                    className="w-full px-4 py-3 bg-transparent border border-[var(--app-border)] rounded-xl text-[var(--app-text-primary)] focus:border-[#0A84FF] focus:ring-1 focus:ring-[#0A84FF] outline-none"
                   />
                 </div>
                 <button
                   onClick={handleUpdate}
-                  className="w-full px-6 py-3 bg-[#0A84FF] hover:bg-[#0071E3] text-white rounded-xl font-medium transition-all"
+                  className="w-full px-6 py-3 bg-[#0A84FF] hover:bg-[#0071E3] text-[var(--app-text-primary)] rounded-xl font-medium transition-all"
                 >
                   Guardar Cambios
                 </button>
@@ -248,7 +248,7 @@ const ManagerServices = () => {
             <div
               key={service.service_id}
               data-testid={MANAGER.serviceCard}
-              className="backdrop-blur-xl bg-white/3 border border-white/10 rounded-2xl p-6 hover:bg-white/6 transition-all group"
+              className="backdrop-blur-xl bg-white/3 border border-[var(--app-border)] rounded-2xl p-6 hover:bg-white/6 transition-all group"
             >
               <div className="flex items-start justify-between mb-4">
                 <div className="w-12 h-12 rounded-xl bg-[#0A84FF]/20 flex items-center justify-center">
@@ -271,7 +271,7 @@ const ManagerServices = () => {
                   </button>
                 </div>
               </div>
-              <h3 className="text-white font-medium text-lg mb-2">{service.name}</h3>
+              <h3 className="text-[var(--app-text-primary)] font-medium text-lg mb-2">{service.name}</h3>
               <div className="flex items-center justify-between text-sm">
                 <span className="text-zinc-400">{service.duration} min</span>
                 <span className="text-[#0A84FF] font-medium text-lg">${service.price}</span>
@@ -281,7 +281,7 @@ const ManagerServices = () => {
         </div>
 
         {services.length === 0 && (
-          <div className="backdrop-blur-xl bg-white/3 border border-white/10 rounded-2xl p-12 text-center">
+          <div className="backdrop-blur-xl bg-white/3 border border-[var(--app-border)] rounded-2xl p-12 text-center">
             <Scissors size={48} strokeWidth={1.5} className="text-zinc-600 mx-auto mb-4" />
             <p className="text-zinc-400 mb-4">No hay servicios creados</p>
             <p className="text-zinc-500 text-sm">Crea tu primer servicio para comenzar</p>

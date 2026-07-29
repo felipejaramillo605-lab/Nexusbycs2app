@@ -160,27 +160,27 @@ const AppointmentsHistory = () => {
 
   if (error) {
     return (
-      <div className="min-h-screen bg-[#000000] flex items-center justify-center">
+      <div className="min-h-screen nexus-screen flex items-center justify-center">
         <div className="text-red-400">Error al cargar citas: {error.message}</div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-[#000000]">
+    <div className="min-h-screen nexus-screen">
       {/* Navigation Bar */}
-      <nav className="backdrop-blur-xl bg-white/3 border-b border-white/10 sticky top-0 z-50">
+      <nav className="backdrop-blur-xl bg-white/3 border-b border-[var(--app-border)] sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 py-3 sm:py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
               <button
                 onClick={() => navigate(organizationId && user?.role === 'owner' ? `/manager/dashboard?org_id=${organizationId}` : '/manager/dashboard')}
-                className="flex items-center gap-2 text-zinc-400 hover:text-white transition-colors"
+                className="flex items-center gap-2 text-zinc-400 hover:text-[var(--app-text-primary)] transition-colors"
               >
                 <ArrowLeft size={20} strokeWidth={1.5} />
                 <span className="hidden sm:inline">Volver</span>
               </button>
-              <h1 className="text-xl sm:text-2xl font-light tracking-tight text-white" style={{ fontFamily: 'Outfit, sans-serif' }}>
+              <h1 className="text-xl sm:text-2xl font-light tracking-tight text-[var(--app-text-primary)]" style={{ fontFamily: 'Outfit, sans-serif' }}>
                 Historial de Citas
               </h1>
             </div>
@@ -195,10 +195,10 @@ const AppointmentsHistory = () => {
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 py-8">
         {/* Filters */}
-        <div className="backdrop-blur-xl bg-white/3 border border-white/10 rounded-2xl p-6 mb-6">
+        <div className="backdrop-blur-xl bg-white/3 border border-[var(--app-border)] rounded-2xl p-6 mb-6">
           <div className="flex items-center gap-2 mb-4">
             <Filter size={20} className="text-[#0A84FF]" />
-            <h2 className="text-lg font-medium text-white">Filtros</h2>
+            <h2 className="text-lg font-medium text-[var(--app-text-primary)]">Filtros</h2>
           </div>
           
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -211,7 +211,7 @@ const AppointmentsHistory = () => {
                   setFilters({ ...filters, status: e.target.value });
                   setCurrentPage(1);
                 }}
-                className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white focus:border-[#0A84FF] focus:ring-2 focus:ring-[#0A84FF]/20 outline-none transition-all"
+                className="w-full px-4 py-3 bg-white/5 border border-[var(--app-border)] rounded-xl text-[var(--app-text-primary)] focus:border-[#0A84FF] focus:ring-2 focus:ring-[#0A84FF]/20 outline-none transition-all"
               >
                 <option value="all">Todas</option>
                 <option value="confirmed">Confirmadas</option>
@@ -230,7 +230,7 @@ const AppointmentsHistory = () => {
                   setFilters({ ...filters, startDate: e.target.value });
                   setCurrentPage(1);
                 }}
-                className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white focus:border-[#0A84FF] focus:ring-2 focus:ring-[#0A84FF]/20 outline-none transition-all"
+                className="w-full px-4 py-3 bg-white/5 border border-[var(--app-border)] rounded-xl text-[var(--app-text-primary)] focus:border-[#0A84FF] focus:ring-2 focus:ring-[#0A84FF]/20 outline-none transition-all"
               />
             </div>
 
@@ -244,7 +244,7 @@ const AppointmentsHistory = () => {
                   setFilters({ ...filters, endDate: e.target.value });
                   setCurrentPage(1);
                 }}
-                className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white focus:border-[#0A84FF] focus:ring-2 focus:ring-[#0A84FF]/20 outline-none transition-all"
+                className="w-full px-4 py-3 bg-white/5 border border-[var(--app-border)] rounded-xl text-[var(--app-text-primary)] focus:border-[#0A84FF] focus:ring-2 focus:ring-[#0A84FF]/20 outline-none transition-all"
               />
             </div>
           </div>
@@ -264,7 +264,7 @@ const AppointmentsHistory = () => {
         </div>
 
         {/* Table */}
-        <div className="backdrop-blur-xl bg-white/3 border border-white/10 rounded-2xl overflow-hidden">
+        <div className="backdrop-blur-xl bg-white/3 border border-[var(--app-border)] rounded-2xl overflow-hidden">
           {isLoading ? (
             <div className="p-6">
               <TableSkeleton rows={10} columns={6} />
@@ -279,7 +279,7 @@ const AppointmentsHistory = () => {
               {/* Desktop Table */}
               <div className="hidden md:block overflow-x-auto">
                 <table className="w-full">
-                  <thead className="bg-white/5 border-b border-white/10">
+                  <thead className="bg-white/5 border-b border-[var(--app-border)]">
                     <tr>
                       <th className="text-left px-6 py-4 text-sm font-medium text-zinc-400">Fecha y Hora</th>
                       <th className="text-left px-6 py-4 text-sm font-medium text-zinc-400">Cliente</th>
@@ -294,15 +294,15 @@ const AppointmentsHistory = () => {
                     {paginatedAppointments.map((apt) => (
                       <tr key={apt.appointment_id} className="hover:bg-white/5 transition-colors">
                         <td className="px-6 py-4">
-                          <div className="text-white font-medium">{apt.date}</div>
+                          <div className="text-[var(--app-text-primary)] font-medium">{apt.date}</div>
                           <div className="text-sm text-zinc-400">{apt.time}</div>
                         </td>
                         <td className="px-6 py-4">
-                          <div className="text-white">{apt.customer_name}</div>
+                          <div className="text-[var(--app-text-primary)]">{apt.customer_name}</div>
                           <div className="text-sm text-zinc-400">{apt.customer_phone}</div>
                         </td>
-                        <td className="px-6 py-4 text-white">{apt.service_name}</td>
-                        <td className="px-6 py-4 text-white">{apt.barber_name}</td>
+                        <td className="px-6 py-4 text-[var(--app-text-primary)]">{apt.service_name}</td>
+                        <td className="px-6 py-4 text-[var(--app-text-primary)]">{apt.barber_name}</td>
                         <td className="px-6 py-4 text-right">
                           <div className={`font-medium ${apt.status === 'cancelled' ? 'text-zinc-500 line-through' : 'text-[#0A84FF]'}`}>
                             {formatCurrency(apt.service_price)}
@@ -347,7 +347,7 @@ const AppointmentsHistory = () => {
                   <div key={apt.appointment_id} className="p-4 space-y-3">
                     <div className="flex items-start justify-between">
                       <div>
-                        <div className="text-white font-medium">{apt.customer_name}</div>
+                        <div className="text-[var(--app-text-primary)] font-medium">{apt.customer_name}</div>
                         <div className="text-sm text-zinc-400">{apt.date} · {apt.time}</div>
                       </div>
                       {getStatusBadge(apt.status)}
@@ -356,11 +356,11 @@ const AppointmentsHistory = () => {
                     <div className="space-y-1 text-sm">
                       <div className="flex justify-between">
                         <span className="text-zinc-400">Servicio:</span>
-                        <span className="text-white">{apt.service_name}</span>
+                        <span className="text-[var(--app-text-primary)]">{apt.service_name}</span>
                       </div>
                       <div className="flex justify-between">
                         <span className="text-zinc-400">Barbero:</span>
-                        <span className="text-white">{apt.barber_name}</span>
+                        <span className="text-[var(--app-text-primary)]">{apt.barber_name}</span>
                       </div>
                       <div className="flex justify-between">
                         <span className="text-zinc-400">Valor:</span>
@@ -395,7 +395,7 @@ const AppointmentsHistory = () => {
 
               {/* Pagination */}
               {totalPages > 1 && (
-                <div className="border-t border-white/10 p-4 flex items-center justify-between">
+                <div className="border-t border-[var(--app-border)] p-4 flex items-center justify-between">
                   <div className="text-sm text-zinc-400">
                     Mostrando {(currentPage - 1) * ITEMS_PER_PAGE + 1} - {Math.min(currentPage * ITEMS_PER_PAGE, filteredAppointments.length)} de {filteredAppointments.length}
                   </div>
@@ -404,7 +404,7 @@ const AppointmentsHistory = () => {
                     <button
                       onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
                       disabled={currentPage === 1}
-                      className="p-2 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 text-white transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                      className="p-2 rounded-lg bg-white/5 hover:bg-white/10 border border-[var(--app-border)] text-[var(--app-text-primary)] transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       <ChevronLeft size={20} />
                     </button>
@@ -416,7 +416,7 @@ const AppointmentsHistory = () => {
                     <button
                       onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
                       disabled={currentPage === totalPages}
-                      className="p-2 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 text-white transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                      className="p-2 rounded-lg bg-white/5 hover:bg-white/10 border border-[var(--app-border)] text-[var(--app-text-primary)] transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       <ChevronRight size={20} />
                     </button>
@@ -426,16 +426,16 @@ const AppointmentsHistory = () => {
             </>
           )}
         {checkoutAppointment && (
-          <div className="fixed inset-0 z-[100] bg-black/80 flex items-center justify-center p-4">
-            <div className="w-full max-w-xl rounded-2xl border border-white/10 bg-[#101010] p-6 max-h-[95vh] overflow-y-auto">
-              <div className="flex justify-between mb-5"><div><h2 className="text-xl text-white">Completar y cobrar</h2><p className="text-sm text-zinc-400">{checkoutAppointment.service_name} · {checkoutAppointment.barber_name}</p></div><button onClick={() => setCheckoutAppointment(null)} disabled={checkoutMutation.isPending}><X className="text-zinc-400" size={20} /></button></div>
+          <div className="fixed inset-0 z-[100] bg-[var(--app-overlay)] flex items-center justify-center p-4">
+            <div className="w-full max-w-xl rounded-2xl border border-[var(--app-border)] bg-[#101010] p-6 max-h-[95vh] overflow-y-auto">
+              <div className="flex justify-between mb-5"><div><h2 className="text-xl text-[var(--app-text-primary)]">Completar y cobrar</h2><p className="text-sm text-zinc-400">{checkoutAppointment.service_name} · {checkoutAppointment.barber_name}</p></div><button onClick={() => setCheckoutAppointment(null)} disabled={checkoutMutation.isPending}><X className="text-zinc-400" size={20} /></button></div>
               {(() => { const price=Number(checkoutAppointment.service_price)||0, discount=Number(checkoutForm.discount_amount)||0, tip=Number(checkoutForm.tip_amount)||0, net=Math.max(0,price-discount); return (
                 <div className="space-y-4">
-                  <div className="grid grid-cols-2 gap-3 text-sm bg-white/5 border border-white/10 rounded-xl p-4"><span className="text-zinc-400">Precio original</span><span className="text-right text-white">{formatCurrency(price)}</span><span className="text-zinc-400">Descuento</span><span className="text-right text-white">{formatCurrency(discount)}</span><span className="text-zinc-400">Valor neto</span><span className="text-right text-white">{formatCurrency(net)}</span><span className="text-zinc-400">Propina</span><span className="text-right text-white">{formatCurrency(tip)}</span><span className="text-white">Total recibido</span><span className="text-right text-[#0A84FF]">{formatCurrency(net+tip)}</span></div>
-                  <div className="grid sm:grid-cols-2 gap-4"><label className="text-sm text-zinc-400">Descuento<input type="number" min="0" value={checkoutForm.discount_amount} onChange={(e)=>setCheckoutForm({...checkoutForm,discount_amount:e.target.value})} className="mt-2 w-full p-3 bg-white/5 border border-white/10 rounded-xl text-white" /></label><label className="text-sm text-zinc-400">Propina<input type="number" min="0" value={checkoutForm.tip_amount} onChange={(e)=>setCheckoutForm({...checkoutForm,tip_amount:e.target.value})} className="mt-2 w-full p-3 bg-white/5 border border-white/10 rounded-xl text-white" /></label></div>
-                  <label className="block text-sm text-zinc-400">Medio de pago<select value={checkoutForm.payment_method} onChange={(e)=>setCheckoutForm({...checkoutForm,payment_method:e.target.value})} className="mt-2 w-full p-3 bg-[#18181b] border border-white/10 rounded-xl text-white"><option value="cash">Efectivo</option><option value="card">Tarjeta</option><option value="transfer">Transferencia</option><option value="nequi">Nequi</option><option value="daviplata">Daviplata</option><option value="other">Otro</option></select></label>
-                  <label className="block text-sm text-zinc-400">Observaciones<textarea rows={3} maxLength={500} value={checkoutForm.notes} onChange={(e)=>setCheckoutForm({...checkoutForm,notes:e.target.value})} className="mt-2 w-full p-3 bg-white/5 border border-white/10 rounded-xl text-white" /></label>
-                  <p className="text-xs text-zinc-500">La comisión se calcula en el servidor con la regla vigente.</p><div className="flex justify-end gap-3"><button onClick={()=>setCheckoutAppointment(null)} disabled={checkoutMutation.isPending} className="px-4 py-2 text-zinc-300">Cancelar</button><button onClick={submitCheckout} disabled={checkoutMutation.isPending} className="px-4 py-2 rounded-xl bg-green-600 text-white disabled:opacity-50">{checkoutMutation.isPending ? 'Procesando...' : 'Confirmar cobro'}</button></div>
+                  <div className="grid grid-cols-2 gap-3 text-sm bg-white/5 border border-[var(--app-border)] rounded-xl p-4"><span className="text-zinc-400">Precio original</span><span className="text-right text-[var(--app-text-primary)]">{formatCurrency(price)}</span><span className="text-zinc-400">Descuento</span><span className="text-right text-[var(--app-text-primary)]">{formatCurrency(discount)}</span><span className="text-zinc-400">Valor neto</span><span className="text-right text-[var(--app-text-primary)]">{formatCurrency(net)}</span><span className="text-zinc-400">Propina</span><span className="text-right text-[var(--app-text-primary)]">{formatCurrency(tip)}</span><span className="text-[var(--app-text-primary)]">Total recibido</span><span className="text-right text-[#0A84FF]">{formatCurrency(net+tip)}</span></div>
+                  <div className="grid sm:grid-cols-2 gap-4"><label className="text-sm text-zinc-400">Descuento<input type="number" min="0" value={checkoutForm.discount_amount} onChange={(e)=>setCheckoutForm({...checkoutForm,discount_amount:e.target.value})} className="mt-2 w-full p-3 bg-white/5 border border-[var(--app-border)] rounded-xl text-[var(--app-text-primary)]" /></label><label className="text-sm text-zinc-400">Propina<input type="number" min="0" value={checkoutForm.tip_amount} onChange={(e)=>setCheckoutForm({...checkoutForm,tip_amount:e.target.value})} className="mt-2 w-full p-3 bg-white/5 border border-[var(--app-border)] rounded-xl text-[var(--app-text-primary)]" /></label></div>
+                  <label className="block text-sm text-zinc-400">Medio de pago<select value={checkoutForm.payment_method} onChange={(e)=>setCheckoutForm({...checkoutForm,payment_method:e.target.value})} className="mt-2 w-full p-3 bg-[#18181b] border border-[var(--app-border)] rounded-xl text-[var(--app-text-primary)]"><option value="cash">Efectivo</option><option value="card">Tarjeta</option><option value="transfer">Transferencia</option><option value="nequi">Nequi</option><option value="daviplata">Daviplata</option><option value="other">Otro</option></select></label>
+                  <label className="block text-sm text-zinc-400">Observaciones<textarea rows={3} maxLength={500} value={checkoutForm.notes} onChange={(e)=>setCheckoutForm({...checkoutForm,notes:e.target.value})} className="mt-2 w-full p-3 bg-white/5 border border-[var(--app-border)] rounded-xl text-[var(--app-text-primary)]" /></label>
+                  <p className="text-xs text-zinc-500">La comisión se calcula en el servidor con la regla vigente.</p><div className="flex justify-end gap-3"><button onClick={()=>setCheckoutAppointment(null)} disabled={checkoutMutation.isPending} className="px-4 py-2 text-zinc-300">Cancelar</button><button onClick={submitCheckout} disabled={checkoutMutation.isPending} className="px-4 py-2 rounded-xl bg-green-600 text-[var(--app-text-primary)] disabled:opacity-50">{checkoutMutation.isPending ? 'Procesando...' : 'Confirmar cobro'}</button></div>
                 </div>); })()}
             </div>
           </div>

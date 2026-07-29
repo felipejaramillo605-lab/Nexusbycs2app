@@ -49,12 +49,12 @@ const ProfileForm = ({ value, onChange, services, saving, actionLabel, onSubmit 
       selected.includes(serviceId) ? selected.filter((item) => item !== serviceId) : [...selected, serviceId]
     );
   };
-  const inputClass = 'w-full px-4 py-3 bg-transparent border border-white/20 rounded-xl text-white placeholder-zinc-600 focus:border-[#0A84FF] focus:ring-1 focus:ring-[#0A84FF] outline-none';
+  const inputClass = 'w-full px-4 py-3 bg-transparent border border-[var(--app-border)] rounded-xl text-[var(--app-text-primary)] placeholder-zinc-600 focus:border-[#0A84FF] focus:ring-1 focus:ring-[#0A84FF] outline-none';
 
   return (
     <div className="space-y-6 mt-4">
       <section>
-        <h3 className="text-sm font-medium text-white mb-3">Información personal</h3>
+        <h3 className="text-sm font-medium text-[var(--app-text-primary)] mb-3">Información personal</h3>
         <div className="grid sm:grid-cols-2 gap-4">
           <div>
             <label className="text-sm text-zinc-400 mb-2 block">Nombre</label>
@@ -88,10 +88,10 @@ const ProfileForm = ({ value, onChange, services, saving, actionLabel, onSubmit 
       </section>
 
       <section>
-        <h3 className="text-sm font-medium text-white mb-3">Disponibilidad</h3>
+        <h3 className="text-sm font-medium text-[var(--app-text-primary)] mb-3">Disponibilidad</h3>
         <div className="flex flex-wrap gap-2 mb-4">
           {DAYS.map((day) => (
-            <button key={day.value} type="button" onClick={() => toggleDay(day.value)} className={`px-3 py-2 rounded-lg border text-sm transition-all ${(value.available_days || []).includes(day.value) ? 'bg-[#0A84FF]/20 border-[#0A84FF]/50 text-[#5EB1FF]' : 'bg-white/5 border-white/10 text-zinc-400 hover:bg-white/10'}`}>
+            <button key={day.value} type="button" onClick={() => toggleDay(day.value)} className={`px-3 py-2 rounded-lg border text-sm transition-all ${(value.available_days || []).includes(day.value) ? 'bg-[#0A84FF]/20 border-[#0A84FF]/50 text-[#5EB1FF]' : 'bg-white/5 border-[var(--app-border)] text-zinc-400 hover:bg-white/10'}`}>
               {day.label}
             </button>
           ))}
@@ -109,13 +109,13 @@ const ProfileForm = ({ value, onChange, services, saving, actionLabel, onSubmit 
       </section>
 
       <section>
-        <h3 className="text-sm font-medium text-white mb-3">Servicios que presta</h3>
+        <h3 className="text-sm font-medium text-[var(--app-text-primary)] mb-3">Servicios que presta</h3>
         {services.length === 0 ? (
-          <p className="text-sm text-zinc-500 rounded-xl border border-white/10 bg-white/3 p-4">No hay servicios creados en esta barbería.</p>
+          <p className="text-sm text-zinc-500 rounded-xl border border-[var(--app-border)] bg-white/3 p-4">No hay servicios creados en esta barbería.</p>
         ) : (
           <div className="grid sm:grid-cols-2 gap-2">
             {services.map((service) => (
-              <label key={service.service_id} className="flex items-center gap-3 rounded-xl border border-white/10 bg-white/3 p-3 text-sm text-zinc-300 cursor-pointer hover:bg-white/5">
+              <label key={service.service_id} className="flex items-center gap-3 rounded-xl border border-[var(--app-border)] bg-white/3 p-3 text-sm text-zinc-300 cursor-pointer hover:bg-white/5">
                 <input type="checkbox" checked={(value.service_ids || []).includes(service.service_id)} onChange={() => toggleService(service.service_id)} className="accent-[#0A84FF]" />
                 <span>{service.name}</span>
               </label>
@@ -124,12 +124,12 @@ const ProfileForm = ({ value, onChange, services, saving, actionLabel, onSubmit 
         )}
       </section>
 
-      <label className="flex items-center justify-between rounded-xl border border-white/10 bg-white/3 p-4">
-        <span><span className="block text-sm text-white">Perfil activo</span><span className="block text-xs text-zinc-500 mt-1">Los perfiles inactivos no aparecen para nuevas reservas.</span></span>
+      <label className="flex items-center justify-between rounded-xl border border-[var(--app-border)] bg-white/3 p-4">
+        <span><span className="block text-sm text-[var(--app-text-primary)]">Perfil activo</span><span className="block text-xs text-zinc-500 mt-1">Los perfiles inactivos no aparecen para nuevas reservas.</span></span>
         <input type="checkbox" checked={value.active !== false} onChange={(event) => setField('active', event.target.checked)} className="h-5 w-5 accent-[#0A84FF]" />
       </label>
 
-      <button type="button" onClick={onSubmit} disabled={saving} className="w-full px-6 py-3 bg-[#0A84FF] hover:bg-[#0071E3] text-white rounded-xl font-medium transition-all disabled:opacity-50">
+      <button type="button" onClick={onSubmit} disabled={saving} className="w-full px-6 py-3 bg-[#0A84FF] hover:bg-[#0071E3] text-[var(--app-text-primary)] rounded-xl font-medium transition-all disabled:opacity-50">
         {saving ? 'Guardando...' : actionLabel}
       </button>
     </div>
@@ -340,20 +340,20 @@ const ManagerBarbers = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-[#000000] flex items-center justify-center">
-        <div className="text-white text-lg">Cargando...</div>
+      <div className="min-h-screen nexus-screen flex items-center justify-center">
+        <div className="text-[var(--app-text-primary)] text-lg">Cargando...</div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-[#000000] p-6">
+    <div className="min-h-screen nexus-screen p-6">
       <div className="max-w-6xl mx-auto">
         <div className="flex flex-wrap items-center gap-3 mb-8">
           <div className="flex items-center gap-4 mr-auto min-w-0">
             <button
               onClick={() => navigate(organizationId && user?.role === 'owner' ? `/manager/dashboard?org_id=${organizationId}` : '/manager/dashboard')}
-              className="p-2 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 transition-all text-white"
+              className="p-2 rounded-xl bg-white/5 border border-[var(--app-border)] hover:bg-white/10 transition-all text-[var(--app-text-primary)]"
             >
               <ArrowLeft size={20} strokeWidth={1.5} />
             </button>
@@ -362,7 +362,7 @@ const ManagerBarbers = () => {
                 <Users size={24} strokeWidth={1.5} />
               </div>
               <div>
-                <h1 className="text-4xl font-light tracking-tight text-white" style={{ fontFamily: 'Outfit, sans-serif' }}>
+                <h1 className="text-4xl font-light tracking-tight text-[var(--app-text-primary)]" style={{ fontFamily: 'Outfit, sans-serif' }}>
                   Barberos
                 </h1>
                 {organizationName ? (
@@ -387,13 +387,13 @@ const ManagerBarbers = () => {
           {/* Create Dialog */}
           <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
             <DialogTrigger asChild>
-              <button data-testid={MANAGER.addBarberBtn} className="flex items-center gap-2 px-6 py-3 bg-[#0A84FF] hover:bg-[#0071E3] text-white rounded-xl font-medium transition-all hover:-translate-y-1 active:scale-95">
+              <button data-testid={MANAGER.addBarberBtn} className="flex items-center gap-2 px-6 py-3 bg-[#0A84FF] hover:bg-[#0071E3] text-[var(--app-text-primary)] rounded-xl font-medium transition-all hover:-translate-y-1 active:scale-95">
                 <Plus size={20} strokeWidth={1.5} />
                 Crear manualmente
               </button>
             </DialogTrigger>
-            <DialogContent className="bg-[#0A0A0A] border-white/10 max-w-3xl max-h-[90vh] overflow-y-auto">
-              <DialogHeader><DialogTitle className="text-white">Crear perfil profesional</DialogTitle></DialogHeader>
+            <DialogContent className="bg-[var(--app-surface-elevated)] border-[var(--app-border)] max-w-3xl max-h-[90vh] overflow-y-auto">
+              <DialogHeader><DialogTitle className="text-[var(--app-text-primary)]">Crear perfil profesional</DialogTitle></DialogHeader>
               <ProfileForm value={newBarber} onChange={setNewBarber} services={services} saving={saving} actionLabel="Crear Barbero" onSubmit={handleCreate} />
             </DialogContent>
           </Dialog>
@@ -401,17 +401,17 @@ const ManagerBarbers = () => {
 
         {/* Edit Dialog */}
         <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-          <DialogContent className="bg-[#0A0A0A] border-white/10 max-w-3xl max-h-[90vh] overflow-y-auto">
-            <DialogHeader><DialogTitle className="text-white">Editar perfil profesional</DialogTitle></DialogHeader>
+          <DialogContent className="bg-[var(--app-surface-elevated)] border-[var(--app-border)] max-w-3xl max-h-[90vh] overflow-y-auto">
+            <DialogHeader><DialogTitle className="text-[var(--app-text-primary)]">Editar perfil profesional</DialogTitle></DialogHeader>
             {editingBarber && <ProfileForm value={editingBarber} onChange={setEditingBarber} services={services} saving={saving} actionLabel="Guardar Cambios" onSubmit={handleUpdate} />}
           </DialogContent>
         </Dialog>
 
         {/* Blocked Times Dialog */}
         <Dialog open={isBlockDialogOpen} onOpenChange={setIsBlockDialogOpen}>
-          <DialogContent className="bg-[#0A0A0A] border-white/10 max-w-2xl max-h-[80vh] overflow-y-auto">
+          <DialogContent className="bg-[var(--app-surface-elevated)] border-[var(--app-border)] max-w-2xl max-h-[80vh] overflow-y-auto">
             <DialogHeader>
-              <DialogTitle className="text-white flex items-center gap-2">
+              <DialogTitle className="text-[var(--app-text-primary)] flex items-center gap-2">
                 <Clock size={24} strokeWidth={1.5} className="text-[#0A84FF]" />
                 Gestionar Horarios - {selectedBarberForBlock?.name}
               </DialogTitle>
@@ -419,8 +419,8 @@ const ManagerBarbers = () => {
             
             <div className="space-y-6 mt-4">
               {/* Create Block Form */}
-              <div className="bg-white/3 border border-white/10 rounded-xl p-4">
-                <h4 className="text-white font-medium mb-4">Bloquear Nuevo Horario</h4>
+              <div className="bg-white/3 border border-[var(--app-border)] rounded-xl p-4">
+                <h4 className="text-[var(--app-text-primary)] font-medium mb-4">Bloquear Nuevo Horario</h4>
                 <div className="space-y-3">
                   <div>
                     <label className="text-sm text-zinc-400 mb-2 block">Fecha</label>
@@ -429,7 +429,7 @@ const ManagerBarbers = () => {
                       min={getMinDate()}
                       value={newBlock.date}
                       onChange={(e) => setNewBlock({ ...newBlock, date: e.target.value })}
-                      className="w-full px-4 py-3 bg-transparent border border-white/20 rounded-xl text-white focus:border-[#0A84FF] focus:ring-1 focus:ring-[#0A84FF] outline-none"
+                      className="w-full px-4 py-3 bg-transparent border border-[var(--app-border)] rounded-xl text-[var(--app-text-primary)] focus:border-[#0A84FF] focus:ring-1 focus:ring-[#0A84FF] outline-none"
                     />
                   </div>
                   <div className="grid grid-cols-2 gap-3">
@@ -439,7 +439,7 @@ const ManagerBarbers = () => {
                         type="time"
                         value={newBlock.start_time}
                         onChange={(e) => setNewBlock({ ...newBlock, start_time: e.target.value })}
-                        className="w-full px-4 py-3 bg-transparent border border-white/20 rounded-xl text-white focus:border-[#0A84FF] focus:ring-1 focus:ring-[#0A84FF] outline-none"
+                        className="w-full px-4 py-3 bg-transparent border border-[var(--app-border)] rounded-xl text-[var(--app-text-primary)] focus:border-[#0A84FF] focus:ring-1 focus:ring-[#0A84FF] outline-none"
                       />
                     </div>
                     <div>
@@ -448,7 +448,7 @@ const ManagerBarbers = () => {
                         type="time"
                         value={newBlock.end_time}
                         onChange={(e) => setNewBlock({ ...newBlock, end_time: e.target.value })}
-                        className="w-full px-4 py-3 bg-transparent border border-white/20 rounded-xl text-white focus:border-[#0A84FF] focus:ring-1 focus:ring-[#0A84FF] outline-none"
+                        className="w-full px-4 py-3 bg-transparent border border-[var(--app-border)] rounded-xl text-[var(--app-text-primary)] focus:border-[#0A84FF] focus:ring-1 focus:ring-[#0A84FF] outline-none"
                       />
                     </div>
                   </div>
@@ -458,13 +458,13 @@ const ManagerBarbers = () => {
                       type="text"
                       value={newBlock.reason}
                       onChange={(e) => setNewBlock({ ...newBlock, reason: e.target.value })}
-                      className="w-full px-4 py-3 bg-transparent border border-white/20 rounded-xl text-white focus:border-[#0A84FF] focus:ring-1 focus:ring-[#0A84FF] outline-none"
+                      className="w-full px-4 py-3 bg-transparent border border-[var(--app-border)] rounded-xl text-[var(--app-text-primary)] focus:border-[#0A84FF] focus:ring-1 focus:ring-[#0A84FF] outline-none"
                       placeholder="Ej: Almuerzo, Cita personal"
                     />
                   </div>
                   <button
                     onClick={handleCreateBlock}
-                    className="w-full px-4 py-3 bg-[#0A84FF] hover:bg-[#0071E3] text-white rounded-xl font-medium transition-all"
+                    className="w-full px-4 py-3 bg-[#0A84FF] hover:bg-[#0071E3] text-[var(--app-text-primary)] rounded-xl font-medium transition-all"
                   >
                     Bloquear Horario
                   </button>
@@ -473,9 +473,9 @@ const ManagerBarbers = () => {
 
               {/* Blocked Times List */}
               <div>
-                <h4 className="text-white font-medium mb-4">Horarios Bloqueados</h4>
+                <h4 className="text-[var(--app-text-primary)] font-medium mb-4">Horarios Bloqueados</h4>
                 {blockedTimes.length === 0 ? (
-                  <div className="bg-white/3 border border-white/10 rounded-xl p-8 text-center">
+                  <div className="bg-white/3 border border-[var(--app-border)] rounded-xl p-8 text-center">
                     <Calendar size={32} strokeWidth={1.5} className="text-zinc-600 mx-auto mb-3" />
                     <p className="text-zinc-400 text-sm">No hay horarios bloqueados</p>
                   </div>
@@ -484,12 +484,12 @@ const ManagerBarbers = () => {
                     {blockedTimes.map((block) => (
                       <div
                         key={block.block_id}
-                        className="bg-white/3 border border-white/10 rounded-xl p-4 flex items-center justify-between hover:bg-white/5 transition-all"
+                        className="bg-white/3 border border-[var(--app-border)] rounded-xl p-4 flex items-center justify-between hover:bg-white/5 transition-all"
                       >
                         <div className="flex-1">
                           <div className="flex items-center gap-3 mb-2">
                             <Calendar size={16} strokeWidth={1.5} className="text-[#0A84FF]" />
-                            <span className="text-white font-medium">{block.date}</span>
+                            <span className="text-[var(--app-text-primary)] font-medium">{block.date}</span>
                           </div>
                           <div className="flex items-center gap-3 text-sm text-zinc-400">
                             <Clock size={14} strokeWidth={1.5} />
@@ -518,12 +518,12 @@ const ManagerBarbers = () => {
             const displayName = barber.display_name || barber.name || 'Barbero';
             const selectedServices = services.filter((service) => (barber.service_ids || []).includes(service.service_id));
             return (
-              <div key={barber.barber_id} data-testid={MANAGER.barberCard} className={`backdrop-blur-xl border rounded-2xl p-6 transition-all group ${barber.active === false ? 'bg-zinc-900/40 border-zinc-700/50 opacity-75' : 'bg-white/3 border-white/10 hover:bg-white/6'}`}>
+              <div key={barber.barber_id} data-testid={MANAGER.barberCard} className={`backdrop-blur-xl border rounded-2xl p-6 transition-all group ${barber.active === false ? 'bg-zinc-900/40 border-zinc-700/50 opacity-75' : 'bg-white/3 border-[var(--app-border)] hover:bg-white/6'}`}>
                 <div className="flex items-start justify-between mb-4">
                   {barber.avatar ? (
-                    <img src={barber.avatar} alt="" className="w-16 h-16 rounded-full object-cover border border-white/10" />
+                    <img src={barber.avatar} alt="" className="w-16 h-16 rounded-full object-cover border border-[var(--app-border)]" />
                   ) : (
-                    <div className="w-16 h-16 rounded-full bg-[#0A84FF] flex items-center justify-center text-white text-xl font-medium">{displayName.charAt(0).toUpperCase()}</div>
+                    <div className="w-16 h-16 rounded-full bg-[#0A84FF] flex items-center justify-center text-[var(--app-text-primary)] text-xl font-medium">{displayName.charAt(0).toUpperCase()}</div>
                   )}
                   <div className="flex items-center gap-2">
                     <button onClick={() => handleEdit(barber)} className="p-2 rounded-lg bg-white/5 hover:bg-[#0A84FF]/20 text-zinc-400 hover:text-[#0A84FF] transition-all" title="Editar perfil"><Edit2 size={18} strokeWidth={1.5} /></button>
@@ -531,7 +531,7 @@ const ManagerBarbers = () => {
                   </div>
                 </div>
                 <div className="flex items-center gap-2 mb-2">
-                  <h3 className="text-white font-medium text-lg">{displayName}</h3>
+                  <h3 className="text-[var(--app-text-primary)] font-medium text-lg">{displayName}</h3>
                   <span className={`px-2 py-1 rounded-full text-[11px] ${barber.active === false ? 'bg-zinc-500/20 text-zinc-400' : 'bg-emerald-500/15 text-emerald-400'}`}>{barber.active === false ? 'Inactivo' : 'Activo'}</span>
                 </div>
                 {barber.phone && <p className="text-sm text-zinc-400 mb-2">{barber.phone}</p>}
@@ -541,7 +541,7 @@ const ManagerBarbers = () => {
                   {DAYS.filter((day) => (barber.available_days || [1, 2, 3, 4, 5]).includes(day.value)).map((day) => <span key={day.value} className="px-2 py-1 rounded-md bg-white/5 text-xs text-zinc-400">{day.label}</span>)}
                 </div>
                 {selectedServices.length > 0 && <div className="flex flex-wrap gap-1.5 mb-4">{selectedServices.map((service) => <span key={service.service_id} className="px-2 py-1 rounded-md bg-purple-500/10 text-xs text-purple-300">{service.name}</span>)}</div>}
-                <button onClick={() => handleManageBlocks(barber)} disabled={barber.active === false} className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl text-zinc-300 hover:text-white transition-all text-sm disabled:opacity-40 disabled:cursor-not-allowed">
+                <button onClick={() => handleManageBlocks(barber)} disabled={barber.active === false} className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-white/5 hover:bg-white/10 border border-[var(--app-border)] rounded-xl text-zinc-300 hover:text-[var(--app-text-primary)] transition-all text-sm disabled:opacity-40 disabled:cursor-not-allowed">
                   <Clock size={16} strokeWidth={1.5} /> Gestionar Horarios
                 </button>
               </div>
@@ -550,7 +550,7 @@ const ManagerBarbers = () => {
         </div>
 
         {barbers.length === 0 && (
-          <div className="backdrop-blur-xl bg-white/3 border border-white/10 rounded-2xl p-12 text-center">
+          <div className="backdrop-blur-xl bg-white/3 border border-[var(--app-border)] rounded-2xl p-12 text-center">
             <Users size={48} strokeWidth={1.5} className="text-zinc-600 mx-auto mb-4" />
             <p className="text-zinc-400 mb-4">No hay barberos registrados</p>
             <p className="text-zinc-500 text-sm">Agrega tu primer barbero para comenzar</p>

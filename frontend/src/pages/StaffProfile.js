@@ -117,10 +117,10 @@ const StaffProfile = () => {
   };
 
   if (loading || !profile) {
-    return <div className="min-h-screen nexus-screen flex items-center justify-center text-white">Cargando perfil...</div>;
+    return <div className="min-h-screen nexus-screen flex items-center justify-center text-[var(--app-text-primary)]">Cargando perfil...</div>;
   }
 
-  const inputClass = 'w-full px-4 py-3 bg-transparent border border-white/20 rounded-xl text-white placeholder-zinc-600 focus:border-[#0A84FF] focus:ring-1 focus:ring-[#0A84FF] outline-none';
+  const inputClass = 'w-full px-4 py-3 bg-transparent border border-[var(--app-border)] rounded-xl text-[var(--app-text-primary)] placeholder-zinc-600 focus:border-[#0A84FF] focus:ring-1 focus:ring-[#0A84FF] outline-none';
   const displayName = profile.display_name || 'Profesional';
 
   return (

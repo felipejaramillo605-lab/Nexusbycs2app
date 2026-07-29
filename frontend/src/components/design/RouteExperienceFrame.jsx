@@ -1,12 +1,6 @@
 import React from 'react';
 import { useLocation, useSearchParams } from 'react-router-dom';
 import { AdminShell } from './AdminShell';
-
-export function RouteExperienceFrame({children}){
- const location=useLocation();const [sp]=useSearchParams();
- const admin=location.pathname.startsWith('/manager/')||location.pathname.startsWith('/owner/');
- const publicExperience=location.pathname.startsWith('/book/')||location.pathname.startsWith('/portal/');
- if(admin)return <AdminShell organizationName="Nexus" organizationId={sp.get('org_id')}>{children}</AdminShell>;
- if(publicExperience)return <div className="nexus-public-experience"><div className="nexus-public-orb nexus-public-orb-one"/><div className="nexus-public-orb nexus-public-orb-two"/><div className="nexus-public-content">{children}</div></div>;
- return children;
-}
+import { StaffNav } from './StaffNav';
+const routeNames={'/owner/access-control':'Control de accesos','/manager/appointments':'Agenda','/manager/clients':'Clientes','/manager/services':'Servicios','/manager/barbers':'Equipo','/manager/revenue':'Ingresos','/manager/settlements':'Liquidaciones','/manager/inventory':'Inventario','/manager/marketing':'Marketing','/manager/business-profile':'Perfil del negocio','/manager/settings':'Configuración','/manager/dashboard':'Nexus'};
+export function RouteExperienceFrame({children}){const location=useLocation();const [sp]=useSearchParams();const admin=location.pathname.startsWith('/manager/')||location.pathname.startsWith('/owner/');const staff=location.pathname.startsWith('/staff/');const booking=location.pathname.startsWith('/book/');const portal=location.pathname.startsWith('/portal/');if(admin){const routeClass='nexus-route-'+location.pathname.replace(/^\//,'').replaceAll('/','-');return <AdminShell organizationName={routeNames[location.pathname]||'Nexus'} organizationId={sp.get('org_id')}><div className={`nexus-admin-route ${routeClass}`}>{children}</div></AdminShell>}if(staff)return <div className="nexus-staff-experience"><StaffNav/><main className="nexus-staff-content">{children}</main></div>;if(booking||portal){const kind=booking?'booking':'portal';return <div className={`nexus-public-experience nexus-public-${kind}`}><div className="nexus-public-orb nexus-public-orb-one"/><div className="nexus-public-orb nexus-public-orb-two"/><header className="nexus-public-brand"><span>N</span><div><strong>Nexus</strong><small>{booking?'Reserva en línea':'Portal del cliente'}</small></div></header><div className="nexus-public-content">{children}</div><footer className="nexus-public-footer">Reserva y administra tus citas de forma segura</footer></div>}return children}

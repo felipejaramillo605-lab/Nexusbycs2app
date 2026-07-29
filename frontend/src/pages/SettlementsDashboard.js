@@ -23,6 +23,8 @@ export default function SettlementsDashboard() {
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState('');
   const [selected, setSelected] = useState(null);
+  const [workflow, setWorkflow] = useState(null);
+  const [form, setForm] = useState({ payment_method: 'transfer', payment_reference: '', reason: '' });
 
   // NEXUS_STAFF_SETTLEMENTS_COMPLETION_V1
   const load = useCallback(async () => {
@@ -52,15 +54,15 @@ export default function SettlementsDashboard() {
 
   const createSettlement = (row) => action(`create-${row.barber_id}`, () => settlementAPI.create({ barber_id: row.barber_id, period_start: period.period_start, period_end: period.period_end, notes: 'Liquidación creada desde el módulo administrativo' }, { organization_id: organizationId }), 'Liquidación creada en borrador');
   const approve = (item) => action(`approve-${item.settlement_id}`, () => settlementWorkflowAPI.approve(item.settlement_id), 'Liquidación aprobada');
-  const pay = (item) => {
-    const reference = window.prompt('Referencia del pago', `QA-${item.settlement_id}`);
-    if (reference === null) return;
-    action(`pay-${item.settlement_id}`, () => settlementWorkflowAPI.pay(item.settlement_id, { payment_method: 'transfer', payment_reference: reference }), 'Pago registrado');
-  };
-  const cancel = (item) => {
-    const reason = window.prompt('Motivo de cancelación');
-    if (!reason) return;
-    action(`cancel-${item.settlement_id}`, () => settlementWorkflowAPI.cancel(item.settlement_id, { reason }), 'Liquidación cancelada y transacciones liberadas');
+  const pay = (item) => { setForm({ payment_method: 'transfer', payment_reference: '', reason: '' }); setWorkflow({ type: 'pay', item }); };
+  const cancel = (item) => { setForm({ payment_method: 'transfer', payment_reference: '', reason: '' }); setWorkflow({ type: 'cancel', item }); };
+  const submitWorkflow = async () => {
+    if (!workflow) return;
+    if (workflow.type === 'pay' && !form.payment_reference.trim()) return toast.error('Ingresa una referencia de pago');
+    if (workflow.type === 'cancel' && !form.reason.trim()) return toast.error('Ingresa el motivo de cancelación');
+    const item = workflow.item;
+    await action(`${workflow.type}-${item.settlement_id}`, () => workflow.type === 'pay' ? settlementWorkflowAPI.pay(item.settlement_id, { payment_method: form.payment_method, payment_reference: form.payment_reference.trim() }) : settlementWorkflowAPI.cancel(item.settlement_id, { reason: form.reason.trim() }), workflow.type === 'pay' ? 'Pago registrado' : 'Liquidación cancelada y transacciones liberadas');
+    setWorkflow(null);
   };
   const details = async (item) => {
     setBusy(`detail-${item.settlement_id}`);
@@ -80,5 +82,7 @@ export default function SettlementsDashboard() {
       </>}
     </main>
     {selected && <div className="fixed inset-0 z-50 bg-[var(--app-overlay)] p-4 flex items-center justify-center"><div className="w-full max-w-2xl max-h-[90vh] overflow-y-auto bg-[var(--app-surface-elevated)] border border-[var(--app-border)] rounded-2xl p-6"><button onClick={() => setSelected(null)} className="float-right">Cerrar</button><h2 className="text-xl mb-4">Detalle de liquidación</h2><div className="grid grid-cols-2 gap-2 text-sm mb-5">{[['Profesional',selected.staff_name_snapshot],['Estado',STATUS[selected.status]],['Comisiones',money(selected.commission_amount)],['Propinas',money(selected.tip_amount)],['Total',money(selected.total_amount)],['Referencia',selected.payment_reference || 'Sin referencia']].map(([a,b]) => <React.Fragment key={a}><span className="text-[var(--app-text-muted)]">{a}</span><span className="text-right">{b}</span></React.Fragment>)}</div><h3 className="font-medium mb-2">Transacciones incluidas</h3>{(selected.transactions||[]).map(tx => <div key={tx.transaction_id} className="py-3 border-t border-[var(--app-border)] flex justify-between gap-3"><span>{tx.service_name_snapshot} · {tx.transaction_id}</span><span>{money(tx.staff_total_amount)}</span></div>)}</div></div>}
+
+    {workflow && <div className="nexus-confirm-layer"><button className="nexus-account-overlay" onClick={() => !busy && setWorkflow(null)} aria-label="Cerrar"/><section><h2>{workflow.type === 'pay' ? 'Registrar pago' : 'Cancelar liquidación'}</h2><p>{workflow.item.staff_name_snapshot} · {money(workflow.item.total_amount)}</p>{workflow.type === 'pay' ? <><label>Método<select className="nexus-field" value={form.payment_method} onChange={e => setForm({...form,payment_method:e.target.value})}><option value="transfer">Transferencia</option><option value="cash">Efectivo</option><option value="card">Tarjeta</option><option value="other">Otro</option></select></label><label>Referencia<input className="nexus-field" value={form.payment_reference} onChange={e => setForm({...form,payment_reference:e.target.value})}/></label></> : <label>Motivo<textarea className="nexus-field" value={form.reason} onChange={e => setForm({...form,reason:e.target.value})}/></label>}<div className="nexus-account-actions"><button className="nexus-action-button nexus-action-secondary" onClick={() => setWorkflow(null)}>Cerrar</button><button className={`nexus-action-button ${workflow.type==='cancel'?'nexus-action-destructive':'nexus-action-primary'}`} onClick={submitWorkflow}>Confirmar</button></div></section></div>}
   </div>;
 }

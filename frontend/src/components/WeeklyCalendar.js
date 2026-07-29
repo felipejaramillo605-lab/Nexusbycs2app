@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { ChevronLeft, ChevronRight, Calendar, User, Clock, DollarSign } from 'lucide-react';
 import { appointmentAPI, barberAPI } from '../api';
 import { toast } from 'sonner';
@@ -11,12 +11,12 @@ const WeeklyCalendar = ({ organizationId }) => {
   const [blockedTimes, setBlockedTimes] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  // Generate week dates
-  const weekDates = Array.from({ length: 7 }, (_, i) => {
+  // Generate stable week dates
+  const weekDates = useMemo(() => Array.from({ length: 7 }, (_, i) => {
     const date = new Date(currentWeekStart);
     date.setDate(date.getDate() + i);
     return date;
-  });
+  }), [currentWeekStart]);
 
   // Generate time slots (8 AM to 8 PM)
   const timeSlots = Array.from({ length: 24 }, (_, i) => {
@@ -24,11 +24,7 @@ const WeeklyCalendar = ({ organizationId }) => {
     return `${hour.toString().padStart(2, '0')}:00`;
   });
 
-  useEffect(() => {
-    loadData();
-  }, [currentWeekStart, organizationId, selectedBarber]);
-
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
     try {
       setLoading(true);
       
@@ -69,7 +65,9 @@ const WeeklyCalendar = ({ organizationId }) => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [organizationId, selectedBarber, weekDates]);
+
+  useEffect(() => { loadData(); }, [loadData]);
 
   const goToPreviousWeek = () => {
     const newDate = new Date(currentWeekStart);

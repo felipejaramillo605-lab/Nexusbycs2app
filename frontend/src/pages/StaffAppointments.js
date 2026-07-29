@@ -63,7 +63,7 @@ const StaffAppointments = () => {
     <div className="min-h-screen nexus-screen text-[var(--app-text-primary)]">
       <header className="sticky top-0 z-40 nexus-topbar backdrop-blur-xl border-b border-[var(--app-border)]">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 py-4 flex flex-wrap items-center gap-3">
-          <button type="button" onClick={() => navigate('/staff/profile')} className="flex items-center gap-2 text-[var(--app-text-secondary)] hover:text-white"><ArrowLeft size={20} /> Mi perfil</button>
+          <button type="button" onClick={() => navigate('/staff/profile')} className="flex items-center gap-2 text-[var(--app-text-secondary)] hover:text-[var(--app-text-primary)]"><ArrowLeft size={20} /> Mi perfil</button>
           <div className="mr-auto" />
           <button type="button" onClick={() => navigate('/staff/income')} className="flex items-center gap-2 px-3 py-2 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400"><WalletCards size={18} /> Mis ingresos</button>
           <div className="text-right w-full sm:w-auto sm:ml-3"><h1 className="text-xl sm:text-2xl font-medium">Mis citas</h1><p className="text-xs text-[var(--app-text-muted)]">Agenda profesional propia</p></div>
@@ -75,7 +75,7 @@ const StaffAppointments = () => {
           {[['today', 'Hoy'], ['upcoming', 'Próximas'], ['history', 'Historial']].map(([value, label]) => (
             <button key={value} type="button" onClick={() => setView(value)} className={`px-4 py-2 rounded-xl border ${view === value ? 'bg-[#0A84FF]/20 border-[#0A84FF]/50 text-[#5EB1FF]' : 'nexus-panel border-[var(--app-border)] text-[var(--app-text-secondary)]'}`}>{label}</button>
           ))}
-          <select value={status} onChange={(event) => setStatus(event.target.value)} className="ml-auto px-4 py-2 rounded-xl bg-[var(--app-surface-solid)] border border-[var(--app-border)] text-white">
+          <select value={status} onChange={(event) => setStatus(event.target.value)} className="ml-auto px-4 py-2 rounded-xl bg-[var(--app-surface-solid)] border border-[var(--app-border)] text-[var(--app-text-primary)]">
             <option value="">Todos los estados</option>
             <option value="confirmed">Confirmadas</option>
             <option value="completed">Completadas</option>
@@ -104,8 +104,8 @@ const StaffAppointments = () => {
                     <div className="flex flex-wrap items-center gap-2"><h3 className="font-medium text-lg">{item.service_name}</h3><span className={`px-2 py-1 rounded-lg border text-xs ${STATUS_CLASSES[item.status] || 'nexus-panel border-[var(--app-border)] text-zinc-300'}`}>{STATUS_LABELS[item.status] || item.status}</span></div>
                     <p className="text-zinc-300 flex items-center gap-2"><CalendarDays size={16} className="text-[#0A84FF]" /> {item.date} · {item.time} · {item.service_duration} min</p>
                     <p className="text-zinc-300 flex items-center gap-2"><UserRound size={16} className="text-purple-300" /> {item.client_name || 'Cliente'}</p>
-                    {item.client_phone && <a href={`tel:${item.client_phone}`} className="text-sm text-[var(--app-text-secondary)] hover:text-white flex items-center gap-2"><Phone size={15} /> {item.client_phone}</a>}
-                    {item.client_email && <a href={`mailto:${item.client_email}`} className="text-sm text-[var(--app-text-secondary)] hover:text-white flex items-center gap-2 break-all"><Mail size={15} /> {item.client_email}</a>}
+                    {item.client_phone && <a href={`tel:${item.client_phone}`} className="text-sm text-[var(--app-text-secondary)] hover:text-[var(--app-text-primary)] flex items-center gap-2"><Phone size={15} /> {item.client_phone}</a>}
+                    {item.client_email && <a href={`mailto:${item.client_email}`} className="text-sm text-[var(--app-text-secondary)] hover:text-[var(--app-text-primary)] flex items-center gap-2 break-all"><Mail size={15} /> {item.client_email}</a>}
                   </div>
                   <div className="text-left md:text-right text-xs text-[var(--app-text-muted)]"><p>ID: {item.appointment_id}</p>{item.transaction_id && <p className="mt-1 text-emerald-400">Cobro registrado</p>}</div>
                 </div>

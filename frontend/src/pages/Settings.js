@@ -306,27 +306,27 @@ const Settings = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-[#000000] flex items-center justify-center">
+      <div className="min-h-screen nexus-screen flex items-center justify-center">
         <Loader2 size={48} className="text-[#0A84FF] animate-spin" />
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-[#000000]">
+    <div className="min-h-screen nexus-screen">
       {/* Navigation Bar */}
-      <nav className="backdrop-blur-xl bg-white/3 border-b border-white/10 sticky top-0 z-50">
+      <nav className="backdrop-blur-xl bg-white/3 border-b border-[var(--app-border)] sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 py-3 sm:py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
               <button
                 onClick={() => navigate(organizationId && user?.role === 'owner' ? `/manager/dashboard?org_id=${organizationId}` : '/manager/dashboard')}
-                className="flex items-center gap-2 text-zinc-400 hover:text-white transition-colors"
+                className="flex items-center gap-2 text-zinc-400 hover:text-[var(--app-text-primary)] transition-colors"
               >
                 <ArrowLeft size={20} strokeWidth={1.5} />
                 <span className="hidden sm:inline">Volver</span>
               </button>
-              <h1 className="text-xl sm:text-2xl font-light tracking-tight text-white" style={{ fontFamily: 'Outfit, sans-serif' }}>
+              <h1 className="text-xl sm:text-2xl font-light tracking-tight text-[var(--app-text-primary)]" style={{ fontFamily: 'Outfit, sans-serif' }}>
                 Configuración
               </h1>
             </div>
@@ -338,13 +338,13 @@ const Settings = () => {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           
           {/* CARD 1 - Perfil del Local */}
-          <div className="backdrop-blur-xl bg-white/3 border border-white/10 rounded-2xl p-6">
+          <div className="backdrop-blur-xl bg-white/3 border border-[var(--app-border)] rounded-2xl p-6">
             <div className="flex items-center gap-3 mb-6">
               <div className="w-10 h-10 rounded-xl bg-[#0A84FF]/20 flex items-center justify-center">
                 <Building size={20} strokeWidth={1.5} className="text-[#0A84FF]" />
               </div>
               <div>
-                <h2 className="text-lg font-medium text-white">Perfil del Local</h2>
+                <h2 className="text-lg font-medium text-[var(--app-text-primary)]">Perfil del Local</h2>
                 <p className="text-sm text-zinc-400">Información visible para los clientes</p>
               </div>
             </div>
@@ -359,7 +359,7 @@ const Settings = () => {
                   value={profileData.name}
                   onChange={(e) => setProfileData({ ...profileData, name: e.target.value })}
                   placeholder="Barbería Premium"
-                  className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-zinc-500 focus:border-[#0A84FF] focus:ring-2 focus:ring-[#0A84FF]/20 outline-none transition-all"
+                  className="w-full px-4 py-3 bg-white/5 border border-[var(--app-border)] rounded-xl text-[var(--app-text-primary)] placeholder-zinc-500 focus:border-[#0A84FF] focus:ring-2 focus:ring-[#0A84FF]/20 outline-none transition-all"
                   minLength={1}
                   maxLength={200}
                 />
@@ -377,7 +377,7 @@ const Settings = () => {
                   value={profileData.phone}
                   onChange={(e) => setProfileData({ ...profileData, phone: e.target.value })}
                   placeholder="+57 300 123 4567"
-                  className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-zinc-500 focus:border-[#0A84FF] focus:ring-2 focus:ring-[#0A84FF]/20 outline-none transition-all"
+                  className="w-full px-4 py-3 bg-white/5 border border-[var(--app-border)] rounded-xl text-[var(--app-text-primary)] placeholder-zinc-500 focus:border-[#0A84FF] focus:ring-2 focus:ring-[#0A84FF]/20 outline-none transition-all"
                 />
                 <p className="text-xs text-zinc-500 mt-1">
                   Acepta cualquier formato: +57 300 123 4567, (300) 123-4567, etc.
@@ -393,14 +393,14 @@ const Settings = () => {
                   onChange={(e) => setProfileData({ ...profileData, address: e.target.value })}
                   placeholder="Calle 123 #45-67, Bogotá"
                   rows={3}
-                  className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-zinc-500 focus:border-[#0A84FF] focus:ring-2 focus:ring-[#0A84FF]/20 outline-none transition-all resize-none"
+                  className="w-full px-4 py-3 bg-white/5 border border-[var(--app-border)] rounded-xl text-[var(--app-text-primary)] placeholder-zinc-500 focus:border-[#0A84FF] focus:ring-2 focus:ring-[#0A84FF]/20 outline-none transition-all resize-none"
                 />
               </div>
 
               <button
                 type="submit"
                 disabled={saving}
-                className="w-full py-3 rounded-xl bg-[#0A84FF] hover:bg-[#0071E3] text-white font-medium transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                className="w-full py-3 rounded-xl bg-[#0A84FF] hover:bg-[#0071E3] text-[var(--app-text-primary)] font-medium transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
               >
                 {saving ? (
                   <>
@@ -418,20 +418,20 @@ const Settings = () => {
           </div>
 
           {/* CARD 2 - Gestión de Equipo */}
-          <div className="backdrop-blur-xl bg-white/3 border border-white/10 rounded-2xl p-6">
+          <div className="backdrop-blur-xl bg-white/3 border border-[var(--app-border)] rounded-2xl p-6">
             <div className="flex items-center gap-3 mb-6">
               <div className="w-10 h-10 rounded-xl bg-purple-500/20 flex items-center justify-center">
                 <Users size={20} strokeWidth={1.5} className="text-purple-400" />
               </div>
               <div>
-                <h2 className="text-lg font-medium text-white">Gestión de Equipo</h2>
+                <h2 className="text-lg font-medium text-[var(--app-text-primary)]">Gestión de Equipo</h2>
                 <p className="text-sm text-zinc-400">Administra roles y permisos</p>
               </div>
             </div>
 
             {/* Invite Section */}
-            <div className="mb-6 p-4 bg-white/5 rounded-xl border border-white/10">
-              <h3 className="text-sm font-medium text-white mb-3">Invitar Miembro</h3>
+            <div className="mb-6 p-4 bg-white/5 rounded-xl border border-[var(--app-border)]">
+              <h3 className="text-sm font-medium text-[var(--app-text-primary)] mb-3">Invitar Miembro</h3>
               
               <div className="space-y-3">
                 <div>
@@ -440,7 +440,7 @@ const Settings = () => {
                     value={inviteEmail}
                     onChange={(e) => setInviteEmail(e.target.value)}
                     placeholder="correo@ejemplo.com"
-                    className="w-full px-4 py-2 bg-white/5 border border-white/10 rounded-lg text-white placeholder-zinc-500 focus:border-[#0A84FF] focus:ring-2 focus:ring-[#0A84FF]/20 outline-none transition-all text-sm"
+                    className="w-full px-4 py-2 bg-white/5 border border-[var(--app-border)] rounded-lg text-[var(--app-text-primary)] placeholder-zinc-500 focus:border-[#0A84FF] focus:ring-2 focus:ring-[#0A84FF]/20 outline-none transition-all text-sm"
                   />
                 </div>
 
@@ -448,7 +448,7 @@ const Settings = () => {
                   <select
                     value={inviteRole}
                     onChange={(e) => setInviteRole(e.target.value)}
-                    className="flex-1 px-4 py-2 bg-white/5 border border-white/10 rounded-lg text-white focus:border-[#0A84FF] focus:ring-2 focus:ring-[#0A84FF]/20 outline-none transition-all text-sm"
+                    className="flex-1 px-4 py-2 bg-white/5 border border-[var(--app-border)] rounded-lg text-[var(--app-text-primary)] focus:border-[#0A84FF] focus:ring-2 focus:ring-[#0A84FF]/20 outline-none transition-all text-sm"
                   >
                     {user?.role === 'owner' && <option value="manager">Manager</option>}
                     {user?.role === 'owner' && <option value="admin">Admin (Acceso completo)</option>}
@@ -458,7 +458,7 @@ const Settings = () => {
                   <button
                     onClick={handleInviteMember}
                     disabled={inviting}
-                    className="px-4 py-2 rounded-lg bg-[#0A84FF] hover:bg-[#0071E3] text-white font-medium transition-all text-sm flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="px-4 py-2 rounded-lg bg-[#0A84FF] hover:bg-[#0071E3] text-[var(--app-text-primary)] font-medium transition-all text-sm flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     {inviting ? <Loader2 size={16} className="animate-spin" /> : <Mail size={16} strokeWidth={1.5} />}
                     {inviting ? 'Enviando...' : 'Invitar'}
@@ -473,7 +473,7 @@ const Settings = () => {
             <div className="mb-6">
               <h3 className="text-sm font-medium text-zinc-400 mb-3">Invitaciones ({invitations.length})</h3>
               {invitations.length === 0 ? (
-                <div className="text-center py-5 text-zinc-500 text-sm border border-dashed border-white/10 rounded-xl">
+                <div className="text-center py-5 text-zinc-500 text-sm border border-dashed border-[var(--app-border)] rounded-xl">
                   No hay invitaciones registradas
                 </div>
               ) : (
@@ -496,10 +496,10 @@ const Settings = () => {
                       expired: 'Vencida'
                     };
                     return (
-                      <div key={invitation.invitation_id} className="p-3 bg-white/5 border border-white/10 rounded-xl">
+                      <div key={invitation.invitation_id} className="p-3 bg-white/5 border border-[var(--app-border)] rounded-xl">
                         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                           <div className="min-w-0">
-                            <p className="text-white text-sm font-medium truncate">{invitation.email}</p>
+                            <p className="text-[var(--app-text-primary)] text-sm font-medium truncate">{invitation.email}</p>
                             <p className="text-zinc-500 text-xs mt-1">
                               {invitation.role} · {new Date(invitation.expires_at).toLocaleDateString()}
                             </p>
@@ -548,14 +548,14 @@ const Settings = () => {
                   {teamMembers.map((member) => (
                     <div
                       key={member.user_id}
-                      className="flex items-center justify-between p-3 bg-white/5 border border-white/10 rounded-lg hover:bg-white/10 transition-all"
+                      className="flex items-center justify-between p-3 bg-white/5 border border-[var(--app-border)] rounded-lg hover:bg-white/10 transition-all"
                     >
                       <div className="flex items-center gap-3 flex-1 min-w-0">
-                        <div className="w-8 h-8 rounded-full bg-[#0A84FF] flex items-center justify-center text-white text-sm font-medium flex-shrink-0">
+                        <div className="w-8 h-8 rounded-full bg-[#0A84FF] flex items-center justify-center text-[var(--app-text-primary)] text-sm font-medium flex-shrink-0">
                           {member.name.charAt(0).toUpperCase()}
                         </div>
                         <div className="flex-1 min-w-0">
-                          <div className="text-white text-sm font-medium truncate">{member.name}</div>
+                          <div className="text-[var(--app-text-primary)] text-sm font-medium truncate">{member.name}</div>
                           <div className="text-zinc-400 text-xs truncate">{member.email}</div>
                         </div>
                       </div>
@@ -573,7 +573,7 @@ const Settings = () => {
                               <select
                                 value={member.role}
                                 onChange={(e) => handleChangeRole(member.user_id, e.target.value)}
-                                className="px-3 py-1 bg-white/5 border border-white/10 rounded-lg text-white text-xs focus:border-[#0A84FF] outline-none"
+                                className="px-3 py-1 bg-white/5 border border-[var(--app-border)] rounded-lg text-[var(--app-text-primary)] text-xs focus:border-[#0A84FF] outline-none"
                               >
                                 {user?.role === 'owner' && <option value="admin">Admin</option>}
                                 {user?.role === 'owner' && <option value="manager">Manager</option>}
@@ -601,18 +601,18 @@ const Settings = () => {
           </div>
 
           {/* NEXUS_COMMISSION_FOUNDATION_V1 */}
-          <div className="lg:col-span-2 backdrop-blur-xl bg-white/3 border border-white/10 rounded-2xl p-6">
-            <div className="flex items-center gap-3 mb-6"><Percent className="text-emerald-400" /><div><h2 className="text-lg font-medium text-white">Comisiones del equipo</h2><p className="text-sm text-zinc-400">Regla general y excepciones por profesional</p></div></div>
+          <div className="lg:col-span-2 backdrop-blur-xl bg-white/3 border border-[var(--app-border)] rounded-2xl p-6">
+            <div className="flex items-center gap-3 mb-6"><Percent className="text-emerald-400" /><div><h2 className="text-lg font-medium text-[var(--app-text-primary)]">Comisiones del equipo</h2><p className="text-sm text-zinc-400">Regla general y excepciones por profesional</p></div></div>
             {commissionLoading ? <div className="py-10 flex justify-center"><Loader2 className="animate-spin text-[#0A84FF]" /></div> : <div className="space-y-5">
-              <div className="grid md:grid-cols-2 gap-4 rounded-xl border border-white/10 bg-white/5 p-4">
-                <label className="text-sm text-zinc-400">Porcentaje Staff<input type="number" min="0" max="100" step="0.01" value={commissionSettings.default_staff_percent} onChange={(e) => changeDefaultStaff(e.target.value)} className="mt-2 w-full px-4 py-3 bg-black/30 border border-white/10 rounded-xl text-white" /></label>
-                <label className="text-sm text-zinc-400">Porcentaje negocio<input readOnly value={commissionSettings.default_business_percent} className="mt-2 w-full px-4 py-3 bg-black/20 border border-white/10 rounded-xl text-zinc-300" /></label>
-                <div className="md:col-span-2 flex flex-wrap justify-between gap-3"><p className="text-xs text-zinc-500">Base neta después de descuentos. Propina completa para el profesional.</p><button type="button" onClick={saveCommissionSettings} disabled={commissionSaving} className="px-5 py-2.5 rounded-xl bg-[#0A84FF] text-white disabled:opacity-50">Guardar regla general</button></div>
+              <div className="grid md:grid-cols-2 gap-4 rounded-xl border border-[var(--app-border)] bg-white/5 p-4">
+                <label className="text-sm text-zinc-400">Porcentaje Staff<input type="number" min="0" max="100" step="0.01" value={commissionSettings.default_staff_percent} onChange={(e) => changeDefaultStaff(e.target.value)} className="mt-2 w-full px-4 py-3 bg-black/30 border border-[var(--app-border)] rounded-xl text-[var(--app-text-primary)]" /></label>
+                <label className="text-sm text-zinc-400">Porcentaje negocio<input readOnly value={commissionSettings.default_business_percent} className="mt-2 w-full px-4 py-3 bg-black/20 border border-[var(--app-border)] rounded-xl text-zinc-300" /></label>
+                <div className="md:col-span-2 flex flex-wrap justify-between gap-3"><p className="text-xs text-zinc-500">Base neta después de descuentos. Propina completa para el profesional.</p><button type="button" onClick={saveCommissionSettings} disabled={commissionSaving} className="px-5 py-2.5 rounded-xl bg-[#0A84FF] text-[var(--app-text-primary)] disabled:opacity-50">Guardar regla general</button></div>
               </div>
-              <div className="space-y-3">{staffCommissions.map((item) => <div key={item.barber_id} className="rounded-xl border border-white/10 bg-white/5 p-4 flex flex-col md:flex-row md:items-center justify-between gap-4"><div><p className="text-white font-medium">{item.name} <span className="text-xs text-zinc-400">{item.source === 'override' ? 'Personalizada' : 'Predeterminada'}</span></p><p className="text-sm text-zinc-400">Staff {item.staff_percent}% · Negocio {item.business_percent}%</p>{item.reason && <p className="text-xs text-zinc-500">Motivo: {item.reason}</p>}</div><div className="flex gap-2"><button type="button" onClick={() => editStaffCommission(item)} className="px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-zinc-300"><Pencil size={15} className="inline mr-1" />Personalizar</button>{item.source === 'override' && <button type="button" onClick={() => resetStaffCommission(item)} disabled={commissionAction === item.barber_id} className="px-3 py-2 rounded-lg bg-amber-500/10 text-amber-300"><RotateCcw size={15} className="inline mr-1" />Restablecer</button>}</div></div>)}</div>
+              <div className="space-y-3">{staffCommissions.map((item) => <div key={item.barber_id} className="rounded-xl border border-[var(--app-border)] bg-white/5 p-4 flex flex-col md:flex-row md:items-center justify-between gap-4"><div><p className="text-[var(--app-text-primary)] font-medium">{item.name} <span className="text-xs text-zinc-400">{item.source === 'override' ? 'Personalizada' : 'Predeterminada'}</span></p><p className="text-sm text-zinc-400">Staff {item.staff_percent}% · Negocio {item.business_percent}%</p>{item.reason && <p className="text-xs text-zinc-500">Motivo: {item.reason}</p>}</div><div className="flex gap-2"><button type="button" onClick={() => editStaffCommission(item)} className="px-3 py-2 rounded-lg bg-white/5 border border-[var(--app-border)] text-zinc-300"><Pencil size={15} className="inline mr-1" />Personalizar</button>{item.source === 'override' && <button type="button" onClick={() => resetStaffCommission(item)} disabled={commissionAction === item.barber_id} className="px-3 py-2 rounded-lg bg-amber-500/10 text-amber-300"><RotateCcw size={15} className="inline mr-1" />Restablecer</button>}</div></div>)}</div>
             </div>}
           </div>
-          {editingCommission && <div className="fixed inset-0 z-[100] bg-black/80 flex items-center justify-center p-4"><div className="w-full max-w-lg rounded-2xl border border-white/10 bg-[#101010] p-6"><h3 className="text-xl text-white">Comisión de {editingCommission.name}</h3><div className="grid sm:grid-cols-2 gap-4 mt-5"><label className="text-sm text-zinc-400">Staff<input type="number" min="0" max="100" step="0.01" value={editingCommission.staff_percent} onChange={(e) => changeOverrideStaff(e.target.value)} className="mt-2 w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white" /></label><label className="text-sm text-zinc-400">Negocio<input readOnly value={editingCommission.business_percent} className="mt-2 w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-zinc-300" /></label></div><label className="block text-sm text-zinc-400 mt-4">Motivo<textarea rows={3} value={editingCommission.reason} onChange={(e) => setEditingCommission({ ...editingCommission, reason: e.target.value })} className="mt-2 w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white" /></label><div className="flex justify-end gap-3 mt-5"><button type="button" onClick={() => setEditingCommission(null)} className="px-4 py-2 text-zinc-300">Cancelar</button><button type="button" onClick={saveStaffCommission} className="px-4 py-2 rounded-xl bg-[#0A84FF] text-white">Guardar</button></div></div></div>}
+          {editingCommission && <div className="fixed inset-0 z-[100] bg-[var(--app-overlay)] flex items-center justify-center p-4"><div className="w-full max-w-lg rounded-2xl border border-[var(--app-border)] bg-[#101010] p-6"><h3 className="text-xl text-[var(--app-text-primary)]">Comisión de {editingCommission.name}</h3><div className="grid sm:grid-cols-2 gap-4 mt-5"><label className="text-sm text-zinc-400">Staff<input type="number" min="0" max="100" step="0.01" value={editingCommission.staff_percent} onChange={(e) => changeOverrideStaff(e.target.value)} className="mt-2 w-full px-4 py-3 bg-white/5 border border-[var(--app-border)] rounded-xl text-[var(--app-text-primary)]" /></label><label className="text-sm text-zinc-400">Negocio<input readOnly value={editingCommission.business_percent} className="mt-2 w-full px-4 py-3 bg-white/5 border border-[var(--app-border)] rounded-xl text-zinc-300" /></label></div><label className="block text-sm text-zinc-400 mt-4">Motivo<textarea rows={3} value={editingCommission.reason} onChange={(e) => setEditingCommission({ ...editingCommission, reason: e.target.value })} className="mt-2 w-full px-4 py-3 bg-white/5 border border-[var(--app-border)] rounded-xl text-[var(--app-text-primary)]" /></label><div className="flex justify-end gap-3 mt-5"><button type="button" onClick={() => setEditingCommission(null)} className="px-4 py-2 text-zinc-300">Cancelar</button><button type="button" onClick={saveStaffCommission} className="px-4 py-2 rounded-xl bg-[#0A84FF] text-[var(--app-text-primary)]">Guardar</button></div></div></div>}
         </div>
       </div>
     </div>

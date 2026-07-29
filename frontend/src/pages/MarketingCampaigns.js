@@ -164,27 +164,27 @@ const MarketingCampaigns = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-[#000000] flex items-center justify-center">
-        <div className="text-white text-lg">Cargando clientes...</div>
+      <div className="min-h-screen nexus-screen flex items-center justify-center">
+        <div className="text-[var(--app-text-primary)] text-lg">Cargando clientes...</div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-[#000000]">
+    <div className="min-h-screen nexus-screen">
       {/* Navigation Bar */}
-      <nav className="backdrop-blur-xl bg-white/3 border-b border-white/10 sticky top-0 z-50">
+      <nav className="backdrop-blur-xl bg-white/3 border-b border-[var(--app-border)] sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 py-3 sm:py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
               <button
                 onClick={() => navigate(organizationId && user?.role === 'owner' ? `/manager/dashboard?org_id=${organizationId}` : '/manager/dashboard')}
-                className="flex items-center gap-2 text-zinc-400 hover:text-white transition-colors"
+                className="flex items-center gap-2 text-zinc-400 hover:text-[var(--app-text-primary)] transition-colors"
               >
                 <ArrowLeft size={20} strokeWidth={1.5} />
                 <span className="hidden sm:inline">Volver</span>
               </button>
-              <h1 className="text-xl sm:text-2xl font-light tracking-tight text-white" style={{ fontFamily: 'Outfit, sans-serif' }}>
+              <h1 className="text-xl sm:text-2xl font-light tracking-tight text-[var(--app-text-primary)]" style={{ fontFamily: 'Outfit, sans-serif' }}>
                 Campañas de Marketing
                 {organizationName && <span className="text-zinc-400 text-base ml-2">· {organizationName}</span>}
               </h1>
@@ -203,14 +203,14 @@ const MarketingCampaigns = () => {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 py-8">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* Left Panel - Client Selection */}
-          <div className="backdrop-blur-xl bg-white/3 border border-white/10 rounded-2xl p-6">
+          <div className="backdrop-blur-xl bg-white/3 border border-[var(--app-border)] rounded-2xl p-6">
             <div className="flex items-center justify-between mb-6">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-xl bg-[#0A84FF]/20 flex items-center justify-center">
                   <Users size={20} strokeWidth={1.5} className="text-[#0A84FF]" />
                 </div>
                 <div>
-                  <h2 className="text-lg font-medium text-white">Seleccionar Clientes</h2>
+                  <h2 className="text-lg font-medium text-[var(--app-text-primary)]">Seleccionar Clientes</h2>
                   <p className="text-sm text-zinc-400">
                     {selectedClients.length} de {clients.length} seleccionados
                   </p>
@@ -219,7 +219,7 @@ const MarketingCampaigns = () => {
               
               <button
                 onClick={handleSelectAll}
-                className="flex items-center gap-2 px-3 py-2 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 text-white transition-all text-sm"
+                className="flex items-center gap-2 px-3 py-2 rounded-lg bg-white/5 hover:bg-white/10 border border-[var(--app-border)] text-[var(--app-text-primary)] transition-all text-sm"
               >
                 <CheckSquare size={16} strokeWidth={1.5} />
                 {selectedClients.length === clients.length ? 'Desmarcar' : 'Seleccionar'} Todo
@@ -236,16 +236,16 @@ const MarketingCampaigns = () => {
                 {clients.map((client) => (
                   <label
                     key={client.client_id}
-                    className="flex items-center gap-3 p-3 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 cursor-pointer transition-all"
+                    className="flex items-center gap-3 p-3 rounded-xl bg-white/5 border border-[var(--app-border)] hover:bg-white/10 cursor-pointer transition-all"
                   >
                     <input
                       type="checkbox"
                       checked={selectedClients.includes(client.client_id)}
                       onChange={() => handleToggleClient(client.client_id)}
-                      className="w-5 h-5 rounded border-white/20 bg-white/5 text-[#0A84FF] focus:ring-2 focus:ring-[#0A84FF]/20"
+                      className="w-5 h-5 rounded border-[var(--app-border)] bg-white/5 text-[#0A84FF] focus:ring-2 focus:ring-[#0A84FF]/20"
                     />
                     <div className="flex-1">
-                      <div className="text-white font-medium">{client.name}</div>
+                      <div className="text-[var(--app-text-primary)] font-medium">{client.name}</div>
                       <div className="text-sm text-zinc-400">{client.phone}</div>
                     </div>
                     <div className="flex items-center gap-2">
@@ -259,13 +259,13 @@ const MarketingCampaigns = () => {
           </div>
 
           {/* Right Panel - Message Composer */}
-          <div className="backdrop-blur-xl bg-white/3 border border-white/10 rounded-2xl p-6">
+          <div className="backdrop-blur-xl bg-white/3 border border-[var(--app-border)] rounded-2xl p-6">
             <div className="flex items-center gap-3 mb-6">
               <div className="w-10 h-10 rounded-xl bg-green-500/20 flex items-center justify-center">
                 <MessageSquare size={20} strokeWidth={1.5} className="text-green-400" />
               </div>
               <div>
-                <h2 className="text-lg font-medium text-white">Componer Mensaje</h2>
+                <h2 className="text-lg font-medium text-[var(--app-text-primary)]">Componer Mensaje</h2>
                 <p className="text-sm text-zinc-400">Selecciona una plantilla o escribe tu mensaje</p>
               </div>
             </div>
@@ -280,8 +280,8 @@ const MarketingCampaigns = () => {
                   onClick={() => setSelectedTemplate(MESSAGE_TEMPLATES.APPOINTMENT_REMINDER)}
                   className={`p-4 rounded-xl border transition-all text-left ${
                     selectedTemplate === MESSAGE_TEMPLATES.APPOINTMENT_REMINDER
-                      ? 'bg-[#0A84FF]/20 border-[#0A84FF] text-white'
-                      : 'bg-white/5 border-white/10 text-zinc-400 hover:bg-white/10'
+                      ? 'bg-[#0A84FF]/20 border-[#0A84FF] text-[var(--app-text-primary)]'
+                      : 'bg-white/5 border-[var(--app-border)] text-zinc-400 hover:bg-white/10'
                   }`}
                 >
                   <div className="font-medium mb-1">🔔 Recordatorio</div>
@@ -292,8 +292,8 @@ const MarketingCampaigns = () => {
                   onClick={() => setSelectedTemplate(MESSAGE_TEMPLATES.REACTIVATION)}
                   className={`p-4 rounded-xl border transition-all text-left ${
                     selectedTemplate === MESSAGE_TEMPLATES.REACTIVATION
-                      ? 'bg-[#0A84FF]/20 border-[#0A84FF] text-white'
-                      : 'bg-white/5 border-white/10 text-zinc-400 hover:bg-white/10'
+                      ? 'bg-[#0A84FF]/20 border-[#0A84FF] text-[var(--app-text-primary)]'
+                      : 'bg-white/5 border-[var(--app-border)] text-zinc-400 hover:bg-white/10'
                   }`}
                 >
                   <div className="font-medium mb-1">👋 Reactivación</div>
@@ -304,8 +304,8 @@ const MarketingCampaigns = () => {
                   onClick={() => setSelectedTemplate(MESSAGE_TEMPLATES.PROMOTION)}
                   className={`p-4 rounded-xl border transition-all text-left ${
                     selectedTemplate === MESSAGE_TEMPLATES.PROMOTION
-                      ? 'bg-[#0A84FF]/20 border-[#0A84FF] text-white'
-                      : 'bg-white/5 border-white/10 text-zinc-400 hover:bg-white/10'
+                      ? 'bg-[#0A84FF]/20 border-[#0A84FF] text-[var(--app-text-primary)]'
+                      : 'bg-white/5 border-[var(--app-border)] text-zinc-400 hover:bg-white/10'
                   }`}
                 >
                   <div className="font-medium mb-1">🎉 Promoción</div>
@@ -319,7 +319,7 @@ const MarketingCampaigns = () => {
               <label className="block text-sm font-medium text-zinc-400 mb-3">
                 Vista previa del mensaje
               </label>
-              <div className="bg-white/5 border border-white/10 rounded-xl p-4 min-h-[120px]">
+              <div className="bg-white/5 border border-[var(--app-border)] rounded-xl p-4 min-h-[120px]">
                 <pre className="text-zinc-300 text-sm whitespace-pre-wrap font-sans">
                   {getMessagePreview()}
                 </pre>
@@ -341,7 +341,7 @@ const MarketingCampaigns = () => {
                 value={customMessage}
                 onChange={(e) => setCustomMessage(e.target.value)}
                 placeholder="Escribe un mensaje personalizado o usa la plantilla..."
-                className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-zinc-500 focus:border-[#0A84FF] focus:ring-2 focus:ring-[#0A84FF]/20 outline-none transition-all resize-none"
+                className="w-full px-4 py-3 bg-white/5 border border-[var(--app-border)] rounded-xl text-[var(--app-text-primary)] placeholder-zinc-500 focus:border-[#0A84FF] focus:ring-2 focus:ring-[#0A84FF]/20 outline-none transition-all resize-none"
                 rows={6}
               />
             </div>
@@ -350,7 +350,7 @@ const MarketingCampaigns = () => {
             <button
               onClick={handleSendCampaign}
               disabled={sending || selectedClients.length === 0}
-              className="w-full py-3 rounded-xl bg-green-500 hover:bg-green-600 text-white font-medium transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+              className="w-full py-3 rounded-xl bg-green-500 hover:bg-green-600 text-[var(--app-text-primary)] font-medium transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
             >
               {sending ? (
                 <>
