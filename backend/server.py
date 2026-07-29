@@ -4021,6 +4021,10 @@ async def create_application_indexes():
     # NEXUS_STAFF_APPOINTMENTS_BACKEND_V1
     await db.appointments.create_index([("organization_id", 1), ("barber_id", 1), ("date", 1), ("time", 1)])
     await db.appointments.create_index([("organization_id", 1), ("barber_id", 1), ("status", 1), ("date", 1)])
+    # NEXUS_HARDENING_3C_V1
+    await db.booking_locks.create_index(
+        "expires_at", expireAfterSeconds=0, name="booking_locks_ttl"
+    )
     # NEXUS_STAFF_SETTLEMENTS_FOUNDATION_V1
     await db.staff_settlements.create_index("settlement_id", unique=True)
     await db.staff_settlements.create_index([("organization_id", 1), ("status", 1), ("created_at", -1)])
