@@ -6,6 +6,7 @@ import { Plus, Trash2, ArrowLeft, Users, Edit2, Clock, Calendar, Mail } from 'lu
 import { MANAGER } from '../constants/testIds';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '../components/ui/dialog';
 import { toast } from 'sonner';
+import { confirmAction } from '../components/design';
 
 const DAYS = [
   { value: 1, label: 'Lun' },
@@ -289,7 +290,7 @@ const ManagerBarbers = () => {
   };
 
   const handleDelete = async (id) => {
-    if (!window.confirm('¿Desactivar este barbero? Dejará de aparecer para nuevas reservas, pero se conservarán sus citas y su historial.')) return;
+    if (!await confirmAction('¿Desactivar este barbero? Dejará de aparecer para nuevas reservas, pero se conservarán sus citas y su historial.')) return;
     try {
       await barberAPI.delete(id);
       await loadBarbers();

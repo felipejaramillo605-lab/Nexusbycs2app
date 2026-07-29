@@ -4,6 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import { useOrganization } from '../context/OrganizationContext';
 import { ArrowLeft, Save, Building, Users, Mail, UserCog, Trash2, Loader2, Check, Percent, RotateCcw, Pencil } from 'lucide-react';
 import { toast } from 'sonner';
+import { confirmAction } from '../components/design';
 import { teamAPI, commissionAPI } from '../api';
 
 const Settings = () => {
@@ -224,7 +225,7 @@ const Settings = () => {
   };
 
   const handleRevokeInvitation = async (invitationId) => {
-    if (!window.confirm('¿Deseas revocar esta invitación?')) return;
+    if (!await confirmAction('¿Deseas revocar esta invitación?')) return;
     setInvitationAction(invitationId);
     try {
       await teamAPI.revokeInvitation(invitationId);
@@ -254,7 +255,7 @@ const Settings = () => {
   };
 
   const handleDeleteMember = async (userId) => {
-    if (!window.confirm('¿Deseas desactivar este miembro? El historial se conservará.')) return;
+    if (!await confirmAction('¿Deseas desactivar este miembro? El historial se conservará.')) return;
     try {
       await teamAPI.deactivateMember(userId, organizationId);
       setTeamMembers((members) => members.filter((member) => member.user_id !== userId));
@@ -287,7 +288,7 @@ const Settings = () => {
     finally { setCommissionAction(null); }
   };
   const resetStaffCommission = async (item) => {
-    if (!window.confirm(`¿Restablecer la comisión de ${item.name}?`)) return;
+    if (!await confirmAction(`¿Restablecer la comisión de ${item.name}?`)) return;
     setCommissionAction(item.barber_id);
     try { await commissionAPI.resetStaff(item.barber_id, organizationId); await loadCommissions(); toast.success('Comisión restablecida'); }
     catch (error) { toast.error(error.response?.data?.detail || 'No fue posible restablecer la comisión'); }

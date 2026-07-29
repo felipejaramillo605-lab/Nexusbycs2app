@@ -14,3 +14,4 @@ export { ResponsiveDataView } from './ResponsiveDataView';
 export { SegmentedControl } from './SegmentedControl';
 export { StaffNav } from './StaffNav';
 export { RouteExperienceFrame } from './RouteExperienceFrame';
+export { ConfirmDialogHost, confirmAction } from './ConfirmDialogHost';

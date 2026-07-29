@@ -6,6 +6,7 @@ import { Plus, Trash2, ArrowLeft, Package, AlertCircle, FileText, Edit } from 'l
 import { MANAGER } from '../constants/testIds';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '../components/ui/dialog';
 import { toast } from 'sonner';
+import { confirmAction } from '../components/design';
 
 const ManagerInventory = () => {
   const navigate = useNavigate();
@@ -94,7 +95,7 @@ const ManagerInventory = () => {
   };
 
   const handleDelete = async (id) => {
-    if (!window.confirm('¿Eliminar este producto?')) return;
+    if (!await confirmAction('¿Eliminar este producto?')) return;
     try {
       await inventoryAPI.delete(id);
       loadInventory();

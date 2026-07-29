@@ -350,7 +350,7 @@ const MarketingCampaigns = () => {
             <button
               onClick={handleSendCampaign}
               disabled={sending || selectedClients.length === 0}
-              className="w-full py-3 rounded-xl bg-green-500 hover:bg-green-600 text-[var(--app-text-primary)] font-medium transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+              className="w-full py-3 rounded-xl bg-[#0A84FF] hover:bg-[#0071E3] text-[var(--app-text-primary)] font-medium transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
             >
               {sending ? (
                 <>

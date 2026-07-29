@@ -6,6 +6,7 @@ import { Plus, Trash2, ArrowLeft, Scissors, Edit2 } from 'lucide-react';
 import { MANAGER } from '../constants/testIds';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '../components/ui/dialog';
 import { toast } from 'sonner';
+import { confirmAction } from '../components/design';
 
 const ManagerServices = () => {
   const navigate = useNavigate();
@@ -94,7 +95,7 @@ const ManagerServices = () => {
   };
 
   const handleDelete = async (id) => {
-    if (!window.confirm('¿Eliminar este servicio?')) return;
+    if (!await confirmAction('¿Eliminar este servicio?')) return;
     try {
       await serviceAPI.delete(id);
       loadServices();
