@@ -69,6 +69,11 @@ def main():
  check('OWNER_ROUTE_REQUIRES_AUTH',status in {401,403},error or str(status))
  status,_,error=request(API+'/staff/income/summary')
  check('STAFF_ROUTE_REQUIRES_AUTH',status in {401,403},error or str(status))
+ # NEXUS_OWNER_ACCOUNT_HARDENING_V1
+ check('OWNER_ACCOUNT_HARDENING',all(x in server for x in [
+  '_protect_owner_and_organization_administration','_owner_account_audit',
+  '_ALLOWED_OWNER_ACCESS_STATES','owner_admin_anonymization','"password_hash": 0','UserRoleUpdate',
+ ]))
  # NEXUS_SESSION_LIFECYCLE_V1
  check('SESSION_LIFECYCLE',all(x in server for x in [
   '_migrate_user_session_dates_and_indexes',

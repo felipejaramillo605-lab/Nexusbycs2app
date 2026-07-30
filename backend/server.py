@@ -310,6 +310,9 @@ class InventoryCreate(BaseModel):
 class UserAccessUpdate(BaseModel):
     access_status: str
 
+class UserRoleUpdate(BaseModel):
+    role: str
+
 class RegisterRequest(BaseModel):
     email: str
     password: str
@@ -1233,68 +1236,112 @@ async def delete_staff_commission(barber_id: str, organization_id: Optional[str]
 # ==================== END COMMISSION FOUNDATION ====================
 
 # Owner Endpoints
+# NEXUS_OWNER_ACCOUNT_HARDENING_V1
+_ENABLED_ACCOUNT_FILTER = {"access_status": "approved", "active": {"$ne": False}, "deleted_at": {"$exists": False}}
+_ALLOWED_OWNER_ACCESS_STATES = {"pending", "approved", "rejected", "denied"}
+_ALLOWED_USER_ROLES = {"owner", "manager", "admin", "staff"}
+
+
+def _is_enabled_account(user: dict) -> bool:
+    return bool(user and user.get("access_status") == "approved" and user.get("active") is not False and not user.get("deleted_at"))
+
+
+def _is_enabled_administrator(user: dict) -> bool:
+    return _is_enabled_account(user) and user.get("role") in {"owner", "manager", "admin"}
+
+
+async def _protect_owner_and_organization_administration(target: dict, *, next_role=None, next_access=None, deleting=False):
+    if not target:
+        raise HTTPException(status_code=404, detail="User not found")
+    remains_enabled = not deleting and (next_access or target.get("access_status")) == "approved"
+    remains_owner = remains_enabled and (next_role or target.get("role")) == "owner"
+    if target.get("role") == "owner" and _is_enabled_account(target) and not remains_owner:
+        enabled_owners = await db.users.count_documents({"role": "owner", **_ENABLED_ACCOUNT_FILTER})
+        if enabled_owners <= 1:
+            raise HTTPException(status_code=409, detail="The last enabled Owner cannot be removed, blocked, or downgraded")
+    organization_id = target.get("organization_id")
+    remains_admin = remains_enabled and (next_role or target.get("role")) in {"owner", "manager", "admin"}
+    if organization_id and _is_enabled_administrator(target) and not remains_admin:
+        enabled_admins = await db.users.count_documents({"organization_id": organization_id, "role": {"$in": ["owner", "manager", "admin"]}, **_ENABLED_ACCOUNT_FILTER})
+        if enabled_admins <= 1:
+            raise HTTPException(status_code=409, detail="The organization must retain at least one enabled administrator")
+
+
+async def _owner_account_audit(event_type: str, target: dict, actor: User, previous: dict, new_value: dict):
+    await db.audit_events.insert_one({"audit_id": f"audit_{uuid.uuid4().hex[:12]}", "organization_id": target.get("organization_id"), "event_type": event_type, "entity_type": "user_account", "entity_id": target.get("user_id"), "actor_user_id": actor.user_id, "previous_value": previous, "new_value": new_value, "created_at": datetime.now(timezone.utc).isoformat()})
+
+
 @api_router.get("/owner/users")
 async def get_all_users(authorization: Optional[str] = Header(None), session_token: Optional[str] = Cookie(None)):
     current_user = await get_current_user(authorization, session_token)
     if current_user.role != "owner":
         raise HTTPException(status_code=403, detail="Access denied")
-    
-    users = await db.users.find({}, {"_id": 0}).to_list(1000)
+    projection = {"_id": 0, "password_hash": 0, "session_token": 0, "token": 0, "token_hash": 0, "reset_token": 0, "secret": 0}
+    users = await db.users.find({}, projection).to_list(1000)
     for user in users:
-        if isinstance(user["created_at"], str):
+        if isinstance(user.get("created_at"), str):
             user["created_at"] = datetime.fromisoformat(user["created_at"])
     return users
+
 
 @api_router.put("/owner/users/{user_id}/access")
 async def update_user_access(user_id: str, data: UserAccessUpdate, authorization: Optional[str] = Header(None), session_token: Optional[str] = Cookie(None)):
     current_user = await get_current_user(authorization, session_token)
     if current_user.role != "owner":
         raise HTTPException(status_code=403, detail="Access denied")
-    
-    result = await db.users.update_one(
-        {"user_id": user_id},
-        {"$set": {"access_status": data.access_status}}
-    )
-    
-    if result.matched_count == 0:
+    if data.access_status not in _ALLOWED_OWNER_ACCESS_STATES:
+        raise HTTPException(status_code=400, detail="Invalid access status")
+    target = await db.users.find_one({"user_id": user_id}, {"_id": 0})
+    if not target:
         raise HTTPException(status_code=404, detail="User not found")
-    
-    return {"message": "Access updated"}
+    if user_id == current_user.user_id and data.access_status != "approved":
+        raise HTTPException(status_code=409, detail="Use account deletion to remove your own account")
+    await _protect_owner_and_organization_administration(target, next_access=data.access_status)
+    previous={"access_status":target.get("access_status")}
+    await db.users.update_one({"user_id":user_id},{"$set":{"access_status":data.access_status}})
+    await db.user_sessions.delete_many({"user_id":user_id})
+    await _owner_account_audit("user_access_updated",target,current_user,previous,{"access_status":data.access_status})
+    return {"message":"Access updated"}
+
 
 @api_router.delete("/owner/users/{user_id}")
 async def delete_user(user_id: str, authorization: Optional[str] = Header(None), session_token: Optional[str] = Cookie(None)):
-    current_user = await get_current_user(authorization, session_token)
+    current_user=await get_current_user(authorization,session_token)
     if current_user.role != "owner":
-        raise HTTPException(status_code=403, detail="Access denied")
-    
-    await db.users.delete_one({"user_id": user_id})
-    await db.user_sessions.delete_many({"user_id": user_id})
-    return {"message": "User deleted"}
+        raise HTTPException(status_code=403,detail="Access denied")
+    if user_id == current_user.user_id:
+        raise HTTPException(status_code=409,detail="Use account deletion to remove your own account")
+    target=await db.users.find_one({"user_id":user_id},{"_id":0})
+    if not target:
+        raise HTTPException(status_code=404,detail="User not found")
+    await _protect_owner_and_organization_administration(target,deleting=True)
+    now=datetime.now(timezone.utc).isoformat()
+    anonymous_email=f"deleted+{user_id}@nexus.invalid"
+    await db.user_sessions.delete_many({"user_id":user_id})
+    await db.barbers.update_many({"user_id":user_id},{"$set":{"active":False,"deleted_at":now,"updated_at":now},"$unset":{"user_id":""}})
+    await db.users.update_one({"user_id":user_id},{"$set":{"email":anonymous_email,"name":"Cuenta eliminada","first_name":None,"last_name":None,"phone":None,"address":None,"picture":None,"password_hash":None,"access_status":"deleted","active":False,"deleted_at":now,"deletion_kind":"owner_admin_anonymization"}})
+    await _owner_account_audit("user_admin_deleted",target,current_user,{"role":target.get("role"),"access_status":target.get("access_status")},{"access_status":"deleted"})
+    return {"message":"User anonymized and access revoked"}
+
 
 @api_router.put("/owner/users/{user_id}/role")
-async def update_user_role(
-    user_id: str, 
-    role: str,
-    authorization: Optional[str] = Header(None), 
-    session_token: Optional[str] = Cookie(None)
-):
-    """Update user role (owner/admin only)"""
-    current_user = await get_current_user(authorization, session_token)
-    if current_user.role not in ["owner", "admin"]:
-        raise HTTPException(status_code=403, detail="Access denied")
-    
-    if role not in ["owner", "manager", "admin", "staff"]:
-        raise HTTPException(status_code=400, detail="Invalid role")
-    
-    result = await db.users.update_one(
-        {"user_id": user_id},
-        {"$set": {"role": role}}
-    )
-    
-    if result.matched_count == 0:
-        raise HTTPException(status_code=404, detail="User not found")
-    
-    return {"message": f"User role updated to {role}"}
+async def update_user_role(user_id: str, data: UserRoleUpdate, authorization: Optional[str] = Header(None), session_token: Optional[str] = Cookie(None)):
+    current_user=await get_current_user(authorization,session_token)
+    if current_user.role != "owner":
+        raise HTTPException(status_code=403,detail="Access denied")
+    if data.role not in _ALLOWED_USER_ROLES:
+        raise HTTPException(status_code=400,detail="Invalid role")
+    target=await db.users.find_one({"user_id":user_id},{"_id":0})
+    if not target:
+        raise HTTPException(status_code=404,detail="User not found")
+    if user_id == current_user.user_id and data.role != "owner":
+        raise HTTPException(status_code=409,detail="Transfer ownership before changing your own role")
+    await _protect_owner_and_organization_administration(target,next_role=data.role)
+    previous={"role":target.get("role")}
+    await db.users.update_one({"user_id":user_id},{"$set":{"role":data.role}})
+    await db.user_sessions.delete_many({"user_id":user_id})
+    await _owner_account_audit("user_role_updated",target,current_user,previous,{"role":data.role})
+    return {"message":f"User role updated to {data.role}"}
 
 
 # NEXUS_ACCOUNT_SAFETY_V1
@@ -1318,16 +1365,7 @@ async def delete_my_account(
     elif data.password:
         raise HTTPException(status_code=400, detail="This account uses external authentication")
 
-    if current_user.role == "owner":
-        active_owners = await db.users.count_documents({
-            "role": "owner",
-            "access_status": {"$ne": "deleted"}
-        })
-        if active_owners <= 1:
-            raise HTTPException(
-                status_code=409,
-                detail="Transfer ownership or designate another owner before deleting this account"
-            )
+    await _protect_owner_and_organization_administration(stored_user, deleting=True)
 
     now = datetime.now(timezone.utc).isoformat()
     anonymous_email = f"deleted+{current_user.user_id}@nexus.invalid"
