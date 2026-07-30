@@ -6,6 +6,7 @@ import { Calendar, Filter, ArrowLeft, ChevronLeft, ChevronRight, CheckCircle, XC
 import { toast } from 'sonner';
 import { TableSkeleton } from '../components/ui/skeleton';
 import { authAPI, appointmentAPI } from '../api';
+import { AccessibleModal } from '../components/design';
 
 const ITEMS_PER_PAGE = 10;
 
@@ -426,9 +427,8 @@ const AppointmentsHistory = () => {
             </>
           )}
         {checkoutAppointment && (
-          <div className="fixed inset-0 z-[100] bg-[var(--app-overlay)] flex items-center justify-center p-4">
-            <div className="w-full max-w-xl rounded-2xl border border-[var(--app-border)] bg-[#101010] p-6 max-h-[95vh] overflow-y-auto">
-              <div className="flex justify-between mb-5"><div><h2 className="text-xl text-[var(--app-text-primary)]">Completar y cobrar</h2><p className="text-sm text-zinc-400">{checkoutAppointment.service_name} · {checkoutAppointment.barber_name}</p></div><button onClick={() => setCheckoutAppointment(null)} disabled={checkoutMutation.isPending}><X className="text-zinc-400" size={20} /></button></div>
+          <AccessibleModal open={!!checkoutAppointment} onClose={()=>!checkoutMutation.isPending&&setCheckoutAppointment(null)} labelledBy="checkout-title" describedBy="checkout-description" panelClassName="w-full max-w-xl rounded-2xl border border-[var(--app-border)] bg-[var(--app-surface-elevated)] p-6 max-h-[95vh] overflow-y-auto">
+              <div className="flex justify-between mb-5"><div><h2 id="checkout-title" className="text-xl text-[var(--app-text-primary)]">Completar y cobrar</h2><p id="checkout-description" className="text-sm text-zinc-400">{checkoutAppointment.service_name} · {checkoutAppointment.barber_name}</p></div><button onClick={() => setCheckoutAppointment(null)} disabled={checkoutMutation.isPending}><X className="text-zinc-400" size={20} /></button></div>
               {(() => { const price=Number(checkoutAppointment.service_price)||0, discount=Number(checkoutForm.discount_amount)||0, tip=Number(checkoutForm.tip_amount)||0, net=Math.max(0,price-discount); return (
                 <div className="space-y-4">
                   <div className="grid grid-cols-2 gap-3 text-sm bg-white/5 border border-[var(--app-border)] rounded-xl p-4"><span className="text-zinc-400">Precio original</span><span className="text-right text-[var(--app-text-primary)]">{formatCurrency(price)}</span><span className="text-zinc-400">Descuento</span><span className="text-right text-[var(--app-text-primary)]">{formatCurrency(discount)}</span><span className="text-zinc-400">Valor neto</span><span className="text-right text-[var(--app-text-primary)]">{formatCurrency(net)}</span><span className="text-zinc-400">Propina</span><span className="text-right text-[var(--app-text-primary)]">{formatCurrency(tip)}</span><span className="text-[var(--app-text-primary)]">Total recibido</span><span className="text-right text-[#0A84FF]">{formatCurrency(net+tip)}</span></div>
@@ -437,8 +437,7 @@ const AppointmentsHistory = () => {
                   <label className="block text-sm text-zinc-400">Observaciones<textarea rows={3} maxLength={500} value={checkoutForm.notes} onChange={(e)=>setCheckoutForm({...checkoutForm,notes:e.target.value})} className="mt-2 w-full p-3 bg-white/5 border border-[var(--app-border)] rounded-xl text-[var(--app-text-primary)]" /></label>
                   <p className="text-xs text-zinc-500">La comisión se calcula en el servidor con la regla vigente.</p><div className="flex justify-end gap-3"><button onClick={()=>setCheckoutAppointment(null)} disabled={checkoutMutation.isPending} className="px-4 py-2 text-zinc-300">Cancelar</button><button onClick={submitCheckout} disabled={checkoutMutation.isPending} className="px-4 py-2 rounded-xl bg-green-600 text-[var(--app-text-primary)] disabled:opacity-50">{checkoutMutation.isPending ? 'Procesando...' : 'Confirmar cobro'}</button></div>
                 </div>); })()}
-            </div>
-          </div>
+            </AccessibleModal>
         )}
         </div>
       </div>

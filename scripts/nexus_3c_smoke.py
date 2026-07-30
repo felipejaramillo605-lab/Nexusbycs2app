@@ -72,6 +72,27 @@ def main():
  # NEXUS_ACCESSIBILITY_4A_V1
  accessibility_files='\n'.join((ROOT/path).read_text(encoding='utf-8') for path in ['frontend/src/components/design/useAccessibleDialog.js','frontend/src/components/design/DetailDrawer.jsx','frontend/src/components/design/ConfirmDialogHost.jsx','frontend/src/components/design/AdminShell.jsx'])
  check('ACCESSIBILITY_DIALOGS',all(x in accessibility_files for x in ['useAccessibleDialog','aria-modal','aria-labelledby','Escape','document.body.style.overflow','restoreTarget']))
+  # NEXUS_ACCESSIBILITY_4B_V1
+ page_dialog_files='\n'.join((ROOT/path).read_text(encoding='utf-8') for path in [
+  'frontend/src/components/design/AccessibleModal.jsx',
+  'frontend/src/pages/AccountPrivacy.js',
+  'frontend/src/pages/OwnerAccessControl.js',
+  'frontend/src/pages/SettlementsDashboard.js',
+  'frontend/src/pages/AppointmentsHistory.js',
+  'frontend/src/pages/ManagerClients.js',
+  'frontend/src/pages/Settings.js',
+ ])
+ check('ACCESSIBILITY_PAGE_DIALOGS', all(x in page_dialog_files for x in [
+  'AccessibleModal',
+  'aria-modal="true"',
+  'account-delete-title',
+  'owner-delete-title',
+  'settlement-detail-title',
+  'checkout-title',
+  'client-message-title',
+  'commission-editor-title',
+ ]))
+
  # NEXUS_OWNER_ACCOUNT_HARDENING_V1
  check('OWNER_ACCOUNT_HARDENING',all(x in server for x in [
   '_protect_owner_and_organization_administration','_owner_account_audit',

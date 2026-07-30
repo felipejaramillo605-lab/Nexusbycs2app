@@ -10,6 +10,7 @@ export { ActionButton } from './ActionButton';
 export { AdminShell } from './AdminShell';
 export { AnimatedNumber } from './AnimatedNumber';
 export { DetailDrawer } from './DetailDrawer';
+export { AccessibleModal } from './AccessibleModal';
 export { ResponsiveDataView } from './ResponsiveDataView';
 export { SegmentedControl } from './SegmentedControl';
 export { StaffNav } from './StaffNav';

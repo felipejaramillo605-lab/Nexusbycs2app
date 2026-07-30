@@ -6,6 +6,7 @@ import { Users, LogOut, ArrowLeft, Phone, Mail, Calendar, MessageSquare, Send, E
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '../components/ui/sheet';
 import { toast } from 'sonner';
 import whatsappService, { MESSAGE_TEMPLATES } from '../services/whatsappService';
+import { AccessibleModal } from '../components/design';
 
 const ManagerClients = () => {
   const { user, logout } = useAuth();
@@ -521,13 +522,12 @@ const ManagerClients = () => {
 
       {/* Message Modal */}
       {showMessageModal && selectedClient && (
-        <div className="fixed inset-0 bg-[var(--app-overlay)] backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-[var(--app-surface-elevated)] border border-[var(--app-border)] rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+        <AccessibleModal open={showMessageModal} onClose={()=>!sendingMessage&&setShowMessageModal(false)} labelledBy="client-message-title" describedBy="client-message-description" panelClassName="bg-[var(--app-surface-elevated)] border border-[var(--app-border)] rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
             <div className="p-6 border-b border-[var(--app-border)]">
-              <h2 className="text-2xl font-light text-[var(--app-text-primary)] mb-2" style={{ fontFamily: 'Outfit, sans-serif' }}>
+              <h2 id="client-message-title" className="text-2xl font-light text-[var(--app-text-primary)] mb-2" style={{ fontFamily: 'Outfit, sans-serif' }}>
                 Enviar Mensaje WhatsApp
               </h2>
-              <p className="text-zinc-400 text-sm">
+              <p id="client-message-description" className="text-zinc-400 text-sm">
                 A: {selectedClient.name} ({selectedClient.phone})
               </p>
             </div>
@@ -637,8 +637,7 @@ const ManagerClients = () => {
                 )}
               </button>
             </div>
-          </div>
-        </div>
+          </AccessibleModal>
       )}
     </div>
   );
