@@ -1974,41 +1974,62 @@ async def delete_blocked_time(barber_id: str, block_id: str, authorization: Opti
     return {"message": "Blocked time deleted"}
 
 # Appointments Endpoints
+# NEXUS_PAGINATION_FOUNDATION_4D1_V2
 @api_router.get("/appointments")
-async def get_appointments(date: Optional[str] = None, organization_id: Optional[str] = None, authorization: Optional[str] = Header(None), session_token: Optional[str] = Cookie(None)):
+async def get_appointments(date: Optional[str] = None, organization_id: Optional[str] = None, status: Optional[str] = None, start_date: Optional[str] = None, end_date: Optional[str] = None, page: Optional[int] = None, page_size: Optional[int] = None, authorization: Optional[str] = Header(None), session_token: Optional[str] = Cookie(None)):
     current_user = await get_current_user(authorization, session_token)
     require_management_role(current_user)
-    
-    # Build query based on role
+
     if current_user.role == "owner":
-        if organization_id:
-            query = {"organization_id": organization_id}
-        else:
-            query = {}
+        query = {"organization_id": organization_id} if organization_id else {}
     else:
         if not current_user.organization_id:
             raise HTTPException(status_code=403, detail="No organization assigned")
         if organization_id and organization_id != current_user.organization_id:
             raise HTTPException(status_code=403, detail="Access denied to this organization")
         query = {"organization_id": current_user.organization_id}
-    
+
     if date:
         query["date"] = date
-    
-    appointments = await db.appointments.find(query, {"_id": 0}).to_list(1000)
-    
-    for apt in appointments:
-        if isinstance(apt["created_at"], str):
-            apt["created_at"] = datetime.fromisoformat(apt["created_at"])
-        
-        service = await db.services.find_one({"service_id": apt["service_id"]}, {"_id": 0})
-        barber = await db.barbers.find_one({"barber_id": apt["barber_id"]}, {"_id": 0})
-        
-        apt["service_name"] = service["name"] if service else "Unknown"
-        apt["service_price"] = service["price"] if service else 0
-        apt["barber_name"] = barber["name"] if barber else "Unknown"
-    
-    return appointments
+    elif start_date or end_date:
+        query["date"] = {}
+        if start_date:
+            query["date"]["$gte"] = start_date
+        if end_date:
+            query["date"]["$lte"] = end_date
+    if status and status != "all":
+        query["status"] = status
+
+    paged = page is not None or page_size is not None
+    safe_page = max(1, page or 1)
+    safe_size = max(1, min(page_size or 25, 100))
+    cursor = db.appointments.find(query, {"_id": 0}).sort([("date", -1), ("time", -1), ("appointment_id", -1)])
+    total = await db.appointments.count_documents(query) if paged else None
+    if paged:
+        appointments = await cursor.skip((safe_page - 1) * safe_size).limit(safe_size).to_list(safe_size)
+    else:
+        appointments = await cursor.to_list(1000)
+
+    service_ids = list({item.get("service_id") for item in appointments if item.get("service_id")})
+    barber_ids = list({item.get("barber_id") for item in appointments if item.get("barber_id")})
+    services = await db.services.find({"service_id": {"$in": service_ids}}, {"_id": 0}).to_list(len(service_ids) or 1) if service_ids else []
+    barbers = await db.barbers.find({"barber_id": {"$in": barber_ids}}, {"_id": 0}).to_list(len(barber_ids) or 1) if barber_ids else []
+    service_lookup = {item["service_id"]: item for item in services}
+    barber_lookup = {item["barber_id"]: item for item in barbers}
+
+    for appointment in appointments:
+        if isinstance(appointment.get("created_at"), str):
+            appointment["created_at"] = datetime.fromisoformat(appointment["created_at"])
+        service = service_lookup.get(appointment.get("service_id"))
+        barber = barber_lookup.get(appointment.get("barber_id"))
+        appointment["service_name"] = service["name"] if service else "Unknown"
+        appointment["service_price"] = service["price"] if service else 0
+        appointment["barber_name"] = barber["name"] if barber else "Unknown"
+
+    if not paged:
+        return appointments
+    total_pages = (total + safe_size - 1) // safe_size
+    return {"items": appointments, "page": safe_page, "page_size": safe_size, "total": total, "total_pages": total_pages, "has_next": safe_page < total_pages, "has_previous": safe_page > 1}
 
 @api_router.get("/appointments/today")
 async def get_today_appointments(authorization: Optional[str] = Header(None), session_token: Optional[str] = Cookie(None)):
@@ -2201,6 +2222,8 @@ async def list_transactions(
     barber_id: Optional[str] = None,
     payment_method: Optional[str] = None,
     limit: int = 200,
+    page: Optional[int] = None,
+    page_size: Optional[int] = None,
     authorization: Optional[str] = Header(None),
     session_token: Optional[str] = Cookie(None)
 ):
@@ -2208,8 +2231,16 @@ async def list_transactions(
     query = await transaction_query(
         current_user, organization_id, start_date, end_date, barber_id, payment_method
     )
-    safe_limit = max(1, min(limit, 1000))
-    return await db.transactions.find(query, {"_id": 0}).sort("created_at", -1).to_list(safe_limit)
+    paged = page is not None or page_size is not None
+    if not paged:
+        safe_limit = max(1, min(limit, 1000))
+        return await db.transactions.find(query, {"_id": 0}).sort([("created_at", -1), ("transaction_id", -1)]).to_list(safe_limit)
+    safe_page = max(1, page or 1)
+    safe_size = max(1, min(page_size or 25, 100))
+    total = await db.transactions.count_documents(query)
+    items = await db.transactions.find(query, {"_id": 0}).sort([("created_at", -1), ("transaction_id", -1)]).skip((safe_page - 1) * safe_size).limit(safe_size).to_list(safe_size)
+    total_pages = (total + safe_size - 1) // safe_size
+    return {"items": items, "page": safe_page, "page_size": safe_size, "total": total, "total_pages": total_pages, "has_next": safe_page < total_pages, "has_previous": safe_page > 1}
 
 
 @api_router.get("/transactions/summary")
@@ -2915,6 +2946,8 @@ async def list_staff_settlements(
     barber_id: Optional[str] = None,
     status: Optional[str] = None,
     limit: int = 500,
+    page: Optional[int] = None,
+    page_size: Optional[int] = None,
     authorization: Optional[str] = Header(None),
     session_token: Optional[str] = Cookie(None)
 ):
@@ -2927,8 +2960,16 @@ async def list_staff_settlements(
         if status not in SETTLEMENT_STATUSES:
             raise HTTPException(status_code=400, detail="Unsupported settlement status")
         query["status"] = status
-    safe_limit = max(1, min(limit, 1000))
-    return await db.staff_settlements.find(query, {"_id": 0}).sort("created_at", -1).to_list(safe_limit)
+    paged = page is not None or page_size is not None
+    if not paged:
+        safe_limit = max(1, min(limit, 1000))
+        return await db.staff_settlements.find(query, {"_id": 0}).sort([("created_at", -1), ("settlement_id", -1)]).to_list(safe_limit)
+    safe_page = max(1, page or 1)
+    safe_size = max(1, min(page_size or 25, 100))
+    total = await db.staff_settlements.count_documents(query)
+    items = await db.staff_settlements.find(query, {"_id": 0}).sort([("created_at", -1), ("settlement_id", -1)]).skip((safe_page - 1) * safe_size).limit(safe_size).to_list(safe_size)
+    total_pages = (total + safe_size - 1) // safe_size
+    return {"items": items, "page": safe_page, "page_size": safe_size, "total": total, "total_pages": total_pages, "has_next": safe_page < total_pages, "has_previous": safe_page > 1}
 
 
 @api_router.get("/settlements/{settlement_id}")
@@ -3116,21 +3157,38 @@ async def cancel_staff_settlement(
 # ==================== CLIENTS ENDPOINTS ====================
 
 @api_router.get("/clients")
-async def get_clients(organization_id: Optional[str] = None, authorization: Optional[str] = Header(None), session_token: Optional[str] = Cookie(None)):
+async def get_clients(organization_id: Optional[str] = None, page: Optional[int] = None, page_size: Optional[int] = None, search: Optional[str] = None, authorization: Optional[str] = Header(None), session_token: Optional[str] = Cookie(None)):
     current_user = await get_current_user(authorization, session_token)
     require_management_role(current_user)
-    
-    # RLS: Get organization filter
     org_filter = await get_organization_filter(current_user, organization_id)
-    clients = await db.clients.find(org_filter, {"_id": 0}).sort("total_visits", -1).to_list(1000)
-    
+    if search and search.strip():
+        pattern = re.escape(search.strip())
+        org_filter["$or"] = [
+            {"name": {"$regex": pattern, "$options": "i"}},
+            {"phone": {"$regex": pattern, "$options": "i"}},
+            {"email": {"$regex": pattern, "$options": "i"}},
+        ]
+
+    paged = page is not None or page_size is not None
+    safe_page = max(1, page or 1)
+    safe_size = max(1, min(page_size or 25, 100))
+    cursor = db.clients.find(org_filter, {"_id": 0}).sort([("total_visits", -1), ("client_id", 1)])
+    total = await db.clients.count_documents(org_filter) if paged else None
+    if paged:
+        clients = await cursor.skip((safe_page - 1) * safe_size).limit(safe_size).to_list(safe_size)
+    else:
+        clients = await cursor.to_list(1000)
+
     for client in clients:
         if isinstance(client.get("created_at"), str):
             client["created_at"] = datetime.fromisoformat(client["created_at"])
         if isinstance(client.get("updated_at"), str):
             client["updated_at"] = datetime.fromisoformat(client["updated_at"])
-    
-    return clients
+
+    if not paged:
+        return clients
+    total_pages = (total + safe_size - 1) // safe_size
+    return {"items": clients, "page": safe_page, "page_size": safe_size, "total": total, "total_pages": total_pages, "has_next": safe_page < total_pages, "has_previous": safe_page > 1}
 
 @api_router.put("/clients/{client_id}")
 async def update_client(
