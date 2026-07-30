@@ -2,7 +2,7 @@ import React, { useEffect, useState, useCallback } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { clientAPI, organizationAPI } from '../api';
-import { Users, LogOut, ArrowLeft, Phone, Mail, Calendar, MessageSquare, Send, Eye, CheckCircle, Bell, BellOff, Loader2 } from 'lucide-react';
+import { Users, LogOut, ArrowLeft, Phone, Mail, Calendar, MessageSquare, Send, Eye, CheckCircle, Bell, BellOff, Loader2, ChevronLeft, ChevronRight, Search } from 'lucide-react';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '../components/ui/sheet';
 import { toast } from 'sonner';
 import whatsappService, { MESSAGE_TEMPLATES } from '../services/whatsappService';
@@ -12,7 +12,13 @@ const ManagerClients = () => {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
+  // NEXUS_FRONTEND_PAGINATION_4D2_V2
+  const CLIENTS_PAGE_SIZE = 20;
   const [clients, setClients] = useState([]);
+  const [pagination, setPagination] = useState({ page: 1, page_size: CLIENTS_PAGE_SIZE, total: 0, total_pages: 0, has_next: false, has_previous: false });
+  const [currentPage, setCurrentPage] = useState(1);
+  const [searchInput, setSearchInput] = useState('');
+  const [searchTerm, setSearchTerm] = useState('');
   const [loading, setLoading] = useState(true);
   const [selectedClient, setSelectedClient] = useState(null);
   const [clientHistory, setClientHistory] = useState([]);
@@ -42,16 +48,20 @@ const ManagerClients = () => {
     if (!organizationId) return;
     try {
       setLoading(true);
-      const params = { organization_id: organizationId };
+      const params = { organization_id: organizationId, page: currentPage, page_size: CLIENTS_PAGE_SIZE, ...(searchTerm ? { search: searchTerm } : {}) };
       const response = await clientAPI.getAll(params);
-      setClients(response.data);
+      const data = response.data || {};
+      setClients(data.items || []);
+      setPagination({ page: data.page || currentPage, page_size: data.page_size || CLIENTS_PAGE_SIZE, total: data.total || 0, total_pages: data.total_pages || 0, has_next: Boolean(data.has_next), has_previous: Boolean(data.has_previous) });
     } catch (error) {
       console.error('Error loading clients:', error);
       toast.error('Error al cargar clientes');
     } finally {
       setLoading(false);
     }
-  }, [organizationId]);
+  }, [organizationId, currentPage, searchTerm]);
+
+  useEffect(() => { setCurrentPage(1); }, [organizationId]);
 
   useEffect(() => {
     if (organizationId) {
@@ -59,6 +69,12 @@ const ManagerClients = () => {
       loadOrganizationName();
     }
   }, [organizationId, loadClients, loadOrganizationName]);
+
+  const submitSearch = (event) => {
+    event.preventDefault();
+    setCurrentPage(1);
+    setSearchTerm(searchInput.trim());
+  };
 
   const loadClientHistory = async (clientId) => {
     try {
@@ -229,11 +245,18 @@ const ManagerClients = () => {
               <Users size={24} strokeWidth={1.5} className="text-[#0A84FF]" />
             </div>
             <div>
-              <div className="text-3xl font-light text-[var(--app-text-primary)]">{clients.length}</div>
+              <div className="text-3xl font-light text-[var(--app-text-primary)]">{pagination.total}</div>
               <div className="text-sm text-zinc-400">Clientes Registrados</div>
             </div>
           </div>
         </div>
+
+        <form onSubmit={submitSearch} className="mb-6 flex flex-col sm:flex-row gap-3" role="search">
+          <label className="sr-only" htmlFor="client-search">Buscar clientes</label>
+          <div className="relative flex-1"><Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500" aria-hidden="true" /><input id="client-search" value={searchInput} onChange={(event) => setSearchInput(event.target.value)} placeholder="Buscar por nombre, teléfono o correo" className="w-full pl-10 pr-4 py-3 bg-white/5 border border-[var(--app-border)] rounded-xl text-[var(--app-text-primary)] outline-none focus:border-[#0A84FF] focus:ring-2 focus:ring-[#0A84FF]/20" /></div>
+          <button type="submit" className="px-5 py-3 rounded-xl bg-[#0A84FF] text-white font-medium">Buscar</button>
+          {searchTerm && <button type="button" onClick={() => { setSearchInput(''); setSearchTerm(''); setCurrentPage(1); }} className="px-5 py-3 rounded-xl border border-[var(--app-border)] text-[var(--app-text-primary)]">Limpiar</button>}
+        </form>
 
         {/* Clients Table */}
         {clients.length === 0 ? (
@@ -518,6 +541,7 @@ const ManagerClients = () => {
             </div>
           </div>
         )}
+        {pagination.total_pages > 1 && <div className="mt-5 flex flex-col sm:flex-row items-center justify-between gap-3 rounded-2xl border border-[var(--app-border)] bg-white/3 px-4 py-3"><p className="text-sm text-zinc-400">Mostrando {(pagination.page - 1) * pagination.page_size + 1} - {Math.min(pagination.page * pagination.page_size, pagination.total)} de {pagination.total}</p><div className="flex items-center gap-3"><button type="button" aria-label="Página anterior" onClick={() => setCurrentPage(page => Math.max(1, page - 1))} disabled={!pagination.has_previous || loading} className="p-2 rounded-lg border border-[var(--app-border)] disabled:opacity-40"><ChevronLeft size={20} /></button><span className="text-sm text-zinc-400">Página {pagination.page} de {pagination.total_pages}</span><button type="button" aria-label="Página siguiente" onClick={() => setCurrentPage(page => Math.min(pagination.total_pages, page + 1))} disabled={!pagination.has_next || loading} className="p-2 rounded-lg border border-[var(--app-border)] disabled:opacity-40"><ChevronRight size={20} /></button></div></div>}
       </div>
 
       {/* Message Modal */}

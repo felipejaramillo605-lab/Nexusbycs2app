@@ -1,14 +1,15 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Calendar, Filter, ArrowLeft, ChevronLeft, ChevronRight, CheckCircle, XCircle, Clock, Loader2, CreditCard, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { TableSkeleton } from '../components/ui/skeleton';
-import { authAPI, appointmentAPI } from '../api';
+import { appointmentAPI } from '../api';
 import { AccessibleModal } from '../components/design';
 
 const ITEMS_PER_PAGE = 10;
+// NEXUS_FRONTEND_PAGINATION_4D2_V2
 
 const AppointmentsHistory = () => {
   const { user } = useAuth();
@@ -28,29 +29,22 @@ const AppointmentsHistory = () => {
   const [checkoutAppointment, setCheckoutAppointment] = useState(null);
   const [checkoutForm, setCheckoutForm] = useState({ discount_amount: 0, tip_amount: 0, payment_method: 'cash', notes: '' });
 
-  // Fetch appointments with React Query
-  const { data: appointments = [], isLoading, error } = useQuery({
-    queryKey: ['appointments', organizationId, filters],
+  // Fetch appointments with server-side pagination
+  const { data: appointmentPage, isLoading, error } = useQuery({
+    queryKey: ['appointments', organizationId, filters, currentPage],
     queryFn: async () => {
-      const params = new URLSearchParams();
-      if (organizationId) params.append('organization_id', organizationId);
-      
-      const response = await fetch(
-        `${process.env.REACT_APP_BACKEND_URL}/api/appointments?${params}`,
-        {
-          credentials: 'include',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-        }
-      );
-      
-      if (!response.ok) throw new Error('Failed to fetch appointments');
-      return response.json();
+      const params = { organization_id: organizationId, page: currentPage, page_size: ITEMS_PER_PAGE, ...(filters.status !== 'all' ? { status: filters.status } : {}), ...(filters.startDate ? { start_date: filters.startDate } : {}), ...(filters.endDate ? { end_date: filters.endDate } : {}) };
+      const response = await appointmentAPI.getAll(params);
+      return response.data;
     },
-    staleTime: 1000 * 60 * 2, // 2 minutes
+    staleTime: 1000 * 60 * 2,
     enabled: !!organizationId,
+    placeholderData: previousData => previousData,
   });
+
+  const appointments = appointmentPage?.items || [];
+  const totalAppointments = appointmentPage?.total || 0;
+  const totalPages = appointmentPage?.total_pages || 0;
 
   // Mutation for updating appointment status
   const updateStatusMutation = useMutation({
@@ -92,40 +86,6 @@ const AppointmentsHistory = () => {
     if (discount > price) return toast.error('El descuento no puede superar el precio del servicio');
     checkoutMutation.mutate({ appointmentId: checkoutAppointment.appointment_id, payload: { ...checkoutForm, discount_amount: discount, tip_amount: tip, notes: checkoutForm.notes.trim() } });
   };
-
-  // Filter and sort appointments
-  const filteredAppointments = useMemo(() => {
-    let filtered = [...appointments];
-    
-    // Filter by status
-    if (filters.status !== 'all') {
-      filtered = filtered.filter(apt => apt.status === filters.status);
-    }
-    
-    // Filter by date range
-    if (filters.startDate) {
-      filtered = filtered.filter(apt => apt.date >= filters.startDate);
-    }
-    if (filters.endDate) {
-      filtered = filtered.filter(apt => apt.date <= filters.endDate);
-    }
-    
-    // Sort by date (newest first)
-    filtered.sort((a, b) => {
-      const dateCompare = b.date.localeCompare(a.date);
-      if (dateCompare !== 0) return dateCompare;
-      return b.time.localeCompare(a.time);
-    });
-    
-    return filtered;
-  }, [appointments, filters]);
-
-  // Pagination
-  const totalPages = Math.ceil(filteredAppointments.length / ITEMS_PER_PAGE);
-  const paginatedAppointments = useMemo(() => {
-    const start = (currentPage - 1) * ITEMS_PER_PAGE;
-    return filteredAppointments.slice(start, start + ITEMS_PER_PAGE);
-  }, [filteredAppointments, currentPage]);
 
   const handleStatusUpdate = (appointmentId, newStatus) => {
     updateStatusMutation.mutate({ appointmentId, status: newStatus });
@@ -188,7 +148,7 @@ const AppointmentsHistory = () => {
             
             <div className="flex items-center gap-2 text-sm text-zinc-400">
               <Calendar size={16} />
-              <span>{filteredAppointments.length} citas</span>
+              <span>{totalAppointments} citas</span>
             </div>
           </div>
         </div>
@@ -270,7 +230,7 @@ const AppointmentsHistory = () => {
             <div className="p-6">
               <TableSkeleton rows={10} columns={6} />
             </div>
-          ) : paginatedAppointments.length === 0 ? (
+          ) : appointments.length === 0 ? (
             <div className="p-12 text-center">
               <Calendar size={48} strokeWidth={1.5} className="text-zinc-600 mx-auto mb-4" />
               <p className="text-zinc-400">No se encontraron citas</p>
@@ -292,7 +252,7 @@ const AppointmentsHistory = () => {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-white/5">
-                    {paginatedAppointments.map((apt) => (
+                    {appointments.map((apt) => (
                       <tr key={apt.appointment_id} className="hover:bg-white/5 transition-colors">
                         <td className="px-6 py-4">
                           <div className="text-[var(--app-text-primary)] font-medium">{apt.date}</div>
@@ -344,7 +304,7 @@ const AppointmentsHistory = () => {
 
               {/* Mobile Cards */}
               <div className="md:hidden divide-y divide-white/5">
-                {paginatedAppointments.map((apt) => (
+                {appointments.map((apt) => (
                   <div key={apt.appointment_id} className="p-4 space-y-3">
                     <div className="flex items-start justify-between">
                       <div>
@@ -398,7 +358,7 @@ const AppointmentsHistory = () => {
               {totalPages > 1 && (
                 <div className="border-t border-[var(--app-border)] p-4 flex items-center justify-between">
                   <div className="text-sm text-zinc-400">
-                    Mostrando {(currentPage - 1) * ITEMS_PER_PAGE + 1} - {Math.min(currentPage * ITEMS_PER_PAGE, filteredAppointments.length)} de {filteredAppointments.length}
+                    Mostrando {(currentPage - 1) * ITEMS_PER_PAGE + 1} - {Math.min(currentPage * ITEMS_PER_PAGE, totalAppointments)} de {totalAppointments}
                   </div>
                   
                   <div className="flex items-center gap-2">
