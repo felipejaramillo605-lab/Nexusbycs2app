@@ -69,6 +69,14 @@ def main():
  check('OWNER_ROUTE_REQUIRES_AUTH',status in {401,403},error or str(status))
  status,_,error=request(API+'/staff/income/summary')
  check('STAFF_ROUTE_REQUIRES_AUTH',status in {401,403},error or str(status))
+ # NEXUS_SESSION_LIFECYCLE_V1
+ check('SESSION_LIFECYCLE',all(x in server for x in [
+  '_migrate_user_session_dates_and_indexes',
+  'user_sessions_token_unique',
+  'user_sessions_user_id',
+  'user_sessions_ttl',
+  '"expires_at": expires_at,',
+ ]))
  REPORT.write_text(json.dumps({'origin':ORIGIN,'results':results},indent=2)+'\n',encoding='utf-8')
  failed=[x for x in results if x['status']=='FAIL']
  print(f'REPORT={REPORT}')

@@ -549,8 +549,8 @@ async def create_session(response: Response, x_session_id: str = Header(None)):
     session_doc = {
         "user_id": user_id,
         "session_token": session_token,
-        "expires_at": expires_at.isoformat(),
-        "created_at": datetime.now(timezone.utc).isoformat()
+        "expires_at": expires_at,
+        "created_at": datetime.now(timezone.utc),
     }
     await db.user_sessions.insert_one(session_doc)
     
@@ -624,8 +624,8 @@ async def login_user(data: LoginRequest, response: Response):
     await db.user_sessions.insert_one({
         "user_id": user["user_id"],
         "session_token": session_token,
-        "expires_at": expires_at.isoformat(),
-        "created_at": datetime.now(timezone.utc).isoformat()
+        "expires_at": expires_at,
+        "created_at": datetime.now(timezone.utc),
     })
     await db.users.update_one({"user_id": user["user_id"]}, {"$set": {"last_login": datetime.now(timezone.utc).isoformat()}})
     
@@ -4035,8 +4035,36 @@ async def add_security_headers(request, call_next):
 
 # ==================== END SECURITY MIDDLEWARE ====================
 
+# NEXUS_SESSION_LIFECYCLE_V1
+async def _migrate_user_session_dates_and_indexes():
+    invalid_expires = 0
+    cursor = db.user_sessions.find({}, {"expires_at": 1, "created_at": 1})
+    async for session in cursor:
+        updates = {}
+        for field in ("expires_at", "created_at"):
+            value = session.get(field)
+            if isinstance(value, str):
+                try:
+                    parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+                    if parsed.tzinfo is None:
+                        parsed = parsed.replace(tzinfo=timezone.utc)
+                    updates[field] = parsed
+                except (TypeError, ValueError):
+                    if field == "expires_at":
+                        invalid_expires += 1
+        if updates:
+            await db.user_sessions.update_one({"_id": session["_id"]}, {"$set": updates})
+    if invalid_expires:
+        logger.error("Invalid session expiry values: %s; TTL index skipped", invalid_expires)
+        return
+    await db.user_sessions.create_index("session_token", unique=True, name="user_sessions_token_unique")
+    await db.user_sessions.create_index("user_id", name="user_sessions_user_id")
+    await db.user_sessions.create_index("expires_at", expireAfterSeconds=0, name="user_sessions_ttl")
+
+
 @app.on_event("startup")
 async def create_application_indexes():
+    await _migrate_user_session_dates_and_indexes()
     # NEXUS_CHECKOUT_BACKEND_V1
     await db.transactions.create_index("transaction_id",unique=True)
     await db.transactions.create_index("appointment_id",unique=True,partialFilterExpression={"status":"confirmed"})
