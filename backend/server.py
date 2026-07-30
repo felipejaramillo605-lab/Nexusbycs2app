@@ -121,6 +121,7 @@ def require_management_role(user: User) -> None:
         raise HTTPException(status_code=403, detail="Management access required")
 
 
+# NEXUS_ENDPOINT_RBAC_TENANT_ENFORCEMENT_V1
 # ==================== END RLS HELPERS ====================
 
 class Organization(BaseModel):
@@ -466,6 +467,15 @@ async def get_current_user(authorization: Optional[str] = Header(None), session_
     user = await db.users.find_one({"user_id": session["user_id"]}, {"_id": 0})
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
+
+    # NEXUS_AUTHORIZATION_HARDENING_V1
+    # Session existence is not sufficient: account authorization is evaluated
+    # on every request so rejected, deactivated, or deleted users cannot reuse
+    # a previously issued session.
+    if user.get("access_status") != "approved":
+        raise HTTPException(status_code=403, detail="Account access is not approved")
+    if user.get("active") is False or user.get("deleted_at"):
+        raise HTTPException(status_code=403, detail="Account is inactive")
     
     if isinstance(user["created_at"], str):
         user["created_at"] = datetime.fromisoformat(user["created_at"])
@@ -504,11 +514,19 @@ async def create_session(response: Response, x_session_id: str = Header(None)):
     user = await db.users.find_one({"email": email}, {"_id": 0})
     
     if not user:
-        # Special case: felipejaramillo605@gmail.com is always owner
-        is_owner_email = email == "felipejaramillo605@gmail.com"
-        user_count = await db.users.count_documents({})
-        role = "owner" if (user_count == 0 or is_owner_email) else "manager"
-        access_status = "approved" if (role == "owner" or is_owner_email) else "pending"
+        # NEXUS_AUTHORIZATION_HARDENING_V1
+        # Bootstrap is explicit and one-time. It is only considered while no
+        # Owner exists, and no identity is embedded in source code.
+        bootstrap_owner_email = normalize_email(os.environ.get("BOOTSTRAP_OWNER_EMAIL", ""))
+        normalized_login_email = normalize_email(email)
+        owner_count = await db.users.count_documents({"role": "owner"})
+        is_bootstrap_owner = bool(
+            owner_count == 0
+            and bootstrap_owner_email
+            and normalized_login_email == bootstrap_owner_email
+        )
+        role = "owner" if is_bootstrap_owner else "manager"
+        access_status = "approved" if is_bootstrap_owner else "pending"
         
         user_id = f"user_{uuid.uuid4().hex[:12]}"
         user_doc = {
@@ -526,15 +544,7 @@ async def create_session(response: Response, x_session_id: str = Header(None)):
     else:
         user_id = user["user_id"]
         
-        # CRITICAL: Always update felipejaramillo605@gmail.com to owner + approved
-        if email == "felipejaramillo605@gmail.com":
-            await db.users.update_one(
-                {"user_id": user_id},
-                {"$set": {"role": "owner", "access_status": "approved"}}
-            )
-            user["role"] = "owner"
-            user["access_status"] = "approved"
-    
+
     expires_at = datetime.now(timezone.utc) + timedelta(days=7)
     session_doc = {
         "user_id": user_id,
@@ -1377,6 +1387,7 @@ async def delete_my_account(
 @api_router.get("/organizations")
 async def get_organizations(authorization: Optional[str] = Header(None), session_token: Optional[str] = Cookie(None)):
     current_user = await get_current_user(authorization, session_token)
+    require_management_role(current_user)
     
     if current_user.role == "owner":
         orgs = await db.organizations.find({}, {"_id": 0}).to_list(1000)
@@ -1395,6 +1406,9 @@ async def get_organizations(authorization: Optional[str] = Header(None), session
 @api_router.post("/organizations")
 async def create_organization(name: str, authorization: Optional[str] = Header(None), session_token: Optional[str] = Cookie(None)):
     current_user = await get_current_user(authorization, session_token)
+    # NEXUS_ENDPOINT_RBAC_TENANT_ENFORCEMENT_V1
+    if current_user.role != "owner":
+        raise HTTPException(status_code=403, detail="Owner access required")
     
     if current_user.access_status != "approved":
         raise HTTPException(status_code=403, detail="Account pending approval")
@@ -1515,6 +1529,7 @@ async def passwordless_login(data: PasswordlessLoginRequest):
 @api_router.get("/services")
 async def get_services(organization_id: Optional[str] = None, authorization: Optional[str] = Header(None), session_token: Optional[str] = Cookie(None)):
     current_user = await get_current_user(authorization, session_token)
+    require_management_role(current_user)
     
     # RLS: Get organization filter based on user role
     org_filter = await get_organization_filter(current_user, organization_id)
@@ -1528,6 +1543,7 @@ async def get_services(organization_id: Optional[str] = None, authorization: Opt
 @api_router.post("/services")
 async def create_service(data: ServiceCreate, authorization: Optional[str] = Header(None), session_token: Optional[str] = Cookie(None)):
     current_user = await get_current_user(authorization, session_token)
+    require_management_role(current_user)
     
     if not current_user.organization_id:
         raise HTTPException(status_code=400, detail="No organization assigned")
@@ -1551,6 +1567,7 @@ async def create_service(data: ServiceCreate, authorization: Optional[str] = Hea
 @api_router.put("/services/{service_id}")
 async def update_service(service_id: str, data: ServiceCreate, authorization: Optional[str] = Header(None), session_token: Optional[str] = Cookie(None)):
     current_user = await get_current_user(authorization, session_token)
+    require_management_role(current_user)
     
     # Get the service first to verify it exists and belongs to accessible organization
     service = await db.services.find_one({"service_id": service_id}, {"_id": 0})
@@ -1586,6 +1603,7 @@ async def update_service(service_id: str, data: ServiceCreate, authorization: Op
 @api_router.delete("/services/{service_id}")
 async def delete_service(service_id: str, authorization: Optional[str] = Header(None), session_token: Optional[str] = Cookie(None)):
     current_user = await get_current_user(authorization, session_token)
+    require_management_role(current_user)
     
     # RLS: Get service and validate access
     service = await db.services.find_one({"service_id": service_id}, {"_id": 0})
@@ -1921,6 +1939,7 @@ async def delete_blocked_time(barber_id: str, block_id: str, authorization: Opti
 @api_router.get("/appointments")
 async def get_appointments(date: Optional[str] = None, organization_id: Optional[str] = None, authorization: Optional[str] = Header(None), session_token: Optional[str] = Cookie(None)):
     current_user = await get_current_user(authorization, session_token)
+    require_management_role(current_user)
     
     # Build query based on role
     if current_user.role == "owner":
@@ -1930,7 +1949,9 @@ async def get_appointments(date: Optional[str] = None, organization_id: Optional
             query = {}
     else:
         if not current_user.organization_id:
-            raise HTTPException(status_code=400, detail="No organization assigned")
+            raise HTTPException(status_code=403, detail="No organization assigned")
+        if organization_id and organization_id != current_user.organization_id:
+            raise HTTPException(status_code=403, detail="Access denied to this organization")
         query = {"organization_id": current_user.organization_id}
     
     if date:
@@ -1965,6 +1986,7 @@ async def update_appointment_status(
 ):
     """Update appointment status to 'completed' or 'cancelled'"""
     current_user = await get_current_user(authorization, session_token)
+    require_management_role(current_user)
     
     if status not in ["confirmed", "cancelled"]:
         if status == "completed":
@@ -3058,6 +3080,7 @@ async def cancel_staff_settlement(
 @api_router.get("/clients")
 async def get_clients(organization_id: Optional[str] = None, authorization: Optional[str] = Header(None), session_token: Optional[str] = Cookie(None)):
     current_user = await get_current_user(authorization, session_token)
+    require_management_role(current_user)
     
     # RLS: Get organization filter
     org_filter = await get_organization_filter(current_user, organization_id)
@@ -3082,6 +3105,7 @@ async def update_client(
 ):
     """Update client information (manager/owner only)"""
     current_user = await get_current_user(authorization, session_token)
+    require_management_role(current_user)
     
     client = await db.clients.find_one({"client_id": client_id}, {"_id": 0})
     if not client:
@@ -3112,6 +3136,7 @@ async def update_client(
 @api_router.get("/clients/{client_id}/history")
 async def get_client_history(client_id: str, authorization: Optional[str] = Header(None), session_token: Optional[str] = Cookie(None)):
     current_user = await get_current_user(authorization, session_token)
+    require_management_role(current_user)
     
     # Get client first
     client = await db.clients.find_one({"client_id": client_id}, {"_id": 0})
@@ -3387,6 +3412,7 @@ async def create_campaign(
 @api_router.get("/inventory")
 async def get_inventory(organization_id: Optional[str] = None, authorization: Optional[str] = Header(None), session_token: Optional[str] = Cookie(None)):
     current_user = await get_current_user(authorization, session_token)
+    require_management_role(current_user)
     
     # Owner can query any organization, manager only their own
     if current_user.role == "owner":
@@ -3396,7 +3422,9 @@ async def get_inventory(organization_id: Optional[str] = None, authorization: Op
             items = await db.inventory.find({"organization_id": organization_id}, {"_id": 0}).to_list(1000)
     else:
         if not current_user.organization_id:
-            raise HTTPException(status_code=400, detail="No organization assigned")
+            raise HTTPException(status_code=403, detail="No organization assigned")
+        if organization_id and organization_id != current_user.organization_id:
+            raise HTTPException(status_code=403, detail="Access denied to this organization")
         items = await db.inventory.find({"organization_id": current_user.organization_id}, {"_id": 0}).to_list(1000)
     
     for item in items:
@@ -3408,6 +3436,7 @@ async def get_inventory(organization_id: Optional[str] = None, authorization: Op
 @api_router.post("/inventory")
 async def create_inventory_item(data: InventoryCreate, authorization: Optional[str] = Header(None), session_token: Optional[str] = Cookie(None)):
     current_user = await get_current_user(authorization, session_token)
+    require_management_role(current_user)
     
     if not current_user.organization_id:
         raise HTTPException(status_code=400, detail="No organization assigned")
@@ -3435,6 +3464,7 @@ async def create_inventory_item(data: InventoryCreate, authorization: Optional[s
 @api_router.put("/inventory/{item_id}")
 async def update_inventory_item(item_id: str, data: InventoryCreate, authorization: Optional[str] = Header(None), session_token: Optional[str] = Cookie(None)):
     current_user = await get_current_user(authorization, session_token)
+    require_management_role(current_user)
     
     # Validate non-negative stock
     if data.quantity < 0:
@@ -3455,12 +3485,14 @@ async def update_inventory_item(item_id: str, data: InventoryCreate, authorizati
 @api_router.delete("/inventory/{item_id}")
 async def delete_inventory_item(item_id: str, authorization: Optional[str] = Header(None), session_token: Optional[str] = Cookie(None)):
     current_user = await get_current_user(authorization, session_token)
+    require_management_role(current_user)
     await db.inventory.delete_one({"item_id": item_id, "organization_id": current_user.organization_id})
     return {"message": "Item deleted"}
 
 @api_router.post("/inventory/generate-order")
 async def generate_purchase_order(authorization: Optional[str] = Header(None), session_token: Optional[str] = Cookie(None)):
     current_user = await get_current_user(authorization, session_token)
+    require_management_role(current_user)
     
     if not current_user.organization_id:
         raise HTTPException(status_code=400, detail="No organization assigned")

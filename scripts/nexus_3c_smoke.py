@@ -51,6 +51,8 @@ def main():
   ),
  }
  check('ACCOUNT_SAFETY',all(account_checks.values()),','.join(k for k,v in account_checks.items() if not v))
+ check('AUTHORIZATION_HARDENING',all(x in server for x in ['NEXUS_AUTHORIZATION_HARDENING_V1','Account access is not approved','Account is inactive','BOOTSTRAP_OWNER_EMAIL']))
+ check('NO_IDENTITY_SPECIFIC_OWNER_ESCALATION',not bool(re.search(r'is_owner_email\s*=|always owner|Always update.*owner',server,re.I)))
  check('NATIVE_DIALOGS',not re.search(r'window\.(prompt|confirm|alert)',frontend))
  status,body,error=request(ORIGIN+'/openapi.json')
  check('OPENAPI',status==200,error or str(status))
