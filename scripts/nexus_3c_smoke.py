@@ -69,6 +69,9 @@ def main():
  check('OWNER_ROUTE_REQUIRES_AUTH',status in {401,403},error or str(status))
  status,_,error=request(API+'/staff/income/summary')
  check('STAFF_ROUTE_REQUIRES_AUTH',status in {401,403},error or str(status))
+ # NEXUS_ACCESSIBILITY_4A_V1
+ accessibility_files='\n'.join((ROOT/path).read_text(encoding='utf-8') for path in ['frontend/src/components/design/useAccessibleDialog.js','frontend/src/components/design/DetailDrawer.jsx','frontend/src/components/design/ConfirmDialogHost.jsx','frontend/src/components/design/AdminShell.jsx'])
+ check('ACCESSIBILITY_DIALOGS',all(x in accessibility_files for x in ['useAccessibleDialog','aria-modal','aria-labelledby','Escape','document.body.style.overflow','restoreTarget']))
  # NEXUS_OWNER_ACCOUNT_HARDENING_V1
  check('OWNER_ACCOUNT_HARDENING',all(x in server for x in [
   '_protect_owner_and_organization_administration','_owner_account_audit',
