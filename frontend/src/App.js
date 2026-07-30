@@ -1,7 +1,6 @@
 import React, { Suspense, lazy } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { QueryClientProvider } from '@tanstack/react-query';
-import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
 import { queryClient } from './lib/queryClient';
 import { AuthProvider } from './context/AuthContext';
 import { OrganizationProvider } from './context/OrganizationContext';
@@ -18,6 +17,11 @@ import { Loader2 } from 'lucide-react';
 import './App.css';
 import CancelAppointment from './pages/CancelAppointment';
 import { RouteExperienceFrame } from './components/design';
+
+// NEXUS_FRONTEND_PERFORMANCE_4C1_V1
+const ReactQueryDevtools = process.env.NODE_ENV === 'development'
+  ? lazy(() => import('@tanstack/react-query-devtools').then(module => ({ default: module.ReactQueryDevtools })))
+  : null;
 
 // Lazy load pages for code splitting
 const OwnerAccessControl = lazy(() => import('./pages/OwnerAccessControl'));
@@ -222,7 +226,11 @@ function App() {
           </AuthProvider>
         </ThemeProvider>
       </BrowserRouter>
-      <ReactQueryDevtools initialIsOpen={false} />
+      {ReactQueryDevtools && (
+        <Suspense fallback={null}>
+          <ReactQueryDevtools initialIsOpen={false} />
+        </Suspense>
+      )}
     </QueryClientProvider>
   );
 }
