@@ -102,6 +102,11 @@ export const inventoryAPI = {
   applyAuditAdjustments: (id, data = {}) => api.post(`/inventory/audits/${id}/apply-adjustments`, data),
   downloadCountSheet: (id) => api.get(`/inventory/audits/${id}/count-sheet.xlsx`, { responseType: 'blob' }),
   downloadAuditCsv: (id) => api.get(`/inventory/audits/${id}/report.csv`, { responseType: 'blob' }),
+  getCatalog: (params = {}) => api.get('/inventory/catalog/items', { params }),
+  createCatalogItem: (data) => api.post('/inventory/catalog/items', data),
+  updateCatalogItem: (id, data) => api.put(`/inventory/catalog/items/${id}`, data),
+  archiveCatalogItem: (id, params = {}) => api.delete(`/inventory/catalog/items/${id}`, { params }),
+  migrateSkus: (params = {}) => api.post('/inventory/catalog/migrate-skus', {}, { params }),
 };
 
 // NEXUS_COMMISSION_FOUNDATION_V1

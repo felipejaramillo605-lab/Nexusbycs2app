@@ -4159,6 +4159,10 @@ async def get_public_appointment(appointment_id: str, token: str):
 from inventory_audit import build_inventory_audit_router
 api_router.include_router(build_inventory_audit_router(db, get_current_user, require_management_role, resolve_team_organization))
 
+# NEXUS_INVENTORY_CATALOG_REGISTRATION_5A_PACKAGE_3_V1
+from inventory_catalog import build_inventory_catalog_router
+api_router.include_router(build_inventory_catalog_router(db, get_current_user, require_management_role, resolve_team_organization))
+
 app.include_router(api_router)
 
 # ==================== SECURITY MIDDLEWARE ====================

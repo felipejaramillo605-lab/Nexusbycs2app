@@ -1,413 +1,46 @@
-// NEXUS_INVENTORY_AUDIT_UI_READY_5A_PACKAGE_2_V1
-// NEXUS_INVENTORY_PACKAGE_1_5A_V1
-import React, { useEffect, useState, useCallback } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
-import { useAuth } from '../context/AuthContext';
-import { inventoryAPI, organizationAPI } from '../api';
-import { Plus, Trash2, ArrowLeft, Package, AlertCircle, FileText, Edit } from 'lucide-react';
-import { MANAGER } from '../constants/testIds';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '../components/ui/dialog';
-import { toast } from 'sonner';
-import { confirmAction } from '../components/design';
+// NEXUS_INVENTORY_COMMAND_CENTER_5A_PACKAGE_3_V1
+import React,{useCallback,useEffect,useMemo,useState} from 'react';
+import {useNavigate,useSearchParams} from 'react-router-dom';
+import {useAuth} from '../context/AuthContext';
+import {inventoryAPI,organizationAPI} from '../api';
+import {ArrowLeft,Package,Plus,Search,AlertTriangle,WalletCards,History,ClipboardCheck,Download,RefreshCw,ArrowDownToLine,ArrowUpFromLine,Edit3,Archive,CheckCircle2} from 'lucide-react';
+import {toast} from 'sonner';
+import {confirmAction,MetricCard,SurfaceCard,LoadingState,EmptyState,SegmentedControl,DetailDrawer} from '../components/design';
+import {Dialog,DialogContent,DialogHeader,DialogTitle} from '../components/ui/dialog';
 
-const ManagerInventory = () => {
-  const navigate = useNavigate();
-  const { user } = useAuth();
-  const [searchParams] = useSearchParams();
-  const [inventory, setInventory] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [isOrderDialogOpen, setIsOrderDialogOpen] = useState(false);
-  const [orderRecommendation, setOrderRecommendation] = useState('');
-  const [loadingOrder, setLoadingOrder] = useState(false);
-  const [editingItem, setEditingItem] = useState(null);
-  const [newItem, setNewItem] = useState({ name: '', quantity: 0, min_stock: 0, unit: 'unidades' });
-  const [organizationName, setOrganizationName] = useState('');
+const money=v=>new Intl.NumberFormat('es-CO',{style:'currency',currency:'COP',maximumFractionDigits:0}).format(Number(v||0));
+const fmt=v=>new Intl.NumberFormat('es-CO',{maximumFractionDigits:2}).format(Number(v||0));
+const blank={name:'',sku:'',quantity:0,min_stock:0,unit:'unidades',unit_cost:0};
+const download=(blob,name)=>{const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download=name;document.body.appendChild(a);a.click();a.remove();URL.revokeObjectURL(url)};
 
-  // Get org_id from query param (for owner) or user.organization_id (for manager)
-  const organizationId = searchParams.get('org_id') || user?.organization_id;
-
-  const loadOrganizationName = useCallback(async () => {
-    if (!organizationId) return;
-    try {
-      const orgsRes = await organizationAPI.getAll();
-      const org = orgsRes.data.find(o => o.organization_id === organizationId);
-      if (org) setOrganizationName(org.name);
-    } catch (error) {
-      console.error('Error loading organization:', error);
-    }
-  }, [organizationId]);
-
-  const loadInventory = useCallback(async () => {
-    if (!organizationId) return;
-    try {
-      const params = { organization_id: organizationId };
-      const response = await inventoryAPI.getAll(params);
-      setInventory(response.data);
-    } catch (error) {
-      console.error('Error loading inventory:', error);
-    } finally {
-      setLoading(false);
-    }
-  }, [organizationId]);
-
-  useEffect(() => {
-    if (organizationId) {
-      loadInventory();
-      loadOrganizationName();
-    }
-  }, [organizationId, loadInventory, loadOrganizationName]);
-
-  const handleCreate = async () => {
-    if (newItem.quantity < 0 || newItem.min_stock < 0) {
-      toast.error('Las cantidades no pueden ser negativas');
-      return;
-    }
-    try {
-      await inventoryAPI.create(newItem);
-      setIsDialogOpen(false);
-      setNewItem({ name: '', quantity: 0, min_stock: 0, unit: 'unidades' });
-      await loadInventory();
-      toast.success('Producto agregado');
-    } catch (error) {
-      console.error('Error creating item:', error);
-      if (error.response?.status === 400) {
-        toast.error(error.response.data.detail || 'Datos inválidos');
-      } else {
-        toast.error('Error al crear producto');
-      }
-    }
-  };
-
-  const handleUpdate = async () => {
-    try {
-      await inventoryAPI.update(editingItem.item_id, newItem);
-      setEditingItem(null);
-      setNewItem({ name: '', quantity: 0, min_stock: 0, unit: 'unidades' });
-      await loadInventory(); // Reload to get updated is_low_stock
-      toast.success('Producto actualizado');
-    } catch (error) {
-      console.error('Error updating item:', error);
-      if (error.response?.status === 400) {
-        toast.error(error.response.data.detail || 'Datos inválidos');
-      } else {
-        toast.error('Error al actualizar producto');
-      }
-    }
-  };
-
-  const handleDelete = async (id) => {
-    if (!await confirmAction('¿Eliminar este producto?')) return;
-    try {
-      await inventoryAPI.delete(id);
-      loadInventory();
-      toast.success('Producto eliminado');
-    } catch (error) {
-      console.error('Error deleting item:', error);
-      toast.error('Error al eliminar producto');
-    }
-  };
-
-  const handleGenerateOrder = async () => {
-    setLoadingOrder(true);
-    setOrderRecommendation('');
-    setIsOrderDialogOpen(true);
-    
-    try {
-      const response = await inventoryAPI.generateOrder();
-      const reader = response.data.getReader();
-      const decoder = new TextDecoder();
-      
-      let fullText = '';
-      
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        
-        const chunk = decoder.decode(value);
-        const lines = chunk.split('\n');
-        
-        for (const line of lines) {
-          if (line.startsWith('data: ')) {
-            try {
-              const data = JSON.parse(line.substring(6));
-              if (data.error) {
-                toast.error(data.error);
-                setOrderRecommendation(`❌ Error: ${data.error}`);
-                setLoadingOrder(false);
-                break;
-              }
-              if (data.content) {
-                fullText += data.content;
-                setOrderRecommendation(fullText);
-              }
-              if (data.done) {
-                setLoadingOrder(false);
-              }
-            } catch (e) {
-              console.error('Error parsing SSE:', e);
-            }
-          }
-        }
-      }
-    } catch (error) {
-      console.error('Error generating order:', error);
-      toast.error('Error al generar orden');
-      setLoadingOrder(false);
-      setIsOrderDialogOpen(false);
-    }
-  };
-
-  const startEdit = (item) => {
-    setEditingItem(item);
-    setNewItem({
-      name: item.name,
-      quantity: item.quantity,
-      min_stock: item.min_stock,
-      unit: item.unit
-    });
-  };
-
-  const lowStockCount = inventory.filter(item => item.is_low_stock).length;
-
-  if (loading) {
-    return (
-      <div className="min-h-screen nexus-screen flex items-center justify-center">
-        <div className="text-[var(--app-text-primary)] text-lg">Cargando...</div>
-      </div>
-    );
-  }
-
-  return (
-    <div className="min-h-screen nexus-screen p-6">
-      <div className="max-w-6xl mx-auto">
-        {lowStockCount > 0 && (
-          <div className="mb-6 backdrop-blur-xl bg-[#FF453A]/10 border border-[#FF453A]/30 rounded-2xl p-4 flex items-center gap-3">
-            <AlertCircle size={24} strokeWidth={1.5} className="text-[#FF453A] low-stock-pulse" />
-            <div className="flex-1">
-              <p className="text-[var(--app-text-primary)] font-medium">
-                {lowStockCount} {lowStockCount === 1 ? 'producto' : 'productos'} con stock bajo
-              </p>
-              <p className="text-sm text-zinc-400">Considera generar una orden de compra</p>
-            </div>
-            <button
-              onClick={handleGenerateOrder}
-              className="px-4 py-2 bg-[#FF453A] hover:bg-[#FF3A2D] text-[var(--app-text-primary)] rounded-xl font-medium transition-all"
-            >
-              Ver recomendación
-            </button>
-          </div>
-        )}
-
-        <div className="flex items-center justify-between mb-8">
-          <div className="flex items-center gap-4">
-            <button
-              onClick={() => navigate(organizationId && user?.role === 'owner' ? `/manager/dashboard?org_id=${organizationId}` : '/manager/dashboard')}
-              className="p-2 rounded-xl bg-white/5 border border-[var(--app-border)] hover:bg-white/10 transition-all text-[var(--app-text-primary)]"
-            >
-              <ArrowLeft size={20} strokeWidth={1.5} />
-            </button>
-            <div className="flex items-center gap-4">
-              <div className="w-12 h-12 rounded-xl bg-[#0A84FF] flex items-center justify-center">
-                <Package size={24} strokeWidth={1.5} />
-              </div>
-              <div>
-                <h1 className="text-4xl font-light tracking-tight text-[var(--app-text-primary)]" style={{ fontFamily: 'Outfit, sans-serif' }}>
-                  Inventario
-                </h1>
-                {organizationName ? (
-                  <p className="text-zinc-400 text-sm mt-1">{organizationName}</p>
-                ) : (
-                  <p className="text-zinc-400 text-sm">Gestiona tus productos y stock</p>
-                )}
-              </div>
-            </div>
-          </div>
-          <div className="flex items-center gap-3">
-            <button
-              data-testid={MANAGER.generateOrderBtn}
-              onClick={handleGenerateOrder}
-              className="flex items-center gap-2 px-4 py-3 bg-white/5 border border-[var(--app-border)] hover:bg-white/10 text-[var(--app-text-primary)] rounded-xl font-medium transition-all"
-            >
-              <FileText size={20} strokeWidth={1.5} />
-              Generar Orden
-            </button>
-            <Dialog open={isDialogOpen || editingItem !== null} onOpenChange={(open) => {
-              setIsDialogOpen(open);
-              if (!open) {
-                setEditingItem(null);
-                setNewItem({ name: '', quantity: 0, min_stock: 0, unit: 'unidades' });
-              }
-            }}>
-              <DialogTrigger asChild>
-                <button
-                  data-testid={MANAGER.addInventoryBtn}
-                  className="flex items-center gap-2 px-6 py-3 bg-[#0A84FF] hover:bg-[#0071E3] text-[var(--app-text-primary)] rounded-xl font-medium transition-all hover:-translate-y-1 active:scale-95"
-                >
-                  <Plus size={20} strokeWidth={1.5} />
-                  Nuevo Producto
-                </button>
-              </DialogTrigger>
-              <DialogContent className="bg-[var(--app-surface-elevated)] border-[var(--app-border)]">
-                <DialogHeader>
-                  <DialogTitle className="text-[var(--app-text-primary)]">
-                    {editingItem ? 'Editar Producto' : 'Crear Producto'}
-                  </DialogTitle>
-                </DialogHeader>
-                <div className="space-y-4 mt-4">
-                  <div>
-                    <label className="text-sm text-zinc-400 mb-2 block">Nombre</label>
-                    <input
-                      type="text"
-                      value={newItem.name}
-                      onChange={(e) => setNewItem({ ...newItem, name: e.target.value })}
-                      className="w-full px-4 py-3 bg-transparent border border-[var(--app-border)] rounded-xl text-[var(--app-text-primary)] focus:border-[#0A84FF] focus:ring-1 focus:ring-[#0A84FF] outline-none"
-                      placeholder="Ej: Gel para cabello"
-                    />
-                  </div>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label className="text-sm text-zinc-400 mb-2 block">Cantidad actual</label>
-                      <input
-                        type="number"
-                        value={newItem.quantity}
-                        onChange={(e) => setNewItem({ ...newItem, quantity: parseInt(e.target.value) || 0 })}
-                        className="w-full px-4 py-3 bg-transparent border border-[var(--app-border)] rounded-xl text-[var(--app-text-primary)] focus:border-[#0A84FF] focus:ring-1 focus:ring-[#0A84FF] outline-none"
-                      />
-                    </div>
-                    <div>
-                      <label className="text-sm text-zinc-400 mb-2 block">Stock mínimo</label>
-                      <input
-                        type="number"
-                        value={newItem.min_stock}
-                        onChange={(e) => setNewItem({ ...newItem, min_stock: parseInt(e.target.value) || 0 })}
-                        className="w-full px-4 py-3 bg-transparent border border-[var(--app-border)] rounded-xl text-[var(--app-text-primary)] focus:border-[#0A84FF] focus:ring-1 focus:ring-[#0A84FF] outline-none"
-                      />
-                    </div>
-                  </div>
-                  <div>
-                    <label className="text-sm text-zinc-400 mb-2 block">Unidad</label>
-                    <input
-                      type="text"
-                      value={newItem.unit}
-                      onChange={(e) => setNewItem({ ...newItem, unit: e.target.value })}
-                      className="w-full px-4 py-3 bg-transparent border border-[var(--app-border)] rounded-xl text-[var(--app-text-primary)] focus:border-[#0A84FF] focus:ring-1 focus:ring-[#0A84FF] outline-none"
-                      placeholder="Ej: unidades, ml, kg"
-                    />
-                  </div>
-                  <button
-                    onClick={editingItem ? handleUpdate : handleCreate}
-                    className="w-full px-6 py-3 bg-[#0A84FF] hover:bg-[#0071E3] text-[var(--app-text-primary)] rounded-xl font-medium transition-all"
-                  >
-                    {editingItem ? 'Actualizar Producto' : 'Crear Producto'}
-                  </button>
-                </div>
-              </DialogContent>
-            </Dialog>
-          </div>
-        </div>
-
-        <div className="backdrop-blur-xl bg-white/3 border border-[var(--app-border)] rounded-2xl overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead>
-                <tr className="border-b border-white/5">
-                  <th className="text-left p-4 text-sm font-medium text-zinc-400">Producto</th>
-                  <th className="text-left p-4 text-sm font-medium text-zinc-400">Cantidad</th>
-                  <th className="text-left p-4 text-sm font-medium text-zinc-400">Stock mínimo</th>
-                  <th className="text-left p-4 text-sm font-medium text-zinc-400">Estado</th>
-                  <th className="text-right p-4 text-sm font-medium text-zinc-400">Acciones</th>
-                </tr>
-              </thead>
-              <tbody>
-                {inventory.map((item) => (
-                  <tr
-                    key={item.item_id}
-                    data-testid={MANAGER.inventoryRow}
-                    className="border-b border-white/5 hover:bg-white/5 transition-colors"
-                  >
-                    <td className="p-4">
-                      <div className="flex items-center gap-3">
-                        {item.is_low_stock && (
-                          <div className="w-2 h-2 rounded-full bg-[#FF453A] low-stock-pulse"></div>
-                        )}
-                        <span className="text-[var(--app-text-primary)] font-medium">{item.name}</span>
-                      </div>
-                    </td>
-                    <td className="p-4 text-zinc-400">
-                      {item.quantity} {item.unit}
-                    </td>
-                    <td className="p-4 text-zinc-400">
-                      {item.min_stock} {item.unit}
-                    </td>
-                    <td className="p-4">
-                      {item.is_low_stock ? (
-                        <span className="px-3 py-1 rounded-lg text-xs font-medium bg-[#FF453A]/20 text-[#FF453A]">
-                          Stock Bajo
-                        </span>
-                      ) : (
-                        <span className="px-3 py-1 rounded-lg text-xs font-medium bg-[#32D74B]/20 text-[#32D74B]">
-                          OK
-                        </span>
-                      )}
-                    </td>
-                    <td className="p-4">
-                      <div className="flex items-center justify-end gap-2">
-                        <button
-                          onClick={() => startEdit(item)}
-                          className="p-2 rounded-lg bg-white/5 hover:bg-white/10 text-zinc-400 hover:text-[#0A84FF] transition-colors"
-                          title="Editar"
-                        >
-                          <Edit size={18} strokeWidth={1.5} />
-                        </button>
-                        <button
-                          onClick={() => handleDelete(item.item_id)}
-                          className="p-2 rounded-lg bg-white/5 hover:bg-white/10 text-zinc-400 hover:text-red-300 transition-colors"
-                          title="Eliminar"
-                        >
-                          <Trash2 size={18} strokeWidth={1.5} />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-
-        {inventory.length === 0 && (
-          <div className="backdrop-blur-xl bg-white/3 border border-[var(--app-border)] rounded-2xl p-12 text-center mt-6">
-            <Package size={48} strokeWidth={1.5} className="text-zinc-600 mx-auto mb-4" />
-            <p className="text-zinc-400 mb-4">No hay productos en el inventario</p>
-            <p className="text-zinc-500 text-sm">Agrega tu primer producto para comenzar</p>
-          </div>
-        )}
-
-        <Dialog open={isOrderDialogOpen} onOpenChange={setIsOrderDialogOpen}>
-          <DialogContent className="bg-[var(--app-surface-elevated)] border-[var(--app-border)] max-w-2xl">
-            <DialogHeader>
-              <DialogTitle className="text-[var(--app-text-primary)] flex items-center gap-2">
-                <FileText size={24} strokeWidth={1.5} className="text-[#0A84FF]" />
-                Recomendación de Compra Inteligente
-              </DialogTitle>
-            </DialogHeader>
-            <div className="mt-4 max-h-96 overflow-y-auto">
-              {loadingOrder ? (
-                <div className="flex items-center justify-center py-8">
-                  <div className="text-zinc-400">Analizando inventario...</div>
-                </div>
-              ) : (
-                <div className="prose prose-invert max-w-none">
-                  <div className="text-zinc-300 whitespace-pre-wrap">{orderRecommendation}</div>
-                </div>
-              )}
-            </div>
-          </DialogContent>
-        </Dialog>
-      </div>
-    </div>
-  );
-};
-
-export default ManagerInventory;
+export default function ManagerInventory(){
+ const navigate=useNavigate();const {user}=useAuth();const [params]=useSearchParams();const organizationId=params.get('org_id')||user?.organization_id;
+ const [tab,setTab]=useState('catalog');const [items,setItems]=useState([]);const [summary,setSummary]=useState({});const [audits,setAudits]=useState([]);const [loading,setLoading]=useState(true);const [name,setName]=useState('');const [search,setSearch]=useState('');
+ const [editor,setEditor]=useState(null);const [form,setForm]=useState(blank);const [movement,setMovement]=useState(null);const [moveForm,setMoveForm]=useState({movement_type:'purchase',quantity:1,unit_cost:0,notes:''});const [ledger,setLedger]=useState(null);const [ledgerRows,setLedgerRows]=useState([]);
+ const [auditOpen,setAuditOpen]=useState(false);const [auditForm,setAuditForm]=useState({name:'Conteo físico',blind_count:false,location:'',notes:''});const [audit,setAudit]=useState(null);const [report,setReport]=useState(null);const [selected,setSelected]=useState([]);
+ const load=useCallback(async()=>{if(!organizationId)return;setLoading(true);try{const [i,s,a,o]=await Promise.all([inventoryAPI.getCatalog({organization_id:organizationId}),inventoryAPI.getSummary({organization_id:organizationId}),inventoryAPI.listAudits({organization_id:organizationId,page:1,page_size:50}),organizationAPI.getAll()]);setItems(i.data);setSummary(s.data);setAudits(a.data.items||[]);setName(o.data.find(x=>x.organization_id===organizationId)?.name||'');}catch(e){toast.error(e.response?.data?.detail||'No fue posible cargar inventario')}finally{setLoading(false)}},[organizationId]);
+ useEffect(()=>{load()},[load]);
+ const filtered=useMemo(()=>items.filter(x=>`${x.sku} ${x.name}`.toLowerCase().includes(search.toLowerCase())),[items,search]);
+ const openEditor=item=>{setEditor(item||{});setForm(item?{name:item.name,sku:item.sku||'',quantity:item.quantity,min_stock:item.min_stock,unit:item.unit,unit_cost:item.unit_cost||0}:blank)};
+ const save=async()=>{try{const data={...form,organization_id:organizationId,quantity:Number(form.quantity),min_stock:Number(form.min_stock),unit_cost:Number(form.unit_cost)};if(editor?.item_id)await inventoryAPI.updateCatalogItem(editor.item_id,data);else await inventoryAPI.createCatalogItem(data);toast.success(editor?.item_id?'Referencia actualizada':'Referencia creada');setEditor(null);await load()}catch(e){toast.error(e.response?.data?.detail||'No fue posible guardar')}};
+ const archive=async item=>{if(!await confirmAction(`¿Archivar ${item.name}?`))return;try{await inventoryAPI.archiveCatalogItem(item.item_id,{organization_id:organizationId});toast.success('Referencia archivada');load()}catch(e){toast.error(e.response?.data?.detail||'No fue posible archivar')}};
+ const postMovement=async()=>{try{await inventoryAPI.createMovement(movement.item_id,{...moveForm,quantity:Number(moveForm.quantity),unit_cost:moveForm.unit_cost===''?null:Number(moveForm.unit_cost),organization_id:organizationId,idempotency_key:`ui:${movement.item_id}:${Date.now()}`});toast.success('Movimiento registrado');setMovement(null);load()}catch(e){toast.error(e.response?.data?.detail||'No fue posible registrar el movimiento')}};
+ const openLedger=async item=>{setLedger(item);const r=await inventoryAPI.getMovements({organization_id:organizationId,inventory_item_id:item.item_id,page:1,page_size:100});setLedgerRows(r.data.items||[])};
+ const createAudit=async()=>{try{await inventoryAPI.createAudit({...auditForm,organization_id:organizationId});setAuditOpen(false);toast.success('Auditoría preparada');load()}catch(e){toast.error(e.response?.data?.detail||'No fue posible crear la auditoría')}};
+ const openAudit=async id=>{const [d,r]=await Promise.all([inventoryAPI.getAudit(id),inventoryAPI.getAuditReport(id)]);setAudit(d.data);setReport(r.data);setSelected((d.data.lines||[]).filter(x=>x.difference_quantity&&x.counted_quantity!==null&&!x.adjustment_applied).map(x=>x.audit_line_id))};
+ const count=async(line,value,observation)=>{try{await inventoryAPI.updateAuditLine(audit.audit_id,line.audit_line_id,{counted_quantity:Number(value),observation});openAudit(audit.audit_id)}catch(e){toast.error(e.response?.data?.detail||'No fue posible guardar el conteo')}};
+ const apply=async()=>{if(!selected.length)return toast.error('Selecciona diferencias');if(!await confirmAction(`¿Aplicar ${selected.length} ajustes al Kardex?`))return;try{await inventoryAPI.applyAuditAdjustments(audit.audit_id,{line_ids:selected});toast.success('Ajustes aplicados');setAudit(null);load()}catch(e){toast.error(e.response?.data?.detail||'No fue posible aplicar ajustes')}};
+ if(loading)return <div className="min-h-screen nexus-screen"><LoadingState label="Preparando el centro de inventario"/></div>;
+ return <div className="min-h-screen nexus-screen p-4 md:p-8"><div className="max-w-7xl mx-auto space-y-6">
+  <header className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between"><div className="flex items-center gap-3"><button onClick={()=>navigate(user?.role==='owner'?`/manager/dashboard?org_id=${organizationId}`:'/manager/dashboard')} className="p-3 rounded-2xl bg-[var(--app-surface)] border border-[var(--app-border)]"><ArrowLeft/></button><div><p className="text-sm text-[var(--app-text-secondary)]">{name||'Operación'}</p><h1 className="text-3xl md:text-4xl font-semibold text-[var(--app-text-primary)]">Centro de inventario</h1></div></div><div className="flex gap-2"><button onClick={()=>setAuditOpen(true)} className="px-4 py-3 rounded-xl border border-[var(--app-border)] text-[var(--app-text-primary)] flex gap-2"><ClipboardCheck size={18}/>Nueva auditoría</button><button onClick={()=>openEditor()} className="px-4 py-3 rounded-xl bg-[#0A84FF] text-white flex gap-2"><Plus size={18}/>Nueva referencia</button></div></header>
+  <div className="grid grid-cols-2 lg:grid-cols-4 gap-3"><MetricCard label="Referencias" value={summary.item_count||items.length} icon={Package}/><MetricCard label="Unidades" value={fmt(summary.total_units)} icon={WalletCards}/><MetricCard label="Stock bajo" value={summary.low_stock_count||0} icon={AlertTriangle}/><MetricCard label="Valor inventario" value={money(summary.inventory_value)} icon={WalletCards}/></div>
+  <SegmentedControl value={tab} onChange={setTab} options={[{value:'catalog',label:'Catálogo'},{value:'audits',label:'Auditorías'}]}/>
+  {tab==='catalog'?<SurfaceCard><div className="p-4 flex gap-3 items-center border-b border-[var(--app-border)]"><Search size={18}/><input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Buscar por SKU o producto" className="flex-1 bg-transparent outline-none text-[var(--app-text-primary)]"/><button onClick={async()=>{const r=await inventoryAPI.migrateSkus({organization_id:organizationId});toast.success(`${r.data.migrated_count} SKU migrados`);load()}} className="text-sm text-[#0A84FF] flex gap-1"><RefreshCw size={16}/>Normalizar SKU</button></div>{!filtered.length?<EmptyState title="Sin referencias" description="Crea la primera referencia de inventario"/>:<div className="overflow-x-auto"><table className="w-full text-sm"><thead><tr className="text-left text-[var(--app-text-secondary)] border-b border-[var(--app-border)]"><th className="p-4">SKU / producto</th><th className="p-4">Existencia</th><th className="p-4">Costo / valor</th><th className="p-4">Estado</th><th className="p-4 text-right">Acciones</th></tr></thead><tbody>{filtered.map(x=><tr key={x.item_id} className="border-b border-[var(--app-border)] hover:bg-white/5"><td className="p-4"><code className="text-xs text-[#0A84FF]">{x.sku}</code><div className="font-medium text-[var(--app-text-primary)]">{x.name}</div><div className="text-xs text-[var(--app-text-secondary)]">Mínimo {fmt(x.min_stock)} {x.unit}</div></td><td className="p-4 text-[var(--app-text-primary)] text-lg">{fmt(x.quantity)} <span className="text-xs">{x.unit}</span></td><td className="p-4 text-[var(--app-text-primary)]">{money(x.unit_cost)}<div className="text-xs text-[var(--app-text-secondary)]">{money(x.inventory_value)}</div></td><td className="p-4"><span className={`px-2 py-1 rounded-full text-xs ${x.is_low_stock?'bg-red-500/15 text-red-400':'bg-emerald-500/15 text-emerald-400'}`}>{x.is_low_stock?'Stock bajo':'Disponible'}</span></td><td className="p-4"><div className="flex justify-end gap-1"><button title="Entrada" onClick={()=>{setMovement(x);setMoveForm({movement_type:'purchase',quantity:1,unit_cost:x.unit_cost||0,notes:''})}} className="p-2"><ArrowDownToLine size={18}/></button><button title="Salida" onClick={()=>{setMovement(x);setMoveForm({movement_type:'manual_out',quantity:1,unit_cost:x.unit_cost||0,notes:''})}} className="p-2"><ArrowUpFromLine size={18}/></button><button title="Kardex" onClick={()=>openLedger(x)} className="p-2"><History size={18}/></button><button title="Editar" onClick={()=>openEditor(x)} className="p-2"><Edit3 size={18}/></button><button title="Archivar" onClick={()=>archive(x)} className="p-2 text-red-400"><Archive size={18}/></button></div></td></tr>)}</tbody></table></div>}</SurfaceCard>:<SurfaceCard>{!audits.length?<EmptyState title="Sin auditorías" description="Prepara un conteo físico para comparar existencias"/>:<div className="divide-y divide-[var(--app-border)]">{audits.map(a=><button key={a.audit_id} onClick={()=>openAudit(a.audit_id)} className="w-full p-4 text-left flex justify-between hover:bg-white/5"><div><div className="font-medium text-[var(--app-text-primary)]">{a.name}</div><div className="text-xs text-[var(--app-text-secondary)]">{a.audit_number} · {a.item_count} referencias</div></div><span className="text-sm text-[#0A84FF]">{a.status}</span></button>)}</div>}</SurfaceCard>}
+  <Dialog open={!!editor} onOpenChange={o=>!o&&setEditor(null)}><DialogContent className="bg-[var(--app-surface-elevated)]"><DialogHeader><DialogTitle>{editor?.item_id?'Editar referencia':'Nueva referencia'}</DialogTitle></DialogHeader><div className="grid grid-cols-2 gap-3">{[['name','Nombre'],['sku','SKU opcional'],['quantity','Stock inicial'],['min_stock','Stock mínimo'],['unit','Unidad'],['unit_cost','Costo unitario']].map(([k,l])=><label key={k} className={k==='name'?'col-span-2':''}><span className="text-xs text-[var(--app-text-secondary)]">{l}</span><input disabled={!!editor?.item_id&&k==='quantity'} type={['quantity','min_stock','unit_cost'].includes(k)?'number':'text'} value={form[k]} onChange={e=>setForm({...form,[k]:e.target.value})} className="w-full mt-1 p-3 rounded-xl bg-[var(--app-surface)] border border-[var(--app-border)]"/></label>)}</div><button onClick={save} className="w-full p-3 bg-[#0A84FF] text-white rounded-xl">Guardar referencia</button></DialogContent></Dialog>
+  <Dialog open={!!movement} onOpenChange={o=>!o&&setMovement(null)}><DialogContent className="bg-[var(--app-surface-elevated)]"><DialogHeader><DialogTitle>Registrar movimiento · {movement?.name}</DialogTitle></DialogHeader><select value={moveForm.movement_type} onChange={e=>setMoveForm({...moveForm,movement_type:e.target.value})} className="p-3 rounded-xl bg-[var(--app-surface)]"><option value="purchase">Compra / entrada</option><option value="manual_in">Entrada manual</option><option value="manual_out">Salida manual</option><option value="waste">Merma</option><option value="return">Devolución</option></select><input type="number" value={moveForm.quantity} onChange={e=>setMoveForm({...moveForm,quantity:e.target.value})} className="p-3 rounded-xl bg-[var(--app-surface)]" placeholder="Cantidad"/><input type="number" value={moveForm.unit_cost} onChange={e=>setMoveForm({...moveForm,unit_cost:e.target.value})} className="p-3 rounded-xl bg-[var(--app-surface)]" placeholder="Costo unitario"/><textarea value={moveForm.notes} onChange={e=>setMoveForm({...moveForm,notes:e.target.value})} className="p-3 rounded-xl bg-[var(--app-surface)]" placeholder="Notas"/><button onClick={postMovement} className="p-3 bg-[#0A84FF] text-white rounded-xl">Registrar</button></DialogContent></Dialog>
+  <DetailDrawer open={!!ledger} onClose={()=>setLedger(null)} title={`Kardex · ${ledger?.name||''}`}>{!ledgerRows.length?<EmptyState title="Sin movimientos"/>:<div className="space-y-2">{ledgerRows.map(m=><div key={m.movement_id} className="p-3 rounded-xl border border-[var(--app-border)]"><div className="flex justify-between"><span className="font-medium">{m.movement_type}</span><span className={m.direction==='in'?'text-emerald-400':'text-red-400'}>{m.direction==='in'?'+':'-'}{fmt(m.quantity)}</span></div><div className="text-xs text-[var(--app-text-secondary)]">{m.previous_stock} → {m.new_stock} · {new Date(m.created_at).toLocaleString('es-CO')}</div></div>)}</div>}</DetailDrawer>
+  <Dialog open={auditOpen} onOpenChange={setAuditOpen}><DialogContent className="bg-[var(--app-surface-elevated)]"><DialogHeader><DialogTitle>Preparar auditoría física</DialogTitle></DialogHeader><input value={auditForm.name} onChange={e=>setAuditForm({...auditForm,name:e.target.value})} className="p-3 rounded-xl bg-[var(--app-surface)]"/><input value={auditForm.location} onChange={e=>setAuditForm({...auditForm,location:e.target.value})} className="p-3 rounded-xl bg-[var(--app-surface)]" placeholder="Ubicación"/><label className="flex gap-2"><input type="checkbox" checked={auditForm.blind_count} onChange={e=>setAuditForm({...auditForm,blind_count:e.target.checked})}/>Conteo ciego</label><button onClick={createAudit} className="p-3 bg-[#0A84FF] text-white rounded-xl">Crear snapshot</button></DialogContent></Dialog>
+  <Dialog open={!!audit} onOpenChange={o=>!o&&setAudit(null)}><DialogContent className="bg-[var(--app-surface-elevated)] max-w-5xl max-h-[90vh] overflow-auto"><DialogHeader><DialogTitle>{audit?.name} · {audit?.audit_number}</DialogTitle></DialogHeader><div className="flex flex-wrap gap-2"><button onClick={async()=>{const r=await inventoryAPI.downloadCountSheet(audit.audit_id);download(r.data,`${audit.audit_number}.xlsx`)}} className="px-3 py-2 border rounded-xl flex gap-2"><Download size={16}/>Acta Excel</button><button onClick={async()=>{const r=await inventoryAPI.downloadAuditCsv(audit.audit_id);download(r.data,`${audit.audit_number}.csv`)}} className="px-3 py-2 border rounded-xl flex gap-2"><Download size={16}/>Diferencias CSV</button><span className="px-3 py-2">Exactitud {report?.accuracy_percent||0}%</span></div><div className="space-y-2">{audit?.lines?.map(l=><AuditLine key={l.audit_line_id} line={l} blind={audit.blind_count} selected={selected.includes(l.audit_line_id)} toggle={()=>setSelected(s=>s.includes(l.audit_line_id)?s.filter(x=>x!==l.audit_line_id):[...s,l.audit_line_id])} save={count}/>)}</div>{!audit?.adjustments_applied&&<button onClick={apply} className="p-3 bg-[#0A84FF] text-white rounded-xl flex justify-center gap-2"><CheckCircle2/>Aplicar {selected.length} ajustes seleccionados</button>}</DialogContent></Dialog>
+ </div></div>
+}
+function AuditLine({line,blind,selected,toggle,save}){const [q,setQ]=useState(line.counted_quantity??'');const [obs,setObs]=useState(line.observation||'');return <div className="grid md:grid-cols-[auto_1fr_110px_1fr_auto] gap-2 items-center p-3 rounded-xl border border-[var(--app-border)]"><input type="checkbox" checked={selected} disabled={!line.difference_quantity||line.adjustment_applied} onChange={toggle}/><div><code className="text-xs text-[#0A84FF]">{line.sku_snapshot}</code><div>{line.item_name_snapshot}</div>{!blind&&<div className="text-xs text-[var(--app-text-secondary)]">Sistema: {line.system_quantity}</div>}</div><input type="number" value={q} onChange={e=>setQ(e.target.value)} className="p-2 rounded-lg bg-[var(--app-surface)]"/><input value={obs} onChange={e=>setObs(e.target.value)} placeholder="Observación" className="p-2 rounded-lg bg-[var(--app-surface)]"/><button onClick={()=>save(line,q,obs)} className="px-3 py-2 text-[#0A84FF]">Guardar</button></div>}
