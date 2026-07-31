@@ -4203,6 +4203,35 @@ async def create_application_indexes():
         partialFilterExpression={"token_hash": {"$exists": True}}
     )
     await db.password_resets.create_index("expires_at")
+    # NEXUS_PERSISTENT_QUERY_INDEXES_4E3_V1
+    await db.appointments.create_index(
+        [("organization_id", 1), ("date", -1), ("time", -1), ("appointment_id", -1)],
+        name="nexus_org_date_time_appointment_desc",
+    )
+    await db.appointments.create_index(
+        [("organization_id", 1), ("status", 1), ("date", -1), ("time", -1), ("appointment_id", -1)],
+        name="nexus_org_status_date_time_appointment_desc",
+    )
+    await db.clients.create_index(
+        [("organization_id", 1), ("total_visits", -1), ("client_id", 1)],
+        name="nexus_org_visits_client",
+    )
+    await db.transactions.create_index(
+        [("organization_id", 1), ("created_at", -1), ("transaction_id", -1)],
+        name="nexus_org_created_transaction_desc",
+    )
+    await db.transactions.create_index(
+        [("organization_id", 1), ("payment_method", 1), ("created_at", -1), ("transaction_id", -1)],
+        name="nexus_org_payment_created_transaction_desc",
+    )
+    await db.staff_settlements.create_index(
+        [("organization_id", 1), ("created_at", -1), ("settlement_id", -1)],
+        name="nexus_org_created_settlement_desc",
+    )
+    await db.staff_settlements.create_index(
+        [("organization_id", 1), ("status", 1), ("created_at", -1), ("settlement_id", -1)],
+        name="nexus_org_status_created_settlement_desc",
+    )
 
 
 @app.on_event("shutdown")
