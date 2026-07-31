@@ -4155,6 +4155,10 @@ async def get_public_appointment(appointment_id: str, token: str):
         "barber_name": (barber.get("display_name") or barber.get("name") or "Profesional") if barber else "Profesional"
     }
 
+# NEXUS_INVENTORY_AUDIT_REGISTRATION_5A_PACKAGE_2_V1
+from inventory_audit import build_inventory_audit_router
+api_router.include_router(build_inventory_audit_router(db, get_current_user, require_management_role, resolve_team_organization))
+
 app.include_router(api_router)
 
 # ==================== SECURITY MIDDLEWARE ====================
@@ -4277,6 +4281,14 @@ async def create_application_indexes():
     await db.inventory_movements.create_index([("organization_id", 1), ("inventory_item_id", 1), ("created_at", -1), ("movement_id", -1)], name="nexus_inventory_movements_item_created")
     await db.inventory_movements.create_index([("organization_id", 1), ("movement_type", 1), ("created_at", -1)], name="nexus_inventory_movements_type_created")
     await db.inventory_movements.create_index([("organization_id", 1), ("idempotency_key", 1)], unique=True, partialFilterExpression={"idempotency_key": {"$type": "string"}}, name="nexus_inventory_movement_idempotency")
+    await db.inventory.create_index(
+        [("organization_id", 1), ("sku", 1)],
+        unique=True,
+        partialFilterExpression={"sku": {"$type": "string"}},
+        name="nexus_inventory_org_sku_unique",
+    )
+    await db.inventory_audits.create_index([("organization_id", 1), ("created_at", -1)], name="nexus_inventory_audits_org_created")
+    await db.inventory_audit_lines.create_index([("audit_id", 1), ("audit_line_id", 1)], unique=True, name="nexus_inventory_audit_lines_unique")
     # NEXUS_PERSISTENT_QUERY_INDEXES_4E3_V1
     await db.appointments.create_index(
         [("organization_id", 1), ("date", -1), ("time", -1), ("appointment_id", -1)],

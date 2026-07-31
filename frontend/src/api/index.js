@@ -94,6 +94,14 @@ export const inventoryAPI = {
   getSummary: (params = {}) => api.get('/inventory/summary', { params }),
   getMovements: (params = {}) => api.get('/inventory/movements', { params }),
   createMovement: (id, data) => api.post(`/inventory/${id}/movements`, data),
+  listAudits: (params = {}) => api.get('/inventory/audits', { params }),
+  createAudit: (data) => api.post('/inventory/audits', data),
+  getAudit: (id) => api.get(`/inventory/audits/${id}`),
+  updateAuditLine: (auditId, lineId, data) => api.put(`/inventory/audits/${auditId}/lines/${lineId}`, data),
+  getAuditReport: (id) => api.get(`/inventory/audits/${id}/report`),
+  applyAuditAdjustments: (id, data = {}) => api.post(`/inventory/audits/${id}/apply-adjustments`, data),
+  downloadCountSheet: (id) => api.get(`/inventory/audits/${id}/count-sheet.xlsx`, { responseType: 'blob' }),
+  downloadAuditCsv: (id) => api.get(`/inventory/audits/${id}/report.csv`, { responseType: 'blob' }),
 };
 
 // NEXUS_COMMISSION_FOUNDATION_V1
