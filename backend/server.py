@@ -307,6 +307,18 @@ class InventoryCreate(BaseModel):
     min_stock: int
     unit: str
 
+
+# NEXUS_INVENTORY_PACKAGE_1_5A_V1
+class InventoryMovementCreate(BaseModel):
+    movement_type: str
+    quantity: float
+    unit_cost: Optional[float] = None
+    notes: Optional[str] = None
+    reference_type: Optional[str] = None
+    reference_id: Optional[str] = None
+    idempotency_key: Optional[str] = None
+    organization_id: Optional[str] = None
+
 class UserAccessUpdate(BaseModel):
     access_status: str
 
@@ -3927,7 +3939,64 @@ async def create_public_appointment(org_id: str, data: AppointmentCreate):
         if not (new_end_minutes <= apt_start_minutes or start_minutes >= apt_end_minutes):
             raise HTTPException(status_code=409, detail="This time slot is no longer available")
     
-    # NEXUS_PUBLIC_APPOINTMENT_TOKEN_V1
+    # NEXUS_INVENTORY_LEDGER_ROUTES_5A_V1
+INVENTORY_MOVEMENT_TYPES = {"purchase", "manual_in", "manual_out", "adjustment_in", "adjustment_out", "return", "waste", "service_consumption", "audit_adjustment_in", "audit_adjustment_out"}
+INVENTORY_IN_TYPES = {"purchase", "manual_in", "adjustment_in", "return", "audit_adjustment_in"}
+
+async def inventory_organization(user: User, requested: Optional[str]) -> str:
+    require_management_role(user)
+    return await resolve_team_organization(user, requested)
+
+@api_router.get("/inventory/summary")
+async def inventory_summary(organization_id: Optional[str] = None, authorization: Optional[str] = Header(None), session_token: Optional[str] = Cookie(None)):
+    user = await get_current_user(authorization, session_token)
+    org_id = await inventory_organization(user, organization_id)
+    items = await db.inventory.find({"organization_id": org_id, "active": {"$ne": False}}, {"_id": 0}).to_list(100000)
+    return {"item_count": len(items), "low_stock_count": sum(1 for x in items if float(x.get("quantity", 0)) <= float(x.get("min_stock", 0))), "total_units": round(sum(float(x.get("quantity", 0)) for x in items), 4), "inventory_value": round(sum(float(x.get("quantity", 0))*float(x.get("unit_cost", 0)) for x in items), 2)}
+
+@api_router.get("/inventory/movements")
+async def inventory_movements(organization_id: Optional[str] = None, inventory_item_id: Optional[str] = None, movement_type: Optional[str] = None, page: int = 1, page_size: int = 25, authorization: Optional[str] = Header(None), session_token: Optional[str] = Cookie(None)):
+    user = await get_current_user(authorization, session_token)
+    org_id = await inventory_organization(user, organization_id)
+    page, page_size = max(1, page), max(1, min(page_size, 100))
+    query = {"organization_id": org_id}
+    if inventory_item_id: query["inventory_item_id"] = inventory_item_id
+    if movement_type: query["movement_type"] = movement_type
+    total = await db.inventory_movements.count_documents(query)
+    items = await db.inventory_movements.find(query, {"_id": 0}).sort([("created_at", -1), ("movement_id", -1)]).skip((page-1)*page_size).limit(page_size).to_list(page_size)
+    pages = (total + page_size - 1)//page_size
+    return {"items": items, "page": page, "page_size": page_size, "total": total, "total_pages": pages, "has_next": page < pages, "has_previous": page > 1}
+
+@api_router.post("/inventory/{item_id}/movements")
+async def create_inventory_movement(item_id: str, data: InventoryMovementCreate, authorization: Optional[str] = Header(None), session_token: Optional[str] = Cookie(None)):
+    user = await get_current_user(authorization, session_token)
+    org_id = await inventory_organization(user, data.organization_id)
+    if data.movement_type not in INVENTORY_MOVEMENT_TYPES: raise HTTPException(status_code=400, detail="Unsupported inventory movement type")
+    quantity = round(float(data.quantity), 4)
+    if quantity <= 0: raise HTTPException(status_code=400, detail="Movement quantity must be positive")
+    key = (data.idempotency_key or "").strip()[:200] or None
+    if key:
+        existing = await db.inventory_movements.find_one({"organization_id": org_id, "idempotency_key": key}, {"_id": 0})
+        if existing: return {**existing, "idempotent_replay": True}
+    item = await db.inventory.find_one({"item_id": item_id, "organization_id": org_id, "active": {"$ne": False}}, {"_id": 0})
+    if not item: raise HTTPException(status_code=404, detail="Inventory item not found")
+    previous = round(float(item.get("quantity", 0)), 4)
+    incoming = data.movement_type in INVENTORY_IN_TYPES
+    new_stock = round(previous + quantity if incoming else previous - quantity, 4)
+    if new_stock < 0: raise HTTPException(status_code=409, detail="Insufficient inventory stock")
+    cost = round(float(data.unit_cost if data.unit_cost is not None else item.get("unit_cost", 0) or 0), 4)
+    if cost < 0: raise HTTPException(status_code=400, detail="Unit cost cannot be negative")
+    now = datetime.now(timezone.utc).isoformat()
+    changed = await db.inventory.update_one({"item_id": item_id, "organization_id": org_id, "quantity": item.get("quantity", 0)}, {"$set": {"quantity": new_stock, "unit_cost": cost if data.unit_cost is not None else item.get("unit_cost", 0), "updated_at": now}})
+    if changed.modified_count != 1: raise HTTPException(status_code=409, detail="Inventory changed concurrently; retry")
+    movement = {"movement_id": f"mov_{uuid.uuid4().hex[:16]}", "organization_id": org_id, "inventory_item_id": item_id, "item_name_snapshot": item.get("name"), "movement_type": data.movement_type, "direction": "in" if incoming else "out", "quantity": quantity, "unit_cost": cost, "total_cost": round(quantity*cost, 2), "previous_stock": previous, "new_stock": new_stock, "reference_type": (data.reference_type or "manual")[:80], "reference_id": (data.reference_id or "")[:160] or None, "idempotency_key": key, "created_by": user.user_id, "created_at": now, "notes": (data.notes or "").strip()[:500] or None}
+    try: await db.inventory_movements.insert_one(movement.copy())
+    except Exception:
+        await db.inventory.update_one({"item_id": item_id, "organization_id": org_id, "quantity": new_stock}, {"$set": {"quantity": previous, "updated_at": now}})
+        raise
+    return movement
+
+# NEXUS_PUBLIC_APPOINTMENT_TOKEN_V1
     appointment_id = f"apt_{uuid.uuid4().hex[:12]}"
     management_token = secrets.token_urlsafe(32)
     management_token_hash = hashlib.sha256(management_token.encode("utf-8")).hexdigest()
@@ -4203,6 +4272,11 @@ async def create_application_indexes():
         partialFilterExpression={"token_hash": {"$exists": True}}
     )
     await db.password_resets.create_index("expires_at")
+    # NEXUS_INVENTORY_PACKAGE_1_INDEXES_5A_V1
+    await db.inventory.create_index([("organization_id", 1), ("name", 1)], name="nexus_inventory_org_name")
+    await db.inventory_movements.create_index([("organization_id", 1), ("inventory_item_id", 1), ("created_at", -1), ("movement_id", -1)], name="nexus_inventory_movements_item_created")
+    await db.inventory_movements.create_index([("organization_id", 1), ("movement_type", 1), ("created_at", -1)], name="nexus_inventory_movements_type_created")
+    await db.inventory_movements.create_index([("organization_id", 1), ("idempotency_key", 1)], unique=True, partialFilterExpression={"idempotency_key": {"$type": "string"}}, name="nexus_inventory_movement_idempotency")
     # NEXUS_PERSISTENT_QUERY_INDEXES_4E3_V1
     await db.appointments.create_index(
         [("organization_id", 1), ("date", -1), ("time", -1), ("appointment_id", -1)],

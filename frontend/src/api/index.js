@@ -91,6 +91,9 @@ export const inventoryAPI = {
   update: (id, data) => api.put(`/inventory/${id}`, data),
   delete: (id) => api.delete(`/inventory/${id}`),
   generateOrder: () => api.post('/inventory/generate-order', {}, { responseType: 'stream' }),
+  getSummary: (params = {}) => api.get('/inventory/summary', { params }),
+  getMovements: (params = {}) => api.get('/inventory/movements', { params }),
+  createMovement: (id, data) => api.post(`/inventory/${id}/movements`, data),
 };
 
 // NEXUS_COMMISSION_FOUNDATION_V1

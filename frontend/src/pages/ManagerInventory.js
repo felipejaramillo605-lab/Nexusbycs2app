@@ -1,3 +1,4 @@
+// NEXUS_INVENTORY_PACKAGE_1_5A_V1
 import React, { useEffect, useState, useCallback } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
