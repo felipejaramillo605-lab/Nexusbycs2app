@@ -76,7 +76,7 @@ const AppointmentsHistory = () => {
 
   const checkoutMutation = useMutation({
     mutationFn: ({ appointmentId, payload }) => appointmentAPI.checkout(appointmentId, payload),
-    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['appointments'] }); queryClient.invalidateQueries({ queryKey: ['statistics'] }); setCheckoutAppointment(null); toast.success('Cita completada y cobrada correctamente'); },
+    onSuccess: (response) => { queryClient.invalidateQueries({ queryKey: ['appointments'] }); queryClient.invalidateQueries({ queryKey: ['statistics'] }); queryClient.invalidateQueries({ queryKey: ['inventory'] }); setCheckoutAppointment(null); const data=response?.data || {}; if (data.inventory_warning) toast.warning(`Cobro completado con ${data.inventory_shortage_count} faltante(s) de inventario`); else toast.success(data.inventory_consumption_status === 'consumed' ? 'Cita cobrada e insumos descontados' : 'Cita completada y cobrada correctamente'); },
     onError: (error) => toast.error(error.response?.data?.detail || 'No fue posible completar el cobro'),
   });
   const openCheckout = (appointment) => { setCheckoutAppointment(appointment); setCheckoutForm({ discount_amount: 0, tip_amount: 0, payment_method: 'cash', notes: '' }); };
