@@ -147,6 +147,8 @@ export const staffIncomeAPI = {
   getSettlementById: (settlementId) => api.get(`/staff/settlements/${settlementId}`),
 };
 
+export const purchaseOrderAPI = {getAll:(params={})=>api.get('/purchase-orders',{params}),create:(data,params={})=>api.post('/purchase-orders',data,{params}),getById:id=>api.get(`/purchase-orders/${id}`),update:(id,data)=>api.put(`/purchase-orders/${id}`,data),submit:id=>api.post(`/purchase-orders/${id}/submit`),approve:id=>api.post(`/purchase-orders/${id}/approve`),cancel:(id,reason)=>api.post(`/purchase-orders/${id}/cancel`,{reason})};
+
 export const supplierAPI = {
   getAll: (params = {}) => api.get('/suppliers', { params }),
   create: (data, params = {}) => api.post('/suppliers', data, { params }),

@@ -30,6 +30,7 @@ const ManagerServices = lazy(() => import('./pages/ManagerServices'));
 const ManagerBarbers = lazy(() => import('./pages/ManagerBarbers'));
 const ManagerInventory = lazy(() => import('./pages/ManagerInventory'));
 const SuppliersDashboard = lazy(() => import('./pages/SuppliersDashboard'));
+const PurchaseOrdersDashboard = lazy(() => import('./pages/PurchaseOrdersDashboard'));
 const ManagerClients = lazy(() => import('./pages/ManagerClients'));
 const RevenueDashboard = lazy(() => import('./pages/RevenueDashboard'));
 const SettlementsDashboard = lazy(() => import('./pages/SettlementsDashboard'));
@@ -112,6 +113,10 @@ function AppRouter() {
           }
         />
         
+        <Route
+          path="/manager/purchase-orders"
+          element={<ProtectedRoute allowedRoles={['owner', 'manager', 'admin']}><PurchaseOrdersDashboard /></ProtectedRoute>}
+        />
         <Route
           path="/manager/suppliers"
           element={
