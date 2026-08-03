@@ -147,6 +147,17 @@ export const staffIncomeAPI = {
   getSettlementById: (settlementId) => api.get(`/staff/settlements/${settlementId}`),
 };
 
+export const supplierAPI = {
+  getAll: (params = {}) => api.get('/suppliers', { params }),
+  create: (data, params = {}) => api.post('/suppliers', data, { params }),
+  getById: (id) => api.get(`/suppliers/${id}`),
+  update: (id, data) => api.put(`/suppliers/${id}`, data),
+  archive: (id) => api.post(`/suppliers/${id}/archive`),
+  reactivate: (id) => api.post(`/suppliers/${id}/reactivate`),
+  linkProduct: (id, data) => api.post(`/suppliers/${id}/products`, data),
+  unlinkProduct: (id, itemId) => api.delete(`/suppliers/${id}/products/${itemId}`),
+};
+
 export const transactionAPI = {
   getAll: (params = {}) => api.get('/transactions', { params }),
   getSummary: (params = {}) => api.get('/transactions/summary', { params }),
