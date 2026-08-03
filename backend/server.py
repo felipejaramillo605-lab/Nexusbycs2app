@@ -21,6 +21,7 @@ import re
 # Email service
 from email_service import email_service
 from checkout_inventory import prepare_checkout_inventory, reserve_checkout_inventory, finalize_checkout_inventory, rollback_checkout_inventory, ensure_checkout_inventory_indexes
+from transaction_voids import build_transaction_void_router, ensure_transaction_void_indexes
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
@@ -4165,6 +4166,9 @@ api_router.include_router(build_inventory_catalog_router(db, get_current_user, r
 from service_recipes import build_service_recipes_router, ensure_service_recipe_indexes
 api_router.include_router(build_service_recipes_router(db, get_current_user, require_management_role, resolve_team_organization))
 
+# NEXUS_TRANSACTION_VOID_REVERSAL_5B_PACKAGE_3_V1
+api_router.include_router(build_transaction_void_router(db, get_current_user, require_management_role, validate_organization_access))
+
 app.include_router(api_router)
 
 # ==================== SECURITY MIDDLEWARE ====================
@@ -4299,6 +4303,7 @@ async def create_application_indexes():
     await ensure_service_recipe_indexes(db)
     # NEXUS_CHECKOUT_INVENTORY_INDEXES_5B_PACKAGE_2_V1
     await ensure_checkout_inventory_indexes(db)
+    await ensure_transaction_void_indexes(db)
     # NEXUS_PERSISTENT_QUERY_INDEXES_4E3_V1
     await db.appointments.create_index(
         [("organization_id", 1), ("date", -1), ("time", -1), ("appointment_id", -1)],

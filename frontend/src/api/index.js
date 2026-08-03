@@ -151,6 +151,7 @@ export const transactionAPI = {
   getAll: (params = {}) => api.get('/transactions', { params }),
   getSummary: (params = {}) => api.get('/transactions/summary', { params }),
   getById: (transactionId) => api.get(`/transactions/${transactionId}`),
+  void: (transactionId, data) => api.post(`/transactions/${transactionId}/void`, data),
 };
 
 export const commissionAPI = {
