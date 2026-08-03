@@ -49,6 +49,11 @@ export const serviceAPI = {
   create: (data) => api.post('/services', data),
   update: (id, data) => api.put(`/services/${id}`, data),
   delete: (id) => api.delete(`/services/${id}`),
+  getRecipe: (id, params = {}) => api.get(`/service-recipes/${id}`, { params }),
+  saveRecipe: (id, data) => api.put(`/service-recipes/${id}`, data),
+  getRecipeVersions: (id, params = {}) => api.get(`/service-recipes/${id}/versions`, { params }),
+  getInventoryPolicy: (params = {}) => api.get('/service-recipes/policy', { params }),
+  updateInventoryPolicy: (data) => api.put('/service-recipes/policy', data),
 };
 
 export const barberAPI = {

@@ -4163,6 +4163,10 @@ api_router.include_router(build_inventory_audit_router(db, get_current_user, req
 from inventory_catalog import build_inventory_catalog_router
 api_router.include_router(build_inventory_catalog_router(db, get_current_user, require_management_role, resolve_team_organization))
 
+# NEXUS_SERVICE_RECIPES_REGISTRATION_5B_PACKAGE_1_V1
+from service_recipes import build_service_recipes_router, ensure_service_recipe_indexes
+api_router.include_router(build_service_recipes_router(db, get_current_user, require_management_role, resolve_team_organization))
+
 app.include_router(api_router)
 
 # ==================== SECURITY MIDDLEWARE ====================
@@ -4293,6 +4297,8 @@ async def create_application_indexes():
     )
     await db.inventory_audits.create_index([("organization_id", 1), ("created_at", -1)], name="nexus_inventory_audits_org_created")
     await db.inventory_audit_lines.create_index([("audit_id", 1), ("audit_line_id", 1)], unique=True, name="nexus_inventory_audit_lines_unique")
+    # NEXUS_SERVICE_RECIPES_INDEXES_5B_PACKAGE_1_V1
+    await ensure_service_recipe_indexes(db)
     # NEXUS_PERSISTENT_QUERY_INDEXES_4E3_V1
     await db.appointments.create_index(
         [("organization_id", 1), ("date", -1), ("time", -1), ("appointment_id", -1)],
