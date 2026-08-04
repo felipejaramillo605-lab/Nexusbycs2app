@@ -24,6 +24,7 @@ from checkout_inventory import prepare_checkout_inventory, reserve_checkout_inve
 from transaction_voids import build_transaction_void_router, ensure_transaction_void_indexes
 from procurement_suppliers import build_supplier_router, ensure_supplier_indexes
 from procurement_purchase_orders import build_purchase_order_router, ensure_purchase_order_indexes
+from procurement_purchase_receipts import build_purchase_receipt_router, ensure_purchase_receipt_indexes
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
@@ -4172,6 +4173,7 @@ api_router.include_router(build_service_recipes_router(db, get_current_user, req
 api_router.include_router(build_transaction_void_router(db, get_current_user, require_management_role, validate_organization_access))
 api_router.include_router(build_supplier_router(db, get_current_user, require_management_role, resolve_team_organization))
 api_router.include_router(build_purchase_order_router(db, get_current_user, require_management_role, resolve_team_organization))
+api_router.include_router(build_purchase_receipt_router(db, get_current_user, require_management_role, resolve_team_organization))
 
 app.include_router(api_router)
 
@@ -4310,6 +4312,7 @@ async def create_application_indexes():
     await ensure_transaction_void_indexes(db)
     await ensure_supplier_indexes(db)
     await ensure_purchase_order_indexes(db)
+    await ensure_purchase_receipt_indexes(db)
     # NEXUS_PERSISTENT_QUERY_INDEXES_4E3_V1
     await db.appointments.create_index(
         [("organization_id", 1), ("date", -1), ("time", -1), ("appointment_id", -1)],
