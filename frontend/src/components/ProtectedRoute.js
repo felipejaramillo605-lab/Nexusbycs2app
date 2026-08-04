@@ -2,9 +2,10 @@ import React from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { getHomeForRole } from '../lib/roleNavigation';
+import SubscriptionSuspended from './billing/SubscriptionSuspended';
 
 const ProtectedRoute = ({ children, requiredRole, allowedRoles }) => {
-  const { user, loading } = useAuth();
+  const { user, loading, subscriptionSuspended } = useAuth();
   const location = useLocation();
 
   if (loading) {
@@ -13,6 +14,10 @@ const ProtectedRoute = ({ children, requiredRole, allowedRoles }) => {
         <div className="text-white text-lg">Cargando...</div>
       </div>
     );
+  }
+
+  if (subscriptionSuspended && user?.role !== 'owner') {
+    return <SubscriptionSuspended />;
   }
 
   if (!user) {

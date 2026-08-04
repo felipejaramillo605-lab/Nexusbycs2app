@@ -31,6 +31,19 @@ export const api = axios.create({
   timeout: 15000,
 });
 
+// NEXUS_7J_SUBSCRIPTION_SUSPENDED_EXPERIENCE
+api.interceptors.response.use(
+  response => response,
+  error => {
+    const detail = error?.response?.data?.detail;
+    const code = typeof detail === 'object' ? detail?.code : null;
+    if (error?.response?.status === 402 && code === 'SUBSCRIPTION_ACCESS_SUSPENDED') {
+      window.dispatchEvent(new CustomEvent('nexus:subscription-suspended',{detail:{code}}));
+    }
+    return Promise.reject(error);
+  }
+);
+
 export const authAPI = {
   // Google OAuth (Emergent-managed)
   createSession: (sessionId) => api.post('/auth/session', {}, { headers: { 'X-Session-ID': sessionId } }),

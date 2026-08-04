@@ -23,9 +23,13 @@ export const useAuth = () => {
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [subscriptionSuspended, setSubscriptionSuspended] = useState(false);
+  const [suspensionCode, setSuspensionCode] = useState(null);
 
   const completeLogin = useCallback((authenticatedUser) => {
     setUser(authenticatedUser);
+    setSubscriptionSuspended(false);
+    setSuspensionCode(null);
     setLoading(false);
   }, []);
 
@@ -35,11 +39,30 @@ export const AuthProvider = ({ children }) => {
     try {
       const response = await authAPI.getMe();
       setUser(response.data);
+      setSubscriptionSuspended(false);
+      setSuspensionCode(null);
     } catch (error) {
-      setUser(null);
+      const detail = error?.response?.data?.detail;
+      const code = typeof detail === 'object' ? detail?.code : null;
+      if (error?.response?.status === 402 && code === 'SUBSCRIPTION_ACCESS_SUSPENDED') {
+        setSubscriptionSuspended(true);
+        setSuspensionCode(code);
+      } else {
+        setUser(null);
+      }
     } finally {
       setLoading(false);
     }
+  }, []);
+
+  // NEXUS_7J_SUBSCRIPTION_SUSPENDED_EXPERIENCE
+  useEffect(() => {
+    const handleSuspension = event => {
+      setSubscriptionSuspended(true);
+      setSuspensionCode(event?.detail?.code || 'SUBSCRIPTION_ACCESS_SUSPENDED');
+    };
+    window.addEventListener('nexus:subscription-suspended',handleSuspension);
+    return () => window.removeEventListener('nexus:subscription-suspended',handleSuspension);
   }, []);
 
   useEffect(() => {
@@ -60,6 +83,8 @@ export const AuthProvider = ({ children }) => {
       await authAPI.logout();
     } finally {
       setUser(null);
+      setSubscriptionSuspended(false);
+      setSuspensionCode(null);
       setLoading(false);
     }
   }, []);
@@ -69,11 +94,13 @@ export const AuthProvider = ({ children }) => {
       user,
       setUser,
       loading,
+      subscriptionSuspended,
+      suspensionCode,
       completeLogin,
       checkAuth,
       logout
     }),
-    [user, loading, completeLogin, checkAuth, logout]
+    [user, loading, subscriptionSuspended, suspensionCode, completeLogin, checkAuth, logout]
   );
 
   return (
