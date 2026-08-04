@@ -127,9 +127,36 @@ async def enforce_request_security(request: Request):
     # CSRF validation is mandatory when the browser authenticates with the session cookie.
     if not request.cookies.get("session_token"):
         return
-    if not origin or origin not in TRUSTED_ORIGINS:
-        await record_security_event(event_type="origin_blocked", request_method=request.method, path=request.url.path, source=_client_source(request), metadata={"fetch_site":fetch_site or "missing"})
-        raise HTTPException(403, "Request origin is not allowed")
-    if fetch_site and fetch_site not in {"same-origin", "same-site", "none"}:
+    # NEXUS_PREVIEW_SAME_ORIGIN_CSRF_7J
+    # Preview gateways may rewrite or omit Origin. Sec-Fetch-Site is a
+    # browser-controlled forbidden header and is accepted only when the
+    # browser explicitly reports a same-origin request.
+    same_origin_fetch = fetch_site == "same-origin"
+
+    if (
+        (not origin or origin not in TRUSTED_ORIGINS)
+        and not same_origin_fetch
+    ):
+        await record_security_event(
+            event_type="origin_blocked",
+            request_method=request.method,
+            path=request.url.path,
+            source=_client_source(request),
+            metadata={
+                "fetch_site": fetch_site or "missing",
+                "origin_present": bool(origin),
+                "origin_trusted": origin in TRUSTED_ORIGINS,
+            },
+        )
+        raise HTTPException(
+            403,
+            "Request origin is not allowed",
+        )
+
+    if fetch_site and fetch_site not in {
+        "same-origin",
+        "same-site",
+        "none",
+    }:
         await record_security_event(event_type="cross_site_request_blocked", request_method=request.method, path=request.url.path, source=_client_source(request), metadata={"fetch_site":fetch_site})
         raise HTTPException(403, "Cross-site request blocked")
