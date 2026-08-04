@@ -327,3 +327,88 @@ button,[role="button"]{-webkit-tap-highlight-color:transparent}button:focus-visi
 .nexus-sidebar-account button:last-child{color:var(--app-danger);border:1px solid color-mix(in srgb,var(--app-danger) 26%,transparent);background:var(--app-danger-soft)}
 .nexus-topbar-actions>.nexus-notification-bell{display:block!important;visibility:visible!important;flex:0 0 auto}
 @media(max-width:900px){.nexus-sidebar{height:100dvh}}
+
+
+/* NEXUS_7H_MOBILE_SIDEBAR_DRAWER */
+@media (max-width: 900px) {
+  .nexus-admin-shell {
+    min-height: 100dvh;
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .nexus-admin-shell > .nexus-sidebar {
+    display: none !important;
+  }
+
+  .nexus-shell-main {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .nexus-shell-main > .nexus-topbar {
+    width: 100%;
+    min-height: 64px;
+    padding: .7rem .85rem;
+  }
+
+  .nexus-topbar-actions {
+    min-width: 0;
+    gap: .4rem;
+  }
+
+  .nexus-topbar-actions .nexus-modules-button span {
+    display: none;
+  }
+
+  .nexus-topbar-actions .nexus-modules-button {
+    min-width: 42px;
+    width: 42px;
+    height: 42px;
+    padding: 0;
+    display: grid;
+    place-items: center;
+  }
+
+  .nexus-shell-main > main {
+    width: 100%;
+    padding: 0 .85rem calc(88px + env(safe-area-inset-bottom));
+  }
+
+  .nexus-mobile-admin-nav {
+    display: grid;
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+
+  .nexus-modules-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 180;
+    background: var(--app-overlay);
+    border: 0;
+  }
+
+  .nexus-modules-drawer {
+    z-index: 190;
+    width: min(86vw, 320px);
+    max-width: 320px;
+    height: 100dvh;
+    max-height: 100dvh;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+
+  .nexus-modules-drawer > header {
+    flex: 0 0 auto;
+  }
+
+  .nexus-modules-drawer > div {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+    padding-bottom: 1rem;
+  }
+}
