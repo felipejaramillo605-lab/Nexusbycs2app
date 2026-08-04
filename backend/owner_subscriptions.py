@@ -1,9 +1,10 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Cookie, Header, HTTPException
 from pydantic import BaseModel, Field
 from typing import Optional
 from datetime import datetime, timezone
 import hashlib
 import uuid
+from owner_billing_hub import enrich_new_invoice, post_invoice_side_effects
 
 SUBSCRIPTION_STATES = {"trial", "active", "grace_period", "past_due", "suspended", "cancelled", "indefinite_block"}
 INVOICE_STATES = {"draft", "issued", "pending", "paid", "overdue", "void", "refunded"}
@@ -57,6 +58,7 @@ async def ensure_subscription_indexes(db):
     await db.organization_subscriptions.create_index("subscription_id", unique=True, name="subscription_id_unique")
     await db.organization_subscriptions.create_index("organization_id", unique=True, name="subscription_org_unique")
     await db.subscription_invoices.create_index("invoice_id", unique=True, name="subscription_invoice_id_unique")
+    await db.subscription_invoices.create_index("invoice_number", unique=True, sparse=True, name="subscription_invoice_number_global_unique")
     await db.subscription_invoices.create_index([("organization_id",1),("period_start",1),("period_end",1)], unique=True, name="subscription_invoice_period_unique")
     await db.subscription_invoices.create_index([("organization_id",1),("status",1),("due_at",1)], name="subscription_invoice_status_due")
     await db.subscription_payment_events.create_index("payment_event_id", unique=True, name="subscription_payment_event_id_unique")
@@ -83,12 +85,12 @@ def build_subscription_router(db, get_current_user):
     router=APIRouter(prefix="/owner/subscriptions", tags=["owner-subscriptions"])
 
     @router.get("/{organization_id}")
-    async def get_subscription(organization_id: str, authorization: Optional[str]=None, session_token: Optional[str]=None):
+    async def get_subscription(organization_id: str, authorization: Optional[str] = Header(None), session_token: Optional[str] = Cookie(None)):
         user=await get_current_user(authorization,session_token); await _owner(user); await _organization(db,organization_id)
         return _public(await db.organization_subscriptions.find_one({"organization_id":organization_id},{"_id":0}))
 
     @router.put("/{organization_id}")
-    async def put_subscription(organization_id: str, data: SubscriptionUpsertRequest, authorization: Optional[str]=None, session_token: Optional[str]=None):
+    async def put_subscription(organization_id: str, data: SubscriptionUpsertRequest, authorization: Optional[str] = Header(None), session_token: Optional[str] = Cookie(None)):
         user=await get_current_user(authorization,session_token); await _owner(user); await _organization(db,organization_id)
         if data.status not in SUBSCRIPTION_STATES: raise HTTPException(400,"Unsupported subscription status")
         previous=await db.organization_subscriptions.find_one({"organization_id":organization_id},{"_id":0})
@@ -99,7 +101,7 @@ def build_subscription_router(db, get_current_user):
         return item
 
     @router.post("/{organization_id}/invoices")
-    async def create_invoice(organization_id: str, data: InvoiceCreateRequest, authorization: Optional[str]=None, session_token: Optional[str]=None):
+    async def create_invoice(organization_id: str, data: InvoiceCreateRequest, authorization: Optional[str] = Header(None), session_token: Optional[str] = Cookie(None)):
         user=await get_current_user(authorization,session_token); await _owner(user); await _organization(db,organization_id)
         start=_date(data.period_start,"period_start"); end=_date(data.period_end,"period_end"); due=_date(data.due_at,"due_at")
         if start>=end: raise HTTPException(400,"period_start must be before period_end")
@@ -108,11 +110,14 @@ def build_subscription_router(db, get_current_user):
         existing=await db.subscription_invoices.find_one({"organization_id":organization_id,"period_start":data.period_start,"period_end":data.period_end},{"_id":0})
         if existing: raise HTTPException(409,"Invoice already exists for this period")
         now=_now(); item={"invoice_id":_id("sinv"),"organization_id":organization_id,"subscription_id":subscription["subscription_id"],"plan_code_snapshot":subscription["plan_code"],"plan_version_snapshot":subscription["plan_version"],"period_start":data.period_start,"period_end":data.period_end,"due_at":data.due_at,"amount_minor":data.amount_minor,"paid_amount_minor":0,"currency":_currency(data.currency),"status":"pending","provider":"manual","notes":data.notes,"created_by":user.user_id,"created_at":now,"updated_at":now}
-        await db.subscription_invoices.insert_one(item.copy()); await _audit(db,organization_id,"invoice_created","invoice",item["invoice_id"],user,None,item,data.notes or "Monthly invoice created")
+        item=await enrich_new_invoice(db,item)
+        await db.subscription_invoices.insert_one(item.copy())
+        await post_invoice_side_effects(db,item)
+        await _audit(db,organization_id,"invoice_created","invoice",item["invoice_id"],user,None,item,data.notes or "Monthly invoice created")
         return item
 
     @router.get("/{organization_id}/invoices")
-    async def list_invoices(organization_id: str, status: Optional[str]=None, authorization: Optional[str]=None, session_token: Optional[str]=None):
+    async def list_invoices(organization_id: str, status: Optional[str]=None, authorization: Optional[str] = Header(None), session_token: Optional[str] = Cookie(None)):
         user=await get_current_user(authorization,session_token); await _owner(user); await _organization(db,organization_id)
         query={"organization_id":organization_id}
         if status:
@@ -121,7 +126,7 @@ def build_subscription_router(db, get_current_user):
         return await db.subscription_invoices.find(query,{"_id":0}).sort([("period_start",-1),("invoice_id",-1)]).to_list(500)
 
     @router.post("/{organization_id}/invoices/{invoice_id}/manual-payment")
-    async def confirm_manual_payment(organization_id: str, invoice_id: str, data: ManualPaymentRequest, authorization: Optional[str]=None, session_token: Optional[str]=None):
+    async def confirm_manual_payment(organization_id: str, invoice_id: str, data: ManualPaymentRequest, authorization: Optional[str] = Header(None), session_token: Optional[str] = Cookie(None)):
         user=await get_current_user(authorization,session_token); await _owner(user); await _organization(db,organization_id)
         previous_event=await db.subscription_payment_events.find_one({"organization_id":organization_id,"idempotency_key":data.idempotency_key},{"_id":0})
         if previous_event:
@@ -136,7 +141,7 @@ def build_subscription_router(db, get_current_user):
         duplicate=await db.subscription_payment_events.find_one({"provider":"manual","provider_reference":data.provider_reference},{"_id":0})
         if duplicate: raise HTTPException(409,"Payment reference was already used")
         now=_now(); event={"payment_event_id":_id("spay"),"organization_id":organization_id,"invoice_id":invoice_id,"provider":"manual","provider_reference":data.provider_reference.strip(),"idempotency_key":data.idempotency_key,"amount_minor":data.amount_minor,"currency":currency,"status":"confirmed","confirmed_by":user.user_id,"confirmed_at":now,"notes":data.notes,"request_fingerprint":hashlib.sha256(f"{organization_id}|{invoice_id}|{data.amount_minor}|{currency}|{data.provider_reference}".encode()).hexdigest(),"created_at":now}
-        result=await db.subscription_invoices.update_one({"organization_id":organization_id,"invoice_id":invoice_id,"status":{"$in":["draft","issued","pending","overdue"]}},{"$set":{"status":"paid","paid_amount_minor":data.amount_minor,"paid_at":now,"payment_event_id":event["payment_event_id"],"updated_at":now}})
+        result=await db.subscription_invoices.update_one({"organization_id":organization_id,"invoice_id":invoice_id,"status":{"$in":["draft","issued","pending","overdue"]}},{"$set":{"status":"paid","paid_amount_minor":data.amount_minor,"balance_minor":0,"paid_at":now,"payment_event_id":event["payment_event_id"],"updated_at":now}})
         if result.modified_count!=1:
             current=await db.subscription_invoices.find_one({"organization_id":organization_id,"invoice_id":invoice_id},{"_id":0})
             raise HTTPException(409,"Invoice state changed before payment confirmation" if not current or current.get("status")!="paid" else "Invoice is already paid")
@@ -149,7 +154,7 @@ def build_subscription_router(db, get_current_user):
         return {**event,"invoice_status":"paid","idempotent_replay":False}
 
     @router.post("/{organization_id}/invoices/{invoice_id}/state")
-    async def change_invoice_state(organization_id: str, invoice_id: str, data: InvoiceStateRequest, authorization: Optional[str]=None, session_token: Optional[str]=None):
+    async def change_invoice_state(organization_id: str, invoice_id: str, data: InvoiceStateRequest, authorization: Optional[str] = Header(None), session_token: Optional[str] = Cookie(None)):
         user=await get_current_user(authorization,session_token); await _owner(user); await _organization(db,organization_id)
         if data.status not in INVOICE_STATES: raise HTTPException(400,"Unsupported invoice status")
         previous=await db.subscription_invoices.find_one({"organization_id":organization_id,"invoice_id":invoice_id},{"_id":0})
@@ -161,7 +166,7 @@ def build_subscription_router(db, get_current_user):
         return current
 
     @router.get("/{organization_id}/audit")
-    async def list_audit(organization_id: str, limit: int=100, authorization: Optional[str]=None, session_token: Optional[str]=None):
+    async def list_audit(organization_id: str, limit: int=100, authorization: Optional[str] = Header(None), session_token: Optional[str] = Cookie(None)):
         user=await get_current_user(authorization,session_token); await _owner(user); await _organization(db,organization_id)
         return await db.subscription_audit_events.find({"organization_id":organization_id},{"_id":0}).sort("created_at",-1).to_list(max(1,min(limit,500)))
 

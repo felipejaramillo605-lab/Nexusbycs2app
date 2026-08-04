@@ -26,6 +26,7 @@ from procurement_suppliers import build_supplier_router, ensure_supplier_indexes
 from procurement_purchase_orders import build_purchase_order_router, ensure_purchase_order_indexes
 from procurement_purchase_receipts import build_purchase_receipt_router, ensure_purchase_receipt_indexes
 from owner_subscriptions import build_subscription_router, ensure_subscription_indexes
+from owner_billing_hub import build_billing_hub_router, ensure_billing_hub_indexes
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
@@ -4176,6 +4177,7 @@ api_router.include_router(build_supplier_router(db, get_current_user, require_ma
 api_router.include_router(build_purchase_order_router(db, get_current_user, require_management_role, resolve_team_organization))
 api_router.include_router(build_purchase_receipt_router(db, get_current_user, require_management_role, resolve_team_organization))
 api_router.include_router(build_subscription_router(db, get_current_user))
+api_router.include_router(build_billing_hub_router(db, get_current_user))
 
 app.include_router(api_router)
 
@@ -4316,6 +4318,7 @@ async def create_application_indexes():
     await ensure_purchase_order_indexes(db)
     await ensure_purchase_receipt_indexes(db)
     await ensure_subscription_indexes(db)
+    await ensure_billing_hub_indexes(db)
     # NEXUS_PERSISTENT_QUERY_INDEXES_4E3_V1
     await db.appointments.create_index(
         [("organization_id", 1), ("date", -1), ("time", -1), ("appointment_id", -1)],

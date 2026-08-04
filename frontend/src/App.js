@@ -25,7 +25,9 @@ const ReactQueryDevtools = process.env.NODE_ENV === 'development'
 
 // Lazy load pages for code splitting
 const OwnerAccessControl = lazy(() => import('./pages/OwnerAccessControl'));
+const OwnerSubscriptions = lazy(() => import('./pages/OwnerSubscriptions'));
 const ManagerDashboard = lazy(() => import('./pages/ManagerDashboard'));
+const ManagerBilling = lazy(() => import('./pages/ManagerBilling'));
 const ManagerServices = lazy(() => import('./pages/ManagerServices'));
 const ManagerBarbers = lazy(() => import('./pages/ManagerBarbers'));
 const ManagerInventory = lazy(() => import('./pages/ManagerInventory'));
@@ -57,12 +59,12 @@ const PageLoader = () => (
 
 function AppRouter() {
   const location = useLocation();
-  
+
   // Check URL fragment (not query params) for session_id
   if (location.hash?.includes('session_id=')) {
     return <AuthCallback />;
   }
-  
+
   return (
     <Suspense fallback={<PageLoader />}>
       <RouteExperienceFrame>
@@ -76,16 +78,20 @@ function AppRouter() {
         <Route path="/auth/callback" element={<AuthCallback />} />
         <Route path="/book/:orgId" element={<BookingFlow />} />
         <Route path="/portal/:orgId" element={<CustomerPortal />} />
-        
+
         <Route
           path="/owner/access-control"
           element={
             <ProtectedRoute requiredRole="owner">
               <OwnerAccessControl />
+
             </ProtectedRoute>
           }
         />
-        
+        <Route path="/owner/subscriptions" element={<ProtectedRoute requiredRole="owner"><OwnerSubscriptions /></ProtectedRoute>} />
+
+        <Route path="/manager/billing" element={<ProtectedRoute allowedRoles={['owner', 'manager', 'admin']}><ManagerBilling /></ProtectedRoute>} />
+
         <Route
           path="/manager/dashboard"
           element={
@@ -94,7 +100,7 @@ function AppRouter() {
             </ProtectedRoute>
           }
         />
-        
+
         <Route
           path="/manager/services"
           element={
@@ -103,7 +109,7 @@ function AppRouter() {
             </ProtectedRoute>
           }
         />
-        
+
         <Route
           path="/manager/barbers"
           element={
@@ -112,7 +118,7 @@ function AppRouter() {
             </ProtectedRoute>
           }
         />
-        
+
         <Route
           path="/manager/purchase-orders"
           element={<ProtectedRoute allowedRoles={['owner', 'manager', 'admin']}><PurchaseOrdersDashboard /></ProtectedRoute>}
@@ -133,7 +139,7 @@ function AppRouter() {
             </ProtectedRoute>
           }
         />
-        
+
         <Route
           path="/manager/clients"
           element={
@@ -142,7 +148,7 @@ function AppRouter() {
             </ProtectedRoute>
           }
         />
-        
+
         <Route
           path="/manager/appointments"
           element={
@@ -151,7 +157,7 @@ function AppRouter() {
             </ProtectedRoute>
           }
         />
-        
+
         {/* NEXUS_REVENUE_MODULE_V1 */}
         <Route path="/manager/revenue" element={<ProtectedRoute allowedRoles={['owner', 'manager', 'admin']}><RevenueDashboard /></ProtectedRoute>} />
         {/* NEXUS_STAFF_SETTLEMENTS_UI_V1 */}
@@ -165,7 +171,7 @@ function AppRouter() {
             </ProtectedRoute>
           }
         />
-        
+
         <Route
           path="/manager/marketing"
           element={
@@ -174,7 +180,7 @@ function AppRouter() {
             </ProtectedRoute>
           }
         />
-        
+
         <Route
           path="/manager/settings"
           element={
@@ -183,7 +189,7 @@ function AppRouter() {
             </ProtectedRoute>
           }
         />
-        
+
         <Route
           path="/staff/profile"
           element={

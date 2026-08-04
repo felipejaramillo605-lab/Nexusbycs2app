@@ -29,6 +29,16 @@ export const ownerAPI = {
   deleteUser: (userId) => api.delete(`/owner/users/${userId}`),
 };
 
+export const subscriptionAPI = {
+  get: (organizationId) => api.get(`/owner/subscriptions/${organizationId}`),
+  save: (organizationId, data) => api.put(`/owner/subscriptions/${organizationId}`, data),
+  createInvoice: (organizationId, data) => api.post(`/owner/subscriptions/${organizationId}/invoices`, data),
+  getInvoices: (organizationId, params = {}) => api.get(`/owner/subscriptions/${organizationId}/invoices`, { params }),
+  confirmManualPayment: (organizationId, invoiceId, data) => api.post(`/owner/subscriptions/${organizationId}/invoices/${invoiceId}/manual-payment`, data),
+  changeInvoiceState: (organizationId, invoiceId, data) => api.post(`/owner/subscriptions/${organizationId}/invoices/${invoiceId}/state`, data),
+  getAudit: (organizationId, params = {}) => api.get(`/owner/subscriptions/${organizationId}/audit`, { params }),
+};
+
 export const teamAPI = {
   getMembers: (organizationId) => api.get('/team/members', { params: { organization_id: organizationId } }),
   updateRole: (userId, role, organizationId) => api.put(`/team/members/${userId}/role`, { role }, { params: { organization_id: organizationId } }),
@@ -188,4 +198,14 @@ export const publicAPI = {
   // Customer Portal endpoints
   passwordlessAuth: (data) => axios.post(`${API}/public/auth/passwordless`, data),
   getClientHistory: (phone, organizationId) => axios.get(`${API}/public/clients/history`, { params: { phone, organization_id: organizationId } }),
+};
+
+export const billingAPI = {
+  getProfile: (params={}) => api.get('/billing/profile',{params}),
+  saveProfile: (data,params={}) => api.put('/billing/profile',data,{params}),
+  getInvoices: (params={}) => api.get('/billing/invoices',{params}),
+  downloadPdf: (invoiceId,params={}) => api.get(`/billing/invoices/${invoiceId}/pdf`,{params,responseType:'blob'}),
+  getNotifications: (params={}) => api.get('/billing/notifications',{params}),
+  markNotificationRead: id => api.post(`/billing/notifications/${id}/read`),
+  announce: data => api.post('/billing/owner/announcements',data),
 };
