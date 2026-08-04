@@ -29,6 +29,7 @@ from owner_subscriptions import build_subscription_router, ensure_subscription_i
 from owner_billing_hub import build_billing_hub_router, ensure_billing_hub_indexes, invoice_pdf
 from owner_subscription_lifecycle import ensure_lifecycle_indexes, enforce_subscription_access
 from owner_subscription_lifecycle_api import build_lifecycle_router
+from owner_delivery_operations import build_delivery_operations_router, ensure_delivery_operations_indexes, scheduler_loop
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
@@ -4183,6 +4184,7 @@ api_router.include_router(build_purchase_receipt_router(db, get_current_user, re
 api_router.include_router(build_subscription_router(db, get_current_user))
 api_router.include_router(build_billing_hub_router(db, get_current_user))
 api_router.include_router(build_lifecycle_router(db, get_current_user, invoice_pdf))
+api_router.include_router(build_delivery_operations_router(db, get_current_user))
 
 app.include_router(api_router)
 
@@ -4325,6 +4327,9 @@ async def create_application_indexes():
     await ensure_subscription_indexes(db)
     await ensure_billing_hub_indexes(db)
     await ensure_lifecycle_indexes(db)
+    await ensure_delivery_operations_indexes(db)
+    if os.getenv("SUBSCRIPTION_SCHEDULER_ENABLED","false").lower() in {"1","true","yes","on"}:
+        asyncio.create_task(scheduler_loop(db, invoice_pdf))
     # NEXUS_PERSISTENT_QUERY_INDEXES_4E3_V1
     await db.appointments.create_index(
         [("organization_id", 1), ("date", -1), ("time", -1), ("appointment_id", -1)],

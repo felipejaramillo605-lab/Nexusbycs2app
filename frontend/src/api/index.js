@@ -209,3 +209,5 @@ export const billingAPI = {
   markNotificationRead: id => api.post(`/billing/notifications/${id}/read`),
   announce: data => api.post('/billing/owner/announcements',data),
 };
+
+export const deliveryOperationsAPI = {backfill:(data)=>api.post('/owner/delivery-operations/backfill',data),getDeliveries:(params={})=>api.get('/owner/delivery-operations/deliveries',{params}),testDelivery:(data)=>api.post('/owner/delivery-operations/deliveries/test',data),retry:(id,data={})=>api.post(`/owner/delivery-operations/deliveries/${id}/retry`,data),runScheduler:(data={})=>api.post('/owner/delivery-operations/scheduler/run',data)};
