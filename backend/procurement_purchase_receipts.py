@@ -4,6 +4,7 @@ from pydantic import BaseModel,Field
 from typing import Optional,List
 from datetime import datetime,timezone
 from pymongo.errors import DuplicateKeyError
+from pymongo import ReturnDocument
 import uuid
 
 class ReceiptLine(BaseModel):
@@ -12,6 +13,9 @@ class ReceiptLine(BaseModel):
  unit_cost:Optional[float]=Field(default=None,ge=0)
  lot_number:Optional[str]=None
  expiry_date:Optional[str]=None
+class ReversalPayload(BaseModel):
+ idempotency_key:str=Field(min_length=8,max_length=120)
+ reason:str=Field(min_length=5,max_length=500)
 class ReceiptPayload(BaseModel):
  idempotency_key:str=Field(min_length=8,max_length=120)
  received_at:Optional[str]=None
@@ -26,6 +30,9 @@ async def ensure_purchase_receipt_indexes(db):
  await db.purchase_receipts.create_index([('organization_id',1),('idempotency_key',1)],unique=True,name='nexus_purchase_receipt_idempotency_unique')
  await db.purchase_receipts.create_index([('organization_id',1),('purchase_order_id',1),('created_at',-1)],name='nexus_purchase_receipt_history')
  await db.inventory_movements.create_index([('organization_id',1),('reference_type',1),('reference_id',1),('item_id',1)],unique=True,name='nexus_purchase_receipt_movement_unique',partialFilterExpression={'reference_type':'purchase_receipt'})
+ await db.purchase_receipt_reversals.create_index([('organization_id',1),('reversal_id',1)],unique=True,name='nexus_receipt_reversal_identity_unique')
+ await db.purchase_receipt_reversals.create_index([('organization_id',1),('receipt_id',1)],unique=True,name='nexus_receipt_single_reversal_unique')
+ await db.purchase_receipt_reversals.create_index([('organization_id',1),('idempotency_key',1)],unique=True,name='nexus_receipt_reversal_idempotency_unique')
 
 async def receive_purchase_order(db,org,pid,payload,user_id):
  key=payload.idempotency_key.strip()
@@ -76,6 +83,53 @@ async def receive_purchase_order(db,org,pid,payload,user_id):
   if isinstance(exc,HTTPException):raise
   raise HTTPException(409,str(exc))
 
+async def reverse_purchase_receipt(db,org,pid,receipt_id,payload,user_id):
+ key=payload.idempotency_key.strip();reason=payload.reason.strip();now=datetime.now(timezone.utc).isoformat()
+ prior=await db.purchase_receipt_reversals.find_one({'organization_id':org,'idempotency_key':key},{'_id':0})
+ if prior:return prior
+ receipt=await db.purchase_receipts.find_one({'organization_id':org,'purchase_order_id':pid,'receipt_id':receipt_id},{'_id':0})
+ if not receipt:raise HTTPException(404,'Recepción no encontrada')
+ if receipt.get('status')=='reversed':
+  existing=await db.purchase_receipt_reversals.find_one({'organization_id':org,'receipt_id':receipt_id},{'_id':0})
+  if existing:return existing
+  raise HTTPException(409,'La recepción ya fue revertida')
+ if receipt.get('status')!='completed':raise HTTPException(409,'Sólo una recepción completada puede revertirse')
+ order=await db.purchase_orders.find_one({'organization_id':org,'purchase_order_id':pid},{'_id':0})
+ if not order:raise HTTPException(404,'Orden de compra no encontrada')
+ for line in receipt.get('lines',[]):
+  item=await db.inventory.find_one({'organization_id':org,'item_id':line['inventory_item_id']},{'_id':0,'quantity':1})
+  if not item or float(item.get('quantity',0))+1e-6<float(line['base_quantity']):raise HTTPException(409,f'Existencia insuficiente para revertir {line.get("item_name_snapshot",line["inventory_item_id"])}')
+ reversal_id=f'rrv_{uuid.uuid4().hex[:16]}'
+ reversal={'reversal_id':reversal_id,'organization_id':org,'purchase_order_id':pid,'receipt_id':receipt_id,'idempotency_key':key,'reason':reason,'lines':receipt.get('lines',[]),'status':'processing','created_by':user_id,'created_at':now}
+ try:await db.purchase_receipt_reversals.insert_one(reversal.copy())
+ except DuplicateKeyError:
+  saved=await db.purchase_receipt_reversals.find_one({'organization_id':org,'$or':[{'idempotency_key':key},{'receipt_id':receipt_id}]},{'_id':0})
+  if saved:return saved
+  raise HTTPException(409,'La recepción ya fue revertida')
+ applied=[]
+ try:
+  for line in receipt.get('lines',[]):
+   amount=float(line['base_quantity']);before=await db.inventory.find_one_and_update({'organization_id':org,'item_id':line['inventory_item_id'],'quantity':{'$gte':amount}},{'$inc':{'quantity':-amount},'$set':{'updated_at':now}},return_document=ReturnDocument.BEFORE,projection={'_id':0,'quantity':1})
+   if not before:raise RuntimeError('La existencia cambió durante la reversión')
+   movement={'movement_id':f'mov_{uuid.uuid4().hex[:16]}','organization_id':org,'item_id':line['inventory_item_id'],'movement_type':'purchase_receipt_reversal','quantity':-amount,'unit_cost':line.get('unit_cost',0),'previous_quantity':before.get('quantity',0),'new_quantity':qty(float(before.get('quantity',0))-amount),'reference_type':'purchase_receipt_reversal','reference_id':reversal_id,'source_receipt_id':receipt_id,'purchase_order_id':pid,'reason':reason,'created_by':user_id,'created_at':now}
+   await db.inventory_movements.insert_one(movement);applied.append(line)
+  decrements={x['line_id']:float(x['received_quantity']) for x in receipt.get('lines',[])};new_lines=[]
+  for line in order.get('lines',[]):
+   row=dict(line);row['received_quantity']=qty(max(0,float(row.get('received_quantity',0))-decrements.get(row['line_id'],0)));new_lines.append(row)
+  received_any=any(float(x.get('received_quantity',0))>1e-6 for x in new_lines);completed=all(float(x.get('received_quantity',0))+1e-6>=float(x['quantity']) for x in new_lines);new_status='received' if completed else ('partially_received' if received_any else 'approved')
+  result=await db.purchase_orders.update_one({'organization_id':org,'purchase_order_id':pid,'status':order['status']},{'$set':{'lines':new_lines,'status':new_status,'updated_by':user_id,'updated_at':now}})
+  if result.modified_count!=1:raise RuntimeError('La orden cambió durante la reversión')
+  await db.purchase_receipts.update_one({'organization_id':org,'receipt_id':receipt_id,'status':'completed'},{'$set':{'status':'reversed','reversal_id':reversal_id,'reversed_by':user_id,'reversed_at':now,'reversal_reason':reason}})
+  await db.purchase_receipt_reversals.update_one({'organization_id':org,'reversal_id':reversal_id},{'$set':{'status':'completed','order_status_after':new_status,'completed_at':now}})
+  await db.audit_events.insert_one({'audit_id':f'audit_{uuid.uuid4().hex[:12]}','organization_id':org,'event_type':'purchase_receipt_reversed','entity_type':'purchase_receipt','entity_id':receipt_id,'actor_user_id':user_id,'previous_value':{'status':'completed'},'new_value':{'status':'reversed','reversal_id':reversal_id,'order_status':new_status},'reason':reason,'created_at':now})
+  return await db.purchase_receipt_reversals.find_one({'organization_id':org,'reversal_id':reversal_id},{'_id':0})
+ except Exception as exc:
+  for line in reversed(applied):await db.inventory.update_one({'organization_id':org,'item_id':line['inventory_item_id']},{'$inc':{'quantity':float(line['base_quantity'])}})
+  await db.inventory_movements.delete_many({'organization_id':org,'reference_type':'purchase_receipt_reversal','reference_id':reversal_id})
+  await db.purchase_receipt_reversals.update_one({'organization_id':org,'reversal_id':reversal_id},{'$set':{'status':'failed','failure_reason':str(exc)[:300],'failed_at':datetime.now(timezone.utc).isoformat()}})
+  if isinstance(exc,HTTPException):raise
+  raise HTTPException(409,str(exc))
+
 def build_purchase_receipt_router(db,get_current_user,require_management_role,resolve_team_organization):
  r=APIRouter()
  async def ctx(a,t,org=None):
@@ -87,5 +141,18 @@ def build_purchase_receipt_router(db,get_current_user,require_management_role,re
  async def history(pid:str,organization_id:Optional[str]=None,authorization:Optional[str]=Header(None),session_token:Optional[str]=Cookie(None)):
   user,org=await ctx(authorization,session_token,organization_id)
   if not await db.purchase_orders.find_one({'organization_id':org,'purchase_order_id':pid},{'_id':1}):raise HTTPException(404,'Orden de compra no encontrada')
-  return await db.purchase_receipts.find({'organization_id':org,'purchase_order_id':pid,'status':'completed'},{'_id':0}).sort('created_at',-1).to_list(500)
+  return await db.purchase_receipts.find({'organization_id':org,'purchase_order_id':pid,'status':{'$in':['completed','reversed']}},{'_id':0}).sort('created_at',-1).to_list(500)
+ @r.get('/purchase-orders/{pid}/receipts/{receipt_id}')
+ async def detail(pid:str,receipt_id:str,organization_id:Optional[str]=None,authorization:Optional[str]=Header(None),session_token:Optional[str]=Cookie(None)):
+  user,org=await ctx(authorization,session_token,organization_id);doc=await db.purchase_receipts.find_one({'organization_id':org,'purchase_order_id':pid,'receipt_id':receipt_id},{'_id':0})
+  if not doc:raise HTTPException(404,'Recepción no encontrada')
+  doc['reversal']=await db.purchase_receipt_reversals.find_one({'organization_id':org,'receipt_id':receipt_id},{'_id':0});return doc
+ @r.get('/purchase-orders/{pid}/receipts/{receipt_id}/evidence')
+ async def evidence(pid:str,receipt_id:str,organization_id:Optional[str]=None,authorization:Optional[str]=Header(None),session_token:Optional[str]=Cookie(None)):
+  user,org=await ctx(authorization,session_token,organization_id);receipt=await db.purchase_receipts.find_one({'organization_id':org,'purchase_order_id':pid,'receipt_id':receipt_id},{'_id':0})
+  if not receipt:raise HTTPException(404,'Recepción no encontrada')
+  organization=await db.organizations.find_one({'organization_id':org},{'_id':0,'name':1,'address':1,'phone':1}) or {};return {'document_type':'purchase_receipt_evidence','document_version':1,'organization':organization,'receipt':receipt,'generated_at':datetime.now(timezone.utc).isoformat(),'generated_by':user.user_id}
+ @r.post('/purchase-orders/{pid}/receipts/{receipt_id}/reverse')
+ async def reverse(pid:str,receipt_id:str,payload:ReversalPayload,organization_id:Optional[str]=None,authorization:Optional[str]=Header(None),session_token:Optional[str]=Cookie(None)):
+  user,org=await ctx(authorization,session_token,organization_id);return await reverse_purchase_receipt(db,org,pid,receipt_id,payload,user.user_id)
  return r
