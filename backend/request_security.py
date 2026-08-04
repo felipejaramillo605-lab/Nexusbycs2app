@@ -5,6 +5,7 @@ from urllib.parse import urlsplit
 import asyncio
 import os
 from fastapi import HTTPException, Request
+from security_observability import record_security_event
 
 MUTATING_METHODS = {"POST", "PUT", "PATCH", "DELETE"}
 AUTH_LIMITS = {
@@ -47,7 +48,7 @@ class InMemoryRateLimiter:
         self._lock = asyncio.Lock()
         self._operations = 0
 
-    async def check(self, key, limit, seconds):
+    async def check(self, key, limit, seconds, request=None):
         now = monotonic()
         async with self._lock:
             window = self._windows[key].hits
@@ -56,6 +57,8 @@ class InMemoryRateLimiter:
                 window.popleft()
             if len(window) >= limit:
                 retry_after = max(1, int(seconds - (now - window[0])))
+                if request is not None:
+                    await record_security_event(event_type="authentication_rate_limited", request_method=request.method, path=request.url.path, source=_client_source(request), metadata={"limit":limit,"window_seconds":seconds})
                 raise HTTPException(429, "Too many requests", headers={"Retry-After": str(retry_after)})
             window.append(now)
             self._operations += 1
@@ -68,17 +71,20 @@ class InMemoryRateLimiter:
 rate_limiter = InMemoryRateLimiter()
 
 
-def _client_key(request):
+def _client_source(request):
     forwarded = request.headers.get("x-forwarded-for", "").split(",", 1)[0].strip()
-    host = forwarded or (request.client.host if request.client else "unknown")
-    return f"{host}:{request.url.path}"
+    return forwarded or (request.client.host if request.client else "unknown")
+
+
+def _client_key(request):
+    return f"{_client_source(request)}:{request.url.path}"
 
 
 async def enforce_request_security(request: Request):
     path = request.url.path.rstrip("/") or "/"
     if path in AUTH_LIMITS:
         limit, seconds = AUTH_LIMITS[path]
-        await rate_limiter.check(_client_key(request), limit, seconds)
+        await rate_limiter.check(_client_key(request), limit, seconds, request=request)
 
     if request.method not in MUTATING_METHODS or request.method == "OPTIONS":
         return
@@ -91,6 +97,8 @@ async def enforce_request_security(request: Request):
     origin = (request.headers.get("origin") or "").rstrip("/")
     fetch_site = (request.headers.get("sec-fetch-site") or "").lower()
     if not origin or origin not in TRUSTED_ORIGINS:
+        await record_security_event(event_type="origin_blocked", request_method=request.method, path=request.url.path, source=_client_source(request), metadata={"fetch_site":fetch_site or "missing"})
         raise HTTPException(403, "Request origin is not allowed")
     if fetch_site and fetch_site not in {"same-origin", "same-site", "none"}:
+        await record_security_event(event_type="cross_site_request_blocked", request_method=request.method, path=request.url.path, source=_client_source(request), metadata={"fetch_site":fetch_site})
         raise HTTPException(403, "Cross-site request blocked")

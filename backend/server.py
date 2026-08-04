@@ -30,6 +30,7 @@ from owner_billing_hub import build_billing_hub_router, ensure_billing_hub_index
 from owner_subscription_lifecycle import ensure_lifecycle_indexes, enforce_subscription_access
 from owner_subscription_lifecycle_api import build_lifecycle_router
 from request_security import TRUSTED_ORIGINS, enforce_request_security
+from security_observability import configure_security_observability, ensure_security_observability_indexes, record_security_event
 from owner_delivery_operations import build_delivery_operations_router, ensure_delivery_operations_indexes, scheduler_loop
 
 ROOT_DIR = Path(__file__).parent
@@ -41,6 +42,7 @@ EMERGENT_LLM_KEY = os.environ['EMERGENT_LLM_KEY']
 
 client = AsyncIOMotorClient(mongo_url)
 db = client[db_name]
+configure_security_observability(db)
 
 app = FastAPI()
 api_router = APIRouter(prefix="/api")
@@ -110,6 +112,7 @@ async def get_organization_filter(user: User, provided_org_id: Optional[str] = N
     
     # If org_id provided, validate it matches user's org
     if provided_org_id and provided_org_id != user.organization_id:
+        await record_security_event(event_type="cross_tenant_access_blocked", severity="high", actor=user.user_id, organization=provided_org_id, path="/organization-filter", metadata={"reason_code":"read_scope"})
         raise HTTPException(status_code=403, detail="Access denied to this organization")
     
     return {"organization_id": user.organization_id}
@@ -124,6 +127,7 @@ async def enforce_rls_on_write(user: User, document: dict, organization_id: str)
             raise HTTPException(status_code=403, detail="No organization assigned")
         
         if organization_id != user.organization_id:
+            await record_security_event(event_type="cross_tenant_access_blocked", severity="high", actor=user.user_id, organization=organization_id, path="/organization-write", metadata={"reason_code":"write_scope"})
             raise HTTPException(status_code=403, detail="Cannot modify data outside your organization")
 
 def require_management_role(user: User) -> None:
@@ -457,6 +461,7 @@ async def resolve_team_organization(current_user: User, requested_org_id: Option
         if not current_user.organization_id:
             raise HTTPException(status_code=403, detail="No organization assigned")
         if requested_org_id and requested_org_id != current_user.organization_id:
+            await record_security_event(event_type="cross_tenant_access_blocked", severity="high", actor=current_user.user_id, organization=requested_org_id, path="/team-organization", metadata={"reason_code":"team_scope"})
             raise HTTPException(status_code=403, detail="Access denied to this organization")
         organization_id = current_user.organization_id
 
@@ -4256,6 +4261,7 @@ async def _migrate_user_session_dates_and_indexes():
 @app.on_event("startup")
 async def create_application_indexes():
     await _migrate_user_session_dates_and_indexes()
+    await ensure_security_observability_indexes(db)
     # NEXUS_CHECKOUT_BACKEND_V1
     await db.transactions.create_index("transaction_id",unique=True)
     await db.transactions.create_index("appointment_id",unique=True,partialFilterExpression={"status":"confirmed"})
