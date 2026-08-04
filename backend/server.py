@@ -32,6 +32,7 @@ from owner_subscription_lifecycle_api import build_lifecycle_router
 from request_security import TRUSTED_ORIGINS, enforce_request_security, refresh_trusted_origins
 from security_observability import configure_security_observability, ensure_security_observability_indexes, record_security_event
 from owner_delivery_operations import build_delivery_operations_router, ensure_delivery_operations_indexes, scheduler_loop
+from platform_billing_settings import build_platform_billing_router, ensure_platform_billing_indexes
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
@@ -4192,6 +4193,7 @@ api_router.include_router(build_subscription_router(db, get_current_user))
 api_router.include_router(build_billing_hub_router(db, get_current_user))
 api_router.include_router(build_lifecycle_router(db, get_current_user, invoice_pdf))
 api_router.include_router(build_delivery_operations_router(db, get_current_user))
+api_router.include_router(build_platform_billing_router(db, get_current_user))
 
 app.include_router(api_router)
 
@@ -4330,6 +4332,7 @@ async def create_application_indexes():
     await ensure_billing_hub_indexes(db)
     await ensure_lifecycle_indexes(db)
     await ensure_delivery_operations_indexes(db)
+    await ensure_platform_billing_indexes(db)
     if os.getenv("SUBSCRIPTION_SCHEDULER_ENABLED","false").lower() in {"1","true","yes","on"}:
         asyncio.create_task(scheduler_loop(db, invoice_pdf))
     # NEXUS_PERSISTENT_QUERY_INDEXES_4E3_V1

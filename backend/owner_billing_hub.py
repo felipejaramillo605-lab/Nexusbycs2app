@@ -4,6 +4,7 @@ from typing import Optional, List
 from datetime import datetime, timezone, timedelta
 import asyncio, hashlib, os, smtplib, ssl, uuid
 from email.message import EmailMessage
+from platform_billing_settings import get_seller_settings
 
 # NEXUS_7I_FLEXIBLE_BILLING_V2
 NOTICE = "Documento administrativo de cobro generado por Nexus. No constituye factura electrónica de venta validada por la DIAN."
@@ -57,10 +58,11 @@ async def resolve_billing_recipient(db, organization_id):
 
 async def enrich_new_invoice(db,item):
     profile,manager,organization,email=await resolve_billing_recipient(db,item["organization_id"])
+    seller_settings=await get_seller_settings(db)
     item.update({
       "invoice_number":await next_invoice_number(db),"document_type":"administrative_charge_document",
       "legal_notice":NOTICE,"issued_at":now_iso(),"service_description":"Suscripción mensual Nexus Business OS",
-      "seller_snapshot":{"commercial_name":"Nexus by CS2","legal_name":os.getenv("BILLING_SELLER_LEGAL_NAME","Nexus by CS2"),"tax_id":os.getenv("BILLING_SELLER_TAX_ID"),"email":os.getenv("SMTP_FROM_EMAIL"),"address":os.getenv("BILLING_SELLER_ADDRESS"),"city":os.getenv("BILLING_SELLER_CITY")},
+      "seller_snapshot":{"commercial_name":seller_settings.get("commercial_name"),"legal_name":seller_settings.get("legal_name"),"tax_id":seller_settings.get("tax_id"),"email":seller_settings.get("billing_email"),"phone":seller_settings.get("phone"),"address":seller_settings.get("address"),"city":seller_settings.get("city")},
       "buyer_snapshot":{"organization_name":organization.get("name"),"legal_name":profile.get("legal_name") or organization.get("legal_name"),"tax_id":profile.get("tax_id") or organization.get("tax_id"),"address":profile.get("address") or organization.get("address"),"city":profile.get("city") or organization.get("city"),"billing_contact_name":profile.get("billing_contact_name") or manager.get("name")},
       "delivery_email_snapshot":email,"delivery_cc_snapshot":[str(x) for x in profile.get("cc_emails",[])],"primary_manager_snapshot":{"user_id":manager.get("user_id"),"name":manager.get("name"),"email":manager.get("email")},
       "subtotal_minor":item["amount_minor"],"tax_minor":0,"discount_minor":0,"balance_minor":item["amount_minor"]})
