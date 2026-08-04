@@ -1,5 +1,5 @@
-from fastapi import FastAPI, APIRouter, HTTPException, Cookie, Response, Header
-from fastapi.responses import StreamingResponse
+from fastapi import FastAPI, APIRouter, HTTPException, Cookie, Response, Header, Request
+from fastapi.responses import StreamingResponse, JSONResponse
 from dotenv import load_dotenv
 from starlette.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
@@ -29,6 +29,7 @@ from owner_subscriptions import build_subscription_router, ensure_subscription_i
 from owner_billing_hub import build_billing_hub_router, ensure_billing_hub_indexes, invoice_pdf
 from owner_subscription_lifecycle import ensure_lifecycle_indexes, enforce_subscription_access
 from owner_subscription_lifecycle_api import build_lifecycle_router
+from request_security import TRUSTED_ORIGINS, enforce_request_security
 from owner_delivery_operations import build_delivery_operations_router, ensure_delivery_operations_indexes, scheduler_loop
 
 ROOT_DIR = Path(__file__).parent
@@ -4190,43 +4191,37 @@ app.include_router(api_router)
 
 # ==================== SECURITY MIDDLEWARE ====================
 
-# CORS Configuration - RESTRICTIVE
+# CORS is fail-closed. Wildcards are discarded by request_security.
 app.add_middleware(
     CORSMiddleware,
     allow_credentials=True,
-    allow_origins=os.environ.get('CORS_ORIGINS', '*').split(','),
-    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],  # Explicit methods only
-    allow_headers=["Content-Type", "Authorization", "Cookie", "X-Session-ID"],  # Explicit headers only
-    expose_headers=["Set-Cookie"],
-    max_age=600,  # Cache preflight requests for 10 minutes
+    allow_origins=list(TRUSTED_ORIGINS),
+    allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allow_headers=["Content-Type", "Authorization", "Cookie", "X-Session-ID"],
+    expose_headers=["Set-Cookie", "Retry-After"],
+    max_age=600,
 )
 
-# Security Headers Middleware
 @app.middleware("http")
-async def add_security_headers(request, call_next):
-    response = await call_next(request)
-    
-    # Prevent clickjacking
+async def request_security_and_headers(request: Request, call_next):
+    try:
+        await enforce_request_security(request)
+        response = await call_next(request)
+    except HTTPException as exc:
+        response = JSONResponse(
+            status_code=exc.status_code,
+            content={"detail": exc.detail},
+            headers=exc.headers or {},
+        )
     response.headers["X-Frame-Options"] = "DENY"
-    
-    # Prevent MIME type sniffing
     response.headers["X-Content-Type-Options"] = "nosniff"
-    
-    # Enable XSS protection
-    response.headers["X-XSS-Protection"] = "1; mode=block"
-    
-    # Strict Transport Security (HTTPS only)
+    response.headers["X-XSS-Protection"] = "0"
     response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
-    
-    # Content Security Policy
-    response.headers["Content-Security-Policy"] = "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline';"
-    
-    # Referrer Policy
+    response.headers["Content-Security-Policy"] = "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'"
     response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
-    
-    # Permissions Policy
     response.headers["Permissions-Policy"] = "geolocation=(), microphone=(), camera=()"
-    
+    response.headers["Cross-Origin-Opener-Policy"] = "same-origin"
+    response.headers["Cross-Origin-Resource-Policy"] = "same-site"
     return response
 
 # ==================== END SECURITY MIDDLEWARE ====================
