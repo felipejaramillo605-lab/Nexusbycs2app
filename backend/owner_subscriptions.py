@@ -1,13 +1,15 @@
 from fastapi import APIRouter, Cookie, Header, HTTPException
 from pydantic import BaseModel, Field
 from typing import Optional
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 import hashlib
 import uuid
 from owner_billing_hub import enrich_new_invoice, post_invoice_side_effects
 from owner_subscription_lifecycle import reactivate_after_payment
 
+# NEXUS_7I_FLEXIBLE_BILLING_V2
 SUBSCRIPTION_STATES = {"trial", "active", "grace_period", "past_due", "suspended", "cancelled", "indefinite_block"}
+CONTRACT_TERMS = {"monthly": 1, "six_months": 6, "annual": 12}
 INVOICE_STATES = {"draft", "issued", "pending", "paid", "overdue", "void", "refunded"}
 PAYMENT_PROVIDERS = {"manual", "wompi", "stripe"}
 
@@ -17,6 +19,8 @@ class SubscriptionUpsertRequest(BaseModel):
     currency: str = Field(default="COP", min_length=3, max_length=3)
     billing_day: int = Field(default=1, ge=1, le=28)
     status: str = "active"
+    contract_term: str = "monthly"
+    trial_days: int = Field(default=0, ge=0, le=15)
     reason: str = Field(min_length=3, max_length=500)
 
 class InvoiceCreateRequest(BaseModel):
@@ -24,6 +28,9 @@ class InvoiceCreateRequest(BaseModel):
     period_end: str
     due_at: str
     amount_minor: int = Field(ge=0)
+    discount_minor: int = Field(default=0, ge=0)
+    discount_reason: Optional[str] = Field(default=None, max_length=300)
+    service_description: str = Field(default="Suscripción o membresía a Nexus by CS2 por un mes.", min_length=5, max_length=240)
     currency: str = Field(default="COP", min_length=3, max_length=3)
     notes: Optional[str] = Field(default=None, max_length=500)
 
@@ -50,6 +57,11 @@ def _currency(value):
 def _date(value, name):
     try: return datetime.fromisoformat(value.replace("Z", "+00:00"))
     except ValueError: raise HTTPException(400, f"{name} must use ISO-8601 format")
+
+def _add_months(value, months):
+    month=value.month-1+months; year=value.year+month//12; month=month%12+1
+    days=[31,29 if year%4==0 and (year%100!=0 or year%400==0) else 28,31,30,31,30,31,31,30,31,30,31]
+    return value.replace(year=year,month=month,day=min(value.day,days[month-1]))
 
 def _public(doc):
     if not doc: return doc
@@ -94,8 +106,10 @@ def build_subscription_router(db, get_current_user):
     async def put_subscription(organization_id: str, data: SubscriptionUpsertRequest, authorization: Optional[str] = Header(None), session_token: Optional[str] = Cookie(None)):
         user=await get_current_user(authorization,session_token); await _owner(user); await _organization(db,organization_id)
         if data.status not in SUBSCRIPTION_STATES: raise HTTPException(400,"Unsupported subscription status")
+        if data.contract_term not in CONTRACT_TERMS: raise HTTPException(400,"Unsupported contract term")
+        if data.trial_days not in {0,15}: raise HTTPException(400,"trial_days must be 0 or 15")
         previous=await db.organization_subscriptions.find_one({"organization_id":organization_id},{"_id":0})
-        now=_now(); item={"subscription_id":previous.get("subscription_id") if previous else _id("sub"),"organization_id":organization_id,"plan_code":data.plan_code.strip().lower(),"plan_version":int(previous.get("plan_version",0)+1) if previous else 1,"monthly_amount_minor":data.monthly_amount_minor,"currency":_currency(data.currency),"billing_day":data.billing_day,"status":data.status,"manual_payment_only":True,"access_enforcement_enabled":bool(previous.get("access_enforcement_enabled",False)) if previous else False,"subscription_access_state":previous.get("subscription_access_state","active") if previous else "active","updated_by":user.user_id,"updated_at":now}
+        now=_now(); started=datetime.now(timezone.utc); term_months=CONTRACT_TERMS[data.contract_term]; item={"subscription_id":previous.get("subscription_id") if previous else _id("sub"),"organization_id":organization_id,"plan_code":data.plan_code.strip().lower(),"plan_version":int(previous.get("plan_version",0)+1) if previous else 1,"monthly_amount_minor":data.monthly_amount_minor,"currency":_currency(data.currency),"billing_day":data.billing_day,"status":"trial" if data.trial_days==15 else data.status,"contract_term":data.contract_term,"contract_term_months":term_months,"contract_started_at":previous.get("contract_started_at") if previous else started.isoformat(),"contract_ends_at":_add_months(started,term_months).isoformat(),"trial_days":data.trial_days,"trial_started_at":started.isoformat() if data.trial_days else None,"trial_ends_at":(started+timedelta(days=data.trial_days)).isoformat() if data.trial_days else None,"manual_payment_only":True,"access_enforcement_enabled":bool(previous.get("access_enforcement_enabled",False)) if previous else False,"subscription_access_state":previous.get("subscription_access_state","active") if previous else "active","updated_by":user.user_id,"updated_at":now}
         if not previous: item["created_at"]=now
         await db.organization_subscriptions.update_one({"organization_id":organization_id},{"$set":item},upsert=True)
         await _audit(db,organization_id,"subscription_upserted","subscription",item["subscription_id"],user,previous,item,data.reason)
@@ -110,7 +124,12 @@ def build_subscription_router(db, get_current_user):
         if not subscription: raise HTTPException(409,"Organization subscription does not exist")
         existing=await db.subscription_invoices.find_one({"organization_id":organization_id,"period_start":data.period_start,"period_end":data.period_end},{"_id":0})
         if existing: raise HTTPException(409,"Invoice already exists for this period")
-        now=_now(); item={"invoice_id":_id("sinv"),"organization_id":organization_id,"subscription_id":subscription["subscription_id"],"plan_code_snapshot":subscription["plan_code"],"plan_version_snapshot":subscription["plan_version"],"period_start":data.period_start,"period_end":data.period_end,"due_at":data.due_at,"amount_minor":data.amount_minor,"paid_amount_minor":0,"currency":_currency(data.currency),"status":"pending","provider":"manual","notes":data.notes,"created_by":user.user_id,"created_at":now,"updated_at":now}
+        contract_amount=int(subscription["monthly_amount_minor"])
+        if data.discount_minor > contract_amount: raise HTTPException(400,"discount_minor cannot exceed monthly contract amount")
+        if data.discount_minor and not (data.discount_reason or "").strip(): raise HTTPException(400,"discount_reason is required when discount is applied")
+        expected_amount=contract_amount-data.discount_minor
+        if data.amount_minor != expected_amount: raise HTTPException(409,"Invoice amount must equal monthly contract amount minus period discount")
+        now=_now(); item={"invoice_id":_id("sinv"),"organization_id":organization_id,"subscription_id":subscription["subscription_id"],"plan_code_snapshot":subscription["plan_code"],"plan_version_snapshot":subscription["plan_version"],"period_start":data.period_start,"period_end":data.period_end,"due_at":data.due_at,"contract_amount_minor_snapshot":contract_amount,"discount_minor":data.discount_minor,"discount_reason":data.discount_reason.strip() if data.discount_reason else None,"amount_minor":data.amount_minor,"paid_amount_minor":0,"currency":_currency(data.currency),"status":"pending","provider":"manual","service_description":data.service_description.strip(),"notes":data.notes,"created_by":user.user_id,"created_at":now,"updated_at":now}
         item=await enrich_new_invoice(db,item)
         await db.subscription_invoices.insert_one(item.copy())
         await post_invoice_side_effects(db,item)

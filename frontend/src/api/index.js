@@ -59,6 +59,8 @@ export const subscriptionAPI = {
   confirmManualPayment: (organizationId, invoiceId, data) => api.post(`/owner/subscriptions/${organizationId}/invoices/${invoiceId}/manual-payment`, data),
   changeInvoiceState: (organizationId, invoiceId, data) => api.post(`/owner/subscriptions/${organizationId}/invoices/${invoiceId}/state`, data),
   getAudit: (organizationId, params = {}) => api.get(`/owner/subscriptions/${organizationId}/audit`, { params }),
+  blockOrganization: (organizationId, data) => api.post(`/owner/subscription-lifecycle/organizations/${organizationId}/block`, data),
+  reactivateOrganization: (organizationId, data) => api.post(`/owner/subscription-lifecycle/organizations/${organizationId}/reactivate`, data),
 };
 
 export const teamAPI = {

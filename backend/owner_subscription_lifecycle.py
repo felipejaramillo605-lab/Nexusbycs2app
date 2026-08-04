@@ -3,7 +3,8 @@ from email.message import EmailMessage
 from typing import Optional
 import os, smtplib, ssl, uuid
 
-REMINDER_DAYS = (7, 3, 1, 0)
+# NEXUS_7I_FLEXIBLE_BILLING_V2
+REMINDER_DAYS = (7, 5, 3, 1, 0)
 ACTIVE_INVOICE_STATES = {"draft", "issued", "pending", "overdue"}
 
 def now_utc(): return datetime.now(timezone.utc)
@@ -29,7 +30,7 @@ def _message(invoice, event_type):
     number=invoice.get("invoice_number") or invoice.get("invoice_id")
     due=str(invoice.get("due_at", ""))[:10]
     amount=f"{int(invoice.get('amount_minor',0))/100:,.0f}".replace(",", ".")
-    labels={7:"7 días",3:"3 días",1:"1 día",0:"hoy"}
+    labels={7:"7 días",5:"5 días",3:"3 días",1:"1 día",0:"hoy"}
     if event_type.startswith("reminder_"):
         day=int(event_type.rsplit("_",1)[1]); subject=f"Recordatorio de pago {number}"
         intro=f"Tu documento de cobro vence {labels[day]}."
@@ -64,6 +65,9 @@ async def record_event(db, *, organization_id, invoice_id, event_type, dedupe_ke
 
 async def queue_or_deliver(db, invoice, event_type, mode, pdf_factory):
     key=f"{invoice['invoice_id']}:{event_type}"
+    profile=await db.organization_billing_profiles.find_one({"organization_id":invoice["organization_id"]},{"_id":0}) or {}
+    email_enabled=bool(profile.get("email_enabled",False))
+    if mode=="live" and not email_enabled: mode="simulation"
     existing=await db.subscription_email_deliveries.find_one({"delivery_key":key},{"_id":0})
     if existing and existing.get("status") in {"sent","simulated"}: return existing,False
     recipient=invoice.get("delivery_email_snapshot"); cc=invoice.get("delivery_cc_snapshot") or []
@@ -89,7 +93,11 @@ async def run_lifecycle(db, *, at=None, mode=None, organization_id=None, pdf_fac
         if event_type:
             dedupe=f"{inv['invoice_id']}:{event_type}"
             _,created=await record_event(db,organization_id=inv["organization_id"],invoice_id=inv["invoice_id"],event_type=event_type,dedupe_key=dedupe,mode=mode,data={"days_to_due":days})
-            if created: run["counts"]["events"]+=1
+            if created:
+                run["counts"]["events"]+=1
+                title,text,_=_message(inv,event_type)
+                notification={"notification_id":make_id("snot"),"organization_id":inv["organization_id"],"event_type":event_type,"severity":"billing","title":title,"message":text.split("\n\n",1)[0],"related_entity_type":"invoice","related_entity_id":inv["invoice_id"],"dedupe_key":dedupe,"created_at":now_iso(),"read_by":[]}
+                await db.subscription_notifications.update_one({"dedupe_key":dedupe},{"$setOnInsert":notification},upsert=True)
             if pdf_factory:
                 _,email_created=await queue_or_deliver(db,inv,event_type,mode if delivery_mode()!="disabled" else "simulation",pdf_factory)
                 if email_created: run["counts"]["emails"]+=1
@@ -116,9 +124,29 @@ async def reactivate_after_payment(db, organization_id, invoice_id, actor_user_i
         await record_event(db,organization_id=organization_id,invoice_id=invoice_id,event_type="subscription_reactivated",dedupe_key=f"{invoice_id}:subscription_reactivated",mode="live",data={"actor_user_id":actor_user_id})
     return {"reactivated":bool(result.modified_count),"reason":"payment_confirmed" if result.modified_count else "not_required"}
 
+# NEXUS_7I_V3_MANUAL_ORGANIZATION_BLOCK
 async def enforce_subscription_access(db, user):
-    if user.role=="owner" or not user.organization_id or not enforcement_enabled(): return
-    sub=await db.organization_subscriptions.find_one({"organization_id":user.organization_id},{"_id":0,"subscription_access_state":1,"access_enforcement_enabled":1})
-    if sub and sub.get("access_enforcement_enabled") and sub.get("subscription_access_state")=="suspended":
+    if user.role == "owner" or not user.organization_id:
+        return
+    sub = await db.organization_subscriptions.find_one(
+        {"organization_id": user.organization_id},
+        {"_id": 0, "subscription_access_state": 1, "access_enforcement_enabled": 1, "manual_access_blocked": 1},
+    )
+    if not sub:
+        return
+    manual_blocked = bool(sub.get("manual_access_blocked"))
+    automatic_blocked = (
+        enforcement_enabled()
+        and bool(sub.get("access_enforcement_enabled"))
+        and sub.get("subscription_access_state") == "suspended"
+    )
+    if manual_blocked or automatic_blocked:
         from fastapi import HTTPException
-        raise HTTPException(402,"Organization subscription is suspended")
+        raise HTTPException(
+            status_code=402,
+            detail={
+                "code": "SUBSCRIPTION_ACCESS_SUSPENDED",
+                "message": "Organization access is temporarily suspended",
+                "manual": manual_blocked,
+            },
+        )
