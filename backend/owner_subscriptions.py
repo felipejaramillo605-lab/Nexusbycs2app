@@ -5,6 +5,7 @@ from datetime import datetime, timezone
 import hashlib
 import uuid
 from owner_billing_hub import enrich_new_invoice, post_invoice_side_effects
+from owner_subscription_lifecycle import reactivate_after_payment
 
 SUBSCRIPTION_STATES = {"trial", "active", "grace_period", "past_due", "suspended", "cancelled", "indefinite_block"}
 INVOICE_STATES = {"draft", "issued", "pending", "paid", "overdue", "void", "refunded"}
@@ -94,7 +95,7 @@ def build_subscription_router(db, get_current_user):
         user=await get_current_user(authorization,session_token); await _owner(user); await _organization(db,organization_id)
         if data.status not in SUBSCRIPTION_STATES: raise HTTPException(400,"Unsupported subscription status")
         previous=await db.organization_subscriptions.find_one({"organization_id":organization_id},{"_id":0})
-        now=_now(); item={"subscription_id":previous.get("subscription_id") if previous else _id("sub"),"organization_id":organization_id,"plan_code":data.plan_code.strip().lower(),"plan_version":int(previous.get("plan_version",0)+1) if previous else 1,"monthly_amount_minor":data.monthly_amount_minor,"currency":_currency(data.currency),"billing_day":data.billing_day,"status":data.status,"manual_payment_only":True,"access_enforcement_enabled":False,"updated_by":user.user_id,"updated_at":now}
+        now=_now(); item={"subscription_id":previous.get("subscription_id") if previous else _id("sub"),"organization_id":organization_id,"plan_code":data.plan_code.strip().lower(),"plan_version":int(previous.get("plan_version",0)+1) if previous else 1,"monthly_amount_minor":data.monthly_amount_minor,"currency":_currency(data.currency),"billing_day":data.billing_day,"status":data.status,"manual_payment_only":True,"access_enforcement_enabled":bool(previous.get("access_enforcement_enabled",False)) if previous else False,"subscription_access_state":previous.get("subscription_access_state","active") if previous else "active","updated_by":user.user_id,"updated_at":now}
         if not previous: item["created_at"]=now
         await db.organization_subscriptions.update_one({"organization_id":organization_id},{"$set":item},upsert=True)
         await _audit(db,organization_id,"subscription_upserted","subscription",item["subscription_id"],user,previous,item,data.reason)
@@ -151,7 +152,8 @@ def build_subscription_router(db, get_current_user):
             raise
         current=await db.subscription_invoices.find_one({"organization_id":organization_id,"invoice_id":invoice_id},{"_id":0})
         await _audit(db,organization_id,"manual_payment_confirmed","invoice",invoice_id,user,invoice,current,data.notes or "Manual payment confirmed",data.idempotency_key)
-        return {**event,"invoice_status":"paid","idempotent_replay":False}
+        reactivation=await reactivate_after_payment(db,organization_id,invoice_id,user.user_id)
+        return {**event,"invoice_status":"paid","idempotent_replay":False,"reactivation":reactivation}
 
     @router.post("/{organization_id}/invoices/{invoice_id}/state")
     async def change_invoice_state(organization_id: str, invoice_id: str, data: InvoiceStateRequest, authorization: Optional[str] = Header(None), session_token: Optional[str] = Cookie(None)):
