@@ -18,6 +18,7 @@ const AuthCallback = () => {
     hasProcessed.current = true;
 
     const processAuth = async () => {
+      let processingKey = null;
       try {
         const params = new URLSearchParams(
           location.hash.replace(/^#/, '')
@@ -32,17 +33,19 @@ const AuthCallback = () => {
           return;
         }
 
-        const response = await authAPI.createSession(sessionId);
-        const authenticatedUser = response.data;
-
+        processingKey = `nexus-oauth-callback:${sessionId}`;
+        if (sessionStorage.getItem(processingKey) === 'processing') return;
+        sessionStorage.setItem(processingKey, 'processing');
+        window.history.replaceState(null, document.title, '/auth/callback');
+        await authAPI.createSession(sessionId);
+        const verification = await authAPI.getMe();
+        const authenticatedUser = verification.data;
+        sessionStorage.removeItem(processingKey);
         completeLogin(authenticatedUser);
-
         const destination = getHomeForRole(authenticatedUser.role);
-
-        navigate(destination, {
-          replace: true
-        });
+        navigate(destination, { replace: true });
       } catch (error) {
+        if (processingKey) sessionStorage.removeItem(processingKey);
         console.error(
           'No fue posible completar la autenticación:',
           error?.response?.status,

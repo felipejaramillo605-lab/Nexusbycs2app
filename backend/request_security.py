@@ -8,6 +8,7 @@ from fastapi import HTTPException, Request
 from security_observability import record_security_event
 
 MUTATING_METHODS = {"POST", "PUT", "PATCH", "DELETE"}
+AUTH_BOOTSTRAP_PATHS = {"/api/auth/session", "/api/auth/login"}
 AUTH_LIMITS = {
     "/api/auth/login": (10, 300),
     "/api/auth/register": (5, 900),
@@ -32,9 +33,21 @@ def trusted_origins():
     return tuple(dict.fromkeys(values))
 
 
-TRUSTED_ORIGINS = trusted_origins()
-if not TRUSTED_ORIGINS:
-    raise RuntimeError("CORS_ORIGINS must contain at least one explicit http(s) origin")
+TRUSTED_ORIGINS = []
+
+
+def refresh_trusted_origins():
+    values = list(trusted_origins())
+    frontend_url = os.getenv("FRONTEND_URL", "").strip().rstrip("/")
+    if frontend_url:
+        parsed = urlsplit(frontend_url)
+        if parsed.scheme in {"http", "https"} and parsed.netloc and parsed.path in {"", "/"}:
+            values.append(f"{parsed.scheme}://{parsed.netloc}")
+    normalized = list(dict.fromkeys(values))
+    if not normalized:
+        raise RuntimeError("CORS_ORIGINS or FRONTEND_URL must contain an explicit http(s) origin")
+    TRUSTED_ORIGINS[:] = normalized
+    return tuple(TRUSTED_ORIGINS)
 
 
 @dataclass
@@ -89,13 +102,31 @@ async def enforce_request_security(request: Request):
     if request.method not in MUTATING_METHODS or request.method == "OPTIONS":
         return
 
+    origin = (request.headers.get("origin") or "").rstrip("/")
+    fetch_site = (request.headers.get("sec-fetch-site") or "").lower()
+    if path == "/api/auth/session":
+        # OAuth session exchange is protected by an unguessable X-Session-ID and
+        # the existing rate limiter. Preview gateways may rewrite Origin, so the
+        # browser's fetch metadata is the authoritative anti-CSRF signal here.
+        if fetch_site and fetch_site not in {"same-origin", "same-site", "none"}:
+            await record_security_event(event_type="cross_site_request_blocked", request_method=request.method, path=request.url.path, source=_client_source(request), metadata={"fetch_site":fetch_site})
+            raise HTTPException(403, "Cross-site request blocked")
+        return
+
+    if path == "/api/auth/login":
+        # Manual credential login keeps strict Origin validation whenever the
+        # browser supplies Origin, while allowing same-site clients that omit it.
+        if fetch_site and fetch_site not in {"same-origin", "same-site", "none"}:
+            await record_security_event(event_type="cross_site_request_blocked", request_method=request.method, path=request.url.path, source=_client_source(request), metadata={"fetch_site":fetch_site})
+            raise HTTPException(403, "Cross-site request blocked")
+        if origin and origin not in TRUSTED_ORIGINS:
+            await record_security_event(event_type="origin_blocked", request_method=request.method, path=request.url.path, source=_client_source(request), metadata={"fetch_site":fetch_site or "missing"})
+            raise HTTPException(403, "Request origin is not allowed")
+        return
     # Bearer and X-Session-ID integrations are not ambient cookie credentials.
     # CSRF validation is mandatory when the browser authenticates with the session cookie.
     if not request.cookies.get("session_token"):
         return
-
-    origin = (request.headers.get("origin") or "").rstrip("/")
-    fetch_site = (request.headers.get("sec-fetch-site") or "").lower()
     if not origin or origin not in TRUSTED_ORIGINS:
         await record_security_event(event_type="origin_blocked", request_method=request.method, path=request.url.path, source=_client_source(request), metadata={"fetch_site":fetch_site or "missing"})
         raise HTTPException(403, "Request origin is not allowed")
