@@ -26,7 +26,7 @@ const ManagerServices = () => {
   const [recipeSaving, setRecipeSaving] = useState(false);
 
   // Get org_id from query param (for owner) or user.organization_id (for manager)
-  const organizationId = searchParams.get('org_id') || user?.organization_id;
+  const organizationId = (user?.role === 'owner' ? searchParams.get('org_id') : user?.organization_id) || user?.organization_id;
 
   const loadOrganizationName = useCallback(async () => {
     if (!organizationId) return;

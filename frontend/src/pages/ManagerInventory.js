@@ -15,7 +15,7 @@ const blank={name:'',sku:'',quantity:0,min_stock:0,unit:'unidades',unit_cost:0};
 const download=(blob,name)=>{const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download=name;document.body.appendChild(a);a.click();a.remove();URL.revokeObjectURL(url)};
 
 export default function ManagerInventory(){
- const navigate=useNavigate();const {user}=useAuth();const [params]=useSearchParams();const organizationId=params.get('org_id')||user?.organization_id;
+ const navigate=useNavigate();const {user}=useAuth();const [params]=useSearchParams();const organizationId=(user?.role==='owner'?params.get('org_id'):user?.organization_id)||user?.organization_id;
  const [tab,setTab]=useState('catalog');const [items,setItems]=useState([]);const [summary,setSummary]=useState({});const [audits,setAudits]=useState([]);const [loading,setLoading]=useState(true);const [name,setName]=useState('');const [search,setSearch]=useState('');
  const [editor,setEditor]=useState(null);const [form,setForm]=useState(blank);const [movement,setMovement]=useState(null);const [moveForm,setMoveForm]=useState({movement_type:'purchase',quantity:1,unit_cost:0,notes:''});const [ledger,setLedger]=useState(null);const [ledgerRows,setLedgerRows]=useState([]);
  const [auditOpen,setAuditOpen]=useState(false);const [auditForm,setAuditForm]=useState({name:'Conteo físico',blind_count:false,location:'',notes:''});const [audit,setAudit]=useState(null);const [report,setReport]=useState(null);const [selected,setSelected]=useState([]);

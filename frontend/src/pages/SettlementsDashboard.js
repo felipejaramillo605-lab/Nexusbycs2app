@@ -18,7 +18,7 @@ export default function SettlementsDashboard() {
   const { user } = useAuth();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const organizationId = searchParams.get('org_id') || user?.organization_id;
+  const organizationId = (user?.role === 'owner' ? searchParams.get('org_id') : user?.organization_id) || user?.organization_id;
   const [period, setPeriod] = useState({ period_start: monthAgo(), period_end: today() });
   const [pending, setPending] = useState([]);
   // NEXUS_FRONTEND_PAGINATION_4D3_V1

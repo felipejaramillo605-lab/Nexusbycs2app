@@ -17,7 +17,7 @@ const AppointmentsHistory = () => {
   const [searchParams] = useSearchParams();
   const queryClient = useQueryClient();
   
-  const organizationId = searchParams.get('org_id') || user?.organization_id;
+  const organizationId = (user?.role === 'owner' ? searchParams.get('org_id') : user?.organization_id) || user?.organization_id;
   
   const [currentPage, setCurrentPage] = useState(1);
   const [filters, setFilters] = useState({

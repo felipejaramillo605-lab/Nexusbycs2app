@@ -8,7 +8,7 @@ const BusinessProfile = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const organizationId = searchParams.get('org_id') || user?.organization_id;
+  const organizationId = (user?.role === 'owner' ? searchParams.get('org_id') : user?.organization_id) || user?.organization_id;
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
