@@ -22,6 +22,14 @@ def normalize_tax_id(value):
 def fiscal_profile_view(profile):
     item=public(profile);missing=[f for f in FISCAL_REQUIRED_FIELDS if not clean_optional(item.get(f))]
     item["profile_status"]="complete" if not missing else "incomplete";item["missing_required_fields"]=missing;item["profile_version"]=int(item.get("profile_version") or 0);return item
+
+# NEXUS_8A5_FISCAL_ISSUANCE_GUARD_V1
+async def assert_fiscal_profile_complete(db, organization_id):
+    profile=await db.organization_billing_profiles.find_one({"organization_id":organization_id},{"_id":0})
+    fiscal=fiscal_profile_view(profile or {"organization_id":organization_id})
+    if fiscal["profile_status"]!="complete":
+        raise HTTPException(status_code=409,detail={"code":"fiscal_profile_incomplete","message":"Completa la información fiscal antes de emitir una factura.","organization_id":organization_id,"missing_required_fields":fiscal["missing_required_fields"],"profile_version":fiscal["profile_version"]})
+    return fiscal
 def normalize_fiscal_profile(data):
     item=data.model_dump(mode="json",exclude={"expected_version","change_reason"})
     fields=("billing_contact_name","billing_contact_phone","person_type","commercial_name","legal_name","document_type","verification_digit","tax_responsibility","tax_regime","country","department","city","address","postal_code","fiscal_notes")

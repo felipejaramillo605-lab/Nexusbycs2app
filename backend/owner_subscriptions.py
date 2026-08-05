@@ -4,7 +4,7 @@ from typing import Optional
 from datetime import datetime, timezone, timedelta
 import hashlib
 import uuid
-from owner_billing_hub import enrich_new_invoice, post_invoice_side_effects
+from owner_billing_hub import assert_fiscal_profile_complete, enrich_new_invoice, post_invoice_side_effects
 from owner_subscription_lifecycle import reactivate_after_payment
 
 # NEXUS_7I_FLEXIBLE_BILLING_V2
@@ -129,6 +129,7 @@ def build_subscription_router(db, get_current_user):
         if data.discount_minor and not (data.discount_reason or "").strip(): raise HTTPException(400,"discount_reason is required when discount is applied")
         expected_amount=contract_amount-data.discount_minor
         if data.amount_minor != expected_amount: raise HTTPException(409,"Invoice amount must equal monthly contract amount minus period discount")
+        await assert_fiscal_profile_complete(db,organization_id)
         now=_now(); item={"invoice_id":_id("sinv"),"organization_id":organization_id,"subscription_id":subscription["subscription_id"],"plan_code_snapshot":subscription["plan_code"],"plan_version_snapshot":subscription["plan_version"],"period_start":data.period_start,"period_end":data.period_end,"due_at":data.due_at,"contract_amount_minor_snapshot":contract_amount,"discount_minor":data.discount_minor,"discount_reason":data.discount_reason.strip() if data.discount_reason else None,"amount_minor":data.amount_minor,"paid_amount_minor":0,"currency":_currency(data.currency),"status":"pending","provider":"manual","service_description":data.service_description.strip(),"notes":data.notes,"created_by":user.user_id,"created_at":now,"updated_at":now}
         item=await enrich_new_invoice(db,item)
         await db.subscription_invoices.insert_one(item.copy())
