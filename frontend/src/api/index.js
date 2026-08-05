@@ -247,6 +247,8 @@ export const billingAPI = {
   announce: data => api.post('/billing/owner/announcements',data),
 };
 
+export const thirdPartyMatrixAPI = {list:(params={})=>api.get('/owner/third-party-matrix',{params}),detail:id=>api.get(`/owner/third-party-matrix/${id}`)};
+
 export const deliveryOperationsAPI = {backfill:(data)=>api.post('/owner/delivery-operations/backfill',data),getDeliveries:(params={})=>api.get('/owner/delivery-operations/deliveries',{params}),testDelivery:(data)=>api.post('/owner/delivery-operations/deliveries/test',data),retry:(id,data={})=>api.post(`/owner/delivery-operations/deliveries/${id}/retry`,data),runScheduler:(data={})=>api.post('/owner/delivery-operations/scheduler/run',data)};
 
 // NEXUS_7J_B_BILLING_OPERATIONS
