@@ -86,6 +86,8 @@ async def controlled_delivery(db,invoice,recipient,event_type,actor_user_id,deli
     max_attempts=max(1,min(int(os.getenv('SUBSCRIPTION_EMAIL_MAX_ATTEMPTS','3')),10))
     delivery_id=delivery_id or ident('semail'); existing=await db.subscription_email_deliveries.find_one({'email_delivery_id':delivery_id},{'_id':0})
     attempts=int((existing or {}).get('attempt_count',0))
+    # NEXUS_8A6_CANCELLED_RETRY_GUARD_V1
+    if existing and existing.get('status')=='cancelled': raise HTTPException(409,{'code':'delivery_cancelled','message':'Cancelled deliveries cannot be retried','email_delivery_id':delivery_id})
     if existing and existing.get('status')=='sent': raise HTTPException(409,'Delivery is already sent')
     if attempts>=max_attempts: raise HTTPException(409,'Maximum delivery attempts reached')
     attempt_id=ident('sattempt'); started=iso()
@@ -137,6 +139,7 @@ def build_delivery_operations_router(db,get_current_user):
     async def retry(delivery_id:str,data:RetryRequest,authorization:Optional[str]=Header(None),session_token:Optional[str]=Cookie(None)):
         user=await owner(authorization,session_token);delivery=await db.subscription_email_deliveries.find_one({'email_delivery_id':delivery_id},{'_id':0})
         if not delivery:raise HTTPException(404,'Delivery not found')
+        if delivery.get('status')=='cancelled':raise HTTPException(409,{'code':'delivery_cancelled','message':'Cancelled deliveries cannot be retried','email_delivery_id':delivery_id})
         invoice=await db.subscription_invoices.find_one({'invoice_id':delivery['invoice_id'],'organization_id':delivery['organization_id']},{'_id':0})
         if not invoice:raise HTTPException(404,'Invoice not found')
         recipient=str(data.test_recipient or delivery.get('recipient') or '')
