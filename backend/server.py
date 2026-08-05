@@ -26,7 +26,7 @@ from procurement_suppliers import build_supplier_router, ensure_supplier_indexes
 from procurement_purchase_orders import build_purchase_order_router, ensure_purchase_order_indexes
 from procurement_purchase_receipts import build_purchase_receipt_router, ensure_purchase_receipt_indexes
 from owner_subscriptions import build_subscription_router, ensure_subscription_indexes
-from owner_billing_hub import build_billing_hub_router, ensure_billing_hub_indexes, invoice_pdf
+from owner_billing_hub import build_billing_hub_router, ensure_billing_hub_indexes, invoice_pdf, BillingProfileRequest, normalize_fiscal_profile, fiscal_profile_view
 from owner_subscription_lifecycle import ensure_lifecycle_indexes, enforce_subscription_access
 from owner_subscription_lifecycle_api import build_lifecycle_router
 from request_security import TRUSTED_ORIGINS, enforce_request_security, refresh_trusted_origins
@@ -348,12 +348,16 @@ class RegisterRequest(BaseModel):
     password: str
     name: str
 
+# NEXUS_8A7A_SAFE_ORGANIZATION_ONBOARDING_V1
 class OrganizationCreate(BaseModel):
-    name: str
-    address: Optional[str] = None
-    business_hours: Optional[str] = None
-    phone: Optional[str] = None
-    whatsapp_link: Optional[str] = None
+    name: str = Field(min_length=2, max_length=180)
+    manager_user_id: str = Field(min_length=6, max_length=100)
+    fiscal_profile: BillingProfileRequest
+    reason: str = Field(min_length=10, max_length=500)
+    address: Optional[str] = Field(default=None, max_length=240)
+    business_hours: Optional[str] = Field(default=None, max_length=2000)
+    phone: Optional[str] = Field(default=None, max_length=40)
+    whatsapp_link: Optional[str] = Field(default=None, max_length=500)
 
 class OrganizationUpdate(BaseModel):
     name: Optional[str] = None
@@ -1478,32 +1482,57 @@ async def get_organizations(authorization: Optional[str] = Header(None), session
     
     return orgs
 
+async def _eligible_onboarding_manager(manager: dict):
+    if not manager:
+        raise HTTPException(status_code=404, detail={"code":"manager_not_found","message":"Manager not found"})
+    if manager.get("role") not in {"manager","admin"}:
+        raise HTTPException(status_code=409, detail={"code":"manager_role_ineligible","message":"Selected user must be a Manager or Administrator"})
+    if manager.get("access_status") != "approved" or manager.get("active") is False or manager.get("deleted_at"):
+        raise HTTPException(status_code=409, detail={"code":"manager_not_approved","message":"Selected Manager must be approved and active"})
+    if manager.get("organization_id"):
+        raise HTTPException(status_code=409, detail={"code":"manager_already_assigned","message":"Selected Manager already belongs to an organization","organization_id":manager.get("organization_id")})
+    return manager
+
 @api_router.post("/organizations")
-async def create_organization(name: str, authorization: Optional[str] = Header(None), session_token: Optional[str] = Cookie(None)):
+async def create_organization(data: OrganizationCreate, authorization: Optional[str] = Header(None), session_token: Optional[str] = Cookie(None)):
     current_user = await get_current_user(authorization, session_token)
-    # NEXUS_ENDPOINT_RBAC_TENANT_ENFORCEMENT_V1
-    if current_user.role != "owner":
-        raise HTTPException(status_code=403, detail="Owner access required")
-    
-    if current_user.access_status != "approved":
-        raise HTTPException(status_code=403, detail="Account pending approval")
-    
-    org_id = f"org_{uuid.uuid4().hex[:12]}"
-    org_doc = {
-        "organization_id": org_id,
-        "name": name,
-        "owner_id": current_user.user_id,
-        "created_at": datetime.now(timezone.utc).isoformat()
-    }
-    await db.organizations.insert_one(org_doc)
-    
-    await db.users.update_one(
-        {"user_id": current_user.user_id},
-        {"$set": {"organization_id": org_id}}
-    )
-    
-    org_doc["created_at"] = datetime.fromisoformat(org_doc["created_at"])
-    return Organization(**org_doc)
+    if current_user.role != "owner" or current_user.access_status != "approved":
+        raise HTTPException(status_code=403, detail="Approved Owner access required")
+    owner_before = await db.users.find_one({"user_id":current_user.user_id},{"_id":0,"user_id":1,"organization_id":1,"role":1,"access_status":1})
+    if not owner_before:
+        raise HTTPException(status_code=409, detail={"code":"owner_record_missing","message":"Owner account could not be revalidated"})
+    manager_before = await db.users.find_one({"user_id":data.manager_user_id},{"_id":0})
+    await _eligible_onboarding_manager(manager_before)
+    name = data.name.strip()
+    duplicate = await db.organizations.find_one({"name":{"$regex":f"^{re.escape(name)}$","$options":"i"}},{"_id":0,"organization_id":1})
+    if duplicate:
+        raise HTTPException(status_code=409, detail={"code":"organization_name_exists","message":"An organization with this name already exists","organization_id":duplicate.get("organization_id")})
+    normalized_profile = fiscal_profile_view({**normalize_fiscal_profile(data.fiscal_profile),"profile_version":1})
+    if normalized_profile["profile_status"] != "complete":
+        raise HTTPException(status_code=409, detail={"code":"fiscal_profile_incomplete","message":"Complete the fiscal profile before creating the organization","missing_required_fields":normalized_profile["missing_required_fields"]})
+    org_id=f"org_{uuid.uuid4().hex[:12]}";now=datetime.now(timezone.utc).isoformat();audit_id=f"audit_{uuid.uuid4().hex[:12]}"
+    org_doc={"organization_id":org_id,"name":name,"owner_id":current_user.user_id,"created_by_owner_id":current_user.user_id,"primary_manager_user_id":data.manager_user_id,"address":data.address,"business_hours":data.business_hours,"phone":sanitize_phone(data.phone) if data.phone else None,"whatsapp_link":data.whatsapp_link,"created_at":now}
+    profile={**normalized_profile,"organization_id":org_id,"profile_version":1,"created_by":current_user.user_id,"created_at":now,"updated_by":current_user.user_id,"updated_at":now}
+    audit={"audit_id":audit_id,"organization_id":org_id,"event_type":"organization_onboarded","entity_type":"organization","entity_id":org_id,"actor_user_id":current_user.user_id,"previous_value":None,"new_value":{"organization":org_doc,"manager_user_id":data.manager_user_id,"fiscal_profile_version":1},"reason":data.reason.strip(),"created_at":now}
+    inserted_org=linked_manager=inserted_profile=inserted_audit=False
+    try:
+        await db.organizations.insert_one(org_doc.copy());inserted_org=True
+        result=await db.users.update_one({"user_id":data.manager_user_id,"role":{"$in":["manager","admin"]},"access_status":"approved","active":{"$ne":False},"deleted_at":{"$exists":False},"$or":[{"organization_id":None},{"organization_id":{"$exists":False}}]},{"$set":{"organization_id":org_id,"organization_joined_at":now,"organization_joined_by":current_user.user_id}})
+        if result.modified_count != 1:raise HTTPException(status_code=409, detail={"code":"manager_assignment_conflict","message":"Manager changed before organization assignment"})
+        linked_manager=True
+        await db.organization_billing_profiles.insert_one(profile.copy());inserted_profile=True
+        await db.audit_events.insert_one(audit.copy());inserted_audit=True
+        owner_after=await db.users.find_one({"user_id":current_user.user_id},{"_id":0,"user_id":1,"organization_id":1,"role":1,"access_status":1})
+        if owner_after != owner_before:raise RuntimeError("OWNER_ORGANIZATION_INVARIANT_VIOLATION")
+    except Exception:
+        if inserted_audit:await db.audit_events.delete_one({"audit_id":audit_id})
+        if inserted_profile:await db.organization_billing_profiles.delete_one({"organization_id":org_id,"profile_version":1,"created_by":current_user.user_id})
+        if linked_manager:
+            restore={k:v for k,v in manager_before.items() if k != "_id"}
+            await db.users.replace_one({"user_id":data.manager_user_id,"organization_id":org_id},restore)
+        if inserted_org:await db.organizations.delete_one({"organization_id":org_id,"created_by_owner_id":current_user.user_id})
+        raise
+    return {"organization":{k:v for k,v in org_doc.items()},"manager":{"user_id":manager_before.get("user_id"),"name":manager_before.get("name"),"email":manager_before.get("email"),"role":manager_before.get("role"),"organization_id":org_id},"fiscal_profile":profile,"audit_id":audit_id}
 
 @api_router.put("/organizations/{organization_id}")
 async def update_organization_profile(
