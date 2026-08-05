@@ -33,6 +33,7 @@ from request_security import TRUSTED_ORIGINS, enforce_request_security, refresh_
 from security_observability import configure_security_observability, ensure_security_observability_indexes, record_security_event
 from owner_delivery_operations import build_delivery_operations_router, ensure_delivery_operations_indexes, scheduler_loop
 from platform_billing_settings import build_platform_billing_router, ensure_platform_billing_indexes
+from owner_third_party_matrix import build_third_party_matrix_router, ensure_third_party_matrix_indexes
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
@@ -772,7 +773,11 @@ async def list_team_members(
     resolved_org_id = await resolve_team_organization(current_user, organization_id)
     members = await db.users.find(
         {"organization_id": resolved_org_id},
-        {"_id": 0, "password_hash": 0}
+        {"_id": 0, "user_id": 1, "organization_id": 1, "name": 1,
+         "first_name": 1, "last_name": 1, "role": 1, "email": 1,
+         "phone": 1, "address": 1, "picture": 1, "auth_method": 1,
+         "access_status": 1, "active": 1, "created_at": 1,
+         "last_login": 1}
     ).sort("name", 1).to_list(1000)
     return members
 
@@ -4194,6 +4199,7 @@ api_router.include_router(build_billing_hub_router(db, get_current_user))
 api_router.include_router(build_lifecycle_router(db, get_current_user, invoice_pdf))
 api_router.include_router(build_delivery_operations_router(db, get_current_user))
 api_router.include_router(build_platform_billing_router(db, get_current_user))
+api_router.include_router(build_third_party_matrix_router(db, get_current_user))
 
 app.include_router(api_router)
 
@@ -4333,6 +4339,7 @@ async def create_application_indexes():
     await ensure_lifecycle_indexes(db)
     await ensure_delivery_operations_indexes(db)
     await ensure_platform_billing_indexes(db)
+    await ensure_third_party_matrix_indexes(db)
     if os.getenv("SUBSCRIPTION_SCHEDULER_ENABLED","false").lower() in {"1","true","yes","on"}:
         asyncio.create_task(scheduler_loop(db, invoice_pdf))
     # NEXUS_PERSISTENT_QUERY_INDEXES_4E3_V1
