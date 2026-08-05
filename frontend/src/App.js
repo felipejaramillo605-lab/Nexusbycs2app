@@ -28,6 +28,7 @@ const OwnerAccessControl = lazy(() => import('./pages/OwnerAccessControl'));
 const OwnerSubscriptions = lazy(() => import('./pages/OwnerSubscriptions'));
 const ManagerDashboard = lazy(() => import('./pages/ManagerDashboard'));
 const ManagerBilling = lazy(() => import('./pages/ManagerBilling'));
+const ManagerFiscalProfile = lazy(() => import('./pages/ManagerFiscalProfile'));
 const ManagerServices = lazy(() => import('./pages/ManagerServices'));
 const ManagerBarbers = lazy(() => import('./pages/ManagerBarbers'));
 const ManagerInventory = lazy(() => import('./pages/ManagerInventory'));
@@ -91,6 +92,7 @@ function AppRouter() {
         <Route path="/owner/subscriptions" element={<ProtectedRoute requiredRole="owner"><OwnerSubscriptions /></ProtectedRoute>} />
 
         <Route path="/manager/billing" element={<ProtectedRoute allowedRoles={['owner', 'manager', 'admin']}><ManagerBilling /></ProtectedRoute>} />
+        <Route path="/manager/fiscal-profile" element={<ProtectedRoute allowedRoles={['owner', 'manager', 'admin']}><ManagerFiscalProfile /></ProtectedRoute>} />
 
         <Route
           path="/manager/dashboard"
