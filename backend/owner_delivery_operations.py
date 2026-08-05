@@ -26,6 +26,11 @@ class RetryRequest(BaseModel):
 class SchedulerRunRequest(BaseModel):
     at: Optional[str]=None
 
+# NEXUS_8A4_QUEUED_DELIVERY_CANCELLATION_V1
+class CancelDeliveryRequest(BaseModel):
+    reason: str=Field(min_length=10,max_length=500)
+
+
 async def ensure_delivery_operations_indexes(db):
     await db.subscription_backfill_events.create_index('backfill_key',unique=True,name='subscription_backfill_key_unique')
     await db.subscription_backfill_events.create_index([('organization_id',1),('created_at',-1)],name='subscription_backfill_org_created')
@@ -33,6 +38,8 @@ async def ensure_delivery_operations_indexes(db):
     await db.subscription_delivery_attempts.create_index([('delivery_id',1),('created_at',-1)],name='subscription_delivery_attempt_created')
     await db.subscription_scheduler_locks.create_index('expires_at',expireAfterSeconds=0,name='subscription_scheduler_lock_ttl')
     await db.subscription_email_deliveries.create_index([('organization_id',1),('status',1),('updated_at',-1)],name='subscription_delivery_monitoring')
+    await db.subscription_delivery_cancellation_audits.create_index('delivery_id',unique=True,name='subscription_delivery_cancellation_unique')
+    await db.subscription_delivery_cancellation_audits.create_index([('organization_id',1),('created_at',-1)],name='subscription_delivery_cancellation_org_created')
 
 async def backfill_preview(db,organization_id=None):
     q={'$or':[{'invoice_number':{'$exists':False}},{'invoice_number':None},{'delivery_email_snapshot':{'$exists':False}},{'delivery_email_snapshot':None},{'balance_minor':{'$exists':False}},{'balance_minor':None}]}
@@ -134,6 +141,28 @@ def build_delivery_operations_router(db,get_current_user):
         if not invoice:raise HTTPException(404,'Invoice not found')
         recipient=str(data.test_recipient or delivery.get('recipient') or '')
         return await controlled_delivery(db,invoice,recipient,delivery.get('event_type','controlled_retry'),user.user_id,delivery_id)
+    @router.post('/deliveries/{delivery_id}/cancel')
+    async def cancel_delivery(delivery_id:str,data:CancelDeliveryRequest,authorization:Optional[str]=Header(None),session_token:Optional[str]=Cookie(None)):
+        user=await owner(authorization,session_token)
+        delivery=await db.subscription_email_deliveries.find_one({'email_delivery_id':delivery_id},{'_id':0})
+        if not delivery:raise HTTPException(404,'Delivery not found')
+        if delivery.get('status')!='queued':raise HTTPException(409,'Only queued deliveries can be cancelled')
+        if int(delivery.get('attempt_count') or 0)!=0:raise HTTPException(409,'Attempted deliveries cannot be cancelled')
+        attempts=await db.subscription_delivery_attempts.count_documents({'$or':[{'delivery_id':delivery_id},{'email_delivery_id':delivery_id}]})
+        if attempts:raise HTTPException(409,'Delivery already has attempts')
+        timestamp=iso();reason=data.reason.strip()
+        result=await db.subscription_email_deliveries.update_one(
+            {'email_delivery_id':delivery_id,'status':'queued','$or':[{'attempt_count':0},{'attempt_count':None},{'attempt_count':{'$exists':False}}]},
+            {'$set':{'status':'cancelled','cancelled_at':timestamp,'cancelled_by':user.user_id,'cancellation_reason':reason,'updated_at':timestamp}}
+        )
+        if result.modified_count!=1:raise HTTPException(409,'Delivery changed before cancellation')
+        audit={'cancellation_audit_id':ident('sdcancel'),'delivery_id':delivery_id,'organization_id':delivery.get('organization_id'),'invoice_id':delivery.get('invoice_id'),'invoice_number':delivery.get('invoice_number'),'previous_status':'queued','new_status':'cancelled','actor_user_id':user.user_id,'actor_role':user.role,'reason':reason,'created_at':timestamp}
+        try:await db.subscription_delivery_cancellation_audits.insert_one(audit)
+        except Exception:
+            await db.subscription_email_deliveries.update_one({'email_delivery_id':delivery_id,'status':'cancelled','cancelled_by':user.user_id,'cancelled_at':timestamp},{'$set':{'status':'queued','updated_at':delivery.get('updated_at') or delivery.get('created_at')},'$unset':{'cancelled_at':'','cancelled_by':'','cancellation_reason':''}})
+            raise
+        return {'email_delivery_id':delivery_id,'organization_id':delivery.get('organization_id'),'invoice_id':delivery.get('invoice_id'),'status':'cancelled','cancelled_at':timestamp,'cancelled_by':user.user_id,'cancellation_reason':reason}
+
     @router.post('/scheduler/run')
     async def scheduler(data:SchedulerRunRequest,authorization:Optional[str]=Header(None),session_token:Optional[str]=Cookie(None)):
         await owner(authorization,session_token);return await scheduler_once(db,invoice_pdf,data.at)
