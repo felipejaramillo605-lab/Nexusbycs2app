@@ -88,7 +88,7 @@ export const teamAPI = {
 
 export const organizationAPI = {
   getAll: () => api.get('/organizations'),
-  create: (name) => api.post('/organizations', null, { params: { name } }),
+  create: (data) => api.post('/organizations', data),
 };
 
 export const serviceAPI = {

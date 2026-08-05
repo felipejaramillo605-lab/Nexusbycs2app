@@ -27,6 +27,7 @@ const ReactQueryDevtools = process.env.NODE_ENV === 'development'
 const OwnerAccessControl = lazy(() => import('./pages/OwnerAccessControl'));
 const OwnerSubscriptions = lazy(() => import('./pages/OwnerSubscriptions'));
 const OwnerThirdPartyMatrix = lazy(() => import('./pages/OwnerThirdPartyMatrix'));
+const OwnerOrganizationOnboarding = lazy(() => import('./pages/OwnerOrganizationOnboarding'));
 const ManagerDashboard = lazy(() => import('./pages/ManagerDashboard'));
 const ManagerBilling = lazy(() => import('./pages/ManagerBilling'));
 const ManagerFiscalProfile = lazy(() => import('./pages/ManagerFiscalProfile'));
@@ -92,6 +93,7 @@ function AppRouter() {
         />
         <Route path="/owner/subscriptions" element={<ProtectedRoute requiredRole="owner"><OwnerSubscriptions /></ProtectedRoute>} />
         <Route path="/owner/third-party-matrix" element={<ProtectedRoute requiredRole="owner"><OwnerThirdPartyMatrix /></ProtectedRoute>} />
+        <Route path="/owner/organizations/new" element={<ProtectedRoute requiredRole="owner"><OwnerOrganizationOnboarding /></ProtectedRoute>} />
 
         <Route path="/manager/billing" element={<ProtectedRoute allowedRoles={['owner', 'manager', 'admin']}><ManagerBilling /></ProtectedRoute>} />
         <Route path="/manager/fiscal-profile" element={<ProtectedRoute allowedRoles={['owner', 'manager', 'admin']}><ManagerFiscalProfile /></ProtectedRoute>} />
