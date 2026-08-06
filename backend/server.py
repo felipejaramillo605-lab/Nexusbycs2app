@@ -4416,7 +4416,7 @@ api_router.include_router(build_third_party_matrix_router(db, get_current_user))
 from professional_media import build_professional_media_router
 api_router.include_router(build_professional_media_router(db, get_current_user, require_management_role, resolve_team_organization, enforce_rls_on_write, record_security_event))
 # NEXUS_8A7D3C1_OWNER_MEDIA_RECONCILIATION_REGISTRATION_V1
-from professional_media_lifecycle import build_professional_media_lifecycle_router
+from professional_media_lifecycle import build_professional_media_lifecycle_router, ensure_professional_media_lifecycle_indexes
 api_router.include_router(build_professional_media_lifecycle_router(db, get_current_user))
 
 app.include_router(api_router)
@@ -4564,6 +4564,7 @@ async def create_application_indexes():
     await ensure_delivery_operations_indexes(db)
     await ensure_platform_billing_indexes(db)
     await ensure_third_party_matrix_indexes(db)
+    await ensure_professional_media_lifecycle_indexes(db)
     if os.getenv("SUBSCRIPTION_SCHEDULER_ENABLED","false").lower() in {"1","true","yes","on"}:
         asyncio.create_task(scheduler_loop(db, invoice_pdf))
     # NEXUS_PERSISTENT_QUERY_INDEXES_4E3_V1
