@@ -1,4 +1,5 @@
-import React, { useCallback, useEffect, useState } from 'react';
+// NEXUS_8A7C3B_IDEMPOTENT_ACCEPTANCE_UI_V1
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { UserPlus, Loader2, ArrowLeft, RefreshCw } from 'lucide-react';
 import { publicAPI } from '../api';
@@ -9,7 +10,9 @@ const INVITATION_ERROR_MESSAGES = {
   invitation_expired: 'Esta invitación venció. Solicita al administrador que la reenvíe y abre únicamente el correo más reciente.',
   invitation_already_used: 'Esta invitación ya fue utilizada para crear una cuenta.',
   invitation_revoked: 'Esta invitación fue revocada por la administración.',
-  invitation_not_available: 'La invitación todavía no está disponible. Intenta nuevamente o solicita un nuevo reenvío.'
+  invitation_not_available: 'La invitación todavía no está disponible. Intenta nuevamente o solicita un nuevo reenvío.',
+  acceptance_in_progress: 'La invitación se está procesando. Espera unos segundos y vuelve a intentar con este mismo formulario.',
+  invalid_acceptance_id: 'No fue posible iniciar la aceptación de forma segura. Recarga la página e intenta nuevamente.'
 };
 
 const getValidationError = (requestError) => {
@@ -32,6 +35,9 @@ const AcceptInvitation = () => {
   const [error, setError] = useState(null);
   const [validationAttempt, setValidationAttempt] = useState(0);
   const [formData, setFormData] = useState({ firstName: '', lastName: '', phone: '', address: '', password: '', confirmPassword: '' });
+  const acceptanceIdRef = useRef('');
+  const submittingRef = useRef(false);
+  const updateField = useCallback((field, value) => setFormData((current) => ({ ...current, [field]: value })), []);
 
   const validateInvitation = useCallback(async () => {
     if (!token) {
@@ -52,7 +58,11 @@ const AcceptInvitation = () => {
     }
   }, [token]);
 
-  useEffect(() => { validateInvitation(); }, [validateInvitation, validationAttempt]);
+  useEffect(() => {
+    acceptanceIdRef.current = '';
+    submittingRef.current = false;
+    validateInvitation();
+  }, [validateInvitation, validationAttempt]);
   const retryValidation = () => setValidationAttempt((current) => current + 1);
 
   const validPassword = formData.password.length >= 8 && /[A-Z]/.test(formData.password) && /[0-9]/.test(formData.password);
@@ -61,10 +71,17 @@ const AcceptInvitation = () => {
     event.preventDefault();
     if (!validPassword) return toast.error('La contraseña no cumple los requisitos');
     if (formData.password !== formData.confirmPassword) return toast.error('Las contraseñas no coinciden');
+    if (submittingRef.current) return;
+    submittingRef.current = true;
     setLoading(true);
+    if (!acceptanceIdRef.current) {
+      const random = globalThis.crypto?.randomUUID?.().replaceAll('-', '') || `${Date.now()}_${Math.random().toString(36).slice(2)}`;
+      acceptanceIdRef.current = `accept_${random}`;
+    }
     try {
-      await publicAPI.acceptInvitation({
+      const response = await publicAPI.acceptInvitation({
         token,
+        acceptance_id: acceptanceIdRef.current,
         first_name: formData.firstName.trim(),
         last_name: formData.lastName.trim(),
         phone: formData.phone.trim(),
@@ -72,16 +89,20 @@ const AcceptInvitation = () => {
         password: formData.password,
         confirm_password: formData.confirmPassword
       });
-      toast.success('Cuenta creada. Ya puedes iniciar sesión.');
+      acceptanceIdRef.current = '';
+      toast.success(response.data?.idempotent ? 'La cuenta ya había sido creada. Ya puedes iniciar sesión.' : 'Cuenta creada. Ya puedes iniciar sesión.');
       navigate('/login', { replace: true });
     } catch (requestError) {
       if (requestError?.code === 'ECONNABORTED') toast.error('La solicitud tardó demasiado. Verifica si la cuenta fue creada antes de volver a intentar.');
       else if (!requestError?.response) toast.error('No fue posible conectar con el servidor.');
       else {
         const detail = requestError.response?.data?.detail;
-        toast.error(INVITATION_ERROR_MESSAGES[detail] || detail || 'No fue posible aceptar la invitación');
+        const code = typeof detail === 'object' ? detail.code : detail;
+        const text = typeof detail === 'object' ? detail.message : detail;
+        toast.error(INVITATION_ERROR_MESSAGES[code] || text || 'No fue posible aceptar la invitación');
       }
     } finally {
+      submittingRef.current = false;
       setLoading(false);
     }
   };
@@ -110,13 +131,13 @@ const AcceptInvitation = () => {
               <p className="text-zinc-400 text-sm mb-7">Completa tus datos para activar <strong className="text-white">{invitation?.email}</strong> como {invitation?.role}.</p>
               <form onSubmit={handleSubmit} className="space-y-5">
                 <div className="grid sm:grid-cols-2 gap-4">
-                  <div><label htmlFor="invite-first" className="block text-sm text-zinc-400 mb-2">Nombre</label><input id="invite-first" type="text" autoComplete="given-name" required value={formData.firstName} onChange={(event) => setFormData({ ...formData, firstName: event.target.value })} className={fieldClass} /></div>
-                  <div><label htmlFor="invite-last" className="block text-sm text-zinc-400 mb-2">Apellido</label><input id="invite-last" type="text" autoComplete="family-name" required value={formData.lastName} onChange={(event) => setFormData({ ...formData, lastName: event.target.value })} className={fieldClass} /></div>
+                  <div><label htmlFor="invite-first" className="block text-sm text-zinc-400 mb-2">Nombre</label><input id="invite-first" type="text" autoComplete="given-name" required value={formData.firstName} onChange={(event) => updateField('firstName', event.target.value)} className={fieldClass} /></div>
+                  <div><label htmlFor="invite-last" className="block text-sm text-zinc-400 mb-2">Apellido</label><input id="invite-last" type="text" autoComplete="family-name" required value={formData.lastName} onChange={(event) => updateField('lastName', event.target.value)} className={fieldClass} /></div>
                 </div>
-                <div><label htmlFor="invite-phone" className="block text-sm text-zinc-400 mb-2">Teléfono</label><input id="invite-phone" type="tel" autoComplete="tel" required value={formData.phone} onChange={(event) => setFormData({ ...formData, phone: event.target.value })} className={fieldClass} placeholder="+57 300 000 0000" /></div>
-                <div><label htmlFor="invite-address" className="block text-sm text-zinc-400 mb-2">Dirección <span className="text-zinc-600">(opcional)</span></label><input id="invite-address" type="text" autoComplete="street-address" value={formData.address} onChange={(event) => setFormData({ ...formData, address: event.target.value })} className={fieldClass} /></div>
-                <div><label htmlFor="invite-password" className="block text-sm text-zinc-400 mb-2">Contraseña</label><input id="invite-password" type="password" autoComplete="new-password" required value={formData.password} onChange={(event) => setFormData({ ...formData, password: event.target.value })} className={fieldClass} /><p className="text-xs text-zinc-500 mt-2">Mínimo 8 caracteres, una mayúscula y un número.</p></div>
-                <div><label htmlFor="invite-confirm" className="block text-sm text-zinc-400 mb-2">Confirmar contraseña</label><input id="invite-confirm" type="password" autoComplete="new-password" required value={formData.confirmPassword} onChange={(event) => setFormData({ ...formData, confirmPassword: event.target.value })} className={fieldClass} /></div>
+                <div><label htmlFor="invite-phone" className="block text-sm text-zinc-400 mb-2">Teléfono</label><input id="invite-phone" type="tel" autoComplete="tel" required value={formData.phone} onChange={(event) => updateField('phone', event.target.value)} className={fieldClass} placeholder="+57 300 000 0000" /></div>
+                <div><label htmlFor="invite-address" className="block text-sm text-zinc-400 mb-2">Dirección <span className="text-zinc-600">(opcional)</span></label><input id="invite-address" type="text" autoComplete="street-address" value={formData.address} onChange={(event) => updateField('address', event.target.value)} className={fieldClass} /></div>
+                <div><label htmlFor="invite-password" className="block text-sm text-zinc-400 mb-2">Contraseña</label><input id="invite-password" type="password" autoComplete="new-password" required value={formData.password} onChange={(event) => updateField('password', event.target.value)} className={fieldClass} /><p className="text-xs text-zinc-500 mt-2">Mínimo 8 caracteres, una mayúscula y un número.</p></div>
+                <div><label htmlFor="invite-confirm" className="block text-sm text-zinc-400 mb-2">Confirmar contraseña</label><input id="invite-confirm" type="password" autoComplete="new-password" required value={formData.confirmPassword} onChange={(event) => updateField('confirmPassword', event.target.value)} className={fieldClass} /></div>
                 <button type="submit" disabled={loading || !validPassword || formData.password !== formData.confirmPassword} className="w-full h-12 bg-[#0A84FF] hover:bg-[#0071E3] text-white rounded-xl font-medium flex items-center justify-center gap-2 disabled:opacity-50">{loading && <Loader2 size={18} className="animate-spin" />}{loading ? 'Creando cuenta...' : 'Aceptar invitación y crear cuenta'}</button>
               </form>
             </>
