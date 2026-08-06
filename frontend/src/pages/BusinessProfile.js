@@ -1,3 +1,4 @@
+// NEXUS_8A7D1A_VISIBLE_NEUTRAL_TERMINOLOGY_V1
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
@@ -128,7 +129,7 @@ const BusinessProfile = () => {
           <div>
             <label className="block text-sm font-medium text-zinc-400 mb-2">
               <Building size={16} className="inline mr-2" />
-              Nombre de la Barbería
+              Nombre de la organización
             </label>
             <input
               type="text"
@@ -136,7 +137,7 @@ const BusinessProfile = () => {
               value={formData.name}
               onChange={(e) => setFormData({ ...formData, name: e.target.value })}
               className="w-full px-4 py-3 bg-white/5 border border-[var(--app-border)] rounded-xl text-[var(--app-text-primary)] placeholder-zinc-500 focus:border-[#0A84FF] focus:ring-2 focus:ring-[#0A84FF]/20 outline-none transition-all"
-              placeholder="Ej: Barbería Elegante"
+              placeholder="Ej: Centro de Bienestar Integral"
             />
           </div>
 

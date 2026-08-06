@@ -1,3 +1,4 @@
+// NEXUS_8A7D1A_VISIBLE_NEUTRAL_TERMINOLOGY_V1
 /* NEXUS_8A2_MANAGER_FISCAL_ONBOARDING_V1 */
 import React,{useCallback,useEffect,useMemo,useState} from 'react';
 import {AlertTriangle,Building2,RefreshCw,Save,ShieldCheck} from 'lucide-react';
@@ -30,8 +31,8 @@ export default function ManagerFiscalProfile(){
  <SurfaceCard><div className="flex items-center gap-3 mb-5"><Building2 className="text-[var(--app-primary)]"/><div><h2 className="text-xl">Perfil fiscal de la organización</h2><p className="text-sm text-[var(--app-text-secondary)]">Las ediciones futuras no alteran facturas históricas.</p></div></div>
  <form className="nexus-guided-form" onSubmit={save}>
  <label><FieldGuide label="Tipo de persona" hint="Clasificación legal del titular." example="Persona jurídica" optional/><select value={profile.person_type||''} onChange={e=>set('person_type',e.target.value)}><option value="">Seleccionar</option><option value="persona_juridica">Persona jurídica</option><option value="persona_natural">Persona natural</option></select></label>
- <label><FieldGuide label="Nombre comercial" hint="Nombre visible del establecimiento." example="Barbería Central" optional/><input value={profile.commercial_name||''} onChange={e=>set('commercial_name',e.target.value)} maxLength={180}/></label>
- <label><FieldGuide label="Razón social" hint="Nombre legal usado en documentos tributarios." example="Barbería Central S.A.S." required/><input value={profile.legal_name||''} onChange={e=>set('legal_name',e.target.value)} maxLength={180}/></label>
+ <label><FieldGuide label="Nombre comercial" hint="Nombre visible del establecimiento." example="Centro de Bienestar Integral" optional/><input value={profile.commercial_name||''} onChange={e=>set('commercial_name',e.target.value)} maxLength={180}/></label>
+ <label><FieldGuide label="Razón social" hint="Nombre legal usado en documentos tributarios." example="Centro de Bienestar Integral S.A.S." required/><input value={profile.legal_name||''} onChange={e=>set('legal_name',e.target.value)} maxLength={180}/></label>
  <label><FieldGuide label="Tipo de documento" hint="Documento fiscal del titular." example="NIT" required/><select value={profile.document_type||''} onChange={e=>set('document_type',e.target.value)}><option value="">Seleccionar</option><option value="NIT">NIT</option><option value="CC">Cédula de ciudadanía</option><option value="CE">Cédula de extranjería</option><option value="PASSPORT">Pasaporte</option><option value="OTHER">Otro</option></select></label>
  <label><FieldGuide label="Número de identificación" hint="Incluye separadores sólo si forman parte del documento." example="900123456-7" required/><input value={profile.tax_id||''} onChange={e=>set('tax_id',e.target.value)} maxLength={80}/></label>
  <label><FieldGuide label="Dígito de verificación" hint="Cuando aplique al NIT." example="7" optional/><input value={profile.verification_digit||''} onChange={e=>set('verification_digit',e.target.value)} maxLength={4}/></label>

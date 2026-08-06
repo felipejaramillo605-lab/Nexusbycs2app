@@ -1,3 +1,4 @@
+// NEXUS_8A7D1A_VISIBLE_NEUTRAL_TERMINOLOGY_V1
 import React, { useEffect, useState, useCallback } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
@@ -198,7 +199,7 @@ const ManagerServices = () => {
                 {organizationName && (
                   <p className="text-zinc-400 text-sm mt-1">{organizationName}</p>
                 )}
-                <p className="text-zinc-400 text-sm">Gestiona tus servicios de barbería</p>
+                <p className="text-zinc-400 text-sm">Gestiona los servicios ofrecidos por tu organización</p>
               </div>
             </div>
           </div>
@@ -226,7 +227,7 @@ const ManagerServices = () => {
                     value={newService.name}
                     onChange={(e) => setNewService({ ...newService, name: e.target.value })}
                     className="w-full px-4 py-3 bg-transparent border border-[var(--app-border)] rounded-xl text-[var(--app-text-primary)] focus:border-[#0A84FF] focus:ring-1 focus:ring-[#0A84FF] outline-none"
-                    placeholder="Ej: Corte de cabello"
+                    placeholder="Ej: Consulta inicial"
                   />
                 </div>
                 <div>
