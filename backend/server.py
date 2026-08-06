@@ -1867,6 +1867,38 @@ async def delete_service(service_id: str, authorization: Optional[str] = Header(
     await db.services.delete_one({"service_id": service_id})
     return {"message": "Service deleted"}
 
+# NEXUS_8A7C2D_STAFF_PROFILE_ACCESS_V1
+@api_router.get("/staff/services")
+async def get_staff_services(
+    authorization: Optional[str] = Header(None),
+    session_token: Optional[str] = Cookie(None)
+):
+    current_user = await get_current_user(authorization, session_token)
+    if current_user.role != "staff":
+        raise HTTPException(status_code=403, detail="Staff access required")
+    if current_user.access_status != "approved":
+        raise HTTPException(status_code=403, detail="Account is not approved")
+    if not current_user.organization_id:
+        raise HTTPException(status_code=409, detail="No organization assigned")
+    profile = await db.barbers.find_one(
+        {"user_id": current_user.user_id, "organization_id": current_user.organization_id, "active": {"$ne": False}},
+        {"_id": 0, "service_ids": 1}
+    )
+    if not profile:
+        raise HTTPException(status_code=404, detail="Professional profile not found")
+    assigned_ids = list(dict.fromkeys(profile.get("service_ids") or []))
+    if not assigned_ids:
+        return []
+    services = await db.services.find(
+        {"organization_id": current_user.organization_id, "service_id": {"$in": assigned_ids}},
+        {"_id": 0}
+    ).sort("name", 1).to_list(1000)
+    for service in services:
+        if isinstance(service.get("created_at"), str):
+            service["created_at"] = datetime.fromisoformat(service["created_at"])
+    return services
+
+
 # Barbers Endpoints
 @api_router.get("/barbers/me/profile")
 async def get_my_barber_profile(
