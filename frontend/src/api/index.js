@@ -83,7 +83,7 @@ export const teamAPI = {
   getInvitations: (organizationId) => api.get('/team/invitations', { params: { organization_id: organizationId } }),
   createInvitation: (data) => api.post('/team/invitations', data),
   resendInvitation: (invitationId) => api.post(`/team/invitations/${invitationId}/resend`),
-  revokeInvitation: (invitationId) => api.post(`/team/invitations/${invitationId}/revoke`),
+  revokeInvitation: (invitationId, data) => api.post(`/team/invitations/${invitationId}/revoke`, data),
 };
 
 export const organizationAPI = {

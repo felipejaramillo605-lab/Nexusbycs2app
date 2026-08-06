@@ -1,8 +1,9 @@
+/* NEXUS_8A7C2B_INVITATION_UI_V1 */
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useOrganization } from '../context/OrganizationContext';
-import { ArrowLeft, Save, Building, Users, Mail, UserCog, Trash2, Loader2, Check, Percent, RotateCcw, Pencil } from 'lucide-react';
+import { ArrowLeft, Save, Building, Users, Mail, UserCog, Trash2, Loader2, Check, Percent, RotateCcw, Pencil, Copy, ExternalLink, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { AccessibleModal, confirmAction } from '../components/design';
 import { teamAPI, commissionAPI } from '../api';
@@ -30,6 +31,9 @@ const Settings = () => {
   const [invitations, setInvitations] = useState([]);
   const [inviting, setInviting] = useState(false);
   const [invitationAction, setInvitationAction] = useState(null);
+  const [simulatedInvitation, setSimulatedInvitation] = useState(null);
+  const [revokeTarget, setRevokeTarget] = useState(null);
+  const [revokeReason, setRevokeReason] = useState('');
   const [updatingRole, setUpdatingRole] = useState(null);
   // NEXUS_COMMISSION_FOUNDATION_V1
   const [commissionSettings, setCommissionSettings] = useState({ default_staff_percent: 60, default_business_percent: 40, commission_base: 'net_service_amount', tip_policy: 'full_tip_to_staff' });
@@ -178,64 +182,55 @@ const Settings = () => {
     }
   };
 
+  const invitationError = (error, fallback) => {
+    const detail = error?.response?.data?.detail;
+    if (typeof detail === 'string') return detail;
+    if (detail?.code === 'invitation_resend_cooldown') return `Espera ${detail.retry_after_seconds || 1} segundos antes de reenviar.`;
+    if (detail?.code === 'invitation_send_limit_reached') return `La invitación alcanzó el límite de ${detail.max_send_attempts || 8} envíos.`;
+    if (detail?.code === 'invitation_recipient_not_allowed') return 'Este correo no está autorizado en el modo de prueba.';
+    return detail?.message || fallback;
+  };
+  const showDeliveryResult = (data, email) => {
+    if (data?.delivery_status === 'sent') return toast.success(`Invitación enviada a ${email}`);
+    if (data?.delivery_status === 'simulated' && data?.invitation_url) {
+      setSimulatedInvitation({ email, url: data.invitation_url });
+      return toast.info('Invitación simulada. No se envió ningún correo.');
+    }
+    return toast.warning('La invitación fue creada, pero el proveedor no confirmó el envío.');
+  };
+  const copyInvitationLink = async () => {
+    try { await navigator.clipboard.writeText(simulatedInvitation.url); toast.success('Enlace copiado'); }
+    catch { toast.error('No fue posible copiar el enlace'); }
+  };
   const handleInviteMember = async () => {
     const email = inviteEmail.trim().toLowerCase();
-    if (!email) {
-      toast.error('Ingresa un correo electrónico');
-      return;
-    }
+    if (!email) return toast.error('Ingresa un correo electrónico');
     if (inviting) return;
-
     setInviting(true);
     try {
-      const response = await teamAPI.createInvitation({
-        email,
-        role: inviteRole,
-        organization_id: organizationId
-      });
-      setInviteEmail('');
-      await loadInvitations();
-      if (response.data.delivery_status === 'sent') {
-        toast.success(`Invitación enviada a ${email}`);
-      } else {
-        toast.warning('La invitación fue creada, pero el correo no pudo enviarse. Puedes reenviarla.');
-      }
-    } catch (error) {
-      toast.error(error.response?.data?.detail || 'No fue posible crear la invitación');
-    } finally {
-      setInviting(false);
-    }
+      const response = await teamAPI.createInvitation({ email, role: inviteRole, organization_id: organizationId });
+      setInviteEmail(''); await loadInvitations(); showDeliveryResult(response.data, email);
+    } catch (error) { toast.error(invitationError(error, 'No fue posible crear la invitación')); }
+    finally { setInviting(false); }
   };
-
-  const handleResendInvitation = async (invitationId) => {
-    setInvitationAction(invitationId);
+  const handleResendInvitation = async (invitation) => {
+    setInvitationAction(invitation.invitation_id);
     try {
-      const response = await teamAPI.resendInvitation(invitationId);
-      await loadInvitations();
-      if (response.data.delivery_status === 'sent') {
-        toast.success('Invitación reenviada correctamente');
-      } else {
-        toast.warning('El proveedor de correo no confirmó el envío');
-      }
-    } catch (error) {
-      toast.error(error.response?.data?.detail || 'No fue posible reenviar la invitación');
-    } finally {
-      setInvitationAction(null);
-    }
+      const response = await teamAPI.resendInvitation(invitation.invitation_id);
+      await loadInvitations(); showDeliveryResult(response.data, invitation.email);
+    } catch (error) { toast.error(invitationError(error, 'No fue posible reenviar la invitación')); }
+    finally { setInvitationAction(null); }
   };
-
-  const handleRevokeInvitation = async (invitationId) => {
-    if (!await confirmAction('¿Deseas revocar esta invitación?')) return;
-    setInvitationAction(invitationId);
+  const openRevokeInvitation = (invitation) => { setRevokeTarget(invitation); setRevokeReason(''); };
+  const handleRevokeInvitation = async () => {
+    const reason = revokeReason.trim();
+    if (reason.length < 10) return toast.error('Escribe un motivo de al menos 10 caracteres');
+    setInvitationAction(revokeTarget.invitation_id);
     try {
-      await teamAPI.revokeInvitation(invitationId);
-      await loadInvitations();
-      toast.success('Invitación revocada');
-    } catch (error) {
-      toast.error(error.response?.data?.detail || 'No fue posible revocar la invitación');
-    } finally {
-      setInvitationAction(null);
-    }
+      await teamAPI.revokeInvitation(revokeTarget.invitation_id, { reason });
+      await loadInvitations(); setRevokeTarget(null); setRevokeReason(''); toast.success('Invitación revocada y auditada');
+    } catch (error) { toast.error(invitationError(error, 'No fue posible revocar la invitación')); }
+    finally { setInvitationAction(null); }
   };
 
   const handleChangeRole = async (userId, newRole) => {
@@ -432,7 +427,7 @@ const Settings = () => {
 
             {/* Invite Section */}
             <div className="mb-6 p-4 bg-white/5 rounded-xl border border-[var(--app-border)]">
-              <h3 className="text-sm font-medium text-[var(--app-text-primary)] mb-3">Invitar Miembro</h3>
+              <h3 className="text-sm font-medium text-[var(--app-text-primary)] mb-3">Invitar profesional</h3>
               
               <div className="space-y-3">
                 <div>
@@ -453,7 +448,7 @@ const Settings = () => {
                   >
                     {user?.role === 'owner' && <option value="manager">Manager</option>}
                     {user?.role === 'owner' && <option value="admin">Admin (Acceso completo)</option>}
-                    <option value="staff">Staff (Barbero)</option>
+                    <option value="staff">Profesional del equipo</option>
                   </select>
 
                   <button
@@ -462,7 +457,7 @@ const Settings = () => {
                     className="px-4 py-2 rounded-lg bg-[#0A84FF] hover:bg-[#0071E3] text-[var(--app-text-primary)] font-medium transition-all text-sm flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     {inviting ? <Loader2 size={16} className="animate-spin" /> : <Mail size={16} strokeWidth={1.5} />}
-                    {inviting ? 'Enviando...' : 'Invitar'}
+                    {inviting ? 'Procesando...' : 'Invitar profesional'}
                   </button>
                 </div>
               </div>
@@ -487,6 +482,7 @@ const Settings = () => {
                       delivery_failed: 'bg-red-500/15 text-red-400 border-red-500/30',
                       accepted: 'bg-blue-500/15 text-blue-400 border-blue-500/30',
                       revoked: 'bg-zinc-500/15 text-zinc-400 border-zinc-500/30',
+                      simulated: 'bg-purple-500/15 text-purple-400 border-purple-500/30',
                       expired: 'bg-amber-500/15 text-amber-400 border-amber-500/30'
                     };
                     const statusLabels = {
@@ -494,6 +490,7 @@ const Settings = () => {
                       delivery_failed: 'Falló el envío',
                       accepted: 'Aceptada',
                       revoked: 'Revocada',
+                      simulated: 'Simulada',
                       expired: 'Vencida'
                     };
                     return (
@@ -502,7 +499,7 @@ const Settings = () => {
                           <div className="min-w-0">
                             <p className="text-[var(--app-text-primary)] text-sm font-medium truncate">{invitation.email}</p>
                             <p className="text-zinc-500 text-xs mt-1">
-                              {invitation.role} · {new Date(invitation.expires_at).toLocaleDateString()}
+                              {invitation.role === 'staff' ? 'Profesional del equipo' : invitation.role} · {new Date(invitation.expires_at).toLocaleDateString()} · {Number(invitation.send_attempts || 0)} intento(s)
                             </p>
                           </div>
                           <span className={`self-start px-2.5 py-1 rounded-full text-xs border ${statusStyles[invitation.status] || statusStyles.revoked}`}>
@@ -514,7 +511,7 @@ const Settings = () => {
                             <button
                               type="button"
                               disabled={actionLoading}
-                              onClick={() => handleResendInvitation(invitation.invitation_id)}
+                              onClick={() => handleResendInvitation(invitation)}
                               className="px-3 py-1.5 text-xs rounded-lg bg-[#0A84FF]/15 text-[#0A84FF] hover:bg-[#0A84FF]/25 disabled:opacity-50"
                             >
                               {actionLoading ? 'Procesando...' : 'Reenviar'}
@@ -522,7 +519,7 @@ const Settings = () => {
                             <button
                               type="button"
                               disabled={actionLoading}
-                              onClick={() => handleRevokeInvitation(invitation.invitation_id)}
+                              onClick={() => openRevokeInvitation(invitation)}
                               className="px-3 py-1.5 text-xs rounded-lg bg-red-500/10 text-red-400 hover:bg-red-500/20 disabled:opacity-50"
                             >
                               Revocar
@@ -538,7 +535,7 @@ const Settings = () => {
 
             {/* Team Members List */}
             <div>
-              <h3 className="text-sm font-medium text-zinc-400 mb-3">Miembros Actuales ({teamMembers.length})</h3>
+              <h3 className="text-sm font-medium text-zinc-400 mb-3">Profesionales y miembros actuales ({teamMembers.length})</h3>
               
               {teamMembers.length === 0 ? (
                 <div className="text-center py-8 text-zinc-500 text-sm">
@@ -616,6 +613,19 @@ const Settings = () => {
           {editingCommission && <AccessibleModal open={!!editingCommission} onClose={()=>!commissionAction&&setEditingCommission(null)} labelledBy="commission-editor-title" panelClassName="w-full max-w-lg rounded-2xl border border-[var(--app-border)] bg-[var(--app-surface-elevated)] p-6"><h3 id="commission-editor-title" className="text-xl text-[var(--app-text-primary)]">Comisión de {editingCommission.name}</h3><div className="grid sm:grid-cols-2 gap-4 mt-5"><label className="text-sm text-zinc-400">Staff<input type="number" min="0" max="100" step="0.01" value={editingCommission.staff_percent} onChange={(e) => changeOverrideStaff(e.target.value)} className="mt-2 w-full px-4 py-3 bg-white/5 border border-[var(--app-border)] rounded-xl text-[var(--app-text-primary)]" /></label><label className="text-sm text-zinc-400">Negocio<input readOnly value={editingCommission.business_percent} className="mt-2 w-full px-4 py-3 bg-white/5 border border-[var(--app-border)] rounded-xl text-zinc-300" /></label></div><label className="block text-sm text-zinc-400 mt-4">Motivo<textarea rows={3} value={editingCommission.reason} onChange={(e) => setEditingCommission({ ...editingCommission, reason: e.target.value })} className="mt-2 w-full px-4 py-3 bg-white/5 border border-[var(--app-border)] rounded-xl text-[var(--app-text-primary)]" /></label><div className="flex justify-end gap-3 mt-5"><button type="button" onClick={() => setEditingCommission(null)} className="px-4 py-2 text-zinc-300">Cancelar</button><button type="button" onClick={saveStaffCommission} className="px-4 py-2 rounded-xl bg-[#0A84FF] text-[var(--app-text-primary)]">Guardar</button></div></AccessibleModal>}
         </div>
       </div>
+      <AccessibleModal open={!!simulatedInvitation} onClose={() => setSimulatedInvitation(null)} labelledBy="simulated-invitation-title" describedBy="simulated-invitation-description">
+        <button type="button" className="float-right text-zinc-400" onClick={() => setSimulatedInvitation(null)} aria-label="Cerrar"><X size={18}/></button>
+        <h2 id="simulated-invitation-title" className="text-xl text-[var(--app-text-primary)]">Invitación simulada</h2>
+        <p id="simulated-invitation-description" className="text-sm text-zinc-400 mt-2">No se envió correo a {simulatedInvitation?.email}. Usa este enlace sólo en una prueba controlada.</p>
+        <input readOnly value={simulatedInvitation?.url || ''} className="w-full mt-4 px-3 py-2 bg-white/5 border border-[var(--app-border)] rounded-lg text-sm"/>
+        <div className="flex flex-wrap gap-2 mt-4"><button type="button" onClick={copyInvitationLink} className="px-4 py-2 rounded-lg bg-[#0A84FF] text-white inline-flex gap-2"><Copy size={16}/>Copiar enlace</button><a href={simulatedInvitation?.url} target="_blank" rel="noopener noreferrer" className="px-4 py-2 rounded-lg bg-white/10 inline-flex gap-2"><ExternalLink size={16}/>Abrir enlace</a></div>
+      </AccessibleModal>
+      <AccessibleModal open={!!revokeTarget} onClose={() => !invitationAction && setRevokeTarget(null)} labelledBy="revoke-invitation-title" describedBy="revoke-invitation-description" role="alertdialog">
+        <h2 id="revoke-invitation-title" className="text-xl text-[var(--app-text-primary)]">Revocar invitación</h2>
+        <p id="revoke-invitation-description" className="text-sm text-zinc-400 mt-2">Indica por qué se cancela la vinculación de {revokeTarget?.email}. El motivo quedará auditado.</p>
+        <textarea value={revokeReason} onChange={e => setRevokeReason(e.target.value)} minLength={10} maxLength={500} className="w-full mt-4 px-3 py-2 bg-white/5 border border-[var(--app-border)] rounded-lg" placeholder="Ejemplo: La vinculación fue cancelada por el Manager"/>
+        <div className="flex gap-2 mt-4"><button type="button" disabled={!!invitationAction} onClick={() => setRevokeTarget(null)} className="px-4 py-2 rounded-lg bg-white/10">Cancelar</button><button type="button" disabled={!!invitationAction || revokeReason.trim().length < 10} onClick={handleRevokeInvitation} className="px-4 py-2 rounded-lg bg-red-500 text-white disabled:opacity-50">{invitationAction ? 'Revocando...' : 'Revocar invitación'}</button></div>
+      </AccessibleModal>
     </div>
   );
 };
