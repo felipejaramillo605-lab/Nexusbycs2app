@@ -343,6 +343,14 @@ class UserAccessUpdate(BaseModel):
 class UserRoleUpdate(BaseModel):
     role: str
 
+# NEXUS_8A7C2CA_OWNER_RECOVERY_V1
+class OwnerOrganizationRoleUpdate(BaseModel):
+    organization_id: str = Field(min_length=6, max_length=100)
+    role: str
+    reason: str = Field(min_length=10, max_length=500)
+    expected_current_role: str
+    expected_organization_id: Optional[str] = None
+
 class RegisterRequest(BaseModel):
     email: str
     password: str
@@ -1470,6 +1478,58 @@ async def update_user_role(user_id: str, data: UserRoleUpdate, authorization: Op
     await db.user_sessions.delete_many({"user_id":user_id})
     await _owner_account_audit("user_role_updated",target,current_user,previous,{"role":data.role})
     return {"message":f"User role updated to {data.role}"}
+
+
+def _owner_recovery_professional(target, organization_id, now):
+    name=(target.get("name") or target.get("email") or "Profesional").strip()
+    return {"barber_id":f"barber_{uuid.uuid4().hex[:12]}","organization_id":organization_id,"user_id":target["user_id"],"name":name,"display_name":name,"first_name":target.get("first_name"),"last_name":target.get("last_name"),"phone":target.get("phone"),"address":target.get("address"),"bio":None,"avatar":target.get("picture"),"active":True,"available_days":[1,2,3,4,5],"start_time":"09:00","end_time":"18:00","service_ids":[],"created_at":now,"updated_at":now}
+
+
+@api_router.post("/owner/users/{user_id}/organization-role")
+async def owner_update_user_organization_role(user_id: str, data: OwnerOrganizationRoleUpdate, authorization: Optional[str] = Header(None), session_token: Optional[str] = Cookie(None)):
+    actor=await get_current_user(authorization,session_token)
+    if actor.role!="owner":raise HTTPException(status_code=403,detail="Access denied")
+    if data.role not in {"manager","admin","staff"}:raise HTTPException(status_code=400,detail="Invalid recoverable role")
+    target=await db.users.find_one({"user_id":user_id},{"_id":0})
+    if not target:raise HTTPException(status_code=404,detail="User not found")
+    if target.get("role")=="owner" or user_id==actor.user_id:raise HTTPException(status_code=409,detail="Owner accounts cannot be changed by this operation")
+    if target.get("access_status")=="deleted" or target.get("deleted_at"):raise HTTPException(status_code=409,detail="Deleted users cannot be recovered")
+    if target.get("role")!=data.expected_current_role or target.get("organization_id")!=data.expected_organization_id:raise HTTPException(status_code=409,detail={"code":"owner_recovery_precondition_failed","message":"La cuenta cambió antes de guardar. Recarga e intenta nuevamente."})
+    current_org=target.get("organization_id")
+    if current_org and current_org!=data.organization_id:raise HTTPException(status_code=409,detail="Moving users between organizations requires a dedicated transfer operation")
+    organization=await db.organizations.find_one({"organization_id":data.organization_id},{"_id":0})
+    if not organization:raise HTTPException(status_code=404,detail="Organization not found")
+    await _protect_owner_and_organization_administration(target,next_role=data.role)
+    existing_profiles=await db.barbers.find({"user_id":user_id},{"_id":0}).to_list(10)
+    if len(existing_profiles)>1:raise HTTPException(status_code=409,detail="Multiple professional profiles require manual review")
+    if existing_profiles and existing_profiles[0].get("organization_id")!=data.organization_id:raise HTTPException(status_code=409,detail="Professional profile belongs to another organization")
+    now=datetime.now(timezone.utc).isoformat();reason=data.reason.strip();profile_before=existing_profiles[0] if existing_profiles else None
+    invitations=await db.invitations.find({"normalized_email":normalize_email(target.get("email","")),"organization_id":data.organization_id,"status":{"$in":["sent","delivery_failed","simulated"]}},{"_id":0}).to_list(100)
+    invitation_ids=[x["invitation_id"] for x in invitations]
+    user_set={"role":data.role,"organization_id":data.organization_id,"organization_joined_at":now,"organization_joined_by":actor.user_id,"updated_at":now}
+    profile_created=False
+    try:
+        result=await db.users.update_one({"user_id":user_id,"role":data.expected_current_role,"organization_id":data.expected_organization_id},{"$set":user_set})
+        if result.modified_count!=1:raise RuntimeError("owner recovery conflict")
+        if data.role=="staff":
+            if profile_before:
+                await db.barbers.update_one({"barber_id":profile_before["barber_id"],"user_id":user_id},{"$set":{"active":True,"organization_id":data.organization_id,"updated_at":now},"$unset":{"deleted_at":""}})
+            else:
+                await db.barbers.insert_one(_owner_recovery_professional(target,data.organization_id,now));profile_created=True
+        elif profile_before:
+            await db.barbers.update_one({"barber_id":profile_before["barber_id"],"user_id":user_id},{"$set":{"active":False,"role_changed_at":now,"updated_at":now}})
+        if invitation_ids:
+            await db.invitations.update_many({"invitation_id":{"$in":invitation_ids},"status":{"$in":["sent","delivery_failed","simulated"]}},{"$set":{"status":"replaced","delivery_status":"replaced","resolution":"existing_user_recovered","resolved_user_id":user_id,"resolved_by_user_id":actor.user_id,"resolved_at":now,"updated_at":now}})
+        await _owner_account_audit("user_organization_role_recovered",target,actor,{"role":target.get("role"),"organization_id":target.get("organization_id"),"professional":profile_before,"invitation_ids":invitation_ids},{"role":data.role,"organization_id":data.organization_id,"reason":reason})
+    except Exception:
+        await db.users.update_one({"user_id":user_id},{"$set":{"role":target.get("role"),"organization_id":target.get("organization_id"),"updated_at":target.get("updated_at") or target.get("created_at")}})
+        if profile_created:await db.barbers.delete_many({"user_id":user_id,"organization_id":data.organization_id})
+        elif profile_before:await db.barbers.replace_one({"barber_id":profile_before["barber_id"]},profile_before,upsert=True)
+        for invitation in invitations:await db.invitations.replace_one({"invitation_id":invitation["invitation_id"]},invitation,upsert=True)
+        raise
+    await db.user_sessions.delete_many({"user_id":user_id})
+    professional=await db.barbers.find_one({"user_id":user_id},{"_id":0})
+    return {"message":"User organization and role updated","user_id":user_id,"organization_id":data.organization_id,"role":data.role,"professional_id":professional.get("barber_id") if professional else None,"resolved_invitation_count":len(invitation_ids)}
 
 
 # NEXUS_ACCOUNT_SAFETY_V1
@@ -4423,6 +4483,8 @@ async def create_application_indexes():
         ("normalized_email", 1),
         ("status", 1)
     ])
+    await db.barbers.create_index("barber_id", unique=True, name="professional_id_unique")
+    await db.barbers.create_index("user_id", unique=True, sparse=True, name="professional_user_unique")
     await db.password_resets.create_index(
         "token_hash",
         unique=True,
