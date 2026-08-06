@@ -1,3 +1,5 @@
+// NEXUS_8A7D3B_RECOVERY_ADJUSTMENT_V1
+// NEXUS_8A7D3B_PROFESSIONAL_IMAGE_FRONTEND_V1
 // NEXUS_8A7D2A2_GUIDED_MANAGER_PROFESSIONAL_V1
 import React, { useEffect, useState, useCallback } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
@@ -7,7 +9,7 @@ import { Plus, Trash2, ArrowLeft, Users, Edit2, Clock, Calendar, Mail } from 'lu
 import { MANAGER } from '../constants/testIds';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '../components/ui/dialog';
 import { toast } from 'sonner';
-import { confirmAction, FieldGuide } from '../components/design';
+import { confirmAction, FieldGuide, ProfessionalImageUpload } from '../components/design';
 
 const DAYS = [
   { value: 1, label: 'Lun' },
@@ -35,7 +37,7 @@ const createEmptyBarber = () => ({
   service_ids: []
 });
 
-const ProfileForm = ({ value, onChange, services, saving, actionLabel, onSubmit }) => {
+const ProfileForm = ({ value, onChange, services, saving, actionLabel, onSubmit, imageUpload, imageDelete, onImageChange, imageLockedMessage='' }) => {
   const setField = (field, fieldValue) => onChange((current) => ({ ...current, [field]: fieldValue }));
   const toggleDay = (day) => onChange((current) => {
     const selected = current.available_days || [];
@@ -72,7 +74,7 @@ const ProfileForm = ({ value, onChange, services, saving, actionLabel, onSubmit 
           <label><FieldGuide label="Teléfono" hint="Incluye indicativo de país o ciudad." example="+57 300 123 4567" required/><input type="tel" autoComplete="tel" value={value.phone || ''} onChange={(event) => setField('phone', event.target.value)} className={inputClass} maxLength={40} required aria-invalid={!!validation.phone}/>{validation.phone&&<small className="text-amber-400" role="alert">{validation.phone}</small>}</label>
           <label><FieldGuide label="Dirección" hint="Información de contacto interna." example="Carrera 43A # 10-25" optional/><input type="text" autoComplete="street-address" value={value.address || ''} onChange={(event) => setField('address', event.target.value)} className={inputClass} maxLength={240}/></label>
           <label className="sm:col-span-2"><FieldGuide label="Biografía profesional" hint="Resume experiencia, especialidades y enfoque profesional." example="Especialista en bienestar y atención personalizada" optional/><textarea value={value.bio || ''} onChange={(event) => setField('bio', event.target.value.slice(0, 500))} className={`${inputClass} min-h-[100px] resize-y`} maxLength={500}/><small className="flex justify-end text-zinc-500">{(value.bio || '').length}/500</small></label>
-          <label className="sm:col-span-2"><FieldGuide label="URL temporal de imagen" hint="Este campo será reemplazado por carga segura de archivos." example="https://sitio.com/imagen.webp" optional/><input type="url" value={value.avatar || ''} onChange={(event) => setField('avatar', event.target.value)} className={inputClass} maxLength={500} placeholder="https://..."/></label>
+          <ProfessionalImageUpload value={value.avatar||''} name={value.display_name} disabled={saving} lockedMessage={imageLockedMessage} onUpload={imageUpload} onDelete={imageDelete} onChange={avatar=>{setField('avatar',avatar);onImageChange?.(avatar)}}/>
         </div>
       </section>
 
@@ -361,7 +363,7 @@ const ManagerBarbers = () => {
             </DialogTrigger>
             <DialogContent className="bg-[var(--app-surface-elevated)] border-[var(--app-border)] max-w-3xl max-h-[90vh] overflow-y-auto">
               <DialogHeader><DialogTitle className="text-[var(--app-text-primary)]">Crear perfil profesional</DialogTitle></DialogHeader>
-              <ProfileForm value={newBarber} onChange={setNewBarber} services={services} saving={saving} actionLabel="Crear profesional" onSubmit={handleCreate} />
+              <ProfileForm value={newBarber} onChange={setNewBarber} services={services} saving={saving} actionLabel="Crear profesional" onSubmit={handleCreate} imageLockedMessage="Crea primero el perfil para habilitar la fotografía." />
             </DialogContent>
           </Dialog>
         </div>
@@ -370,7 +372,7 @@ const ManagerBarbers = () => {
         <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
           <DialogContent className="bg-[var(--app-surface-elevated)] border-[var(--app-border)] max-w-3xl max-h-[90vh] overflow-y-auto">
             <DialogHeader><DialogTitle className="text-[var(--app-text-primary)]">Editar perfil profesional</DialogTitle></DialogHeader>
-            {editingBarber && <ProfileForm value={editingBarber} onChange={setEditingBarber} services={services} saving={saving} actionLabel="Guardar Cambios" onSubmit={handleUpdate} />}
+            {editingBarber && <ProfileForm value={editingBarber} onChange={setEditingBarber} services={services} saving={saving} actionLabel="Guardar Cambios" onSubmit={handleUpdate} imageUpload={(file,onProgress)=>barberAPI.uploadAvatar(editingBarber.barber_id,file,organizationId,event=>onProgress(event.total?Math.round(event.loaded*100/event.total):0))} imageDelete={()=>barberAPI.deleteAvatar(editingBarber.barber_id,organizationId)} onImageChange={avatar=>setBarbers(current=>current.map(item=>item.barber_id===editingBarber.barber_id?{...item,avatar}:item))} />}
           </DialogContent>
         </Dialog>
 

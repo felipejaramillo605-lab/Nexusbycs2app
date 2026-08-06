@@ -17,3 +17,4 @@ export { StaffNav } from './StaffNav';
 export { RouteExperienceFrame } from './RouteExperienceFrame';
 export { ConfirmDialogHost, confirmAction } from './ConfirmDialogHost';
 export { FieldGuide } from './FieldGuide';
+export { ProfessionalImageUpload } from './ProfessionalImageUpload';
