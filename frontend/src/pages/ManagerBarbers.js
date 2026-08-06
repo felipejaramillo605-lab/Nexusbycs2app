@@ -1,3 +1,4 @@
+// NEXUS_8A7D2A2_GUIDED_MANAGER_PROFESSIONAL_V1
 import React, { useEffect, useState, useCallback } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
@@ -6,7 +7,7 @@ import { Plus, Trash2, ArrowLeft, Users, Edit2, Clock, Calendar, Mail } from 'lu
 import { MANAGER } from '../constants/testIds';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '../components/ui/dialog';
 import { toast } from 'sonner';
-import { confirmAction } from '../components/design';
+import { confirmAction, FieldGuide } from '../components/design';
 
 const DAYS = [
   { value: 1, label: 'Lun' },
@@ -35,104 +36,69 @@ const createEmptyBarber = () => ({
 });
 
 const ProfileForm = ({ value, onChange, services, saving, actionLabel, onSubmit }) => {
-  const setField = (field, fieldValue) => onChange({ ...value, [field]: fieldValue });
-  const toggleDay = (day) => {
-    const selected = value.available_days || [];
-    setField(
-      'available_days',
-      selected.includes(day) ? selected.filter((item) => item !== day) : [...selected, day]
-    );
+  const setField = (field, fieldValue) => onChange((current) => ({ ...current, [field]: fieldValue }));
+  const toggleDay = (day) => onChange((current) => {
+    const selected = current.available_days || [];
+    return { ...current, available_days: selected.includes(day) ? selected.filter((item) => item !== day) : [...selected, day] };
+  });
+  const toggleService = (serviceId) => onChange((current) => {
+    const selected = current.service_ids || [];
+    return { ...current, service_ids: selected.includes(serviceId) ? selected.filter((item) => item !== serviceId) : [...selected, serviceId] };
+  });
+  const phoneDigits = (value.phone || '').replace(/\D/g, '');
+  const validation = {
+    first_name: (value.first_name || '').trim() ? '' : 'Escribe el nombre del profesional.',
+    last_name: (value.last_name || '').trim() ? '' : 'Escribe el apellido del profesional.',
+    display_name: (value.display_name || '').trim() ? '' : 'Define el nombre que verán los clientes.',
+    phone: phoneDigits.length >= 7 ? '' : 'Ingresa un teléfono válido con indicativo.',
+    available_days: (value.available_days || []).length ? '' : 'Selecciona al menos un día disponible.',
+    schedule: value.end_time > value.start_time ? '' : 'La hora de fin debe ser posterior a la hora de inicio.'
   };
-  const toggleService = (serviceId) => {
-    const selected = value.service_ids || [];
-    setField(
-      'service_ids',
-      selected.includes(serviceId) ? selected.filter((item) => item !== serviceId) : [...selected, serviceId]
-    );
-  };
+  const hasErrors = Object.values(validation).some(Boolean);
   const inputClass = 'w-full px-4 py-3 bg-transparent border border-[var(--app-border)] rounded-xl text-[var(--app-text-primary)] placeholder-zinc-600 focus:border-[#0A84FF] focus:ring-1 focus:ring-[#0A84FF] outline-none';
+  const submit = () => {
+    if (hasErrors) return toast.error('Revisa los campos señalados antes de continuar');
+    onSubmit();
+  };
 
   return (
     <div className="space-y-6 mt-4">
       <section>
         <h3 className="text-sm font-medium text-[var(--app-text-primary)] mb-3">Información personal</h3>
         <div className="grid sm:grid-cols-2 gap-4">
-          <div>
-            <label className="text-sm text-zinc-400 mb-2 block">Nombre</label>
-            <input type="text" value={value.first_name || ''} onChange={(event) => setField('first_name', event.target.value)} className={inputClass} placeholder="Juan" />
-          </div>
-          <div>
-            <label className="text-sm text-zinc-400 mb-2 block">Apellido</label>
-            <input type="text" value={value.last_name || ''} onChange={(event) => setField('last_name', event.target.value)} className={inputClass} placeholder="Pérez" />
-          </div>
-          <div className="sm:col-span-2">
-            <label className="text-sm text-zinc-400 mb-2 block">Nombre visible</label>
-            <input type="text" value={value.display_name || ''} onChange={(event) => setField('display_name', event.target.value)} className={inputClass} placeholder="Juan Pérez" />
-          </div>
-          <div>
-            <label className="text-sm text-zinc-400 mb-2 block">Teléfono</label>
-            <input type="tel" value={value.phone || ''} onChange={(event) => setField('phone', event.target.value)} className={inputClass} placeholder="+57 300 000 0000" />
-          </div>
-          <div>
-            <label className="text-sm text-zinc-400 mb-2 block">Dirección</label>
-            <input type="text" value={value.address || ''} onChange={(event) => setField('address', event.target.value)} className={inputClass} placeholder="Opcional" />
-          </div>
-          <div className="sm:col-span-2">
-            <label className="text-sm text-zinc-400 mb-2 flex justify-between"><span>Biografía profesional</span><span>{(value.bio || '').length}/500</span></label>
-            <textarea value={value.bio || ''} onChange={(event) => setField('bio', event.target.value.slice(0, 500))} className={`${inputClass} min-h-[100px] resize-y`} placeholder="Experiencia, especialidades y estilo profesional" />
-          </div>
-          <div className="sm:col-span-2">
-            <label className="text-sm text-zinc-400 mb-2 block">URL de avatar <span className="text-zinc-600">(temporal)</span></label>
-            <input type="url" value={value.avatar || ''} onChange={(event) => setField('avatar', event.target.value)} className={inputClass} placeholder="https://..." />
-          </div>
+          <label><FieldGuide label="Nombre" hint="Nombre personal del integrante del equipo." example="Laura" required/><input type="text" value={value.first_name || ''} onChange={(event) => setField('first_name', event.target.value)} className={inputClass} maxLength={80} required aria-invalid={!!validation.first_name}/>{validation.first_name&&<small className="text-amber-400" role="alert">{validation.first_name}</small>}</label>
+          <label><FieldGuide label="Apellido" hint="Apellido personal del integrante del equipo." example="Gómez" required/><input type="text" value={value.last_name || ''} onChange={(event) => setField('last_name', event.target.value)} className={inputClass} maxLength={80} required aria-invalid={!!validation.last_name}/>{validation.last_name&&<small className="text-amber-400" role="alert">{validation.last_name}</small>}</label>
+          <label className="sm:col-span-2"><FieldGuide label="Nombre visible" hint="Nombre profesional que verán los clientes al reservar." example="Laura Gómez" required/><input type="text" value={value.display_name || ''} onChange={(event) => setField('display_name', event.target.value)} className={inputClass} maxLength={120} required aria-invalid={!!validation.display_name}/>{validation.display_name&&<small className="text-amber-400" role="alert">{validation.display_name}</small>}</label>
+          <label><FieldGuide label="Teléfono" hint="Incluye indicativo de país o ciudad." example="+57 300 123 4567" required/><input type="tel" autoComplete="tel" value={value.phone || ''} onChange={(event) => setField('phone', event.target.value)} className={inputClass} maxLength={40} required aria-invalid={!!validation.phone}/>{validation.phone&&<small className="text-amber-400" role="alert">{validation.phone}</small>}</label>
+          <label><FieldGuide label="Dirección" hint="Información de contacto interna." example="Carrera 43A # 10-25" optional/><input type="text" autoComplete="street-address" value={value.address || ''} onChange={(event) => setField('address', event.target.value)} className={inputClass} maxLength={240}/></label>
+          <label className="sm:col-span-2"><FieldGuide label="Biografía profesional" hint="Resume experiencia, especialidades y enfoque profesional." example="Especialista en bienestar y atención personalizada" optional/><textarea value={value.bio || ''} onChange={(event) => setField('bio', event.target.value.slice(0, 500))} className={`${inputClass} min-h-[100px] resize-y`} maxLength={500}/><small className="flex justify-end text-zinc-500">{(value.bio || '').length}/500</small></label>
+          <label className="sm:col-span-2"><FieldGuide label="URL temporal de imagen" hint="Este campo será reemplazado por carga segura de archivos." example="https://sitio.com/imagen.webp" optional/><input type="url" value={value.avatar || ''} onChange={(event) => setField('avatar', event.target.value)} className={inputClass} maxLength={500} placeholder="https://..."/></label>
         </div>
       </section>
 
       <section>
         <h3 className="text-sm font-medium text-[var(--app-text-primary)] mb-3">Disponibilidad</h3>
-        <div className="flex flex-wrap gap-2 mb-4">
-          {DAYS.map((day) => (
-            <button key={day.value} type="button" onClick={() => toggleDay(day.value)} className={`px-3 py-2 rounded-lg border text-sm transition-all ${(value.available_days || []).includes(day.value) ? 'bg-[#0A84FF]/20 border-[#0A84FF]/50 text-[#5EB1FF]' : 'bg-white/5 border-[var(--app-border)] text-zinc-400 hover:bg-white/10'}`}>
-              {day.label}
-            </button>
-          ))}
+        <FieldGuide label="Días disponibles" hint="Selecciona al menos un día para habilitar reservas." required/>
+        <div className="flex flex-wrap gap-2 mb-2" role="group" aria-label="Días disponibles">
+          {DAYS.map((day) => {
+            const selected = (value.available_days || []).includes(day.value);
+            return <button key={day.value} type="button" aria-pressed={selected} onClick={() => toggleDay(day.value)} className={`px-3 py-2 rounded-lg border text-sm transition-all ${selected ? 'bg-[#0A84FF]/20 border-[#0A84FF]/50 text-[#5EB1FF]' : 'bg-white/5 border-[var(--app-border)] text-zinc-400 hover:bg-white/10'}`}>{day.label}</button>;
+          })}
         </div>
-        <div className="grid sm:grid-cols-2 gap-4">
-          <div>
-            <label className="text-sm text-zinc-400 mb-2 block">Hora inicio</label>
-            <input type="time" value={value.start_time || '09:00'} onChange={(event) => setField('start_time', event.target.value)} className={inputClass} />
-          </div>
-          <div>
-            <label className="text-sm text-zinc-400 mb-2 block">Hora fin</label>
-            <input type="time" value={value.end_time || '18:00'} onChange={(event) => setField('end_time', event.target.value)} className={inputClass} />
-          </div>
+        {validation.available_days&&<small className="text-amber-400" role="alert">{validation.available_days}</small>}
+        <div className="grid sm:grid-cols-2 gap-4 mt-4">
+          <label><FieldGuide label="Hora de inicio" hint="Primera hora disponible para reservas." example="09:00" required/><input type="time" value={value.start_time || '09:00'} onChange={(event) => setField('start_time', event.target.value)} className={inputClass} required/></label>
+          <label><FieldGuide label="Hora de fin" hint="Debe ser posterior a la hora de inicio." example="18:00" required/><input type="time" value={value.end_time || '18:00'} onChange={(event) => setField('end_time', event.target.value)} className={inputClass} required aria-invalid={!!validation.schedule}/>{validation.schedule&&<small className="text-amber-400" role="alert">{validation.schedule}</small>}</label>
         </div>
       </section>
 
       <section>
-        <h3 className="text-sm font-medium text-[var(--app-text-primary)] mb-3">Servicios que presta</h3>
-        {services.length === 0 ? (
-          <p className="text-sm text-zinc-500 rounded-xl border border-[var(--app-border)] bg-white/3 p-4">No hay servicios creados en esta barbería.</p>
-        ) : (
-          <div className="grid sm:grid-cols-2 gap-2">
-            {services.map((service) => (
-              <label key={service.service_id} className="flex items-center gap-3 rounded-xl border border-[var(--app-border)] bg-white/3 p-3 text-sm text-zinc-300 cursor-pointer hover:bg-white/5">
-                <input type="checkbox" checked={(value.service_ids || []).includes(service.service_id)} onChange={() => toggleService(service.service_id)} className="accent-[#0A84FF]" />
-                <span>{service.name}</span>
-              </label>
-            ))}
-          </div>
-        )}
+        <h3 className="text-sm font-medium text-[var(--app-text-primary)] mb-3">Servicios asignados</h3>
+        {services.length === 0 ? <p className="text-sm text-zinc-500 rounded-xl border border-[var(--app-border)] bg-white/3 p-4">No hay servicios creados en esta organización.</p> : <div className="grid sm:grid-cols-2 gap-2">{services.map((service) => <label key={service.service_id} className="flex items-center gap-3 rounded-xl border border-[var(--app-border)] bg-white/3 p-3 text-sm text-zinc-300 cursor-pointer hover:bg-white/5"><input type="checkbox" checked={(value.service_ids || []).includes(service.service_id)} onChange={() => toggleService(service.service_id)} className="accent-[#0A84FF]"/><span>{service.name}</span></label>)}</div>}
       </section>
 
-      <label className="flex items-center justify-between rounded-xl border border-[var(--app-border)] bg-white/3 p-4">
-        <span><span className="block text-sm text-[var(--app-text-primary)]">Perfil activo</span><span className="block text-xs text-zinc-500 mt-1">Los perfiles inactivos no aparecen para nuevas reservas.</span></span>
-        <input type="checkbox" checked={value.active !== false} onChange={(event) => setField('active', event.target.checked)} className="h-5 w-5 accent-[#0A84FF]" />
-      </label>
-
-      <button type="button" onClick={onSubmit} disabled={saving} className="w-full px-6 py-3 bg-[#0A84FF] hover:bg-[#0071E3] text-[var(--app-text-primary)] rounded-xl font-medium transition-all disabled:opacity-50">
-        {saving ? 'Guardando...' : actionLabel}
-      </button>
+      <label className="flex items-center justify-between rounded-xl border border-[var(--app-border)] bg-white/3 p-4"><span><span className="block text-sm text-[var(--app-text-primary)]">Perfil activo</span><span className="block text-xs text-zinc-500 mt-1">Los perfiles inactivos no aparecen para nuevas reservas.</span></span><input type="checkbox" checked={value.active !== false} onChange={(event) => setField('active', event.target.checked)} className="h-5 w-5 accent-[#0A84FF]"/></label>
+      <button type="button" onClick={submit} disabled={saving || hasErrors} className="w-full px-6 py-3 bg-[#0A84FF] hover:bg-[#0071E3] text-[var(--app-text-primary)] rounded-xl font-medium transition-all disabled:opacity-50">{saving ? 'Guardando...' : actionLabel}</button>
     </div>
   );
 };
@@ -242,10 +208,10 @@ const ManagerBarbers = () => {
       setIsCreateDialogOpen(false);
       setNewBarber(createEmptyBarber());
       await loadBarbers();
-      toast.success('Barbero creado exitosamente');
+      toast.success('Profesional creado correctamente');
     } catch (error) {
       console.error('Error creating barber:', error);
-      toast.error(error.response?.data?.detail || 'Error al crear barbero');
+      toast.error(error.response?.data?.detail || 'No fue posible crear el profesional');
     } finally {
       setSaving(false);
     }
@@ -280,24 +246,24 @@ const ManagerBarbers = () => {
       setIsEditDialogOpen(false);
       setEditingBarber(null);
       await loadBarbers();
-      toast.success('Barbero actualizado exitosamente');
+      toast.success('Profesional actualizado correctamente');
     } catch (error) {
       console.error('Error updating barber:', error);
-      toast.error(error.response?.data?.detail || 'Error al actualizar barbero');
+      toast.error(error.response?.data?.detail || 'No fue posible actualizar el profesional');
     } finally {
       setSaving(false);
     }
   };
 
   const handleDelete = async (id) => {
-    if (!await confirmAction('¿Desactivar este barbero? Dejará de aparecer para nuevas reservas, pero se conservarán sus citas y su historial.')) return;
+    if (!await confirmAction('¿Desactivar este profesional? Dejará de aparecer para nuevas reservas, pero se conservarán sus citas y su historial.')) return;
     try {
       await barberAPI.delete(id);
       await loadBarbers();
-      toast.success('Barbero desactivado');
+      toast.success('Profesional desactivado');
     } catch (error) {
       console.error('Error deactivating barber:', error);
-      toast.error(error.response?.data?.detail || 'Error al desactivar barbero');
+      toast.error(error.response?.data?.detail || 'No fue posible desactivar el profesional');
     }
   };
 
@@ -364,7 +330,7 @@ const ManagerBarbers = () => {
               </div>
               <div>
                 <h1 className="text-4xl font-light tracking-tight text-[var(--app-text-primary)]" style={{ fontFamily: 'Outfit, sans-serif' }}>
-                  Barberos
+                  Profesionales
                 </h1>
                 {organizationName ? (
                   <p className="text-zinc-400 text-sm mt-1">{organizationName}</p>
@@ -395,7 +361,7 @@ const ManagerBarbers = () => {
             </DialogTrigger>
             <DialogContent className="bg-[var(--app-surface-elevated)] border-[var(--app-border)] max-w-3xl max-h-[90vh] overflow-y-auto">
               <DialogHeader><DialogTitle className="text-[var(--app-text-primary)]">Crear perfil profesional</DialogTitle></DialogHeader>
-              <ProfileForm value={newBarber} onChange={setNewBarber} services={services} saving={saving} actionLabel="Crear Barbero" onSubmit={handleCreate} />
+              <ProfileForm value={newBarber} onChange={setNewBarber} services={services} saving={saving} actionLabel="Crear profesional" onSubmit={handleCreate} />
             </DialogContent>
           </Dialog>
         </div>
@@ -516,7 +482,7 @@ const ManagerBarbers = () => {
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {barbers.map((barber) => {
-            const displayName = barber.display_name || barber.name || 'Barbero';
+            const displayName = barber.display_name || barber.name || 'Profesional';
             const selectedServices = services.filter((service) => (barber.service_ids || []).includes(service.service_id));
             return (
               <div key={barber.barber_id} data-testid={MANAGER.barberCard} className={`backdrop-blur-xl border rounded-2xl p-6 transition-all group ${barber.active === false ? 'bg-zinc-900/40 border-zinc-700/50 opacity-75' : 'bg-white/3 border-[var(--app-border)] hover:bg-white/6'}`}>
