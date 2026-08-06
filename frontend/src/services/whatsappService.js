@@ -1,3 +1,4 @@
+// NEXUS_8A7D1B_REMAINING_NEUTRAL_COPY_V1
 /**
  * WhatsApp Business API Service (Mock Implementation)
  * 
@@ -32,7 +33,7 @@ export const generateConfirmationMessage = (appointment, cancelUrl) => {
 📅 Fecha: ${appointment.date}
 🕐 Hora: ${appointment.time}
 ✂️ Servicio: ${appointment.service_name}
-👤 Barbero: ${appointment.barber_name}
+👤 Profesional: ${appointment.barber_name}
 💰 Precio: $${appointment.service_price}
 
 Para cancelar tu cita, ingresa a:

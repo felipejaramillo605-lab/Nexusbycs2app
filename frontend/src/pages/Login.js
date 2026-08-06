@@ -1,3 +1,4 @@
+// NEXUS_8A7D1B_REMAINING_NEUTRAL_COPY_V1
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { LogIn, Mail, Lock, Eye, EyeOff } from 'lucide-react';
@@ -98,7 +99,7 @@ const Login = () => {
             Nexus by CS2
           </h1>
           <p className="text-zinc-400 text-sm sm:text-base leading-relaxed">
-            Sistema de gestión para barberías profesionales
+            Plataforma de gestión para organizaciones de servicios
           </p>
         </div>
 

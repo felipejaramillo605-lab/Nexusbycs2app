@@ -1,3 +1,4 @@
+// NEXUS_8A7D1B_REMAINING_NEUTRAL_COPY_V1
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { ChevronLeft, ChevronRight, Calendar, User, Clock, DollarSign } from 'lucide-react';
 import { appointmentAPI, barberAPI } from '../api';
@@ -157,7 +158,7 @@ const WeeklyCalendar = ({ organizationId }) => {
               onChange={(e) => setSelectedBarber(e.target.value)}
               className="min-h-[44px] px-4 py-2 bg-secondary/30 border border-primary/20 rounded-xl text-primary text-sm focus:border-[#0A84FF] focus:ring-1 focus:ring-[#0A84FF] outline-none"
             >
-              <option value="all">Todos los barberos</option>
+              <option value="all">Todos los profesionales</option>
               {barbers.map((barber) => (
                 <option key={barber.barber_id} value={barber.barber_id}>
                   {barber.name}

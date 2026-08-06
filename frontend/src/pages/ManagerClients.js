@@ -1,3 +1,4 @@
+// NEXUS_8A7D1B_REMAINING_NEUTRAL_COPY_V1
 import React, { useEffect, useState, useCallback } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate, useSearchParams } from 'react-router-dom';
@@ -108,7 +109,7 @@ const ManagerClients = () => {
           date: 'Próximamente',
           time: '--:--',
           service_name: 'Tu servicio',
-          barber_name: 'Tu barbero'
+          barber_name: 'Tu profesional'
         });
       } else if (selectedTemplate === MESSAGE_TEMPLATES.REACTIVATION) {
         message = whatsappService.generateReactivationMessage(selectedClient.name);

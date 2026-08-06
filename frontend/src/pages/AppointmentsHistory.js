@@ -1,3 +1,4 @@
+// NEXUS_8A7D1B_REMAINING_NEUTRAL_COPY_V1
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../context/AuthContext';
@@ -245,7 +246,7 @@ const AppointmentsHistory = () => {
                       <th className="text-left px-6 py-4 text-sm font-medium text-zinc-400">Fecha y Hora</th>
                       <th className="text-left px-6 py-4 text-sm font-medium text-zinc-400">Cliente</th>
                       <th className="text-left px-6 py-4 text-sm font-medium text-zinc-400">Concepto</th>
-                      <th className="text-left px-6 py-4 text-sm font-medium text-zinc-400">Barbero</th>
+                      <th className="text-left px-6 py-4 text-sm font-medium text-zinc-400">Profesional</th>
                       <th className="text-right px-6 py-4 text-sm font-medium text-zinc-400">Valor</th>
                       <th className="text-center px-6 py-4 text-sm font-medium text-zinc-400">Estado</th>
                       <th className="text-right px-6 py-4 text-sm font-medium text-zinc-400">Acciones</th>
@@ -320,7 +321,7 @@ const AppointmentsHistory = () => {
                         <span className="text-[var(--app-text-primary)]">{apt.service_name}</span>
                       </div>
                       <div className="flex justify-between">
-                        <span className="text-zinc-400">Barbero:</span>
+                        <span className="text-zinc-400">Profesional:</span>
                         <span className="text-[var(--app-text-primary)]">{apt.barber_name}</span>
                       </div>
                       <div className="flex justify-between">

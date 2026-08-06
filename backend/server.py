@@ -1,3 +1,4 @@
+# NEXUS_8A7D1B_REMAINING_NEUTRAL_COPY_V1
 from fastapi import FastAPI, APIRouter, HTTPException, Cookie, Response, Header, Request
 from fastapi.responses import StreamingResponse, JSONResponse
 from dotenv import load_dotenv
@@ -3861,7 +3862,7 @@ Formatea la respuesta como una lista clara y accionable."""
             chat = LlmChat(
                 api_key=EMERGENT_LLM_KEY,
                 session_id=f"purchase_order_{current_user.user_id}",
-                system_message="Eres un asistente experto en gestión de inventarios para barberías."
+                system_message="Eres un asistente experto en gestión de inventarios para organizaciones de servicios."
             ).with_model("gemini", "gemini-3.5-flash")
             
             user_message = UserMessage(text=prompt)
@@ -4264,7 +4265,7 @@ async def create_inventory_movement(item_id: str, data: InventoryMovementCreate,
                 email_service.send_appointment_confirmation(
                     to_email=data.client_email,
                     customer_name=data.client_name,
-                    barber_name=barber.get("name", "Barbero") if barber else "Barbero",
+                    barber_name=barber.get("name", "Profesional") if barber else "Profesional",
                     service_name=service.get("name", "Servicio"),
                     date=data.date,
                     time=data.time,
@@ -4288,7 +4289,7 @@ async def create_inventory_movement(item_id: str, data: InventoryMovementCreate,
                             customer_name=data.client_name,
                             customer_phone=data.client_phone,
                             service_name=service.get("name", "Servicio"),
-                            barber_name=barber.get("name", "Barbero") if barber else "Barbero",
+                            barber_name=barber.get("name", "Profesional") if barber else "Profesional",
                             date=data.date,
                             time=data.time,
                             organization_name=organization.get("name", "Nexus")
