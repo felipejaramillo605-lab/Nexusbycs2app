@@ -33,7 +33,7 @@ from owner_subscription_lifecycle_api import build_lifecycle_router
 from request_security import TRUSTED_ORIGINS, enforce_request_security, refresh_trusted_origins
 from security_observability import configure_security_observability, ensure_security_observability_indexes, record_security_event
 from owner_delivery_operations import build_delivery_operations_router, ensure_delivery_operations_indexes, scheduler_loop
-from appointment_email_delivery import ensure_appointment_email_delivery_indexes
+from appointment_email_delivery import ensure_appointment_email_delivery_indexes, execute_compatibility_delivery
 from platform_billing_settings import build_platform_billing_router, ensure_platform_billing_indexes
 from owner_third_party_matrix import build_third_party_matrix_router, ensure_third_party_matrix_indexes
 
@@ -4199,50 +4199,59 @@ async def create_public_appointment(org_id: str, data: AppointmentCreate):
         await db.booking_locks.delete_one({"_id": booking_lock_id})
         booking_lock_id = None
 
-        # SEND CONFIRMATION EMAIL
+        # NEXUS_8A7G1B1B_V2_CONFIRMATION_TRACE_BRIDGE
         if data.client_email:
             try:
-                # Get organization, barber and service details
-                organization = await db.organizations.find_one({"organization_id": org_id}, {"_id": 0})
-                barber = await db.barbers.find_one({"barber_id": data.barber_id}, {"_id": 0})
-                
-                # Send confirmation to customer
-                email_service.send_appointment_confirmation(
-                    to_email=data.client_email,
-                    customer_name=data.client_name,
-                    barber_name=barber.get("name", "Profesional") if barber else "Profesional",
-                    service_name=service.get("name", "Servicio"),
-                    date=data.date,
-                    time=data.time,
-                    organization_name=organization.get("name", "Nexus") if organization else "Nexus",
-                    organization_address=organization.get("address") if organization else None,
-                    cancellation_url=(
-                        f"{os.environ.get('FRONTEND_URL', '').rstrip('/')}/cancel/"
-                        f"{appointment_id}?token={management_token}"
-                    )
+                organization = await db.organizations.find_one({"organization_id": org_id}, {"_id": 0}) or {}
+                professional = await db.barbers.find_one({"barber_id": data.barber_id, "organization_id": org_id}, {"_id": 0}) or {}
+                professional_name = professional.get("display_name") or professional.get("name") or "Profesional"
+                organization_name = organization.get("name") or "Nexus"
+                confirmation_payload = {
+                    "customer_name": data.client_name,
+                    "professional_name": professional_name,
+                    "service_name": service.get("name", "Servicio"),
+                    "service_duration": service.get("duration"),
+                    "date": data.date,
+                    "time": data.time,
+                    "organization_name": organization_name,
+                    "organization_address": organization.get("address"),
+                }
+                await execute_compatibility_delivery(
+                    db, organization_id=org_id, appointment_id=appointment_id,
+                    event_type="confirmation", recipient=data.client_email,
+                    payload=confirmation_payload,
+                    sender=lambda: email_service.send_appointment_confirmation(
+                        to_email=data.client_email, customer_name=data.client_name,
+                        barber_name=professional_name, service_name=service.get("name", "Servicio"),
+                        date=data.date, time=data.time, organization_name=organization_name,
+                        organization_address=organization.get("address"),
+                        cancellation_url=(f"{os.environ.get('FRONTEND_URL', '').rstrip('/')}/cancel/"
+                                          f"{appointment_id}?token={management_token}"),
+                    ), worker_id="public_booking_confirmation",
                 )
-                
-                # ✅ SEND NOTIFICATION TO ADMIN (if enabled)
-                if organization and organization.get("notification_settings", {}).get("admin_new_appointment", True):
-                    admin_user = await db.users.find_one(
-                        {"organization_id": org_id, "role": {"$in": ["owner", "admin"]}},
-                        {"_id": 0}
-                    )
+                if organization.get("notification_settings", {}).get("admin_new_appointment", True):
+                    admin_user = await db.users.find_one({
+                        "organization_id": org_id,
+                        "role": {"$in": ["owner", "manager", "admin"]},
+                        "access_status": "approved", "active": {"$ne": False},
+                        "deleted_at": {"$exists": False}, "email": {"$type": "string"},
+                    }, {"_id": 0, "email": 1}, sort=[("role", 1), ("created_at", 1)])
                     if admin_user and admin_user.get("email"):
-                        email_service.send_admin_new_appointment_notification(
-                            admin_email=admin_user["email"],
-                            customer_name=data.client_name,
-                            customer_phone=data.client_phone,
-                            service_name=service.get("name", "Servicio"),
-                            barber_name=barber.get("name", "Profesional") if barber else "Profesional",
-                            date=data.date,
-                            time=data.time,
-                            organization_name=organization.get("name", "Nexus")
+                        await execute_compatibility_delivery(
+                            db, organization_id=org_id, appointment_id=appointment_id,
+                            event_type="admin_new_booking", recipient=admin_user["email"],
+                            payload={"customer_name": data.client_name, "customer_phone": data.client_phone,
+                                     "professional_name": professional_name, "service_name": service.get("name", "Servicio"),
+                                     "date": data.date, "time": data.time, "organization_name": organization_name},
+                            sender=lambda: email_service.send_admin_new_appointment_notification(
+                                admin_email=admin_user["email"], customer_name=data.client_name,
+                                customer_phone=data.client_phone, service_name=service.get("name", "Servicio"),
+                                barber_name=professional_name, date=data.date, time=data.time,
+                                organization_name=organization_name,
+                            ), worker_id="public_booking_admin_notification",
                         )
-                
             except Exception as email_error:
-                # Don't fail appointment creation if email fails
-                print(f"⚠️ Email sending failed: {email_error}")
+                logger.warning("appointment_email_trace_failed appointment_id=%s diagnostic_code=%s", appointment_id, type(email_error).__name__)
         
     except Exception as e:
         if booking_lock_id:
