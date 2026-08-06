@@ -33,7 +33,7 @@ from owner_subscription_lifecycle_api import build_lifecycle_router
 from request_security import TRUSTED_ORIGINS, enforce_request_security, refresh_trusted_origins
 from security_observability import configure_security_observability, ensure_security_observability_indexes, record_security_event
 from owner_delivery_operations import build_delivery_operations_router, ensure_delivery_operations_indexes, scheduler_loop
-from appointment_email_delivery import ensure_appointment_email_delivery_indexes, execute_compatibility_delivery
+from appointment_email_delivery import ensure_appointment_email_delivery_indexes, execute_compatibility_delivery, cancel_pending_deliveries
 from platform_billing_settings import build_platform_billing_router, ensure_platform_billing_indexes
 from owner_third_party_matrix import build_third_party_matrix_router, ensure_third_party_matrix_indexes
 
@@ -2286,6 +2286,103 @@ async def get_today_appointments(authorization: Optional[str] = Header(None), se
     today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
     return await get_appointments(date=today, authorization=authorization, session_token=session_token)
 
+# NEXUS_8A7G1B1C_CANCELLATION_CHECKOUT_TRACE_V1
+async def _trace_appointment_cancellation(appointment: dict, worker_id: str) -> None:
+    appointment_id = appointment.get("appointment_id")
+    organization_id = appointment.get("organization_id")
+    try:
+        await cancel_pending_deliveries(
+            db,
+            appointment_id=appointment_id,
+            event_types=["reminder_24h"],
+            reason="appointment_cancelled",
+        )
+        recipient = appointment.get("client_email")
+        if not recipient:
+            return
+        organization = await db.organizations.find_one(
+            {"organization_id": organization_id},
+            {"_id": 0},
+        ) or {}
+        if not organization.get("notification_settings", {}).get("appointment_cancelled", True):
+            return
+        organization_name = organization.get("name") or "Nexus"
+        payload = {
+            "customer_name": appointment.get("client_name") or "Cliente",
+            "date": appointment.get("date"),
+            "time": appointment.get("time"),
+            "organization_name": organization_name,
+        }
+        await execute_compatibility_delivery(
+            db,
+            organization_id=organization_id,
+            appointment_id=appointment_id,
+            event_type="cancelled",
+            recipient=recipient,
+            payload=payload,
+            sender=lambda: email_service.send_appointment_cancelled(
+                to_email=recipient,
+                customer_name=payload["customer_name"],
+                date=payload["date"],
+                time=payload["time"],
+                organization_name=organization_name,
+            ),
+            worker_id=worker_id,
+        )
+    except Exception as email_error:
+        logger.warning(
+            "appointment_cancellation_trace_failed appointment_id=%s diagnostic_code=%s",
+            appointment_id,
+            type(email_error).__name__,
+        )
+
+
+async def _trace_appointment_completion(appointment: dict, service: dict, worker_id: str) -> None:
+    appointment_id = appointment.get("appointment_id")
+    organization_id = appointment.get("organization_id")
+    try:
+        recipient = appointment.get("client_email")
+        if not recipient:
+            return
+        organization = await db.organizations.find_one(
+            {"organization_id": organization_id},
+            {"_id": 0},
+        ) or {}
+        if not organization.get("notification_settings", {}).get("appointment_completed", True):
+            return
+        organization_name = organization.get("name") or "Nexus"
+        service_name = (service or {}).get("name") or "Servicio"
+        payload = {
+            "customer_name": appointment.get("client_name") or "Cliente",
+            "organization_name": organization_name,
+            "date": appointment.get("date"),
+            "service_name": service_name,
+            "service_duration": (service or {}).get("duration"),
+        }
+        await execute_compatibility_delivery(
+            db,
+            organization_id=organization_id,
+            appointment_id=appointment_id,
+            event_type="completed",
+            recipient=recipient,
+            payload=payload,
+            sender=lambda: email_service.send_appointment_completed(
+                to_email=recipient,
+                customer_name=payload["customer_name"],
+                organization_name=organization_name,
+                date=payload["date"],
+                service_name=service_name,
+            ),
+            worker_id=worker_id,
+        )
+    except Exception as email_error:
+        logger.warning(
+            "appointment_completion_trace_failed appointment_id=%s diagnostic_code=%s",
+            appointment_id,
+            type(email_error).__name__,
+        )
+
+
 @api_router.put("/appointments/{appointment_id}/status")
 async def update_appointment_status(
     appointment_id: str, 
@@ -2363,6 +2460,12 @@ async def update_appointment_status(
         except Exception as email_error:
             print(f"⚠️ Completed email failed: {email_error}")
     
+    if status == "cancelled" and previous_status != "cancelled":
+        await _trace_appointment_cancellation(
+            appointment,
+            worker_id="management_appointment_cancellation",
+        )
+
     return {"message": f"Appointment status updated to {status}", "appointment_id": appointment_id, "status": status}
 
 # NEXUS_CHECKOUT_BACKEND_V1
@@ -2398,6 +2501,11 @@ async def checkout_appointment(appointment_id: str, data: AppointmentCheckoutReq
         raise
     if apt.get('client_phone'):await db.clients.update_one({'phone':apt['client_phone'],'organization_id':org_id},{'$inc':{'total_visits':1},'$set':{'last_visit':apt.get('date'),'updated_at':now}})
     await commission_audit(org_id,'appointment_checkout_completed',item['transaction_id'],user.user_id,None,{k:v for k,v in item.items() if k!='notes'},data.notes)
+    await _trace_appointment_completion(
+        apt,
+        service,
+        worker_id="appointment_checkout_completion",
+    )
     return item
 
 @api_router.get("/appointments/{appointment_id}/transaction")
@@ -4377,6 +4485,10 @@ async def cancel_public_appointment(appointment_id: str, token: str):
     if result.modified_count != 1:
         raise HTTPException(status_code=409, detail="Appointment status changed; refresh the page")
 
+    await _trace_appointment_cancellation(
+        appointment,
+        worker_id="public_appointment_cancellation",
+    )
     logger.info(f"Public appointment {appointment_id} cancelled using a valid management token")
     return {"message": "Appointment cancelled successfully", "appointment_id": appointment_id}
 
