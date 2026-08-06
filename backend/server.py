@@ -866,6 +866,35 @@ async def list_team_invitations(
     return invitations
 
 
+# NEXUS_8A7C1_INVITATION_DELIVERY_POLICY_V1
+def invitation_delivery_policy(recipient=None):
+    from urllib.parse import urlparse
+    mode=os.environ.get("INVITATION_DELIVERY_MODE","simulation").strip().lower()
+    if mode not in {"disabled","simulation","allowlist","live"}:
+        raise HTTPException(status_code=500,detail={"code":"invitation_delivery_mode_invalid","message":"Invitation delivery mode is invalid"})
+    public_url=os.environ.get("PUBLIC_APP_URL","").strip().rstrip("/")
+    legacy_url=os.environ.get("FRONTEND_URL","").strip().rstrip("/")
+    base_url=public_url or legacy_url
+    if mode=="disabled":
+        raise HTTPException(status_code=503,detail={"code":"invitation_delivery_disabled","message":"Invitation delivery is disabled"})
+    if not base_url:
+        raise HTTPException(status_code=500,detail={"code":"invitation_public_url_missing","message":"Invitation public URL is not configured"})
+    parsed=urlparse(base_url)
+    if parsed.scheme not in {"http","https"} or not parsed.netloc or parsed.username or parsed.password or parsed.query or parsed.fragment:
+        raise HTTPException(status_code=500,detail={"code":"invitation_public_url_invalid","message":"Invitation public URL is invalid"})
+    if mode=="live" and not public_url:
+        raise HTTPException(status_code=500,detail={"code":"invitation_public_url_required","message":"PUBLIC_APP_URL is required for live invitation delivery"})
+    allowlist={normalize_email(item) for item in os.environ.get("INVITATION_TEST_ALLOWLIST","").split(",") if item.strip()}
+    normalized=normalize_email(recipient or "")
+    can_send=mode=="live" or (mode=="allowlist" and normalized in allowlist)
+    if mode=="allowlist" and not can_send:
+        raise HTTPException(status_code=403,detail={"code":"invitation_recipient_not_allowed","message":"Recipient is not allowed in invitation test mode"})
+    return {"mode":mode,"base_url":base_url,"can_send":can_send,"uses_legacy_url":not bool(public_url)}
+
+def invitation_public_url(raw_token,recipient=None):
+    policy=invitation_delivery_policy(recipient)
+    return f"{policy['base_url']}/accept-invitation?token={raw_token}",policy
+
 @api_router.post("/team/invitations")
 async def create_team_invitation(
     data: TeamInvitationCreate,
@@ -890,7 +919,7 @@ async def create_team_invitation(
     active_invitation = await db.invitations.find_one({
         "organization_id": organization_id,
         "normalized_email": normalized_email,
-        "status": {"$in": ["sent", "delivery_failed"]},
+        "status": {"$in": ["sent", "delivery_failed", "simulated"]},
         "expires_at": {"$gt": datetime.now(timezone.utc).isoformat()}
     }, {"_id": 0})
     if active_invitation:
@@ -903,10 +932,7 @@ async def create_team_invitation(
     now = datetime.now(timezone.utc)
     expires_at = now + timedelta(days=7)
     invitation_id = f"inv_{uuid.uuid4().hex[:12]}"
-    frontend_url = os.environ.get("FRONTEND_URL", "").rstrip("/")
-    if not frontend_url:
-        raise HTTPException(status_code=500, detail="Invitation delivery is not configured")
-    invitation_url = f"{frontend_url}/accept-invitation?token={raw_token}"
+    invitation_url, delivery_policy = invitation_public_url(raw_token, normalized_email)
 
     invitation_doc = {
         "invitation_id": invitation_id,
@@ -927,15 +953,17 @@ async def create_team_invitation(
     }
     await db.invitations.insert_one(invitation_doc)
 
-    sent = email_service.send_team_invitation(
-        to_email=normalized_email,
-        organization_name=organization.get("name", "Nexus by CS2"),
-        inviter_name=current_user.name,
-        role=data.role,
-        invitation_url=invitation_url,
-        expires_days=7
-    )
-    status_value = "sent" if sent else "delivery_failed"
+    sent = False
+    if delivery_policy["can_send"]:
+        sent = email_service.send_team_invitation(
+            to_email=normalized_email,
+            organization_name=organization.get("name", "Nexus by CS2"),
+            inviter_name=current_user.name,
+            role=data.role,
+            invitation_url=invitation_url,
+            expires_days=7
+        )
+    status_value = ("sent" if sent else "delivery_failed") if delivery_policy["can_send"] else "simulated"
     update_fields = {
         "status": status_value,
         "delivery_status": status_value,
@@ -954,8 +982,9 @@ async def create_team_invitation(
         "status": status_value,
         "delivery_status": status_value,
         "expires_at": expires_at.isoformat(),
-        "invitation_url": invitation_url if not sent else None,
-        "message": "Invitation sent successfully" if sent else "Invitation created, but email delivery failed"
+        "invitation_url": invitation_url if delivery_policy["mode"] == "simulation" else None,
+        "delivery_mode": delivery_policy["mode"],
+        "message": "Invitation sent successfully" if sent else ("Invitation simulated without email delivery" if delivery_policy["mode"] == "simulation" else "Invitation created, but email delivery failed")
     }
 
 
@@ -978,10 +1007,7 @@ async def resend_team_invitation(
     raw_token = secrets.token_urlsafe(32)
     now = datetime.now(timezone.utc)
     expires_at = now + timedelta(days=7)
-    frontend_url = os.environ.get("FRONTEND_URL", "").rstrip("/")
-    if not frontend_url:
-        raise HTTPException(status_code=500, detail="Invitation delivery is not configured")
-    invitation_url = f"{frontend_url}/accept-invitation?token={raw_token}"
+    invitation_url, delivery_policy = invitation_public_url(raw_token, invitation["email"])
 
     # Rotate the token in the database BEFORE sending the email. This makes
     # every resend immediately invalidate all previous links and avoids a race
@@ -1006,15 +1032,17 @@ async def resend_team_invitation(
     if rotation_result.modified_count != 1:
         raise HTTPException(status_code=409, detail="Invitation changed before it could be resent")
 
-    sent = email_service.send_team_invitation(
-        to_email=invitation["email"],
-        organization_name=invitation.get("organization_name", "Nexus by CS2"),
-        inviter_name=current_user.name,
-        role=invitation["role"],
-        invitation_url=invitation_url,
-        expires_days=7
-    )
-    status_value = "sent" if sent else "delivery_failed"
+    sent = False
+    if delivery_policy["can_send"]:
+        sent = email_service.send_team_invitation(
+            to_email=invitation["email"],
+            organization_name=invitation.get("organization_name", "Nexus by CS2"),
+            inviter_name=current_user.name,
+            role=invitation["role"],
+            invitation_url=invitation_url,
+            expires_days=7
+        )
+    status_value = ("sent" if sent else "delivery_failed") if delivery_policy["can_send"] else "simulated"
     final_fields = {
         "status": status_value,
         "delivery_status": status_value,
@@ -1031,8 +1059,9 @@ async def resend_team_invitation(
         "status": status_value,
         "delivery_status": status_value,
         "expires_at": expires_at.isoformat(),
-        "invitation_url": invitation_url if not sent else None,
-        "message": "Invitation sent successfully" if sent else "Invitation delivery failed"
+        "invitation_url": invitation_url if delivery_policy["mode"] == "simulation" else None,
+        "delivery_mode": delivery_policy["mode"],
+        "message": "Invitation sent successfully" if sent else ("Invitation simulated without email delivery" if delivery_policy["mode"] == "simulation" else "Invitation delivery failed")
     }
 
 
@@ -1073,7 +1102,7 @@ async def validate_public_invitation(token: str):
         raise HTTPException(status_code=400, detail="invitation_already_used")
     if invitation.get("status") == "revoked":
         raise HTTPException(status_code=400, detail="invitation_revoked")
-    if invitation.get("status") not in ["sent", "delivery_failed"]:
+    if invitation.get("status") not in ["sent", "delivery_failed", "simulated"]:
         raise HTTPException(status_code=400, detail="invitation_not_available")
     expires_at = datetime.fromisoformat(invitation["expires_at"])
     if expires_at.tzinfo is None:
@@ -1104,7 +1133,7 @@ async def accept_public_invitation(data: InvitationAcceptRequest):
         raise HTTPException(status_code=400, detail="invitation_already_used")
     if invitation.get("status") == "revoked":
         raise HTTPException(status_code=400, detail="invitation_revoked")
-    if invitation.get("status") not in ["sent", "delivery_failed"]:
+    if invitation.get("status") not in ["sent", "delivery_failed", "simulated"]:
         raise HTTPException(status_code=400, detail="invitation_not_available")
     expires_at = datetime.fromisoformat(invitation["expires_at"])
     if expires_at.tzinfo is None:
@@ -1172,7 +1201,7 @@ async def accept_public_invitation(data: InvitationAcceptRequest):
             await db.barbers.insert_one(barber_doc)
 
         result = await db.invitations.update_one(
-            {"invitation_id": invitation["invitation_id"], "status": {"$in": ["sent", "delivery_failed"]}},
+            {"invitation_id": invitation["invitation_id"], "status": {"$in": ["sent", "delivery_failed", "simulated"]}},
             {"$set": {
                 "status": "accepted",
                 "accepted_at": now.isoformat(),
