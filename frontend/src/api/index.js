@@ -61,6 +61,7 @@ export const authAPI = {
 export const ownerAPI = {
   getUsers: () => api.get('/owner/users'),
   updateAccess: (userId, status) => api.put(`/owner/users/${userId}/access`, { access_status: status }),
+  recoverOrganizationRole: (userId, data) => api.post(`/owner/users/${userId}/organization-role`, data),
   deleteUser: (userId) => api.delete(`/owner/users/${userId}`),
 };
 
