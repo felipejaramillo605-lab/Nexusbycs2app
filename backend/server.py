@@ -4412,6 +4412,9 @@ api_router.include_router(build_lifecycle_router(db, get_current_user, invoice_p
 api_router.include_router(build_delivery_operations_router(db, get_current_user))
 api_router.include_router(build_platform_billing_router(db, get_current_user))
 api_router.include_router(build_third_party_matrix_router(db, get_current_user))
+# NEXUS_8A7D3A_SECURE_PROFESSIONAL_MEDIA_REGISTRATION_V1
+from professional_media import build_professional_media_router
+api_router.include_router(build_professional_media_router(db, get_current_user, require_management_role, resolve_team_organization, enforce_rls_on_write, record_security_event))
 
 app.include_router(api_router)
 
