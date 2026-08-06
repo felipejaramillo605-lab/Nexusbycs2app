@@ -401,6 +401,10 @@ class TeamInvitationCreate(BaseModel):
     role: str = "staff"
     organization_id: Optional[str] = None
 
+# NEXUS_8A7C2A_INVITATION_OPERATIONS_V1
+class TeamInvitationRevokeRequest(BaseModel):
+    reason: str = Field(min_length=10, max_length=500)
+
 class TeamRoleUpdate(BaseModel):
     role: str
 
@@ -895,6 +899,40 @@ def invitation_public_url(raw_token,recipient=None):
     policy=invitation_delivery_policy(recipient)
     return f"{policy['base_url']}/accept-invitation?token={raw_token}",policy
 
+
+def invitation_operation_limits():
+    cooldown=max(30,min(int(os.environ.get("INVITATION_RESEND_COOLDOWN_SECONDS","60")),3600))
+    maximum=max(1,min(int(os.environ.get("INVITATION_MAX_SEND_ATTEMPTS","8")),20))
+    return cooldown,maximum
+
+
+def invitation_audit_snapshot(invitation,delivery_mode=None):
+    return {
+        "invitation_id":invitation.get("invitation_id"),
+        "organization_id":invitation.get("organization_id"),
+        "normalized_email":invitation.get("normalized_email"),
+        "role":invitation.get("role"),
+        "status":invitation.get("status"),
+        "delivery_status":invitation.get("delivery_status"),
+        "delivery_mode":delivery_mode,
+        "send_attempts":int(invitation.get("send_attempts") or 0),
+    }
+
+
+async def record_invitation_audit(event_type,invitation,actor_user_id,delivery_mode=None,reason=None):
+    await db.audit_events.insert_one({
+        "audit_id":f"audit_{uuid.uuid4().hex[:12]}",
+        "organization_id":invitation.get("organization_id"),
+        "event_type":event_type,
+        "entity_type":"team_invitation",
+        "entity_id":invitation.get("invitation_id"),
+        "actor_user_id":actor_user_id,
+        "previous_value":None,
+        "new_value":invitation_audit_snapshot(invitation,delivery_mode),
+        "reason":reason,
+        "created_at":datetime.now(timezone.utc).isoformat(),
+    })
+
 @api_router.post("/team/invitations")
 async def create_team_invitation(
     data: TeamInvitationCreate,
@@ -1004,8 +1042,20 @@ async def resend_team_invitation(
     if invitation.get("status") in ["accepted", "revoked"]:
         raise HTTPException(status_code=400, detail="Invitation cannot be resent")
 
-    raw_token = secrets.token_urlsafe(32)
+    cooldown,max_attempts=invitation_operation_limits()
+    attempts=int(invitation.get("send_attempts") or 0)
+    if attempts>=max_attempts:
+        raise HTTPException(status_code=409,detail={"code":"invitation_send_limit_reached","message":"La invitación alcanzó el máximo de envíos.","send_attempts":attempts,"max_send_attempts":max_attempts})
     now = datetime.now(timezone.utc)
+    last_raw=invitation.get("last_send_attempt_at")
+    if last_raw:
+        last=datetime.fromisoformat(last_raw)
+        if last.tzinfo is None:last=last.replace(tzinfo=timezone.utc)
+        elapsed=max(0,(now-last).total_seconds())
+        if elapsed<cooldown:
+            raise HTTPException(status_code=429,detail={"code":"invitation_resend_cooldown","message":"Espera antes de reenviar la invitación.","retry_after_seconds":max(1,int(cooldown-elapsed))})
+
+    raw_token = secrets.token_urlsafe(32)
     expires_at = now + timedelta(days=7)
     invitation_url, delivery_policy = invitation_public_url(raw_token, invitation["email"])
 
@@ -1015,7 +1065,9 @@ async def resend_team_invitation(
     rotation_result = await db.invitations.update_one(
         {
             "invitation_id": invitation_id,
-            "status": {"$nin": ["accepted", "revoked"]}
+            "status": {"$nin": ["accepted", "revoked"]},
+            "send_attempts": attempts,
+            "last_send_attempt_at": invitation.get("last_send_attempt_at")
         },
         {"$set": {
             "token_hash": token_digest(raw_token),
@@ -1068,6 +1120,7 @@ async def resend_team_invitation(
 @api_router.post("/team/invitations/{invitation_id}/revoke")
 async def revoke_team_invitation(
     invitation_id: str,
+    data: TeamInvitationRevokeRequest,
     authorization: Optional[str] = Header(None),
     session_token: Optional[str] = Cookie(None)
 ):
@@ -1080,15 +1133,20 @@ async def revoke_team_invitation(
         raise HTTPException(status_code=403, detail="You cannot manage this invitation")
     if invitation.get("status") == "accepted":
         raise HTTPException(status_code=400, detail="Accepted invitation cannot be revoked")
-    await db.invitations.update_one(
-        {"invitation_id": invitation_id},
-        {"$set": {
-            "status": "revoked",
-            "revoked_at": datetime.now(timezone.utc).isoformat(),
-            "updated_at": datetime.now(timezone.utc).isoformat()
-        }}
+    reason=data.reason.strip(); timestamp=datetime.now(timezone.utc).isoformat()
+    result=await db.invitations.update_one(
+        {"invitation_id":invitation_id,"status":{"$nin":["accepted","revoked"]}},
+        {"$set":{"status":"revoked","revoked_at":timestamp,"revoked_by_user_id":current_user.user_id,"revocation_reason":reason,"updated_at":timestamp}}
     )
-    return {"message": "Invitation revoked"}
+    if result.modified_count!=1:
+        raise HTTPException(status_code=409,detail={"code":"invitation_revoke_conflict","message":"La invitación cambió antes de ser revocada."})
+    updated={**invitation,"status":"revoked","delivery_status":invitation.get("delivery_status"),"revoked_at":timestamp}
+    try:
+        await record_invitation_audit("team_invitation_revoked",updated,current_user.user_id,reason=reason)
+    except Exception:
+        await db.invitations.update_one({"invitation_id":invitation_id,"status":"revoked","revoked_by_user_id":current_user.user_id,"revoked_at":timestamp},{"$set":{"status":invitation.get("status"),"updated_at":invitation.get("updated_at") or invitation.get("created_at")},"$unset":{"revoked_at":"","revoked_by_user_id":"","revocation_reason":""}})
+        raise
+    return {"message":"Invitation revoked","invitation_id":invitation_id,"status":"revoked"}
 
 
 @api_router.get("/public/invitations/validate")
