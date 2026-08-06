@@ -3,6 +3,8 @@ Email Service for Nexus by CS2
 Sends automated notifications using Gmail SMTP
 """
 import os
+import hashlib
+import logging
 import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
@@ -16,6 +18,14 @@ from html import escape
 # Load environment variables
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
+
+# NEXUS_8A7G1B2B0_SMTP_LOG_PRIVACY_V1
+logger = logging.getLogger(__name__)
+
+
+def recipient_fingerprint(value: str) -> str:
+    return hashlib.sha256(str(value or "").strip().lower().encode()).hexdigest()[:16]
+
 
 class EmailService:
     def __init__(self):
@@ -80,8 +90,11 @@ class EmailService:
             
             return calendar_url
             
-        except Exception as e:
-            print(f"Error creating Google Calendar link: {str(e)}")
+        except Exception as exc:
+            logger.warning(
+                "calendar_link_failed diagnostic_code=%s",
+                type(exc).__name__,
+            )
             return ""
         
     def _send_email(self, to_email: str, subject: str, html_body: str, text_body: Optional[str] = None) -> bool:
@@ -107,11 +120,18 @@ class EmailService:
                 server.login(self.smtp_user, self.smtp_password)
                 server.send_message(msg)
             
-            print(f"✅ Email sent to {to_email}: {subject}")
+            logger.info(
+                "email_provider_accepted recipient_fingerprint=%s",
+                recipient_fingerprint(to_email),
+            )
             return True
-            
-        except Exception as e:
-            print(f"❌ Error sending email to {to_email}: {str(e)}")
+
+        except Exception as exc:
+            logger.warning(
+                "email_provider_failed recipient_fingerprint=%s diagnostic_code=%s",
+                recipient_fingerprint(to_email),
+                type(exc).__name__,
+            )
             return False
     
     def send_appointment_confirmation(
