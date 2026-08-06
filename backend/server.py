@@ -4415,6 +4415,9 @@ api_router.include_router(build_third_party_matrix_router(db, get_current_user))
 # NEXUS_8A7D3A_SECURE_PROFESSIONAL_MEDIA_REGISTRATION_V1
 from professional_media import build_professional_media_router
 api_router.include_router(build_professional_media_router(db, get_current_user, require_management_role, resolve_team_organization, enforce_rls_on_write, record_security_event))
+# NEXUS_8A7D3C1_OWNER_MEDIA_RECONCILIATION_REGISTRATION_V1
+from professional_media_lifecycle import build_professional_media_lifecycle_router
+api_router.include_router(build_professional_media_lifecycle_router(db, get_current_user))
 
 app.include_router(api_router)
 
