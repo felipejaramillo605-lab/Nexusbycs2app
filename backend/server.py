@@ -33,6 +33,7 @@ from owner_subscription_lifecycle_api import build_lifecycle_router
 from request_security import TRUSTED_ORIGINS, enforce_request_security, refresh_trusted_origins
 from security_observability import configure_security_observability, ensure_security_observability_indexes, record_security_event
 from owner_delivery_operations import build_delivery_operations_router, ensure_delivery_operations_indexes, scheduler_loop
+from appointment_email_delivery import ensure_appointment_email_delivery_indexes
 from platform_billing_settings import build_platform_billing_router, ensure_platform_billing_indexes
 from owner_third_party_matrix import build_third_party_matrix_router, ensure_third_party_matrix_indexes
 
@@ -4562,6 +4563,7 @@ async def create_application_indexes():
     await ensure_billing_hub_indexes(db)
     await ensure_lifecycle_indexes(db)
     await ensure_delivery_operations_indexes(db)
+    await ensure_appointment_email_delivery_indexes(db)
     await ensure_platform_billing_indexes(db)
     await ensure_third_party_matrix_indexes(db)
     await ensure_professional_media_lifecycle_indexes(db)
