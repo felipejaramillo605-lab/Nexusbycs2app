@@ -155,3 +155,99 @@ async def cancel_pending_deliveries(db, *, appointment_id, event_types=None, rea
         query["event_type"] = {"$in": list(event_types)}
     result = await db.appointment_email_deliveries.update_many(query, {"$set": {"status": "cancelled", "cancelled_at": at, "cancellation_reason": clean_error_code(reason), "updated_at": at, "next_attempt_at": None}})
     return int(result.modified_count)
+
+
+# NEXUS_8A7G1B1A_COMPATIBILITY_TRACE_EXECUTOR_V1
+import asyncio
+
+
+async def claim_delivery_by_key(db, delivery_key_value, worker_id, at=None):
+    at = at or now_utc()
+    lease_until = at + timedelta(seconds=processing_lease_seconds())
+    query = {
+        "delivery_key": delivery_key_value,
+        "status": {"$in": list(RECOVERABLE_STATUSES)},
+        "next_attempt_at": {"$lte": at},
+        "$expr": {"$lt": ["$attempt_count", "$max_attempts"]},
+    }
+    update = {
+        "$set": {
+            "status": "processing",
+            "processing_worker_id": worker_id,
+            "processing_started_at": at,
+            "processing_expires_at": lease_until,
+            "updated_at": at,
+        },
+        "$inc": {"attempt_count": 1},
+    }
+    return await db.appointment_email_deliveries.find_one_and_update(
+        query,
+        update,
+        return_document=True,
+        projection={"_id": 0},
+    )
+
+
+def normalize_sender_result(result):
+    if isinstance(result, dict):
+        accepted = bool(result.get("accepted"))
+        return {
+            "accepted": accepted,
+            "provider": str(result.get("provider") or "smtp")[:40],
+            "provider_response_code": str(result.get("provider_response_code") or ("accepted" if accepted else "failed"))[:80],
+            "error_code": clean_error_code(result.get("error_code")) if result.get("error_code") else None,
+        }
+    accepted = bool(result)
+    return {
+        "accepted": accepted,
+        "provider": "smtp",
+        "provider_response_code": "accepted" if accepted else "failed",
+        "error_code": None if accepted else "smtp_send_failed",
+    }
+
+
+async def execute_compatibility_delivery(
+    db,
+    *,
+    organization_id,
+    appointment_id,
+    event_type,
+    recipient,
+    payload,
+    sender,
+    template_version="v1",
+    worker_id="compatibility_bridge",
+):
+    queued = await enqueue_delivery(
+        db,
+        organization_id=organization_id,
+        appointment_id=appointment_id,
+        event_type=event_type,
+        recipient=recipient,
+        template_version=template_version,
+        payload=payload,
+    )
+    delivery = queued.get("delivery")
+    if not delivery:
+        return {"status": "missing_recipient", "accepted": False, "created": False}
+    if delivery.get("status") == "provider_accepted":
+        return {"status": "provider_accepted", "accepted": True, "created": False, "idempotent_replay": True, "delivery_id": delivery["delivery_id"]}
+    claimed = await claim_delivery_by_key(db, delivery["delivery_key"], worker_id)
+    if not claimed:
+        refreshed = await db.appointment_email_deliveries.find_one({"delivery_key": delivery["delivery_key"]}, {"_id": 0})
+        return {"status": (refreshed or delivery).get("status"), "accepted": (refreshed or delivery).get("status") == "provider_accepted", "created": queued.get("created", False), "idempotent_replay": True, "delivery_id": delivery["delivery_id"]}
+    try:
+        raw = await asyncio.to_thread(sender)
+        result = normalize_sender_result(raw)
+    except Exception as exc:
+        result = {"accepted": False, "provider": "smtp", "provider_response_code": "exception", "error_code": clean_error_code(type(exc).__name__)}
+    status = "provider_accepted" if result["accepted"] else "failed"
+    await record_attempt(
+        db,
+        claimed,
+        status=status,
+        provider=result["provider"],
+        provider_response_code=result["provider_response_code"],
+        error_code=result["error_code"],
+    )
+    return {"status": status, "accepted": result["accepted"], "created": queued.get("created", False), "idempotent_replay": False, "delivery_id": claimed["delivery_id"], "recipient_fingerprint": claimed["recipient_fingerprint"]}
