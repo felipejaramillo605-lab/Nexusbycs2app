@@ -428,8 +428,10 @@ class StaffCommissionOverrideUpdate(BaseModel):
     business_percent: float
     reason: str
 
+# NEXUS_8A7C3A_ATOMIC_INVITATION_ACCEPTANCE_V1
 class InvitationAcceptRequest(BaseModel):
     token: str
+    acceptance_id: str = Field(min_length=16, max_length=100)
     first_name: str
     last_name: str
     phone: str
@@ -1183,106 +1185,107 @@ async def validate_public_invitation(token: str):
     }
 
 
+ACCEPTABLE_INVITATION_STATES = ["sent", "delivery_failed", "simulated"]
+INVITATION_ACCEPTANCE_LOCK_SECONDS = 120
+
+
+def _parse_utc(value):
+    parsed = datetime.fromisoformat(value)
+    return parsed.replace(tzinfo=timezone.utc) if parsed.tzinfo is None else parsed
+
+
+async def _rollback_invitation_acceptance(invitation_id: str, acceptance_id: str, previous_status: str):
+    await db.audit_events.delete_many({"acceptance_id": acceptance_id, "event_type": "invitation_accepted"})
+    await db.barbers.delete_many({"acceptance_id": acceptance_id})
+    await db.users.delete_many({"acceptance_id": acceptance_id})
+    await db.invitations.update_one(
+        {"invitation_id": invitation_id, "status": "accepting", "acceptance_id": acceptance_id},
+        {"$set": {"status": previous_status, "updated_at": datetime.now(timezone.utc).isoformat()}, "$unset": {"acceptance_id": "", "acceptance_started_at": "", "acceptance_lock_expires_at": "", "acceptance_previous_status": ""}}
+    )
+
+
+async def _reserve_invitation_acceptance(digest: str, acceptance_id: str):
+    invitation = await db.invitations.find_one({"token_hash": digest}, {"_id": 0})
+    if not invitation:
+        raise HTTPException(status_code=400, detail="invitation_replaced_or_invalid")
+    if invitation.get("status") == "accepted":
+        if invitation.get("acceptance_id") == acceptance_id and invitation.get("accepted_user_id"):
+            return invitation, True
+        raise HTTPException(status_code=400, detail="invitation_already_used")
+    if invitation.get("status") == "revoked":
+        raise HTTPException(status_code=400, detail="invitation_revoked")
+    now = datetime.now(timezone.utc)
+    if invitation.get("status") == "accepting":
+        lock_raw = invitation.get("acceptance_lock_expires_at")
+        if lock_raw and _parse_utc(lock_raw) > now:
+            raise HTTPException(status_code=409, detail={"code": "acceptance_in_progress", "message": "La invitación está siendo procesada. Espera antes de reintentar."})
+        old_id = invitation.get("acceptance_id")
+        previous = invitation.get("acceptance_previous_status") or "sent"
+        if old_id:
+            await _rollback_invitation_acceptance(invitation["invitation_id"], old_id, previous)
+        invitation = await db.invitations.find_one({"token_hash": digest}, {"_id": 0})
+    if invitation.get("status") not in ACCEPTABLE_INVITATION_STATES:
+        raise HTTPException(status_code=400, detail="invitation_not_available")
+    if _parse_utc(invitation["expires_at"]) < now:
+        raise HTTPException(status_code=400, detail="invitation_expired")
+    previous_status = invitation["status"]
+    lock_expires = now + timedelta(seconds=INVITATION_ACCEPTANCE_LOCK_SECONDS)
+    result = await db.invitations.update_one(
+        {"invitation_id": invitation["invitation_id"], "token_hash": digest, "status": previous_status, "updated_at": invitation.get("updated_at")},
+        {"$set": {"status": "accepting", "acceptance_id": acceptance_id, "acceptance_previous_status": previous_status, "acceptance_started_at": now.isoformat(), "acceptance_lock_expires_at": lock_expires.isoformat(), "updated_at": now.isoformat()}}
+    )
+    if result.modified_count != 1:
+        raise HTTPException(status_code=409, detail={"code": "acceptance_in_progress", "message": "La invitación cambió antes de reservarse. Intenta nuevamente."})
+    reserved = await db.invitations.find_one({"invitation_id": invitation["invitation_id"], "acceptance_id": acceptance_id}, {"_id": 0})
+    return reserved, False
+
+
 @api_router.post("/public/invitations/accept")
 async def accept_public_invitation(data: InvitationAcceptRequest):
     if data.password != data.confirm_password:
         raise HTTPException(status_code=400, detail="Passwords do not match")
     validate_password_policy(data.password)
-
-    digest = token_digest(data.token)
-    invitation = await db.invitations.find_one(
-        {"token_hash": digest}, {"_id": 0}
-    )
-    if not invitation:
-        raise HTTPException(status_code=400, detail="invitation_replaced_or_invalid")
-    if invitation.get("status") == "accepted":
-        raise HTTPException(status_code=400, detail="invitation_already_used")
-    if invitation.get("status") == "revoked":
-        raise HTTPException(status_code=400, detail="invitation_revoked")
-    if invitation.get("status") not in ["sent", "delivery_failed", "simulated"]:
-        raise HTTPException(status_code=400, detail="invitation_not_available")
-    expires_at = datetime.fromisoformat(invitation["expires_at"])
-    if expires_at.tzinfo is None:
-        expires_at = expires_at.replace(tzinfo=timezone.utc)
-    if expires_at < datetime.now(timezone.utc):
-        raise HTTPException(status_code=400, detail="invitation_expired")
-
-    existing_user = await db.users.find_one(
-        {"email": {"$regex": f"^{re.escape(invitation['normalized_email'])}$", "$options": "i"}},
-        {"_id": 0}
-    )
-    if existing_user:
-        raise HTTPException(status_code=409, detail="A user with this email already exists")
-
-    first_name = data.first_name.strip()
-    last_name = data.last_name.strip()
+    acceptance_id = data.acceptance_id.strip()
+    if not re.fullmatch(r"[A-Za-z0-9_-]{16,100}", acceptance_id):
+        raise HTTPException(status_code=400, detail="invalid_acceptance_id")
+    first_name, last_name = data.first_name.strip(), data.last_name.strip()
     phone = sanitize_phone(data.phone)
     if not first_name or not last_name or not phone:
         raise HTTPException(status_code=400, detail="First name, last name and phone are required")
-
-    now = datetime.now(timezone.utc)
+    invitation, completed = await _reserve_invitation_acceptance(token_digest(data.token), acceptance_id)
+    if completed:
+        return {"message": "Invitation accepted successfully", "user_id": invitation["accepted_user_id"], "idempotent": True}
+    previous_status = invitation.get("acceptance_previous_status") or "sent"
     user_id = f"user_{uuid.uuid4().hex[:12]}"
+    now = datetime.now(timezone.utc)
     full_name = f"{first_name} {last_name}".strip()
-    user_doc = {
-        "user_id": user_id,
-        "email": invitation["normalized_email"],
-        "name": full_name,
-        "first_name": first_name,
-        "last_name": last_name,
-        "phone": phone,
-        "address": data.address.strip() if data.address else None,
-        "password_hash": hash_password(data.password),
-        "auth_method": "manual",
-        "picture": None,
-        "role": invitation["role"],
-        "access_status": "approved",
-        "organization_id": invitation["organization_id"],
-        "created_at": now.isoformat(),
-        "last_login": None
-    }
-    await db.users.insert_one(user_doc)
-
+    normalized = normalize_email(invitation["normalized_email"])
     try:
+        organization = await db.organizations.find_one({"organization_id": invitation["organization_id"]}, {"_id": 0})
+        if not organization:
+            raise HTTPException(status_code=404, detail="Organization not found")
+        existing = await db.users.find_one({"normalized_email": normalized, "access_status": {"$ne": "deleted"}}, {"_id": 0})
+        if not existing:
+            existing = await db.users.find_one({"email": {"$regex": f"^{re.escape(normalized)}$", "$options": "i"}, "access_status": {"$ne": "deleted"}}, {"_id": 0})
+        if existing:
+            raise HTTPException(status_code=409, detail="A user with this email already exists")
+        user_doc = {"user_id": user_id, "email": normalized, "normalized_email": normalized, "name": full_name, "first_name": first_name, "last_name": last_name, "phone": phone, "address": data.address.strip() if data.address else None, "password_hash": hash_password(data.password), "auth_method": "manual", "picture": None, "role": invitation["role"], "access_status": "approved", "organization_id": invitation["organization_id"], "acceptance_id": acceptance_id, "created_at": now.isoformat(), "last_login": None}
+        await db.users.insert_one(user_doc)
         if invitation["role"] == "staff":
-            barber_doc = {
-                "barber_id": f"barber_{uuid.uuid4().hex[:12]}",
-                "organization_id": invitation["organization_id"],
-                "user_id": user_id,
-                "name": full_name,
-                "display_name": full_name,
-                "first_name": first_name,
-                "last_name": last_name,
-                "phone": phone,
-                "address": data.address.strip() if data.address else None,
-                "bio": None,
-                "avatar": None,
-                "active": True,
-                "available_days": [1, 2, 3, 4, 5],
-                "start_time": "09:00",
-                "end_time": "18:00",
-                "service_ids": [],
-                "created_at": now.isoformat(),
-                "updated_at": now.isoformat()
-            }
-            await db.barbers.insert_one(barber_doc)
-
+            await db.barbers.insert_one({"barber_id": f"barber_{uuid.uuid4().hex[:12]}", "organization_id": invitation["organization_id"], "user_id": user_id, "name": full_name, "display_name": full_name, "first_name": first_name, "last_name": last_name, "phone": phone, "address": data.address.strip() if data.address else None, "bio": None, "avatar": None, "active": True, "available_days": [1,2,3,4,5], "start_time": "09:00", "end_time": "18:00", "service_ids": [], "acceptance_id": acceptance_id, "created_at": now.isoformat(), "updated_at": now.isoformat()})
+        audit = {"audit_id": f"audit_{uuid.uuid4().hex[:12]}", "organization_id": invitation["organization_id"], "event_type": "invitation_accepted", "entity_type": "team_invitation", "entity_id": invitation["invitation_id"], "actor_user_id": user_id, "acceptance_id": acceptance_id, "previous_value": {"status": previous_status, "role": invitation.get("role")}, "new_value": {"status": "accepted", "user_id": user_id, "role": invitation.get("role")}, "created_at": now.isoformat()}
+        await db.audit_events.insert_one(audit)
         result = await db.invitations.update_one(
-            {"invitation_id": invitation["invitation_id"], "status": {"$in": ["sent", "delivery_failed", "simulated"]}},
-            {"$set": {
-                "status": "accepted",
-                "accepted_at": now.isoformat(),
-                "accepted_user_id": user_id,
-                "updated_at": now.isoformat()
-            }}
+            {"invitation_id": invitation["invitation_id"], "status": "accepting", "acceptance_id": acceptance_id},
+            {"$set": {"status": "accepted", "accepted_at": now.isoformat(), "accepted_user_id": user_id, "updated_at": now.isoformat()}, "$unset": {"acceptance_started_at": "", "acceptance_lock_expires_at": "", "acceptance_previous_status": ""}}
         )
         if result.modified_count != 1:
-            raise RuntimeError("Invitation acceptance conflict")
+            raise RuntimeError("Invitation acceptance finalization conflict")
     except Exception:
-        await db.users.delete_one({"user_id": user_id})
-        await db.barbers.delete_many({"user_id": user_id})
+        await _rollback_invitation_acceptance(invitation["invitation_id"], acceptance_id, previous_status)
         raise
+    return {"message": "Invitation accepted successfully", "user_id": user_id, "idempotent": False}
 
-    return {"message": "Invitation accepted successfully", "user_id": user_id}
 
 # ==================== COMMISSION FOUNDATION ====================
 # NEXUS_COMMISSION_FOUNDATION_V1
@@ -4515,6 +4518,10 @@ async def create_application_indexes():
         ("normalized_email", 1),
         ("status", 1)
     ])
+    # NEXUS_8A7C3A_ATOMIC_INVITATION_ACCEPTANCE_V1
+    await db.users.create_index("normalized_email", unique=True, partialFilterExpression={"normalized_email": {"$type": "string"}}, name="users_normalized_email_unique")
+    await db.invitations.create_index("acceptance_id", unique=True, partialFilterExpression={"acceptance_id": {"$type": "string"}}, name="invitation_acceptance_id_unique")
+    await db.audit_events.create_index("acceptance_id", unique=True, partialFilterExpression={"acceptance_id": {"$type": "string"}}, name="audit_acceptance_id_unique")
     await db.barbers.create_index("barber_id", unique=True, name="professional_id_unique")
     await db.barbers.create_index("user_id", unique=True, sparse=True, name="professional_user_unique")
     await db.password_resets.create_index(
