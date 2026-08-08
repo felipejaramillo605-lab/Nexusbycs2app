@@ -48,6 +48,7 @@ const Settings = lazy(() => import('./pages/Settings'));
 const AcceptInvitation = lazy(() => import('./pages/AcceptInvitation'));
 const ForgotPassword = lazy(() => import('./pages/ForgotPassword'));
 const ResetPassword = lazy(() => import('./pages/ResetPassword'));
+const Unsubscribe = lazy(() => import('./pages/Unsubscribe'));
 const StaffProfile = lazy(() => import('./pages/StaffProfile'));
 const StaffIncome = lazy(() => import('./pages/StaffIncome'));
 const StaffAppointments = lazy(() => import('./pages/StaffAppointments'));
@@ -226,6 +227,10 @@ function AppRouter() {
         />
 
         <Route path="/account/privacy" element={<ProtectedRoute allowedRoles={['owner', 'manager', 'admin', 'staff']}><AccountPrivacy /></ProtectedRoute>} />
+        
+        {/* Public Routes */}
+        <Route path="/unsubscribe" element={<Unsubscribe />} />
+        
         <Route path="/" element={<Navigate to="/login" replace />} />
         <Route path="*" element={<NotFound />} />
         <Route path="/cancel/:appointmentId" element={<CancelAppointment />} />
