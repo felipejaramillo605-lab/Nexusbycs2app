@@ -563,5 +563,66 @@ El enlace vence en una hora y solo puede utilizarse una vez."""
         """
         return self._send_email(to_email, subject, html_body)
 
+    def send_pin_reset(self, to_email: str, customer_name: str, reset_url: str) -> bool:
+        """Send PIN reset link to client (Client Portal)"""
+        safe_name = escape(customer_name)
+        safe_url = escape(reset_url, quote=True)
+        subject = "Restablece tu PIN - Portal de Clientes Nexus"
+        html_body = f"""
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <meta charset="UTF-8">
+            <style>
+                body {{ font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; margin: 0; padding: 0; background-color: #000000; }}
+                .container {{ max-width: 600px; margin: 40px auto; background: linear-gradient(135deg, #1a1a1a 0%, #0a0a0a 100%); border-radius: 16px; overflow: hidden; border: 1px solid rgba(255,255,255,0.1); }}
+                .header {{ background: linear-gradient(135deg, #0A84FF 0%, #0071E3 100%); padding: 40px 20px; text-align: center; }}
+                .header h1 {{ color: white; margin: 0; font-size: 28px; font-weight: 300; }}
+                .content {{ padding: 40px 30px; color: #ffffff; }}
+                .button {{ display: inline-block; padding: 14px 28px; background: linear-gradient(135deg, #0A84FF 0%, #0071E3 100%); color: white; text-decoration: none; border-radius: 10px; font-weight: 500; margin: 20px 0; }}
+                .footer {{ padding: 30px; text-align: center; color: #666; font-size: 12px; border-top: 1px solid rgba(255,255,255,0.1); }}
+                .emoji {{ font-size: 48px; margin: 20px 0; }}
+            </style>
+        </head>
+        <body>
+            <div class="container">
+                <div class="header">
+                    <div class="emoji">🔐</div>
+                    <h1>Restablecer PIN</h1>
+                </div>
+                <div class="content">
+                    <p style="font-size: 18px; color: #fff;">Hola <strong>{safe_name}</strong>,</p>
+                    <p style="color: #aaa;">Recibimos una solicitud para restablecer tu PIN del Portal de Clientes.</p>
+                    
+                    <div style="text-align: center; margin: 30px 0;">
+                        <a href="{safe_url}" class="button">Crear Nuevo PIN</a>
+                    </div>
+                    
+                    <p style="color: #aaa; font-size: 14px;">Este enlace es válido por <strong>1 hora</strong> y solo puede usarse una vez.</p>
+                    <p style="color: #777; font-size: 13px; margin-top: 30px;">Si no solicitaste este cambio, ignora este correo. Tu PIN actual sigue siendo válido.</p>
+                </div>
+                <div class="footer">
+                    <p><strong>Nexus by CS2</strong> - Portal de Clientes</p>
+                    <p>Este es un email automático, por favor no respondas a este mensaje.</p>
+                </div>
+            </div>
+        </body>
+        </html>
+        """
+        text_body = f"""Hola {customer_name}.
+
+Recibimos una solicitud para restablecer tu PIN del Portal de Clientes.
+
+Usa este enlace para crear un nuevo PIN:
+{reset_url}
+
+El enlace vence en 1 hora y solo puede utilizarse una vez.
+
+Si no solicitaste este cambio, ignora este correo.
+
+---
+Nexus by CS2 - Portal de Clientes"""
+        return self._send_email(to_email, subject, html_body, text_body)
+
 # Singleton instance
 email_service = EmailService()

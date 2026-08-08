@@ -1,5 +1,5 @@
 # NEXUS_8A7D1B_REMAINING_NEUTRAL_COPY_V1
-from fastapi import FastAPI, APIRouter, HTTPException, Cookie, Response, Header, Request
+from fastapi import FastAPI, APIRouter, HTTPException, Cookie, Response, Header, Request, Depends
 from fastapi.responses import StreamingResponse, JSONResponse
 from dotenv import load_dotenv
 from starlette.middleware.cors import CORSMiddleware
@@ -227,6 +227,13 @@ class Client(BaseModel):
     marketing_consent_ip: Optional[str] = None  # IP address at consent
     reminder_consent_given: bool = True  # Transactional messages (confirmations/reminders)
     deletion_requested_at: Optional[datetime] = None  # ARCO rights - deletion request
+    # Client Portal with PIN (4-digit numeric)
+    pin_hash: Optional[str] = None  # bcrypt hash of 4-digit PIN
+    is_registered: bool = False  # True if client set up PIN (vs. guest-only)
+    pin_reset_token: Optional[str] = None  # Token for PIN recovery
+    pin_reset_expires: Optional[datetime] = None  # Expiration for reset token
+    failed_pin_attempts: int = 0  # Counter for rate limiting
+    pin_locked_until: Optional[datetime] = None  # Lockout timestamp after 5 failed attempts
     total_visits: int = 0
     last_visit: Optional[str] = None
     created_at: datetime
@@ -415,6 +422,32 @@ class ResetPasswordRequest(BaseModel):
     new_password: str
     confirm_password: Optional[str] = None
 
+# Client Portal Models (PIN-based authentication)
+class ClientRegisterRequest(BaseModel):
+    phone: str
+    organization_id: str
+    name: str
+    pin: str  # 4-digit numeric PIN
+    email: Optional[str] = None
+    marketing_consent: bool = False
+
+class ClientLoginRequest(BaseModel):
+    phone: str
+    organization_id: str
+    pin: str  # 4-digit numeric PIN
+
+class ClientChangePinRequest(BaseModel):
+    current_pin: str
+    new_pin: str
+
+class ClientForgotPinRequest(BaseModel):
+    phone: str
+    organization_id: str
+
+class ClientResetPinRequest(BaseModel):
+    token: str
+    new_pin: str
+
 class TeamInvitationCreate(BaseModel):
     email: EmailStr
     role: str = "staff"
@@ -546,6 +579,37 @@ async def get_current_user(authorization: Optional[str] = Header(None), session_
     current_user = User(**user)
     await enforce_subscription_access(db, current_user)
     return current_user
+
+# Client Portal Authentication Helper (separate from manager/owner sessions)
+async def get_current_client(client_session_token: Optional[str] = Cookie(None)):
+    """
+    Authenticate client using client_session_token cookie.
+    Separate from get_current_user to avoid permission confusion.
+    """
+    if not client_session_token:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+    
+    session = await db.client_sessions.find_one({"session_token": client_session_token}, {"_id": 0})
+    if not session:
+        raise HTTPException(status_code=401, detail="Invalid session")
+    
+    expires_at = session["expires_at"]
+    if isinstance(expires_at, str):
+        expires_at = datetime.fromisoformat(expires_at)
+    if expires_at.tzinfo is None:
+        expires_at = expires_at.replace(tzinfo=timezone.utc)
+    if expires_at < datetime.now(timezone.utc):
+        raise HTTPException(status_code=401, detail="Session expired")
+    
+    client = await db.clients.find_one({"client_id": session["client_id"]}, {"_id": 0})
+    if not client:
+        raise HTTPException(status_code=404, detail="Client not found")
+    
+    # Check if client account is not deleted
+    if client.get("deletion_requested_at"):
+        raise HTTPException(status_code=403, detail="Account deleted")
+    
+    return Client(**client)
 
 # Health check endpoint
 @api_router.get("/")
@@ -3924,6 +3988,451 @@ async def request_deletion(phone: str, organization_id: str):
         "status": "success",
         "message": "Tu solicitud de eliminación ha sido recibida. Procesaremos tu solicitud en un plazo de 15 días hábiles."
     }
+
+# ==================== CLIENT PORTAL ENDPOINTS (PIN-based authentication) ====================
+
+# A.2 - Register and Login with PIN
+@api_router.post("/public/clients/register")
+async def register_client_with_pin(data: ClientRegisterRequest, request: Request):
+    """
+    Register client with 4-digit PIN. If client exists (booked as guest before),
+    upgrades them to registered account. Otherwise creates new client.
+    """
+    # Validate PIN format (exactly 4 digits)
+    import re
+    if not re.match(r'^\d{4}$', data.pin):
+        raise HTTPException(status_code=400, detail="PIN must be exactly 4 digits")
+    
+    # Sanitize phone
+    phone = sanitize_phone(data.phone)
+    
+    # Check if client already exists (guest booking or previous registration)
+    existing = await db.clients.find_one(
+        {"phone": phone, "organization_id": data.organization_id},
+        {"_id": 0}
+    )
+    
+    # Hash PIN
+    pin_hash = bcrypt.hashpw(data.pin.encode(), bcrypt.gensalt()).decode()
+    
+    now = datetime.now(timezone.utc).isoformat()
+    
+    if existing:
+        # Upgrade existing guest client to registered
+        if existing.get("is_registered"):
+            raise HTTPException(status_code=400, detail="Phone number already registered. Use login instead.")
+        
+        await db.clients.update_one(
+            {"client_id": existing["client_id"]},
+            {"$set": {
+                "name": data.name,
+                "email": data.email if data.email else existing.get("email"),
+                "pin_hash": pin_hash,
+                "is_registered": True,
+                "accepts_marketing": data.marketing_consent,
+                "marketing_consent_given_at": now if data.marketing_consent else None,
+                "marketing_consent_ip": request.client.host if (request.client and data.marketing_consent) else None,
+                "marketing_consent_text": "Acepto recibir promociones y novedades" if data.marketing_consent else None,
+                "updated_at": now
+            }}
+        )
+        client_id = existing["client_id"]
+    else:
+        # Create new registered client
+        client_id = f"client_{uuid.uuid4().hex[:12]}"
+        new_client = {
+            "client_id": client_id,
+            "organization_id": data.organization_id,
+            "phone": phone,
+            "name": data.name,
+            "email": data.email,
+            "pin_hash": pin_hash,
+            "is_registered": True,
+            "accepts_marketing": data.marketing_consent,
+            "marketing_consent_given_at": now if data.marketing_consent else None,
+            "marketing_consent_ip": request.client.host if (request.client and data.marketing_consent) else None,
+            "marketing_consent_text": "Acepto recibir promociones y novedades" if data.marketing_consent else None,
+            "reminder_consent_given": True,
+            "deletion_requested_at": None,
+            "failed_pin_attempts": 0,
+            "pin_locked_until": None,
+            "total_visits": 0,
+            "last_visit": None,
+            "created_at": now,
+            "updated_at": now
+        }
+        await db.clients.insert_one(new_client)
+    
+    # Create client session
+    session_token = secrets.token_urlsafe(32)
+    expires_at = datetime.now(timezone.utc) + timedelta(days=30)  # 30-day session
+    
+    await db.client_sessions.insert_one({
+        "session_id": f"csess_{uuid.uuid4().hex[:12]}",
+        "client_id": client_id,
+        "organization_id": data.organization_id,
+        "session_token": session_token,
+        "expires_at": expires_at.isoformat(),
+        "created_at": now
+    })
+    
+    # Set cookie
+    response = JSONResponse(content={
+        "message": "Registration successful",
+        "client_id": client_id
+    })
+    response.set_cookie(
+        key="client_session_token",
+        value=session_token,
+        httponly=True,
+        secure=True,
+        samesite="lax",
+        path="/",
+        max_age=30*24*60*60  # 30 days
+    )
+    
+    return response
+
+@api_router.post("/public/clients/login")
+async def login_client_with_pin(data: ClientLoginRequest, request: Request):
+    """
+    Login client with 4-digit PIN. Enforces 5-attempt limit with 15-minute lockout.
+    This is non-negotiable: 4-digit PIN = 10,000 combinations, brute-forceable without limit.
+    """
+    phone = sanitize_phone(data.phone)
+    
+    # Find client
+    client = await db.clients.find_one(
+        {"phone": phone, "organization_id": data.organization_id, "is_registered": True},
+        {"_id": 0}
+    )
+    
+    if not client:
+        raise HTTPException(status_code=401, detail="Invalid phone number or PIN")
+    
+    # Check if locked
+    if client.get("pin_locked_until"):
+        locked_until = datetime.fromisoformat(client["pin_locked_until"])
+        if locked_until.tzinfo is None:
+            locked_until = locked_until.replace(tzinfo=timezone.utc)
+        
+        if datetime.now(timezone.utc) < locked_until:
+            minutes_left = int((locked_until - datetime.now(timezone.utc)).total_seconds() / 60) + 1
+            raise HTTPException(
+                status_code=429,
+                detail=f"Too many failed attempts. Try again in {minutes_left} minutes."
+            )
+        else:
+            # Lock expired, reset
+            await db.clients.update_one(
+                {"client_id": client["client_id"]},
+                {"$set": {"pin_locked_until": None, "failed_pin_attempts": 0}}
+            )
+            client["failed_pin_attempts"] = 0
+    
+    # Verify PIN
+    if not bcrypt.checkpw(data.pin.encode(), client["pin_hash"].encode()):
+        # Failed attempt
+        failed_attempts = client.get("failed_pin_attempts", 0) + 1
+        update_data = {"failed_pin_attempts": failed_attempts}
+        
+        if failed_attempts >= 5:
+            # Lock for 15 minutes
+            locked_until = datetime.now(timezone.utc) + timedelta(minutes=15)
+            update_data["pin_locked_until"] = locked_until.isoformat()
+            update_data["failed_pin_attempts"] = 0  # Reset counter
+            
+            await db.clients.update_one(
+                {"client_id": client["client_id"]},
+                {"$set": update_data}
+            )
+            raise HTTPException(
+                status_code=429,
+                detail="Too many failed attempts. Account locked for 15 minutes."
+            )
+        
+        await db.clients.update_one(
+            {"client_id": client["client_id"]},
+            {"$set": update_data}
+        )
+        raise HTTPException(status_code=401, detail="Invalid phone number or PIN")
+    
+    # Success - reset failed attempts
+    await db.clients.update_one(
+        {"client_id": client["client_id"]},
+        {"$set": {"failed_pin_attempts": 0, "pin_locked_until": None}}
+    )
+    
+    # Create session
+    session_token = secrets.token_urlsafe(32)
+    expires_at = datetime.now(timezone.utc) + timedelta(days=30)
+    now = datetime.now(timezone.utc).isoformat()
+    
+    await db.client_sessions.insert_one({
+        "session_id": f"csess_{uuid.uuid4().hex[:12]}",
+        "client_id": client["client_id"],
+        "organization_id": data.organization_id,
+        "session_token": session_token,
+        "expires_at": expires_at.isoformat(),
+        "created_at": now
+    })
+    
+    # Set cookie
+    response = JSONResponse(content={
+        "message": "Login successful",
+        "client": {
+            "client_id": client["client_id"],
+            "name": client["name"],
+            "phone": client["phone"],
+            "email": client.get("email")
+        }
+    })
+    response.set_cookie(
+        key="client_session_token",
+        value=session_token,
+        httponly=True,
+        secure=True,
+        samesite="lax",
+        path="/",
+        max_age=30*24*60*60
+    )
+    
+    return response
+
+@api_router.post("/public/clients/logout")
+async def logout_client(client_session_token: Optional[str] = Cookie(None)):
+    """Logout client and delete session"""
+    if client_session_token:
+        await db.client_sessions.delete_one({"session_token": client_session_token})
+    
+    response = JSONResponse(content={"message": "Logged out successfully"})
+    response.delete_cookie(key="client_session_token", path="/")
+    return response
+
+# A.4 - Portal Functionalities (protected by get_current_client)
+@api_router.get("/public/clients/me")
+async def get_client_profile(current_client: Client = Depends(get_current_client)):
+    """Get client profile and appointment history"""
+    # Get appointments
+    appointments = await db.appointments.find(
+        {"client_phone": current_client.phone, "organization_id": current_client.organization_id},
+        {"_id": 0}
+    ).sort("date", -1).to_list(1000)
+    
+    # Batch fetch services and barbers
+    service_ids = list(set(apt.get("service_id") for apt in appointments if apt.get("service_id")))
+    barber_ids = list(set(apt.get("barber_id") for apt in appointments if apt.get("barber_id")))
+    
+    services = await db.services.find({"service_id": {"$in": service_ids}}, {"_id": 0}).to_list(1000) if service_ids else []
+    barbers = await db.barbers.find({"barber_id": {"$in": barber_ids}}, {"_id": 0}).to_list(1000) if barber_ids else []
+    
+    service_lookup = {s["service_id"]: s for s in services}
+    barber_lookup = {b["barber_id"]: b for b in barbers}
+    
+    # Enrich appointments
+    for apt in appointments:
+        service = service_lookup.get(apt.get("service_id"))
+        barber = barber_lookup.get(apt.get("barber_id"))
+        apt["service_name"] = service["name"] if service else "Unknown"
+        apt["service_price"] = service["price"] if service else 0
+        apt["barber_name"] = barber["name"] if barber else "Unknown"
+    
+    return {
+        "client": {
+            "client_id": current_client.client_id,
+            "name": current_client.name,
+            "phone": current_client.phone,
+            "email": current_client.email,
+            "total_visits": current_client.total_visits,
+            "last_visit": current_client.last_visit,
+            "accepts_marketing": current_client.accepts_marketing
+        },
+        "appointments": appointments
+    }
+
+@api_router.post("/public/clients/appointments/{appointment_id}/cancel")
+async def cancel_appointment_from_portal(
+    appointment_id: str,
+    current_client: Client = Depends(get_current_client)
+):
+    """Cancel appointment from client portal. Verifies ownership."""
+    # Find appointment
+    appointment = await db.appointments.find_one(
+        {"appointment_id": appointment_id},
+        {"_id": 0}
+    )
+    
+    if not appointment:
+        raise HTTPException(status_code=404, detail="Appointment not found")
+    
+    # Verify ownership (client can only cancel their own appointments)
+    if appointment["client_phone"] != current_client.phone:
+        raise HTTPException(status_code=403, detail="Not authorized to cancel this appointment")
+    
+    # Check if already cancelled
+    if appointment["status"] == "cancelled":
+        raise HTTPException(status_code=400, detail="Appointment already cancelled")
+    
+    # Cancel appointment
+    await db.appointments.update_one(
+        {"appointment_id": appointment_id},
+        {"$set": {
+            "status": "cancelled",
+            "cancelled_at": datetime.now(timezone.utc).isoformat()
+        }}
+    )
+    
+    # Send cancellation email if client has email
+    if current_client.email:
+        email_service.send_appointment_cancelled(
+            to_email=current_client.email,
+            customer_name=current_client.name,
+            date=appointment["date"],
+            time=appointment["time"],
+            organization_name=appointment.get("organization_name", "Nexus")
+        )
+    
+    return {"message": "Appointment cancelled successfully"}
+
+@api_router.post("/public/clients/change-pin")
+async def change_client_pin(
+    data: ClientChangePinRequest,
+    current_client: Client = Depends(get_current_client)
+):
+    """Change client PIN. Requires current PIN for verification."""
+    import re
+    
+    # Validate new PIN format
+    if not re.match(r'^\d{4}$', data.new_pin):
+        raise HTTPException(status_code=400, detail="New PIN must be exactly 4 digits")
+    
+    # Verify current PIN
+    if not bcrypt.checkpw(data.current_pin.encode(), current_client.pin_hash.encode()):
+        raise HTTPException(status_code=401, detail="Current PIN is incorrect")
+    
+    # Hash new PIN
+    new_pin_hash = bcrypt.hashpw(data.new_pin.encode(), bcrypt.gensalt()).decode()
+    
+    # Update PIN
+    await db.clients.update_one(
+        {"client_id": current_client.client_id},
+        {"$set": {
+            "pin_hash": new_pin_hash,
+            "updated_at": datetime.now(timezone.utc).isoformat()
+        }}
+    )
+    
+    return {"message": "PIN changed successfully"}
+
+@api_router.delete("/public/clients/me")
+async def delete_client_account(current_client: Client = Depends(get_current_client)):
+    """
+    Delete client account. Removes client profile and sessions.
+    Appointments remain for business records (they have their own copy of client data).
+    """
+    # Delete all client sessions
+    await db.client_sessions.delete_many({"client_id": current_client.client_id})
+    
+    # Delete client profile
+    await db.clients.delete_one({"client_id": current_client.client_id})
+    
+    response = JSONResponse(content={"message": "Account deleted successfully"})
+    response.delete_cookie(key="client_session_token", path="/")
+    return response
+
+# A.5 - PIN Recovery via Email
+@api_router.post("/public/clients/forgot-pin")
+async def forgot_client_pin(data: ClientForgotPinRequest):
+    """
+    Send PIN reset link via email. Always returns same message (don't leak phone existence).
+    """
+    phone = sanitize_phone(data.phone)
+    
+    # Find client
+    client = await db.clients.find_one(
+        {"phone": phone, "organization_id": data.organization_id, "is_registered": True},
+        {"_id": 0}
+    )
+    
+    # Always return same message (don't leak existence)
+    generic_message = "If this phone number is registered and has an email, a reset link has been sent."
+    
+    if not client or not client.get("email"):
+        # Client doesn't exist or has no email - but don't tell the requester
+        return {"message": generic_message}
+    
+    # Generate reset token
+    reset_token = secrets.token_urlsafe(32)
+    expires_at = datetime.now(timezone.utc) + timedelta(hours=1)
+    
+    await db.clients.update_one(
+        {"client_id": client["client_id"]},
+        {"$set": {
+            "pin_reset_token": reset_token,
+            "pin_reset_expires": expires_at.isoformat()
+        }}
+    )
+    
+    # Send email
+    frontend_url = os.environ.get('REACT_APP_BACKEND_URL', '').replace('/api', '')
+    reset_url = f"{frontend_url}/portal/reset-pin?token={reset_token}"
+    
+    email_service.send_pin_reset(
+        to_email=client["email"],
+        customer_name=client["name"],
+        reset_url=reset_url
+    )
+    
+    return {"message": generic_message}
+
+@api_router.post("/public/clients/reset-pin")
+async def reset_client_pin(data: ClientResetPinRequest):
+    """Reset PIN using token from email. Invalidates all sessions."""
+    import re
+    
+    # Validate new PIN
+    if not re.match(r'^\d{4}$', data.new_pin):
+        raise HTTPException(status_code=400, detail="PIN must be exactly 4 digits")
+    
+    # Find client with valid token
+    client = await db.clients.find_one(
+        {"pin_reset_token": data.token},
+        {"_id": 0}
+    )
+    
+    if not client:
+        raise HTTPException(status_code=400, detail="Invalid or expired reset link")
+    
+    # Check expiration
+    expires_at = datetime.fromisoformat(client["pin_reset_expires"])
+    if expires_at.tzinfo is None:
+        expires_at = expires_at.replace(tzinfo=timezone.utc)
+    
+    if datetime.now(timezone.utc) > expires_at:
+        raise HTTPException(status_code=400, detail="Reset link has expired")
+    
+    # Hash new PIN
+    new_pin_hash = bcrypt.hashpw(data.new_pin.encode(), bcrypt.gensalt()).decode()
+    
+    # Update PIN and clear reset token
+    await db.clients.update_one(
+        {"client_id": client["client_id"]},
+        {"$set": {
+            "pin_hash": new_pin_hash,
+            "pin_reset_token": None,
+            "pin_reset_expires": None,
+            "failed_pin_attempts": 0,
+            "pin_locked_until": None,
+            "updated_at": datetime.now(timezone.utc).isoformat()
+        }}
+    )
+    
+    # Invalidate all existing sessions (if someone else had access with old PIN)
+    await db.client_sessions.delete_many({"client_id": client["client_id"]})
+    
+    return {"message": "PIN reset successful. Please login with your new PIN."}
+
+# ==================== END CLIENT PORTAL ENDPOINTS ====================
 
 # ==================== END LEGAL COMPLIANCE ENDPOINTS ====================
 
