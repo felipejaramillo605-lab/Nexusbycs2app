@@ -399,6 +399,7 @@ class OrganizationUpdate(BaseModel):
     business_hours: Optional[str] = None
     phone: Optional[str] = None
     whatsapp_link: Optional[str] = None
+    client_portal_theme: Optional[str] = None  # classic | feminine | professional | cyberpunk | underground | neutral
 
 # Helper function to sanitize phone numbers
 def sanitize_phone(phone: str) -> str:
@@ -2523,11 +2524,11 @@ async def update_appointment_status(
     
     # If marking as completed for the first time, increment client's total_visits
     if status == "completed" and previous_status != "completed":
-        customer_phone = appointment.get("customer_phone")
-        if customer_phone:
+        client_phone = appointment.get("client_phone")
+        if client_phone:
             await db.clients.update_one(
                 {
-                    "phone": customer_phone,
+                    "phone": client_phone,
                     "organization_id": appointment["organization_id"]
                 },
                 {
@@ -3804,7 +3805,7 @@ async def get_client_history_public(phone: str, organization_id: str):
     # Get all appointments for this client
     appointments = await db.appointments.find(
         {
-            "customer_phone": phone,
+            "client_phone": phone,
             "organization_id": organization_id
         },
         {"_id": 0}
@@ -5095,6 +5096,14 @@ async def create_public_appointment(org_id: str, data: AppointmentCreate, reques
                     "organization_name": organization_name,
                     "organization_address": organization.get("address"),
                 }
+                # Build cancellation URL with FRONTEND_URL validation
+                frontend_url = os.environ.get('FRONTEND_URL', '').rstrip('/')
+                if not frontend_url:
+                    logger.error(f"FRONTEND_URL is not configured; cancellation link omitted for appointment {appointment_id}")
+                    cancellation_url = None
+                else:
+                    cancellation_url = f"{frontend_url}/cancel/{appointment_id}?token={management_token}"
+                
                 await execute_compatibility_delivery(
                     db, organization_id=org_id, appointment_id=appointment_id,
                     event_type="confirmation", recipient=data.client_email,
@@ -5104,8 +5113,7 @@ async def create_public_appointment(org_id: str, data: AppointmentCreate, reques
                         barber_name=professional_name, service_name=service.get("name", "Servicio"),
                         date=data.date, time=data.time, organization_name=organization_name,
                         organization_address=organization.get("address"),
-                        cancellation_url=(f"{os.environ.get('FRONTEND_URL', '').rstrip('/')}/cancel/"
-                                          f"{appointment_id}?token={management_token}"),
+                        cancellation_url=cancellation_url,
                     ), worker_id="public_booking_confirmation",
                 )
                 if organization.get("notification_settings", {}).get("admin_new_appointment", True):
