@@ -4,6 +4,9 @@ from fastapi.responses import StreamingResponse, JSONResponse
 from dotenv import load_dotenv
 from starlette.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.util import get_remote_address
+from slowapi.errors import RateLimitExceeded
 import os
 import logging
 from pathlib import Path
@@ -19,6 +22,7 @@ import secrets
 import hashlib
 import re
 import asyncio
+from html import escape as html_escape
 
 # Email service
 from email_service import email_service
@@ -52,6 +56,11 @@ configure_security_observability(db)
 
 app = FastAPI()
 api_router = APIRouter(prefix="/api")
+
+# Rate limiting configuration
+limiter = Limiter(key_func=get_remote_address)
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
@@ -302,9 +311,9 @@ class StaffBarberProfileUpdate(BaseModel):
 class AppointmentCreate(BaseModel):
     service_id: str
     barber_id: str
-    client_name: str
+    client_name: str = Field(..., max_length=100)
     client_phone: str
-    client_email: str
+    client_email: EmailStr  # Use EmailStr for validation
     date: str
     time: str
     marketing_consent: bool = False  # TCPA/Ley 1581 compliance
@@ -426,9 +435,9 @@ class ResetPasswordRequest(BaseModel):
 class ClientRegisterRequest(BaseModel):
     phone: str
     organization_id: str
-    name: str
+    name: str = Field(..., max_length=100)
     pin: str  # 4-digit numeric PIN
-    email: Optional[str] = None
+    email: Optional[EmailStr] = None  # Use EmailStr for validation
     marketing_consent: bool = False
 
 class ClientLoginRequest(BaseModel):
@@ -688,7 +697,7 @@ async def create_session(response: Response, x_session_id: str = Header(None)):
         value=session_token,
         httponly=True,
         secure=True,
-        samesite="none",
+        samesite="lax",
         path="/",
         max_age=7*24*60*60
     )
@@ -738,7 +747,8 @@ async def register_user(data: RegisterRequest):
     return {"message": "Registration successful. Awaiting admin approval.", "user_id": user_id}
 
 @api_router.post("/auth/login")
-async def login_user(data: LoginRequest, response: Response):
+@limiter.limit("5/minute")
+async def login_user(data: LoginRequest, response: Response, request: Request):
     """Login with email/password."""
     user = await db.users.find_one({"email": data.email}, {"_id": 0})
     if not user or user.get("auth_method") != "manual":
@@ -3993,6 +4003,7 @@ async def request_deletion(phone: str, organization_id: str):
 
 # A.2 - Register and Login with PIN
 @api_router.post("/public/clients/register")
+@limiter.limit("5/hour")
 async def register_client_with_pin(data: ClientRegisterRequest, request: Request):
     """
     Register client with 4-digit PIN. If client exists (booked as guest before),
@@ -4094,6 +4105,7 @@ async def register_client_with_pin(data: ClientRegisterRequest, request: Request
     return response
 
 @api_router.post("/public/clients/login")
+@limiter.limit("5/minute")
 async def login_client_with_pin(data: ClientLoginRequest, request: Request):
     """
     Login client with 4-digit PIN. Enforces 5-attempt limit with 15-minute lockout.
@@ -4342,7 +4354,8 @@ async def delete_client_account(current_client: Client = Depends(get_current_cli
 
 # A.5 - PIN Recovery via Email
 @api_router.post("/public/clients/forgot-pin")
-async def forgot_client_pin(data: ClientForgotPinRequest):
+@limiter.limit("3/hour")
+async def forgot_client_pin(data: ClientForgotPinRequest, request: Request):
     """
     Send PIN reset link via email. Always returns same message (don't leak phone existence).
     """
@@ -4519,6 +4532,13 @@ async def create_campaign(
                 # Create unsubscribe link (CAN-SPAM Act requirement)
                 unsubscribe_url = f"{frontend_url}/unsubscribe?phone={client['phone']}&org={org_id}"
                 
+                # Sanitize inputs to prevent HTML injection
+                safe_subject = html_escape(data.subject)
+                safe_name = html_escape(client['name'])
+                safe_message = html_escape(data.message)
+                safe_org_name = html_escape(org_name)
+                safe_org_address = html_escape(org_address)
+                
                 # Create HTML email body with marketing message (CAN-SPAM compliant)
                 html_body = f"""
                 <!DOCTYPE html>
@@ -4542,26 +4562,26 @@ async def create_campaign(
                     <div class="container">
                         <div class="header">
                             <div class="emoji">✨</div>
-                            <h1>{data.subject}</h1>
+                            <h1>{safe_subject}</h1>
                         </div>
                         <div class="content">
-                            <p style="font-size: 18px; color: #fff;">Hola <strong>{client['name']}</strong>,</p>
+                            <p style="font-size: 18px; color: #fff;">Hola <strong>{safe_name}</strong>,</p>
                             
                             <div class="message-box">
-                                {data.message}
+                                {safe_message}
                             </div>
                             
                             <p style="color: #aaa; margin-top: 30px;">¡Esperamos verte pronto!</p>
                         </div>
                         <div class="footer">
-                            <p><strong>{org_name}</strong></p>
-                            <p style="margin: 10px 0;">📍 {org_address}</p>
+                            <p><strong>{safe_org_name}</strong></p>
+                            <p style="margin: 10px 0;">📍 {safe_org_address}</p>
                             <p style="margin: 15px 0;">
                                 Este es un email promocional. 
                                 <a href="{unsubscribe_url}" style="color: #0A84FF;">Cancelar suscripción</a>
                             </p>
                             <p style="margin-top: 10px; font-size: 10px; color: #555;">
-                                Recibiste este email porque aceptaste recibir comunicaciones de marketing de {org_name}.
+                                Recibiste este email porque aceptaste recibir comunicaciones de marketing de {safe_org_name}.
                             </p>
                         </div>
                     </div>
@@ -4966,6 +4986,7 @@ async def get_availability(org_id: str, barber_id: str, date: str, service_id: s
     }
 
 @api_router.post("/public/{org_id}/appointments")
+@limiter.limit("5/hour")
 async def create_public_appointment(org_id: str, data: AppointmentCreate, request: Request):
     # NEXUS_STRICT_AVAILABILITY_V1
     # Parse safely so malformed requests return 400 instead of 500.
@@ -5030,6 +5051,10 @@ async def create_public_appointment(org_id: str, data: AppointmentCreate, reques
     
         # NEXUS_8A7G1B0_PUBLIC_APPOINTMENT_ROUTE_OWNERSHIP_V1
     # NEXUS_PUBLIC_APPOINTMENT_TOKEN_V1
+    
+    # Sanitize phone number for consistency
+    sanitized_phone = sanitize_phone(data.client_phone)
+    
     appointment_id = f"apt_{uuid.uuid4().hex[:12]}"
     management_token = secrets.token_urlsafe(32)
     management_token_hash = hashlib.sha256(management_token.encode("utf-8")).hexdigest()
@@ -5038,8 +5063,8 @@ async def create_public_appointment(org_id: str, data: AppointmentCreate, reques
         "organization_id": org_id,
         "service_id": data.service_id,
         "barber_id": data.barber_id,
-        "client_name": data.client_name,
-        "client_phone": data.client_phone,
+        "client_name": data.client_name.strip()[:100],  # Limit length
+        "client_phone": sanitized_phone,
         "client_email": data.client_email,
         "date": data.date,
         "time": data.time,
@@ -5118,8 +5143,8 @@ async def create_public_appointment(org_id: str, data: AppointmentCreate, reques
     # Create or update client record with TCPA/Ley 1581 consent
     await upsert_client(
         organization_id=org_id,
-        phone=data.client_phone,
-        name=data.client_name,
+        phone=sanitized_phone,
+        name=data.client_name.strip()[:100],
         email=data.client_email,
         marketing_consent=data.marketing_consent,
         consent_ip=request.client.host if request.client else None,
