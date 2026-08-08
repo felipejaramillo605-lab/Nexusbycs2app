@@ -9,6 +9,7 @@ import {publicAPI} from '../api';
 import {useOrganization} from '../context/OrganizationContext';
 import {BOOKING} from '../constants/testIds';
 import {ActionButton} from '../components/design';
+import {useClientPortalTheme} from '../hooks/useClientPortalTheme';
 
 // NEXUS_STRICT_AVAILABILITY_V1
 // NEXUS_PUBLIC_DEEP_FINAL_V1
@@ -20,6 +21,7 @@ const steps=['Servicio','Profesional','Fecha y hora','Tus datos'];
 
 export default function BookingFlow(){
  const {orgId}=useParams();const {organization,loadOrganization}=useOrganization();
+ useClientPortalTheme(organization);
  const [step,setStep]=useState(1),[services,setServices]=useState([]),[barbers,setBarbers]=useState([]),[selectedService,setSelectedService]=useState(null),[selectedBarber,setSelectedBarber]=useState(null),[selectedDate,setSelectedDate]=useState(''),[selectedTime,setSelectedTime]=useState(''),[slots,setSlots]=useState([]),[loadingSlots,setLoadingSlots]=useState(false),[submitting,setSubmitting]=useState(false),[success,setSuccess]=useState(null),[remember,setRemember]=useState(false),[error,setError]=useState(''),[client,setClient]=useState({name:'',phone:'',email:''});
  const eligible=useMemo(()=>selectedService?barbers.filter(item=>{const ids=item.service_ids||[];return !ids.length||ids.includes(selectedService.service_id)}):barbers,[barbers,selectedService]);
  const loadServices=useCallback(async()=>{const response=await publicAPI.getServices(orgId);setServices(response.data||[])},[orgId]);

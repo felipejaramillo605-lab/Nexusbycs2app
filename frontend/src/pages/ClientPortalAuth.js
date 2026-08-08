@@ -3,6 +3,7 @@ import { useParams, useNavigate, Link } from 'react-router-dom';
 import { Lock, LogIn, UserPlus, ArrowLeft, Loader2, Eye, EyeOff } from 'lucide-react';
 import { toast } from 'sonner';
 import axios from 'axios';
+import { useClientPortalTheme } from '../hooks/useClientPortalTheme';
 
 const API = process.env.REACT_APP_BACKEND_URL || 'http://localhost:8001/api';
 
@@ -17,12 +18,17 @@ export default function ClientPortalAuth() {
   const [marketingConsent, setMarketingConsent] = useState(false);
   const [loading, setLoading] = useState(false);
   const [organizationName, setOrganizationName] = useState('');
+  const [organization, setOrganization] = useState(null);
+  
+  // Apply theme
+  useClientPortalTheme(organization);
 
   useEffect(() => {
     // Load organization info
     const loadOrg = async () => {
       try {
         const response = await axios.get(`${API}/public/${orgId}/organization`);
+        setOrganization(response.data);
         setOrganizationName(response.data.name || 'Nexus');
       } catch (error) {
         console.error('Error loading organization:', error);
