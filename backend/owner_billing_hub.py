@@ -166,23 +166,23 @@ def build_billing_hub_router(db,get_current_user):
         return item
     @router.get("/invoices")
     async def invoices(organization_id:Optional[str]=None,invoice_number:Optional[str]=None,status:Optional[str]=None,authorization:Optional[str]=Header(None),session_token:Optional[str]=Cookie(None)):
-        user=await actor(authorization,session_token); oid=org_for(user,organization_id); q={"organization_id":oid};
+        user=await actor(authorization,session_token); oid=org_for(user,organization_id); q={"organization_id":oid}
         if invoice_number:q["invoice_number"]=invoice_number.strip().upper()
         if status:q["status"]=status
         return await db.subscription_invoices.find(q,{"_id":0}).sort([("issued_at",-1),("created_at",-1)]).to_list(500)
     @router.get("/invoices/{invoice_id}/pdf")
     async def pdf(invoice_id:str,organization_id:Optional[str]=None,authorization:Optional[str]=Header(None),session_token:Optional[str]=Cookie(None)):
-        user=await actor(authorization,session_token); oid=org_for(user,organization_id); item=await db.subscription_invoices.find_one({"organization_id":oid,"invoice_id":invoice_id},{"_id":0});
+        user=await actor(authorization,session_token); oid=org_for(user,organization_id); item=await db.subscription_invoices.find_one({"organization_id":oid,"invoice_id":invoice_id},{"_id":0})
         if not item: raise HTTPException(404,"Invoice not found")
         return Response(invoice_pdf(item),media_type="application/pdf",headers={"Content-Disposition":f"attachment; filename={item.get('invoice_number',invoice_id)}.pdf"})
     @router.get("/notifications")
     async def notifications(unread_only:bool=False,limit:int=100,authorization:Optional[str]=Header(None),session_token:Optional[str]=Cookie(None)):
-        user=await actor(authorization,session_token); oid=org_for(user,None if user.role!='owner' else user.organization_id); q={"organization_id":oid};
+        user=await actor(authorization,session_token); oid=org_for(user,None if user.role!='owner' else user.organization_id); q={"organization_id":oid}
         if unread_only:q["read_by"]={"$ne":user.user_id}
         return await db.subscription_notifications.find(q,{"_id":0}).sort("created_at",-1).to_list(max(1,min(limit,200)))
     @router.post("/notifications/{notification_id}/read")
     async def mark_read(notification_id:str,authorization:Optional[str]=Header(None),session_token:Optional[str]=Cookie(None)):
-        user=await actor(authorization,session_token); oid=org_for(user,None if user.role!='owner' else user.organization_id); result=await db.subscription_notifications.update_one({"notification_id":notification_id,"organization_id":oid},{"$addToSet":{"read_by":user.user_id},"$set":{"last_read_at":now_iso()}});
+        user=await actor(authorization,session_token); oid=org_for(user,None if user.role!='owner' else user.organization_id); result=await db.subscription_notifications.update_one({"notification_id":notification_id,"organization_id":oid},{"$addToSet":{"read_by":user.user_id},"$set":{"last_read_at":now_iso()}})
         if not result.matched_count: raise HTTPException(404,"Notification not found")
         return {"notification_id":notification_id,"read":True}
     @router.post("/owner/announcements")

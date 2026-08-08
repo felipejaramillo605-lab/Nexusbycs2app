@@ -18,6 +18,7 @@ import bcrypt
 import secrets
 import hashlib
 import re
+import asyncio
 
 # Email service
 from email_service import email_service
@@ -220,6 +221,12 @@ class Client(BaseModel):
     name: str
     email: Optional[str] = None
     accepts_marketing: bool = True  # Opt-in for notifications/campaigns
+    # Legal compliance fields (TCPA, CAN-SPAM, Ley 1581 Colombia)
+    marketing_consent_given_at: Optional[datetime] = None  # Timestamp of consent
+    marketing_consent_text: Optional[str] = None  # Exact text accepted
+    marketing_consent_ip: Optional[str] = None  # IP address at consent
+    reminder_consent_given: bool = True  # Transactional messages (confirmations/reminders)
+    deletion_requested_at: Optional[datetime] = None  # ARCO rights - deletion request
     total_visits: int = 0
     last_visit: Optional[str] = None
     created_at: datetime
@@ -293,6 +300,7 @@ class AppointmentCreate(BaseModel):
     client_email: str
     date: str
     time: str
+    marketing_consent: bool = False  # TCPA/Ley 1581 compliance
 
 # NEXUS_CHECKOUT_BACKEND_V1
 class AppointmentCheckoutRequest(BaseModel):
@@ -393,6 +401,7 @@ class PasswordlessLoginRequest(BaseModel):
     phone: str
     name: Optional[str] = None  # Only required for first-time registration
     organization_id: str  # Required to know which barbershop
+    marketing_consent: bool = False  # TCPA/Ley 1581 compliance
 
 class LoginRequest(BaseModel):
     email: str
@@ -1731,8 +1740,8 @@ async def get_organization_public(organization_id: str):
     return org
 
 @api_router.post("/public/auth/passwordless")
-async def passwordless_login(data: PasswordlessLoginRequest):
-    """Passwordless authentication for clients using phone number"""
+async def passwordless_login(data: PasswordlessLoginRequest, request: Request):
+    """Passwordless authentication for clients using phone number - TCPA/Ley 1581 compliant"""
     # Check if client exists
     client = await db.clients.find_one(
         {
@@ -1743,7 +1752,20 @@ async def passwordless_login(data: PasswordlessLoginRequest):
     )
     
     if client:
-        # Existing client - return client data
+        # Existing client - update marketing consent if provided
+        if data.marketing_consent and not client.get("accepts_marketing"):
+            await db.clients.update_one(
+                {"phone": data.phone, "organization_id": data.organization_id},
+                {"$set": {
+                    "accepts_marketing": True,
+                    "marketing_consent_given_at": datetime.now(timezone.utc).isoformat(),
+                    "marketing_consent_ip": request.client.host if request.client else None,
+                    "marketing_consent_text": "Acepto recibir promociones y novedades por correo/WhatsApp",
+                    "updated_at": datetime.now(timezone.utc).isoformat()
+                }}
+            )
+            client["accepts_marketing"] = True
+        
         return {
             "status": "existing",
             "client": client,
@@ -1757,7 +1779,7 @@ async def passwordless_login(data: PasswordlessLoginRequest):
                 detail="name_required"
             )
         
-        # Create new client
+        # Create new client with TCPA/Ley 1581 compliance
         from uuid import uuid4
         new_client = {
             "client_id": f"client_{uuid4().hex[:12]}",
@@ -1765,7 +1787,12 @@ async def passwordless_login(data: PasswordlessLoginRequest):
             "phone": data.phone,
             "name": data.name.strip(),
             "email": None,
-            "accepts_marketing": True,  # Opt-in by default
+            "accepts_marketing": data.marketing_consent,  # Only True if explicitly consented
+            "marketing_consent_given_at": datetime.now(timezone.utc).isoformat() if data.marketing_consent else None,
+            "marketing_consent_ip": request.client.host if (request.client and data.marketing_consent) else None,
+            "marketing_consent_text": "Acepto recibir promociones y novedades por correo/WhatsApp" if data.marketing_consent else None,
+            "reminder_consent_given": True,  # Transactional messages always allowed
+            "deletion_requested_at": None,
             "total_visits": 0,
             "last_visit": None,
             "created_at": datetime.now(timezone.utc).isoformat(),
@@ -3628,9 +3655,18 @@ async def get_client_history(client_id: str, authorization: Optional[str] = Head
     
     return appointments
 
-async def upsert_client(organization_id: str, phone: str, name: str, email: Optional[str] = None):
+async def upsert_client(
+    organization_id: str, 
+    phone: str, 
+    name: str, 
+    email: Optional[str] = None,
+    marketing_consent: bool = False,
+    consent_ip: Optional[str] = None,
+    consent_text: Optional[str] = None
+):
     """
     Create or update client record. Uses phone as unique identifier per organization.
+    TCPA/Ley 1581 compliance: accepts_marketing defaults to False, only True if explicitly consented.
     """
     existing = await db.clients.find_one({"organization_id": organization_id, "phone": phone}, {"_id": 0})
     
@@ -3644,13 +3680,20 @@ async def upsert_client(organization_id: str, phone: str, name: str, email: Opti
         if email:
             update_data["email"] = email
         
+        # Update marketing consent if provided
+        if marketing_consent and not existing.get("accepts_marketing"):
+            update_data["accepts_marketing"] = True
+            update_data["marketing_consent_given_at"] = datetime.now(timezone.utc).isoformat()
+            update_data["marketing_consent_ip"] = consent_ip
+            update_data["marketing_consent_text"] = consent_text
+        
         await db.clients.update_one(
             {"organization_id": organization_id, "phone": phone},
             {"$set": update_data}
         )
         return {**existing, **update_data}
     else:
-        # Create new client
+        # Create new client - accepts_marketing defaults to False per TCPA/Ley 1581
         client_id = f"client_{uuid.uuid4().hex[:12]}"
         client_doc = {
             "client_id": client_id,
@@ -3658,7 +3701,12 @@ async def upsert_client(organization_id: str, phone: str, name: str, email: Opti
             "phone": phone,
             "name": name,
             "email": email,
-            "accepts_marketing": True,  # Default opt-in
+            "accepts_marketing": marketing_consent,  # Only True if explicitly consented
+            "marketing_consent_given_at": datetime.now(timezone.utc).isoformat() if marketing_consent else None,
+            "marketing_consent_ip": consent_ip if marketing_consent else None,
+            "marketing_consent_text": consent_text if marketing_consent else None,
+            "reminder_consent_given": True,  # Transactional messages always allowed
+            "deletion_requested_at": None,
             "total_visits": 0,  # Starts at 0, increments only when appointments are completed
             "last_visit": None,
             "created_at": datetime.now(timezone.utc).isoformat(),
@@ -3713,6 +3761,172 @@ async def get_client_history_public(phone: str, organization_id: str):
         "appointments": appointments
     }
 
+# ==================== LEGAL COMPLIANCE ENDPOINTS (TCPA, CAN-SPAM, Ley 1581 Colombia) ====================
+
+# Unsubscribe from marketing (CAN-SPAM Act + TCPA compliance)
+@api_router.post("/public/clients/unsubscribe")
+async def unsubscribe_client(phone: Optional[str] = None, email: Optional[str] = None, organization_id: Optional[str] = None):
+    """
+    Public endpoint to unsubscribe from marketing communications.
+    No authentication required - protected by knowing contact info.
+    Complies with CAN-SPAM Act and TCPA requirements for easy opt-out.
+    """
+    if not phone and not email:
+        raise HTTPException(status_code=400, detail="Phone or email required")
+    
+    if not organization_id:
+        raise HTTPException(status_code=400, detail="organization_id required")
+    
+    # Find client
+    query = {"organization_id": organization_id}
+    if phone:
+        query["phone"] = phone
+    elif email:
+        query["email"] = email
+    
+    client = await db.clients.find_one(query, {"_id": 0})
+    
+    if not client:
+        raise HTTPException(status_code=404, detail="Client not found")
+    
+    # Update marketing consent
+    await db.clients.update_one(
+        {"client_id": client["client_id"]},
+        {"$set": {
+            "accepts_marketing": False,
+            "updated_at": datetime.now(timezone.utc).isoformat()
+        }}
+    )
+    
+    return {
+        "status": "success",
+        "message": "Has sido dado de baja de nuestras comunicaciones de marketing. Ya no recibirás promociones."
+    }
+
+# ARCO Rights - Access (Ley 1581 Colombia compliance)
+@api_router.get("/public/clients/my-data")
+async def get_my_data(phone: str, organization_id: str):
+    """
+    Public endpoint for clients to access their personal data.
+    Complies with ARCO rights (Acceso) under Ley 1581/2012 Colombia and similar US privacy laws.
+    """
+    # Find client
+    client = await db.clients.find_one(
+        {"phone": phone, "organization_id": organization_id},
+        {"_id": 0}
+    )
+    
+    if not client:
+        raise HTTPException(status_code=404, detail="No data found for this phone number")
+    
+    # Get all appointments for this client
+    appointments = await db.appointments.find(
+        {
+            "organization_id": organization_id,
+            "client_phone": phone
+        },
+        {"_id": 0}
+    ).sort("date", -1).to_list(1000)
+    
+    return {
+        "client_data": client,
+        "appointments": appointments,
+        "data_rights_info": {
+            "message": "Tienes derecho a solicitar la corrección o eliminación de tus datos personales.",
+            "correction_endpoint": "/api/public/clients/update-my-data",
+            "deletion_endpoint": "/api/public/clients/request-deletion"
+        }
+    }
+
+# ARCO Rights - Rectification (Corrección)
+@api_router.put("/public/clients/update-my-data")
+async def update_my_data(phone: str, organization_id: str, name: Optional[str] = None, email: Optional[str] = None):
+    """
+    Public endpoint for clients to correct their personal data.
+    Complies with ARCO rights (Corrección/Actualización) under Ley 1581/2012 Colombia.
+    """
+    # Find client
+    client = await db.clients.find_one(
+        {"phone": phone, "organization_id": organization_id},
+        {"_id": 0}
+    )
+    
+    if not client:
+        raise HTTPException(status_code=404, detail="Client not found")
+    
+    # Update fields
+    update_data = {"updated_at": datetime.now(timezone.utc).isoformat()}
+    if name:
+        update_data["name"] = name
+    if email:
+        update_data["email"] = email
+    
+    await db.clients.update_one(
+        {"client_id": client["client_id"]},
+        {"$set": update_data}
+    )
+    
+    # Log data request for compliance audit
+    await db.data_requests.insert_one({
+        "request_id": f"req_{uuid.uuid4().hex[:12]}",
+        "type": "rectification",
+        "client_id": client["client_id"],
+        "organization_id": organization_id,
+        "requested_at": datetime.now(timezone.utc).isoformat(),
+        "status": "completed",
+        "details": {"updated_fields": list(update_data.keys())}
+    })
+    
+    return {
+        "status": "success",
+        "message": "Tus datos han sido actualizados correctamente"
+    }
+
+# ARCO Rights - Deletion/Suppression (Supresión)
+@api_router.post("/public/clients/request-deletion")
+async def request_deletion(phone: str, organization_id: str):
+    """
+    Public endpoint for clients to request deletion of their personal data.
+    Complies with ARCO rights (Supresión) under Ley 1581/2012 Colombia.
+    Note: Financial/historical records may be retained per legal requirements.
+    """
+    # Find client
+    client = await db.clients.find_one(
+        {"phone": phone, "organization_id": organization_id},
+        {"_id": 0}
+    )
+    
+    if not client:
+        raise HTTPException(status_code=404, detail="Client not found")
+    
+    # Mark for deletion (don't delete immediately for audit/legal compliance)
+    await db.clients.update_one(
+        {"client_id": client["client_id"]},
+        {"$set": {
+            "deletion_requested_at": datetime.now(timezone.utc).isoformat(),
+            "accepts_marketing": False,  # Immediately stop marketing
+            "updated_at": datetime.now(timezone.utc).isoformat()
+        }}
+    )
+    
+    # Log deletion request for compliance audit
+    await db.data_requests.insert_one({
+        "request_id": f"req_{uuid.uuid4().hex[:12]}",
+        "type": "deletion",
+        "client_id": client["client_id"],
+        "organization_id": organization_id,
+        "requested_at": datetime.now(timezone.utc).isoformat(),
+        "status": "pending_review",
+        "details": {"reason": "user_requested"}
+    })
+    
+    return {
+        "status": "success",
+        "message": "Tu solicitud de eliminación ha sido recibida. Procesaremos tu solicitud en un plazo de 15 días hábiles."
+    }
+
+# ==================== END LEGAL COMPLIANCE ENDPOINTS ====================
+
 # ==================== END CLIENTS ENDPOINTS ====================
 
 # ==================== MARKETING & CAMPAIGNS ====================
@@ -3755,13 +3969,24 @@ async def create_campaign(
         if not await validate_organization_access(current_user, client["organization_id"]):
             raise HTTPException(status_code=403, detail="Access denied to one or more clients")
     
-    # Get organization info for email signature
+    # Get organization info for email signature and CAN-SPAM compliance
     org_id = clients[0]["organization_id"] if clients else None
     organization = None
     if org_id:
         organization = await db.organizations.find_one({"organization_id": org_id}, {"_id": 0})
     
     org_name = organization.get("name", "Nexus") if organization else "Nexus"
+    org_address = organization.get("address") if organization else None
+    
+    # CAN-SPAM Act requires physical address for commercial emails
+    if (data.channel in ["email", "both"]) and not org_address:
+        raise HTTPException(
+            status_code=400,
+            detail="Cannot send marketing emails without organization address. Please complete your business profile in Settings."
+        )
+    
+    # Get frontend URL for unsubscribe link
+    frontend_url = os.environ.get('REACT_APP_BACKEND_URL', '').replace('/api', '')
     
     # Send campaigns
     whatsapp_sent = 0
@@ -3782,7 +4007,10 @@ async def create_campaign(
         # Send via Email (real SMTP)
         if data.channel in ["email", "both"] and client.get("email"):
             try:
-                # Create HTML email body with marketing message
+                # Create unsubscribe link (CAN-SPAM Act requirement)
+                unsubscribe_url = f"{frontend_url}/unsubscribe?phone={client['phone']}&org={org_id}"
+                
+                # Create HTML email body with marketing message (CAN-SPAM compliant)
                 html_body = f"""
                 <!DOCTYPE html>
                 <html>
@@ -3796,6 +4024,8 @@ async def create_campaign(
                         .content {{ padding: 40px 30px; color: #ffffff; }}
                         .message-box {{ background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); border-radius: 12px; padding: 24px; margin: 20px 0; white-space: pre-wrap; line-height: 1.6; }}
                         .footer {{ padding: 30px; text-align: center; color: #666; font-size: 12px; border-top: 1px solid rgba(255,255,255,0.1); }}
+                        .footer a {{ color: #0A84FF; text-decoration: none; }}
+                        .footer a:hover {{ text-decoration: underline; }}
                         .emoji {{ font-size: 48px; margin: 20px 0; }}
                     </style>
                 </head>
@@ -3816,7 +4046,14 @@ async def create_campaign(
                         </div>
                         <div class="footer">
                             <p><strong>{org_name}</strong></p>
-                            <p>Este es un email de marketing. Si no deseas recibir más emails, puedes desactivarlo desde tu perfil.</p>
+                            <p style="margin: 10px 0;">📍 {org_address}</p>
+                            <p style="margin: 15px 0;">
+                                Este es un email promocional. 
+                                <a href="{unsubscribe_url}" style="color: #0A84FF;">Cancelar suscripción</a>
+                            </p>
+                            <p style="margin-top: 10px; font-size: 10px; color: #555;">
+                                Recibiste este email porque aceptaste recibir comunicaciones de marketing de {org_name}.
+                            </p>
                         </div>
                     </div>
                 </body>
@@ -4220,7 +4457,7 @@ async def get_availability(org_id: str, barber_id: str, date: str, service_id: s
     }
 
 @api_router.post("/public/{org_id}/appointments")
-async def create_public_appointment(org_id: str, data: AppointmentCreate):
+async def create_public_appointment(org_id: str, data: AppointmentCreate, request: Request):
     # NEXUS_STRICT_AVAILABILITY_V1
     # Parse safely so malformed requests return 400 instead of 500.
     appointment_date = _strict_date(data.date)
@@ -4369,12 +4606,15 @@ async def create_public_appointment(org_id: str, data: AppointmentCreate):
             raise HTTPException(status_code=409, detail="This time slot is no longer available")
         raise
 
-    # Create or update client record
+    # Create or update client record with TCPA/Ley 1581 consent
     await upsert_client(
         organization_id=org_id,
         phone=data.client_phone,
         name=data.client_name,
-        email=data.client_email
+        email=data.client_email,
+        marketing_consent=data.marketing_consent,
+        consent_ip=request.client.host if request.client else None,
+        consent_text="Acepto recibir promociones y novedades por correo/WhatsApp" if data.marketing_consent else None
     )
     
     logger.info(f"[MOCK] Appointment {appointment_id} confirmed for {data.date} at {data.time}")

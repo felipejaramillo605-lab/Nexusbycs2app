@@ -23,11 +23,6 @@ async def ensure_transaction_void_indexes(db):
 def build_transaction_void_router(db,get_current_user,require_management_role,validate_organization_access):
     router=APIRouter()
 
-    @router.post('/transactions/{transaction_id}/void')
-    async def void_transaction(transaction_id:str,data:TransactionVoidRequest,authorization:Optional[str]=None,session_token:Optional[str]=None):
-        # Explicit dependency invocation preserves the application's cookie/header authentication contract.
-        raise RuntimeError('route wiring placeholder')
-
     # Replace the placeholder route with an endpoint whose dependency defaults are constructed here.
     router.routes.clear()
     @router.post('/transactions/{transaction_id}/void')
