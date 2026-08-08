@@ -243,6 +243,20 @@ export const publicAPI = {
   getClientHistory: (phone, organizationId) => axios.get(`${API}/public/clients/history`, { params: { phone, organization_id: organizationId } }),
 };
 
+// Client Portal PIN API
+export const clientPortalAPI = {
+  register: (data) => axios.post(`${API}/public/clients/register`, data, { withCredentials: true }),
+  login: (data) => axios.post(`${API}/public/clients/login`, data, { withCredentials: true }),
+  logout: () => axios.post(`${API}/public/clients/logout`, {}, { withCredentials: true }),
+  getMe: () => axios.get(`${API}/public/clients/me`, { withCredentials: true }),
+  getHistory: (phone, orgId) => axios.get(`${API}/public/clients/history`, { params: { phone, organization_id: orgId } }),
+  cancelAppointment: (appointmentId) => axios.post(`${API}/public/clients/appointments/${appointmentId}/cancel`, {}, { withCredentials: true }),
+  changePin: (data) => axios.post(`${API}/public/clients/change-pin`, data, { withCredentials: true }),
+  deleteAccount: (orgId) => axios.delete(`${API}/public/clients/me`, { params: { organization_id: orgId }, withCredentials: true }),
+  forgotPin: (data) => axios.post(`${API}/public/clients/forgot-pin`, data),
+  resetPin: (data) => axios.post(`${API}/public/clients/reset-pin`, data),
+};
+
 export const billingAPI = {
   getProfile: (params={}) => api.get('/billing/profile',{params}),
   saveProfile: (data,params={}) => api.put('/billing/profile',data,{params}),

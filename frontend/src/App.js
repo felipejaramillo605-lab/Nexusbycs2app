@@ -54,6 +54,10 @@ const StaffProfile = lazy(() => import('./pages/StaffProfile'));
 const StaffIncome = lazy(() => import('./pages/StaffIncome'));
 const StaffAppointments = lazy(() => import('./pages/StaffAppointments'));
 const AccountPrivacy = lazy(() => import('./pages/AccountPrivacy'));
+const ClientPortalAuth = lazy(() => import('./pages/ClientPortalAuth'));
+const ClientPortalDashboard = lazy(() => import('./pages/ClientPortalDashboard'));
+const ForgotPin = lazy(() => import('./pages/ForgotPin'));
+const ResetPin = lazy(() => import('./pages/ResetPin'));
 
 // Loading fallback
 const PageLoader = () => (
@@ -83,6 +87,12 @@ function AppRouter() {
         <Route path="/auth/callback" element={<AuthCallback />} />
         <Route path="/book/:orgId" element={<BookingFlow />} />
         <Route path="/portal/:orgId" element={<CustomerPortal />} />
+        
+        {/* Client Portal with PIN */}
+        <Route path="/portal/:orgId/auth" element={<ClientPortalAuth />} />
+        <Route path="/portal/:orgId/dashboard" element={<ClientPortalDashboard />} />
+        <Route path="/portal/:orgId/forgot-pin" element={<ForgotPin />} />
+        <Route path="/portal/:orgId/reset-pin" element={<ResetPin />} />
 
         <Route
           path="/owner/access-control"

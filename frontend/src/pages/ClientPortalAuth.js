@@ -102,7 +102,7 @@ export default function ClientPortalAuth() {
       <div className="max-w-md w-full">
         {/* Header */}
         <div className="text-center mb-8">
-          <Link to={`/booking/${orgId}`} className="inline-flex items-center gap-2 text-zinc-400 hover:text-white transition-colors mb-6">
+          <Link to={`/book/${orgId}`} className="inline-flex items-center gap-2 text-zinc-400 hover:text-white transition-colors mb-6">
             <ArrowLeft size={16} />
             <span className="text-sm">Volver a reservar</span>
           </Link>
