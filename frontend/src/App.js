@@ -49,6 +49,7 @@ const AcceptInvitation = lazy(() => import('./pages/AcceptInvitation'));
 const ForgotPassword = lazy(() => import('./pages/ForgotPassword'));
 const ResetPassword = lazy(() => import('./pages/ResetPassword'));
 const Unsubscribe = lazy(() => import('./pages/Unsubscribe'));
+const PrivacyPolicy = lazy(() => import('./pages/PrivacyPolicy'));
 const StaffProfile = lazy(() => import('./pages/StaffProfile'));
 const StaffIncome = lazy(() => import('./pages/StaffIncome'));
 const StaffAppointments = lazy(() => import('./pages/StaffAppointments'));
@@ -230,6 +231,7 @@ function AppRouter() {
         
         {/* Public Routes */}
         <Route path="/unsubscribe" element={<Unsubscribe />} />
+        <Route path="/privacy-policy" element={<PrivacyPolicy />} />
         
         <Route path="/" element={<Navigate to="/login" replace />} />
         <Route path="*" element={<NotFound />} />
