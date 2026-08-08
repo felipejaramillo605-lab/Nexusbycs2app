@@ -116,6 +116,7 @@ export default function ClientPortalAuth() {
         {/* Mode Tabs */}
         <div className="flex gap-2 mb-6 p-1 bg-white/5 rounded-xl border border-white/10">
           <button
+            data-testid="portal-login-tab"
             onClick={() => setMode('login')}
             className={`flex-1 py-2.5 rounded-lg text-sm font-medium transition-all ${
               mode === 'login'
@@ -127,6 +128,7 @@ export default function ClientPortalAuth() {
             Iniciar Sesión
           </button>
           <button
+            data-testid="portal-register-tab"
             onClick={() => setMode('register')}
             className={`flex-1 py-2.5 rounded-lg text-sm font-medium transition-all ${
               mode === 'register'
@@ -147,6 +149,7 @@ export default function ClientPortalAuth() {
               Teléfono
             </label>
             <input
+              data-testid="portal-phone-input"
               type="tel"
               value={phone}
               onChange={(e) => setPhone(e.target.value)}
@@ -163,6 +166,7 @@ export default function ClientPortalAuth() {
                 Nombre completo
               </label>
               <input
+                data-testid="portal-name-input"
                 type="text"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
@@ -181,6 +185,7 @@ export default function ClientPortalAuth() {
             </label>
             <div className="relative">
               <input
+                data-testid="portal-pin-input"
                 type={showPin ? 'text' : 'password'}
                 value={pin}
                 onChange={(e) => {
@@ -213,6 +218,7 @@ export default function ClientPortalAuth() {
             <div className="bg-white/5 border border-white/10 rounded-xl p-4">
               <label className="flex items-start gap-3 cursor-pointer">
                 <input
+                  data-testid="portal-marketing-checkbox"
                   type="checkbox"
                   checked={marketingConsent}
                   onChange={(e) => setMarketingConsent(e.target.checked)}
@@ -232,6 +238,7 @@ export default function ClientPortalAuth() {
 
           {/* Submit Button */}
           <button
+            data-testid={mode === 'login' ? 'portal-login-submit' : 'portal-register-submit'}
             type="submit"
             disabled={loading}
             className="w-full py-3 bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white font-medium rounded-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
