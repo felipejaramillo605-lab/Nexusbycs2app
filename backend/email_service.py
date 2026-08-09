@@ -27,6 +27,22 @@ def recipient_fingerprint(value: str) -> str:
     return hashlib.sha256(str(value or "").strip().lower().encode()).hexdigest()[:16]
 
 
+def _theme_colors(theme_key: str = 'classic') -> tuple:
+    """
+    Returns gradient colors for email headers based on client portal theme
+    Returns: (start_color, end_color)
+    """
+    themes = {
+        'classic': ('#0a0a0a', '#1a1a1a'),
+        'feminine': ('#fdf2f6', '#fbe4ec'),
+        'professional': ('#0f172a', '#1e293b'),
+        'cyberpunk': ('#0d0221', '#1a0533'),
+        'underground': ('#1a1a1a', '#0a0a0a'),
+        'neutral': ('#f4f5f7', '#e9eaed'),
+    }
+    return themes.get(theme_key, themes['classic'])
+
+
 class EmailService:
     def __init__(self):
         self.smtp_host = os.environ.get('SMTP_HOST', 'smtp.gmail.com')
@@ -144,10 +160,26 @@ class EmailService:
         time: str,
         organization_name: str,
         organization_address: Optional[str] = None,
-        cancellation_url: Optional[str] = None
+        cancellation_url: Optional[str] = None,
+        theme: str = 'classic',
+        total_visits: int = 0,
+        whatsapp_link: Optional[str] = None,
+        phone: Optional[str] = None
     ) -> bool:
         """Send appointment confirmation email"""
+        # Escape all user inputs
+        customer_name = escape(customer_name)
+        barber_name = escape(barber_name)
+        service_name = escape(service_name)
+        organization_name = escape(organization_name)
+        
         subject = f"✅ Cita Confirmada - {organization_name}"
+        
+        # Personalized greeting based on visit count
+        if total_visits == 0:
+            greeting = f"¡Gracias por elegirnos, <strong>{customer_name}</strong>! Esta será tu primera visita y estamos emocionados de recibirte."
+        else:
+            greeting = f"¡Qué bueno tenerte de vuelta, <strong>{customer_name}</strong>! Siempre es un placer atenderte."
         
         # Create Google Calendar link
         calendar_description = f"Cita para {service_name} con {barber_name} en {organization_name}"
@@ -160,6 +192,24 @@ class EmailService:
             description=calendar_description,
             location=calendar_location
         )
+        
+        # Google Maps link if address exists
+        maps_link = ""
+        if organization_address:
+            maps_url = f"https://www.google.com/maps/search/?api=1&query={quote(organization_address)}"
+            maps_link = f'<a href="{maps_url}" style="display:inline-block;margin:10px 0;padding:12px 24px;background:rgba(255,255,255,0.1);color:#fff;text-decoration:none;border-radius:10px;border:1px solid rgba(255,255,255,0.2);">📍 Cómo llegar</a>'
+        
+        # Contact options
+        contact_html = ""
+        if whatsapp_link:
+            contact_html += f'<a href="{escape(whatsapp_link)}" style="margin-right:10px;color:#34C759;">WhatsApp</a>'
+        if phone:
+            contact_html += f'<a href="tel:{escape(phone)}" style="color:#0A84FF;">{escape(phone)}</a>'
+        if contact_html:
+            contact_html = f"<p style='color:#aaa;margin-top:20px;'>¿Necesitas cambiar algo? Contáctanos: {contact_html}</p>"
+        
+        # Theme colors
+        theme_start, theme_end = _theme_colors(theme)
         
         cancellation_html = (
             f'<p style="text-align:center;margin:24px 0;"><a href="{cancellation_url}" '
@@ -175,7 +225,7 @@ class EmailService:
             <style>
                 body {{ font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; margin: 0; padding: 0; background-color: #000000; }}
                 .container {{ max-width: 600px; margin: 40px auto; background: linear-gradient(135deg, #1a1a1a 0%, #0a0a0a 100%); border-radius: 16px; overflow: hidden; border: 1px solid rgba(255,255,255,0.1); }}
-                .header {{ background: linear-gradient(135deg, #0A84FF 0%, #0071E3 100%); padding: 40px 20px; text-align: center; }}
+                .header {{ background: linear-gradient(135deg, {theme_start} 0%, {theme_end} 100%); padding: 40px 20px; text-align: center; }}
                 .header h1 {{ color: white; margin: 0; font-size: 28px; font-weight: 300; }}
                 .content {{ padding: 40px 30px; color: #ffffff; }}
                 .info-card {{ background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); border-radius: 12px; padding: 24px; margin: 20px 0; }}
@@ -196,8 +246,7 @@ class EmailService:
                     <h1>¡Cita Confirmada!</h1>
                 </div>
                 <div class="content">
-                    <p style="font-size: 18px; color: #fff;">Hola <strong>{customer_name}</strong>,</p>
-                    <p style="color: #aaa;">Tu cita ha sido confirmada exitosamente. Te esperamos en:</p>
+                    <p style="font-size: 18px; color: #fff;">{greeting}</p>
                     
                     <div class="info-card">
                         <div class="info-row">
@@ -213,21 +262,27 @@ class EmailService:
                             <span class="value">{service_name}</span>
                         </div>
                         <div class="info-row">
-                            <span class="label">👨‍💼 Barbero</span>
+                            <span class="label">👤 Profesional</span>
                             <span class="value">{barber_name}</span>
                         </div>
-                        {f'<div class="info-row"><span class="label">📍 Dirección</span><span class="value">{organization_address}</span></div>' if organization_address else ''}
+                        {f'<div class="info-row"><span class="label">📍 Dirección</span><span class="value">{escape(organization_address)}</span></div>' if organization_address else ''}
                     </div>
                     
-                    {f'<div style="text-align: center;"><a href="{google_calendar_link}" class="calendar-btn" target="_blank">📅 Agregar a Google Calendar</a></div>' if google_calendar_link else ''}
+                    <div style="text-align: center;">
+                        <a href="{google_calendar_link}" class="calendar-btn">📅 Agregar a Google Calendar</a>
+                        {maps_link}
+                    </div>
                     
-                    <p style="color: #aaa; margin-top: 30px;">Te enviaremos un recordatorio 24 horas antes de tu cita.</p>
-                    <p style="color: #aaa;">Si necesitas cancelar o reagendar, por favor contáctanos con anticipación.</p>
+                    {cancellation_html}
+                    {contact_html}
+                    
+                    <p style="color: #aaa; margin-top: 30px; font-size: 14px;">
+                        💡 <strong>Recomendación:</strong> Te sugerimos llegar 5 minutos antes de tu cita.
+                    </p>
                 </div>
-                {cancellation_html}
                 <div class="footer">
-                    <p><strong>{organization_name}</strong></p>
-                    <p>Este es un email automático, por favor no respondas a este mensaje.</p>
+                    <p>{organization_name}</p>
+                    <p style="margin-top: 8px; color: #444;">Este es un mensaje automático, por favor no respondas a este correo.</p>
                 </div>
             </div>
         </body>

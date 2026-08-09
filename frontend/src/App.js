@@ -107,6 +107,11 @@ function AppRouter() {
         <Route path="/owner/third-party-matrix" element={<ProtectedRoute requiredRole="owner"><OwnerThirdPartyMatrix /></ProtectedRoute>} />
         <Route path="/owner/organizations/new" element={<ProtectedRoute requiredRole="owner"><OwnerOrganizationOnboarding /></ProtectedRoute>} />
 
+        {/* Settings and related redirects */}
+        <Route path="/manager/settings" element={<ProtectedRoute allowedRoles={['owner', 'manager', 'admin']}><Settings /></ProtectedRoute>} />
+        <Route path="/manager/fiscal-profile" element={<Navigate to="/manager/settings?tab=fiscal" replace />} />
+        <Route path="/account/privacy" element={<Navigate to="/manager/settings?tab=privacy" replace />} />
+        
         <Route path="/manager/billing" element={<ProtectedRoute allowedRoles={['owner', 'manager', 'admin']}><ManagerBilling /></ProtectedRoute>} />
         <Route path="/manager/fiscal-profile" element={<ProtectedRoute allowedRoles={['owner', 'manager', 'admin']}><ManagerFiscalProfile /></ProtectedRoute>} />
 

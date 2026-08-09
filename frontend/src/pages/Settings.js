@@ -4,17 +4,40 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useOrganization } from '../context/OrganizationContext';
-import { ArrowLeft, Save, Building, Users, Mail, UserCog, Trash2, Loader2, Check, Percent, RotateCcw, Pencil, Copy, ExternalLink, X } from 'lucide-react';
+import { ArrowLeft, Save, Building, Users, Mail, UserCog, Trash2, Loader2, Check, Percent, RotateCcw, Pencil, Copy, ExternalLink, X, Settings as SettingsIcon, FileText, CreditCard, Shield, Palette } from 'lucide-react';
 import { toast } from 'sonner';
 import { AccessibleModal, confirmAction } from '../components/design';
 import { teamAPI, commissionAPI } from '../api';
+import ManagerFiscalProfile from './ManagerFiscalProfile';
+import AccountPrivacy from './AccountPrivacy';
+import ManagerBilling from './ManagerBilling';
+import PortalThemeSelector from '../components/PortalThemeSelector';
+
+const TABS = {
+  general: { key: 'general', label: 'General', icon: SettingsIcon },
+  fiscal: { key: 'fiscal', label: 'Datos Fiscales', icon: FileText },
+  billing: { key: 'billing', label: 'Facturación', icon: CreditCard },
+  privacy: { key: 'privacy', label: 'Cuenta y Privacidad', icon: Shield },
+  'portal-theme': { key: 'portal-theme', label: 'Portal del Cliente', icon: Palette },
+};
 
 const Settings = () => {
   const { user, logout } = useAuth();
   const { updateOrganization, refreshOrganization } = useOrganization();
   const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const organizationId = (user?.role === 'owner' ? searchParams.get('org_id') : user?.organization_id) || user?.organization_id;
+  
+  // Tab state
+  const activeTab = searchParams.get('tab') || 'general';
+  const setActiveTab = (tab) => {
+    const newParams = new URLSearchParams(searchParams);
+    newParams.set('tab', tab);
+    if (organizationId && user?.role === 'owner') {
+      newParams.set('org_id', organizationId);
+    }
+    setSearchParams(newParams);
+  };
 
   // Business Profile State
   const [loading, setLoading] = useState(true);
@@ -331,7 +354,38 @@ const Settings = () => {
         </div>
       </nav>
 
+      {/* Tabs Navigation */}
+      <div className="border-b border-[var(--app-border)] bg-[var(--app-bg-primary)]">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6">
+          <div className="flex gap-1 overflow-x-auto">
+            {Object.values(TABS).map((tab) => {
+              const Icon = tab.icon;
+              const isActive = activeTab === tab.key;
+              return (
+                <button
+                  key={tab.key}
+                  onClick={() => setActiveTab(tab.key)}
+                  className={`
+                    flex items-center gap-2 px-4 py-3 text-sm font-medium transition-all whitespace-nowrap
+                    border-b-2 -mb-px
+                    ${isActive 
+                      ? 'border-[var(--app-accent)] text-[var(--app-accent)]' 
+                      : 'border-transparent text-[var(--app-text-secondary)] hover:text-[var(--app-text-primary)] hover:border-[var(--app-border)]'
+                    }
+                  `}
+                >
+                  <Icon size={16} />
+                  <span className="hidden sm:inline">{tab.label}</span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+
       <div className="max-w-7xl mx-auto px-4 sm:px-6 py-8">
+        {/* Render content based on active tab */}
+        {activeTab === 'general' && (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           
           {/* CARD 1 - Perfil del Local */}
@@ -613,6 +667,41 @@ const Settings = () => {
           </div>
           {editingCommission && <AccessibleModal open={!!editingCommission} onClose={()=>!commissionAction&&setEditingCommission(null)} labelledBy="commission-editor-title" panelClassName="w-full max-w-lg rounded-2xl border border-[var(--app-border)] bg-[var(--app-surface-elevated)] p-6"><h3 id="commission-editor-title" className="text-xl text-[var(--app-text-primary)]">Comisión de {editingCommission.name}</h3><div className="grid sm:grid-cols-2 gap-4 mt-5"><label className="text-sm text-zinc-400">Staff<input type="number" min="0" max="100" step="0.01" value={editingCommission.staff_percent} onChange={(e) => changeOverrideStaff(e.target.value)} className="mt-2 w-full px-4 py-3 bg-white/5 border border-[var(--app-border)] rounded-xl text-[var(--app-text-primary)]" /></label><label className="text-sm text-zinc-400">Negocio<input readOnly value={editingCommission.business_percent} className="mt-2 w-full px-4 py-3 bg-white/5 border border-[var(--app-border)] rounded-xl text-zinc-300" /></label></div><label className="block text-sm text-zinc-400 mt-4">Motivo<textarea rows={3} value={editingCommission.reason} onChange={(e) => setEditingCommission({ ...editingCommission, reason: e.target.value })} className="mt-2 w-full px-4 py-3 bg-white/5 border border-[var(--app-border)] rounded-xl text-[var(--app-text-primary)]" /></label><div className="flex justify-end gap-3 mt-5"><button type="button" onClick={() => setEditingCommission(null)} className="px-4 py-2 text-zinc-300">Cancelar</button><button type="button" onClick={saveStaffCommission} className="px-4 py-2 rounded-xl bg-[#0A84FF] text-[var(--app-text-primary)]">Guardar</button></div></AccessibleModal>}
         </div>
+        )}
+
+        {/* Tab: Datos Fiscales */}
+        {activeTab === 'fiscal' && (
+          <div>
+            <ManagerFiscalProfile />
+          </div>
+        )}
+
+        {/* Tab: Facturación */}
+        {activeTab === 'billing' && (
+          <div>
+            <ManagerBilling />
+          </div>
+        )}
+
+        {/* Tab: Cuenta y Privacidad */}
+        {activeTab === 'privacy' && (
+          <div>
+            <AccountPrivacy />
+          </div>
+        )}
+
+        {/* Tab: Portal del Cliente */}
+        {activeTab === 'portal-theme' && organizationId && (
+          <div>
+            <PortalThemeSelector 
+              organizationId={organizationId}
+              currentTheme={profileData.client_portal_theme || 'classic'}
+              onThemeChange={(theme) => {
+                setProfileData({ ...profileData, client_portal_theme: theme });
+              }}
+            />
+          </div>
+        )}
       </div>
       <AccessibleModal open={!!simulatedInvitation} onClose={() => setSimulatedInvitation(null)} labelledBy="simulated-invitation-title" describedBy="simulated-invitation-description">
         <button type="button" className="float-right text-zinc-400" onClick={() => setSimulatedInvitation(null)} aria-label="Cerrar"><X size={18}/></button>
