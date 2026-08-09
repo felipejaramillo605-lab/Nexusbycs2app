@@ -1,3 +1,4 @@
+// NEXUS_8A7D1A_VISIBLE_NEUTRAL_TERMINOLOGY_V1
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
@@ -8,7 +9,7 @@ const BusinessProfile = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const organizationId = searchParams.get('org_id') || user?.organization_id;
+  const organizationId = (user?.role === 'owner' ? searchParams.get('org_id') : user?.organization_id) || user?.organization_id;
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -82,27 +83,27 @@ const BusinessProfile = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-[#000000] flex items-center justify-center">
+      <div className="min-h-screen nexus-screen flex items-center justify-center">
         <Loader2 size={48} className="text-[#0A84FF] animate-spin" />
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-[#000000]">
+    <div className="min-h-screen nexus-screen">
       {/* Navigation Bar */}
-      <nav className="backdrop-blur-xl bg-white/3 border-b border-white/10 sticky top-0 z-50">
+      <nav className="backdrop-blur-xl bg-white/3 border-b border-[var(--app-border)] sticky top-0 z-50">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 py-3 sm:py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
               <button
                 onClick={() => navigate(organizationId && user?.role === 'owner' ? `/manager/dashboard?org_id=${organizationId}` : '/manager/dashboard')}
-                className="flex items-center gap-2 text-zinc-400 hover:text-white transition-colors"
+                className="flex items-center gap-2 text-zinc-400 hover:text-[var(--app-text-primary)] transition-colors"
               >
                 <ArrowLeft size={20} strokeWidth={1.5} />
                 <span className="hidden sm:inline">Volver</span>
               </button>
-              <h1 className="text-xl sm:text-2xl font-light tracking-tight text-white" style={{ fontFamily: 'Outfit, sans-serif' }}>
+              <h1 className="text-xl sm:text-2xl font-light tracking-tight text-[var(--app-text-primary)]" style={{ fontFamily: 'Outfit, sans-serif' }}>
                 Perfil del Negocio
               </h1>
             </div>
@@ -112,10 +113,10 @@ const BusinessProfile = () => {
 
       <div className="max-w-4xl mx-auto px-4 sm:px-6 py-8">
         {/* Info Card */}
-        <div className="backdrop-blur-xl bg-white/3 border border-white/10 rounded-2xl p-6 mb-6">
+        <div className="backdrop-blur-xl bg-white/3 border border-[var(--app-border)] rounded-2xl p-6 mb-6">
           <div className="flex items-center gap-3 mb-2">
             <Building size={24} className="text-[#0A84FF]" />
-            <h2 className="text-lg font-medium text-white">Información del Negocio</h2>
+            <h2 className="text-lg font-medium text-[var(--app-text-primary)]">Información del Negocio</h2>
           </div>
           <p className="text-zinc-400 text-sm">
             Esta información se mostrará a los clientes en el portal de reservas
@@ -123,20 +124,20 @@ const BusinessProfile = () => {
         </div>
 
         {/* Form */}
-        <form onSubmit={handleSubmit} className="backdrop-blur-xl bg-white/3 border border-white/10 rounded-2xl p-6 space-y-6">
+        <form onSubmit={handleSubmit} className="backdrop-blur-xl bg-white/3 border border-[var(--app-border)] rounded-2xl p-6 space-y-6">
           {/* Name */}
           <div>
             <label className="block text-sm font-medium text-zinc-400 mb-2">
               <Building size={16} className="inline mr-2" />
-              Nombre de la Barbería
+              Nombre de la organización
             </label>
             <input
               type="text"
               required
               value={formData.name}
               onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-              className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-zinc-500 focus:border-[#0A84FF] focus:ring-2 focus:ring-[#0A84FF]/20 outline-none transition-all"
-              placeholder="Ej: Barbería Elegante"
+              className="w-full px-4 py-3 bg-white/5 border border-[var(--app-border)] rounded-xl text-[var(--app-text-primary)] placeholder-zinc-500 focus:border-[#0A84FF] focus:ring-2 focus:ring-[#0A84FF]/20 outline-none transition-all"
+              placeholder="Ej: Centro de Bienestar Integral"
             />
           </div>
 
@@ -150,7 +151,7 @@ const BusinessProfile = () => {
               type="text"
               value={formData.address}
               onChange={(e) => setFormData({ ...formData, address: e.target.value })}
-              className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-zinc-500 focus:border-[#0A84FF] focus:ring-2 focus:ring-[#0A84FF]/20 outline-none transition-all"
+              className="w-full px-4 py-3 bg-white/5 border border-[var(--app-border)] rounded-xl text-[var(--app-text-primary)] placeholder-zinc-500 focus:border-[#0A84FF] focus:ring-2 focus:ring-[#0A84FF]/20 outline-none transition-all"
               placeholder="Ej: Calle 123 #45-67, Bogotá"
             />
           </div>
@@ -164,7 +165,7 @@ const BusinessProfile = () => {
             <textarea
               value={formData.business_hours}
               onChange={(e) => setFormData({ ...formData, business_hours: e.target.value })}
-              className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-zinc-500 focus:border-[#0A84FF] focus:ring-2 focus:ring-[#0A84FF]/20 outline-none transition-all resize-none"
+              className="w-full px-4 py-3 bg-white/5 border border-[var(--app-border)] rounded-xl text-[var(--app-text-primary)] placeholder-zinc-500 focus:border-[#0A84FF] focus:ring-2 focus:ring-[#0A84FF]/20 outline-none transition-all resize-none"
               rows={3}
               placeholder="Ej: Lunes a Viernes: 9:00 AM - 7:00 PM&#10;Sábados: 9:00 AM - 5:00 PM&#10;Domingos: Cerrado"
             />
@@ -183,7 +184,7 @@ const BusinessProfile = () => {
               type="tel"
               value={formData.phone}
               onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-              className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-zinc-500 focus:border-[#0A84FF] focus:ring-2 focus:ring-[#0A84FF]/20 outline-none transition-all"
+              className="w-full px-4 py-3 bg-white/5 border border-[var(--app-border)] rounded-xl text-[var(--app-text-primary)] placeholder-zinc-500 focus:border-[#0A84FF] focus:ring-2 focus:ring-[#0A84FF]/20 outline-none transition-all"
               placeholder="Ej: +57 300 123 4567"
             />
           </div>
@@ -198,7 +199,7 @@ const BusinessProfile = () => {
               type="url"
               value={formData.whatsapp_link}
               onChange={(e) => setFormData({ ...formData, whatsapp_link: e.target.value })}
-              className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-zinc-500 focus:border-[#0A84FF] focus:ring-2 focus:ring-[#0A84FF]/20 outline-none transition-all"
+              className="w-full px-4 py-3 bg-white/5 border border-[var(--app-border)] rounded-xl text-[var(--app-text-primary)] placeholder-zinc-500 focus:border-[#0A84FF] focus:ring-2 focus:ring-[#0A84FF]/20 outline-none transition-all"
               placeholder="https://wa.me/573001234567"
             />
             <p className="text-xs text-zinc-500 mt-2">
@@ -211,14 +212,14 @@ const BusinessProfile = () => {
             <button
               type="button"
               onClick={() => navigate('/manager/dashboard')}
-              className="flex-1 px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-white hover:bg-white/10 transition-all"
+              className="flex-1 px-4 py-3 rounded-xl bg-white/5 border border-[var(--app-border)] text-[var(--app-text-primary)] hover:bg-white/10 transition-all"
             >
               Cancelar
             </button>
             <button
               type="submit"
               disabled={saving}
-              className="flex-1 px-4 py-3 rounded-xl bg-[#0A84FF] hover:bg-[#0071E3] text-white font-medium transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+              className="flex-1 px-4 py-3 rounded-xl bg-[#0A84FF] hover:bg-[#0071E3] text-[var(--app-text-primary)] font-medium transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
             >
               {saving ? (
                 <>

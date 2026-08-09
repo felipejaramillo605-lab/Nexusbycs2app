@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react';
+// NEXUS_8A7D1B_REMAINING_NEUTRAL_COPY_V1
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { ChevronLeft, ChevronRight, Calendar, User, Clock, DollarSign } from 'lucide-react';
 import { appointmentAPI, barberAPI } from '../api';
 import { toast } from 'sonner';
@@ -11,12 +12,12 @@ const WeeklyCalendar = ({ organizationId }) => {
   const [blockedTimes, setBlockedTimes] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  // Generate week dates
-  const weekDates = Array.from({ length: 7 }, (_, i) => {
+  // Generate stable week dates
+  const weekDates = useMemo(() => Array.from({ length: 7 }, (_, i) => {
     const date = new Date(currentWeekStart);
     date.setDate(date.getDate() + i);
     return date;
-  });
+  }), [currentWeekStart]);
 
   // Generate time slots (8 AM to 8 PM)
   const timeSlots = Array.from({ length: 24 }, (_, i) => {
@@ -24,11 +25,7 @@ const WeeklyCalendar = ({ organizationId }) => {
     return `${hour.toString().padStart(2, '0')}:00`;
   });
 
-  useEffect(() => {
-    loadData();
-  }, [currentWeekStart, organizationId, selectedBarber]);
-
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
     try {
       setLoading(true);
       
@@ -69,7 +66,9 @@ const WeeklyCalendar = ({ organizationId }) => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [organizationId, selectedBarber, weekDates]);
+
+  useEffect(() => { loadData(); }, [loadData]);
 
   const goToPreviousWeek = () => {
     const newDate = new Date(currentWeekStart);
@@ -159,7 +158,7 @@ const WeeklyCalendar = ({ organizationId }) => {
               onChange={(e) => setSelectedBarber(e.target.value)}
               className="min-h-[44px] px-4 py-2 bg-secondary/30 border border-primary/20 rounded-xl text-primary text-sm focus:border-[#0A84FF] focus:ring-1 focus:ring-[#0A84FF] outline-none"
             >
-              <option value="all">Todos los barberos</option>
+              <option value="all">Todos los profesionales</option>
               {barbers.map((barber) => (
                 <option key={barber.barber_id} value={barber.barber_id}>
                   {barber.name}

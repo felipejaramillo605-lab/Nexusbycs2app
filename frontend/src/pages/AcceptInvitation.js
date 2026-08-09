@@ -1,0 +1,151 @@
+// NEXUS_8A7C3B_IDEMPOTENT_ACCEPTANCE_UI_V1
+import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
+import { UserPlus, Loader2, ArrowLeft, RefreshCw } from 'lucide-react';
+import { publicAPI } from '../api';
+import { toast } from 'sonner';
+
+const INVITATION_ERROR_MESSAGES = {
+  invitation_replaced_or_invalid: 'Este enlace ya no es válido o fue reemplazado por una invitación más reciente. Abre únicamente el último correo recibido o solicita un nuevo reenvío.',
+  invitation_expired: 'Esta invitación venció. Solicita al administrador que la reenvíe y abre únicamente el correo más reciente.',
+  invitation_already_used: 'Esta invitación ya fue utilizada para crear una cuenta.',
+  invitation_revoked: 'Esta invitación fue revocada por la administración.',
+  invitation_not_available: 'La invitación todavía no está disponible. Intenta nuevamente o solicita un nuevo reenvío.',
+  acceptance_in_progress: 'La invitación se está procesando. Espera unos segundos y vuelve a intentar con este mismo formulario.',
+  invalid_acceptance_id: 'No fue posible iniciar la aceptación de forma segura. Recarga la página e intenta nuevamente.'
+};
+
+const getValidationError = (requestError) => {
+  if (requestError?.code === 'ECONNABORTED') return { type: 'timeout', message: 'La validación está tardando más de lo esperado. Intenta nuevamente.' };
+  if (!requestError?.response) return { type: 'network', message: 'No fue posible conectar con el servidor. Revisa tu conexión e intenta nuevamente.' };
+  const status = requestError.response.status;
+  const detail = requestError.response?.data?.detail;
+  if (status === 400) return { type: 'invalid', message: INVITATION_ERROR_MESSAGES[detail] || detail || 'La invitación no es válida, expiró o ya fue utilizada.' };
+  if (status === 404) return { type: 'version', message: 'El servicio de invitaciones no está disponible en esta versión. Solicita una invitación nueva después de actualizar la aplicación.' };
+  return { type: 'server', message: 'No fue posible validar la invitación. Intenta nuevamente.' };
+};
+
+const AcceptInvitation = () => {
+  const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
+  const token = searchParams.get('token') || '';
+  const [invitation, setInvitation] = useState(null);
+  const [validating, setValidating] = useState(true);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+  const [validationAttempt, setValidationAttempt] = useState(0);
+  const [formData, setFormData] = useState({ firstName: '', lastName: '', phone: '', address: '', password: '', confirmPassword: '' });
+  const acceptanceIdRef = useRef('');
+  const submittingRef = useRef(false);
+  const updateField = useCallback((field, value) => setFormData((current) => ({ ...current, [field]: value })), []);
+
+  const validateInvitation = useCallback(async () => {
+    if (!token) {
+      setError({ type: 'invalid', message: 'El enlace no contiene una invitación válida.' });
+      setValidating(false);
+      return;
+    }
+    setValidating(true);
+    setError(null);
+    try {
+      const response = await publicAPI.validateInvitation(token);
+      setInvitation(response.data);
+    } catch (requestError) {
+      setInvitation(null);
+      setError(getValidationError(requestError));
+    } finally {
+      setValidating(false);
+    }
+  }, [token]);
+
+  useEffect(() => {
+    acceptanceIdRef.current = '';
+    submittingRef.current = false;
+    validateInvitation();
+  }, [validateInvitation, validationAttempt]);
+  const retryValidation = () => setValidationAttempt((current) => current + 1);
+
+  const validPassword = formData.password.length >= 8 && /[A-Z]/.test(formData.password) && /[0-9]/.test(formData.password);
+
+  const handleSubmit = async (event) => {
+    event.preventDefault();
+    if (!validPassword) return toast.error('La contraseña no cumple los requisitos');
+    if (formData.password !== formData.confirmPassword) return toast.error('Las contraseñas no coinciden');
+    if (submittingRef.current) return;
+    submittingRef.current = true;
+    setLoading(true);
+    if (!acceptanceIdRef.current) {
+      const random = globalThis.crypto?.randomUUID?.().replaceAll('-', '') || `${Date.now()}_${Math.random().toString(36).slice(2)}`;
+      acceptanceIdRef.current = `accept_${random}`;
+    }
+    try {
+      const response = await publicAPI.acceptInvitation({
+        token,
+        acceptance_id: acceptanceIdRef.current,
+        first_name: formData.firstName.trim(),
+        last_name: formData.lastName.trim(),
+        phone: formData.phone.trim(),
+        address: formData.address.trim() || null,
+        password: formData.password,
+        confirm_password: formData.confirmPassword
+      });
+      acceptanceIdRef.current = '';
+      toast.success(response.data?.idempotent ? 'La cuenta ya había sido creada. Ya puedes iniciar sesión.' : 'Cuenta creada. Ya puedes iniciar sesión.');
+      navigate('/login', { replace: true });
+    } catch (requestError) {
+      if (requestError?.code === 'ECONNABORTED') toast.error('La solicitud tardó demasiado. Verifica si la cuenta fue creada antes de volver a intentar.');
+      else if (!requestError?.response) toast.error('No fue posible conectar con el servidor.');
+      else {
+        const detail = requestError.response?.data?.detail;
+        const code = typeof detail === 'object' ? detail.code : detail;
+        const text = typeof detail === 'object' ? detail.message : detail;
+        toast.error(INVITATION_ERROR_MESSAGES[code] || text || 'No fue posible aceptar la invitación');
+      }
+    } finally {
+      submittingRef.current = false;
+      setLoading(false);
+    }
+  };
+
+  const fieldClass = 'w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-zinc-600 focus:border-[#0A84FF] focus:ring-2 focus:ring-[#0A84FF]/20 outline-none';
+
+  return (
+    <div className="min-h-screen bg-[#000000] flex items-center justify-center p-4 py-10">
+      <div className="w-full max-w-xl">
+        <Link to="/login" className="inline-flex items-center gap-2 mb-6 text-zinc-400 hover:text-white"><ArrowLeft size={18} /> Volver al login</Link>
+        <div className="backdrop-blur-xl bg-white/5 border border-white/10 rounded-3xl p-7 sm:p-10">
+          {validating ? (
+            <div className="py-20 text-center"><Loader2 size={38} className="text-[#0A84FF] animate-spin mx-auto mb-4" /><p className="text-zinc-400">Validando invitación...</p></div>
+          ) : error ? (
+            <div role="alert" className="text-center py-8">
+              <h1 className="text-2xl text-white mb-3">Invitación no disponible</h1>
+              <p className="text-zinc-400 mb-6">{error.message}</p>
+              {(error.type === 'timeout' || error.type === 'network' || error.type === 'server') && (
+                <button type="button" onClick={retryValidation} className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-[#0A84FF] hover:bg-[#0071E3] px-5 text-white font-medium transition-colors"><RefreshCw size={17} />Reintentar</button>
+              )}
+            </div>
+          ) : (
+            <>
+              <div className="w-14 h-14 rounded-2xl bg-purple-500/20 flex items-center justify-center mb-5"><UserPlus className="text-purple-400" /></div>
+              <h1 className="text-3xl font-light text-white mb-2">Únete a {invitation?.organization_name || 'Nexus by CS2'}</h1>
+              <p className="text-zinc-400 text-sm mb-7">Completa tus datos para activar <strong className="text-white">{invitation?.email}</strong> como {invitation?.role}.</p>
+              <form onSubmit={handleSubmit} className="space-y-5">
+                <div className="grid sm:grid-cols-2 gap-4">
+                  <div><label htmlFor="invite-first" className="block text-sm text-zinc-400 mb-2">Nombre</label><input id="invite-first" type="text" autoComplete="given-name" required value={formData.firstName} onChange={(event) => updateField('firstName', event.target.value)} className={fieldClass} /></div>
+                  <div><label htmlFor="invite-last" className="block text-sm text-zinc-400 mb-2">Apellido</label><input id="invite-last" type="text" autoComplete="family-name" required value={formData.lastName} onChange={(event) => updateField('lastName', event.target.value)} className={fieldClass} /></div>
+                </div>
+                <div><label htmlFor="invite-phone" className="block text-sm text-zinc-400 mb-2">Teléfono</label><input id="invite-phone" type="tel" autoComplete="tel" required value={formData.phone} onChange={(event) => updateField('phone', event.target.value)} className={fieldClass} placeholder="+57 300 000 0000" /></div>
+                <div><label htmlFor="invite-address" className="block text-sm text-zinc-400 mb-2">Dirección <span className="text-zinc-600">(opcional)</span></label><input id="invite-address" type="text" autoComplete="street-address" value={formData.address} onChange={(event) => updateField('address', event.target.value)} className={fieldClass} /></div>
+                <div><label htmlFor="invite-password" className="block text-sm text-zinc-400 mb-2">Contraseña</label><input id="invite-password" type="password" autoComplete="new-password" required value={formData.password} onChange={(event) => updateField('password', event.target.value)} className={fieldClass} /><p className="text-xs text-zinc-500 mt-2">Mínimo 8 caracteres, una mayúscula y un número.</p></div>
+                <div><label htmlFor="invite-confirm" className="block text-sm text-zinc-400 mb-2">Confirmar contraseña</label><input id="invite-confirm" type="password" autoComplete="new-password" required value={formData.confirmPassword} onChange={(event) => updateField('confirmPassword', event.target.value)} className={fieldClass} /></div>
+                <button type="submit" disabled={loading || !validPassword || formData.password !== formData.confirmPassword} className="w-full h-12 bg-[#0A84FF] hover:bg-[#0071E3] text-white rounded-xl font-medium flex items-center justify-center gap-2 disabled:opacity-50">{loading && <Loader2 size={18} className="animate-spin" />}{loading ? 'Creando cuenta...' : 'Aceptar invitación y crear cuenta'}</button>
+              </form>
+            </>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default AcceptInvitation;

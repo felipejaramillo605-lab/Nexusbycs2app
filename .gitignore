@@ -95,3 +95,7 @@ credentials.json
 .credentials
 frontend/node_modules/.cache/default-development/9.pack
 frontend/node_modules/.cache/default-development/0.pack
+
+# Runtime professional media
+/data/professional-media/
+frontend/node_modules/.cache/default-development/4.pack

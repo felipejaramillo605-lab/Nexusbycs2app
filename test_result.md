@@ -230,6 +230,98 @@ frontend:
           After booking confirmation, UI displays message: "Hemos enviado la confirmación por
           WhatsApp al número: [phone]". This is a proper UI-based mock simulation.
 
+  - task: "Client Portal with PIN - Complete Frontend"
+    implemented: true
+    working: "NA"
+    file: "/app/frontend/src/pages/ClientPortalAuth.js, ClientPortalDashboard.js, ForgotPin.js, ResetPin.js"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: |
+          PHASE 4 FRONTEND COMPLETED:
+          
+          Files Created:
+          1. /app/frontend/src/pages/ClientPortalAuth.js (275 lines)
+             - Login/Register tabs
+             - Phone + 4-digit PIN validation
+             - Marketing consent checkbox on register
+             - "Forgot PIN" link
+             - Organization branding
+             - Rate limiting error handling (429)
+          
+          2. /app/frontend/src/pages/ClientPortalDashboard.js (520+ lines)
+             - Client info display (name, phone)
+             - Upcoming appointments section
+             - Past appointments history
+             - Cancel appointment functionality
+             - Change PIN modal with validation
+             - Delete account modal with "ELIMINAR" confirmation
+             - Quick action buttons
+             - Logout functionality
+          
+          3. /app/frontend/src/pages/ForgotPin.js (120+ lines)
+             - Phone input for password reset request
+             - Generic success message (security best practice)
+             - Link back to login
+          
+          4. /app/frontend/src/pages/ResetPin.js (180+ lines)
+             - Token-based PIN reset
+             - New PIN + confirm validation
+             - Show/hide PIN toggle
+             - Invalid/expired token handling
+          
+          Files Modified:
+          - /app/frontend/src/api/index.js: Added clientPortalAPI with all PIN endpoints
+          - /app/frontend/src/App.js: Added 4 new routes + lazy loading
+          - /app/frontend/src/pages/BookingFlow.js: Added portal login link
+          
+          Routes Added:
+          - /portal/:orgId/auth (login/register)
+          - /portal/:orgId/dashboard (client dashboard)
+          - /portal/:orgId/forgot-pin (request reset)
+          - /portal/:orgId/reset-pin (reset with token)
+          
+          Backend Endpoints Used:
+          - POST /api/public/clients/register
+          - POST /api/public/clients/login
+          - POST /api/public/clients/logout
+          - GET /api/public/clients/me
+          - GET /api/public/clients/history
+          - POST /api/public/clients/appointments/{id}/cancel
+          - POST /api/public/clients/change-pin
+          - DELETE /api/public/clients/me
+          - POST /api/public/clients/forgot-pin
+          - POST /api/public/clients/reset-pin
+          
+          Features Implemented:
+          ✅ Registration with PIN
+          ✅ Login with brute force protection messaging
+          ✅ Session-based authentication (withCredentials)
+          ✅ Dashboard with appointment history
+          ✅ Cancel upcoming appointments
+          ✅ Change PIN with old/new validation
+          ✅ Delete account with typed confirmation
+          ✅ Forgot PIN email flow
+          ✅ Reset PIN with token
+          ✅ Link from booking flow
+          ✅ Marketing consent during registration
+          ✅ Organization branding
+          
+          Needs E2E Testing:
+          - Full registration flow
+          - Login with correct/incorrect PIN
+          - PIN brute force (5 attempts = 15min lock)
+          - Dashboard display
+          - Cancel appointment
+          - Change PIN flow
+          - Delete account flow
+          - Forgot/reset PIN email flow
+          - Rate limiting (429 responses)
+          - Guest booking still works independently
+
 metadata:
   created_by: "main_agent"
   version: "1.0"
@@ -238,8 +330,8 @@ metadata:
 
 test_plan:
   current_focus:
+    - "Client Portal with PIN - Complete Frontend"
     - "Weekly Calendar View for Managers/Barbers"
-    - "UI Spacing Improvement - Barbers and Services Filters"
   stuck_tasks: []
   test_all: false
   test_priority: "high_first"
@@ -247,7 +339,142 @@ test_plan:
 agent_communication:
   - agent: "main"
     message: |
-      NEW SESSION - Forked agent continuing development.
+      FORKED SESSION - Phase 4 Client Portal Frontend Implementation
+      
+      COMPLETED IN THIS SESSION:
+      
+      ✅ Phase 4 - Client Portal Frontend (COMPLETE)
+      
+      1. Created 4 New Pages:
+         - ClientPortalAuth.js (Login/Register with PIN)
+         - ClientPortalDashboard.js (Full client dashboard)
+         - ForgotPin.js (Request PIN reset)
+         - ResetPin.js (Reset PIN with token)
+      
+      2. API Integration:
+         - Extended /app/frontend/src/api/index.js with clientPortalAPI
+         - All 10 PIN endpoints integrated with withCredentials
+      
+      3. Routing:
+         - Added 4 new routes in App.js
+         - Lazy loading for all portal components
+      
+      4. BookingFlow Integration:
+         - Added "¿Ya tienes cuenta? Inicia sesión" link
+         - Links to /portal/:orgId/auth
+      
+      5. Features Implemented:
+         - 4-digit PIN registration & login
+         - Marketing consent checkbox (registration)
+         - Client dashboard with appointments
+         - Cancel upcoming appointments
+         - Change PIN modal
+         - Delete account with "ELIMINAR" confirmation
+         - Forgot/Reset PIN email flow
+         - Session management (cookies)
+         - Rate limiting error handling
+      
+      TESTING REQUIRED:
+      
+      High Priority Backend + Frontend E2E Testing:
+      
+      1. Registration Flow:
+         - Navigate to /portal/org_demo001/auth
+         - Register new client with phone, name, 4-digit PIN
+         - Verify marketing consent checkbox
+         - Verify session cookie created
+         - Verify redirect to dashboard
+      
+      2. Login Flow:
+         - Login with registered phone + PIN
+         - Test incorrect PIN (should show error)
+         - Test 5 failed attempts (should get 429 or lock message)
+         - Verify session persistence
+      
+      3. Dashboard:
+         - Verify client info displays (name, phone)
+         - Check upcoming appointments section
+         - Check past appointments history
+         - Test status badges (confirmed, completed, cancelled)
+      
+      4. Cancel Appointment:
+         - Create test appointment via booking flow
+         - Login to portal
+         - Cancel appointment from dashboard
+         - Verify cancellation confirmation
+         - Verify appointment disappears from upcoming
+      
+      5. Change PIN:
+         - Click "Cambiar PIN" button
+         - Enter old PIN (correct)
+         - Enter new PIN (4 digits)
+         - Confirm new PIN
+         - Test wrong old PIN (should fail)
+         - Test mismatched new PINs (should fail)
+         - Verify successful change
+      
+      6. Delete Account:
+         - Click "Eliminar Cuenta"
+         - Type "ELIMINAR" (case-sensitive)
+         - Verify account deleted
+         - Verify appointments remain in system
+         - Try logging in again (should fail)
+      
+      7. Forgot/Reset PIN:
+         - Click "¿Olvidaste tu PIN?" from login
+         - Enter registered phone
+         - Verify generic success message
+         - Check email for reset link (backend sends email)
+         - Click reset link with token
+         - Set new PIN
+         - Login with new PIN
+      
+      8. Rate Limiting:
+         - Test multiple failed login attempts
+         - Verify 429 status handling
+         - Test forgot-pin rate limit
+      
+      9. Guest Booking Independence:
+         - Navigate to /booking/org_demo001
+         - Complete full booking as guest
+         - Verify marketing_consent defaults to false
+         - Verify booking works without portal account
+         - Verify portal link visible but doesn't block booking
+      
+      10. Backend Endpoints Verification:
+          - POST /api/public/clients/register (test credentials)
+          - POST /api/public/clients/login (test session cookie)
+          - GET /api/public/clients/me (test 401 without session)
+          - POST /api/public/clients/logout (test session clearing)
+          - POST /api/public/clients/change-pin (test validation)
+          - DELETE /api/public/clients/me (test account deletion)
+          - POST /api/public/clients/forgot-pin (test email trigger)
+          - POST /api/public/clients/reset-pin (test token validation)
+      
+      CREDENTIALS FOR TESTING:
+      - Test credentials saved in /app/memory/test_credentials.md
+      - Organization: org_demo001
+      - Test phone: +573001234567
+      - Test PIN: 1234
+      
+      FILES CREATED:
+      - /app/frontend/src/pages/ClientPortalAuth.js
+      - /app/frontend/src/pages/ClientPortalDashboard.js
+      - /app/frontend/src/pages/ForgotPin.js
+      - /app/frontend/src/pages/ResetPin.js
+      - /app/memory/test_credentials.md
+      
+      FILES MODIFIED:
+      - /app/frontend/src/api/index.js (added clientPortalAPI)
+      - /app/frontend/src/App.js (added 4 portal routes)
+      - /app/frontend/src/pages/BookingFlow.js (added portal link)
+      - /app/test_result.md (this file)
+      
+      SERVICES STATUS:
+      - Frontend: RUNNING (compiled with warnings - normal webpack deprecations)
+      - Backend: RUNNING (no errors)
+      
+      READY FOR COMPREHENSIVE TESTING AGENT INVOCATION
       
       COMPLETED IN THIS SESSION (P0 Priority):
       

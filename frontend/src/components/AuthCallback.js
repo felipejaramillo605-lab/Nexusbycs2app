@@ -2,50 +2,70 @@ import React, { useEffect, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { authAPI } from '../api';
 import { useAuth } from '../context/AuthContext';
+import { getHomeForRole } from '../lib/roleNavigation';
 
 const AuthCallback = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const { setUser } = useAuth();
+  const { completeLogin } = useAuth();
   const hasProcessed = useRef(false);
 
   useEffect(() => {
-    // Prevent double processing in StrictMode
-    if (hasProcessed.current) return;
+    if (hasProcessed.current) {
+      return;
+    }
+
     hasProcessed.current = true;
 
     const processAuth = async () => {
+      let processingKey = null;
       try {
-        const hash = location.hash;
-        const params = new URLSearchParams(hash.substring(1));
+        const params = new URLSearchParams(
+          location.hash.replace(/^#/, '')
+        );
+
         const sessionId = params.get('session_id');
 
         if (!sessionId) {
-          navigate('/login');
+          navigate('/login?auth_error=missing_session', {
+            replace: true
+          });
           return;
         }
 
-        const response = await authAPI.createSession(sessionId);
-        setUser(response.data);
-
-        // Navigate based on role
-        if (response.data.role === 'owner') {
-          navigate('/owner/access-control', { replace: true, state: { user: response.data } });
-        } else {
-          navigate('/manager/dashboard', { replace: true, state: { user: response.data } });
-        }
+        processingKey = `nexus-oauth-callback:${sessionId}`;
+        if (sessionStorage.getItem(processingKey) === 'processing') return;
+        sessionStorage.setItem(processingKey, 'processing');
+        window.history.replaceState(null, document.title, '/auth/callback');
+        await authAPI.createSession(sessionId);
+        const verification = await authAPI.getMe();
+        const authenticatedUser = verification.data;
+        sessionStorage.removeItem(processingKey);
+        completeLogin(authenticatedUser);
+        const destination = getHomeForRole(authenticatedUser.role);
+        navigate(destination, { replace: true });
       } catch (error) {
-        console.error('Auth error:', error);
-        navigate('/login');
+        if (processingKey) sessionStorage.removeItem(processingKey);
+        console.error(
+          'No fue posible completar la autenticación:',
+          error?.response?.status,
+          error?.response?.data?.detail || error.message
+        );
+
+        navigate('/login?auth_error=session_failed', {
+          replace: true
+        });
       }
     };
 
     processAuth();
-  }, [location, navigate, setUser]);
+  }, [location.hash, navigate, completeLogin]);
 
   return (
     <div className="min-h-screen bg-[#000000] flex items-center justify-center">
-      <div className="text-white text-lg">Procesando autenticación...</div>
+      <div className="text-white text-lg">
+        Procesando autenticación...
+      </div>
     </div>
   );
 };

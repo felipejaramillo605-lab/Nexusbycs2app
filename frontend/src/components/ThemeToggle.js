@@ -1,27 +1,26 @@
-import React from 'react';
-import { Sun, Moon } from 'lucide-react';
+import React, { useState } from 'react';
+import { Check, Monitor, Moon, Sun } from 'lucide-react';
 import { useTheme } from '../context/ThemeContext';
 
-const ThemeToggle = () => {
-  const { theme, toggleTheme } = useTheme();
+const choices = [
+  { value: 'light', label: 'Claro', Icon: Sun },
+  { value: 'dark', label: 'Oscuro', Icon: Moon },
+  { value: 'system', label: 'Sistema', Icon: Monitor }
+];
 
-  return (
-    <button
-      onClick={toggleTheme}
-      className="flex items-center gap-2 min-h-[44px] px-4 py-2 rounded-xl glass-panel hover:opacity-80 transition-all"
-      aria-label="Toggle theme"
-      title={theme === 'dark' ? 'Cambiar a modo claro' : 'Cambiar a modo oscuro'}
-    >
-      {theme === 'dark' ? (
-        <Sun size={20} strokeWidth={1.5} className="text-yellow-400" />
-      ) : (
-        <Moon size={20} strokeWidth={1.5} className="text-[#0A84FF]" />
-      )}
-      <span className="hidden md:inline text-sm text-primary">
-        {theme === 'dark' ? 'Claro' : 'Oscuro'}
-      </span>
+export default function ThemeToggle({ compact = false }) {
+  const { theme, resolvedTheme, setTheme } = useTheme();
+  const [open, setOpen] = useState(false);
+  const ActiveIcon = theme === 'system' ? Monitor : resolvedTheme === 'dark' ? Moon : Sun;
+  return <div className="nexus-theme-control">
+    <button type="button" className="nexus-icon-button" onClick={() => setOpen(value => !value)} aria-label="Cambiar apariencia" aria-expanded={open}>
+      <ActiveIcon size={18}/>{!compact && <span>Apariencia</span>}
     </button>
-  );
-};
-
-export default ThemeToggle;
+    {open && <div className="nexus-theme-menu" role="menu">
+      <p>Apariencia</p>
+      {choices.map(({ value, label, Icon }) => <button key={value} type="button" role="menuitemradio" aria-checked={theme === value} onClick={() => { setTheme(value); setOpen(false); }}>
+        <Icon size={17}/><span>{label}</span>{theme === value && <Check size={16} className="ml-auto"/>}
+      </button>)}
+    </div>}
+  </div>;
+}

@@ -1,0 +1,1 @@
+import React from 'react'; import { Inbox } from 'lucide-react'; export function EmptyState({icon:Icon=Inbox,title='Sin información',description,action}){return <div className="nexus-empty-state"><span><Icon size={24}/></span><h3>{title}</h3>{description&&<p>{description}</p>}{action}</div>}

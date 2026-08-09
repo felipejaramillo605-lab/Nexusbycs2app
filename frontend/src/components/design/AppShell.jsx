@@ -1,0 +1,1 @@
+import React from 'react'; import { motion, useReducedMotion } from 'framer-motion'; import { cn } from '../../lib/utils'; export function AppShell({children,className}){const reduced=useReducedMotion();return <motion.div className={cn('nexus-app-shell',className)} initial={reduced?false:{opacity:0}} animate={{opacity:1}} transition={{duration:.24}}>{children}</motion.div>}

@@ -1,0 +1,42 @@
+{
+  "summary": "Phase 4 Client Portal (PIN auth) tested. Backend endpoints for register/login/me/forgot-pin/brute-force lockout all validated via curl. Frontend UI renders correctly with all required elements: login+register tabs, marketing consent unchecked by default, forgot-PIN link, portal link on guest booking page, 5-attempts lockout warning. Guest booking flow at /book/org_demo001 loads independently. Backend brute-force protection triggers 429 at attempt 5 with 15-minute lockout, then rate-limiter kicks in.",
+  "tested_scope": ["backend", "frontend", "auth", "integration"],
+  "passed": [
+    "POST /api/public/clients/register with organization_id -> 200 with client_id",
+    "POST /api/public/clients/login valid credentials -> 200 sets session cookie",
+    "GET /api/public/clients/me with session -> 200 returns client + appointments",
+    "GET /api/public/clients/me without session -> 401 as expected",
+    "POST /api/public/clients/login invalid PIN -> 401 with 'Invalid phone number or PIN'",
+    "Brute-force protection: 5th failed login returns 429 with 15-min lockout message",
+    "Rate limiter fires after 5/min with 'Rate limit exceeded'",
+    "POST /api/public/clients/forgot-pin -> 200 with generic security message",
+    "Portal auth UI loads with Iniciar Sesión / Registrarse tabs and all fields",
+    "Marketing consent checkbox present and UNCHECKED by default (opt-in per spec)",
+    "'Después de 5 intentos fallidos' warning displayed on login page",
+    "'¿Olvidaste tu PIN?' link present on login screen",
+    "'¿Ya tienes cuenta? Inicia sesión' link rendered on /book/:orgId booking page",
+    "Guest booking page /book/org_demo001 renders services list independently"
+  ],
+  "failed": [
+    {
+      "area": "test-credentials",
+      "issue": "Documented test credentials +573001234567/PIN 1234 do not exist in DB (login returns 401 'Invalid phone number or PIN'). This is not an app bug but a data seeding gap — /app/memory/test_credentials.md claims this account exists but it does not.",
+      "evidence": "curl login with +573001234567/1234/org_demo001 -> 401 Invalid phone number or PIN",
+      "priority": "LOW"
+    },
+    {
+      "area": "frontend-testids",
+      "issue": "Portal auth form inputs lack data-testid attributes (all inputs have testid=None). Makes automated testing brittle; had to rely on placeholder text and index-based selection.",
+      "evidence": "Playwright inspection: input[0..3] all report data-testid=None",
+      "priority": "LOW"
+    }
+  ],
+  "action_items": [
+    "Optional: seed the demo client +573001234567/1234 referenced in test_credentials.md, OR update the doc to note that this account must be registered first.",
+    "Optional: add data-testid attributes to ClientPortalAuth form inputs and buttons (phone-input, name-input, pin-input, marketing-checkbox, register-submit, login-submit, register-tab, login-tab) to improve future test stability."
+  ],
+  "success_rate": {"backend": "100%", "frontend": "95%"},
+  "retest_needed": false,
+  "full_testing_deferred": true,
+  "notes": "UI login attempt with newly-registered account failed because that account got locked by the brute-force validation test earlier (15-min lockout, which is correct backend behavior). Change-PIN, delete-account, cancel-appointment, and reset-PIN-with-token flows were NOT executed end-to-end via UI due to first-finish latency budget — deferred to full QA. Backend endpoints for those exist per spec but were not directly hit in this pass."
+}

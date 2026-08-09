@@ -1,3 +1,4 @@
+// NEXUS_8A7D1B_REMAINING_NEUTRAL_COPY_V1
 /**
  * WhatsApp Business API Service (Mock Implementation)
  * 
@@ -32,7 +33,7 @@ export const generateConfirmationMessage = (appointment, cancelUrl) => {
 📅 Fecha: ${appointment.date}
 🕐 Hora: ${appointment.time}
 ✂️ Servicio: ${appointment.service_name}
-👤 Barbero: ${appointment.barber_name}
+👤 Profesional: ${appointment.barber_name}
 💰 Precio: $${appointment.service_price}
 
 Para cancelar tu cita, ingresa a:
@@ -163,7 +164,10 @@ export const sendWhatsAppMessage = async (phoneNumber, message, templateId = nul
  * Send appointment confirmation with cancellation link
  */
 export const sendAppointmentConfirmation = async (appointment) => {
-  const cancelUrl = `${window.location.origin}/cancel/${appointment.appointment_id}`;
+  if (!appointment.management_token) {
+    throw new Error('Missing appointment management token');
+  }
+  const cancelUrl = `${window.location.origin}/cancel/${appointment.appointment_id}?token=${encodeURIComponent(appointment.management_token)}`;
   const message = generateConfirmationMessage(appointment, cancelUrl);
   
   return await sendWhatsAppMessage(
