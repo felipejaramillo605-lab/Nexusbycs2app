@@ -242,6 +242,7 @@ export const publicAPI = {
   // Customer Portal endpoints
   passwordlessAuth: (data) => axios.post(`${API}/public/auth/passwordless`, data),
   getClientHistory: (phone, organizationId) => axios.get(`${API}/public/clients/history`, { params: { phone, organization_id: organizationId } }),
+  deleteClientAccount: (phone, organizationId) => axios.post(`${API}/public/clients/delete`, null, { params: { phone, organization_id: organizationId } }),
 };
 
 // Client Portal PIN API

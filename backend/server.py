@@ -26,6 +26,7 @@ from html import escape as html_escape
 
 # Email service
 from email_service import email_service
+from email_service import recipient_fingerprint
 from checkout_inventory import prepare_checkout_inventory, reserve_checkout_inventory, finalize_checkout_inventory, rollback_checkout_inventory, ensure_checkout_inventory_indexes
 from transaction_voids import build_transaction_void_router, ensure_transaction_void_indexes
 from procurement_suppliers import build_supplier_router, ensure_supplier_indexes
@@ -3840,6 +3841,22 @@ async def get_client_history_public(phone: str, organization_id: str):
 
 # Unsubscribe from marketing (CAN-SPAM Act + TCPA compliance)
 @api_router.post("/public/clients/unsubscribe")
+
+
+@api_router.post("/public/clients/delete")
+async def delete_client_account_public(phone: str, organization_id: str):
+    """
+    Delete client profile (name, consents, PIN if exists).
+    Appointments remain intact as operational history for the business.
+    The verification is based on phone knowledge (same level as login).
+    """
+    result = await db.clients.delete_one({"phone": phone, "organization_id": organization_id})
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Client not found")
+    
+    logger.info(f"Client account deleted: phone_fingerprint={recipient_fingerprint(phone)}, org={organization_id}")
+    return {"message": "Account deleted successfully"}
+
 async def unsubscribe_client(phone: Optional[str] = None, email: Optional[str] = None, organization_id: Optional[str] = None):
     """
     Public endpoint to unsubscribe from marketing communications.
@@ -5287,6 +5304,7 @@ async def get_public_appointment(appointment_id: str, token: str):
     )
     return {
         "appointment_id": appointment["appointment_id"],
+        "organization_id": appointment["organization_id"],
         "date": appointment["date"],
         "time": appointment["time"],
         "status": appointment.get("status", "confirmed"),
