@@ -2,10 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { Lock, LogIn, UserPlus, ArrowLeft, Loader2, Eye, EyeOff } from 'lucide-react';
 import { toast } from 'sonner';
-import axios from 'axios';
+import { api } from '../api';
 import { useClientPortalTheme } from '../hooks/useClientPortalTheme';
-
-const API = process.env.REACT_APP_BACKEND_URL || 'http://localhost:8001/api';
 
 export default function ClientPortalAuth() {
   const { orgId } = useParams();
@@ -27,7 +25,7 @@ export default function ClientPortalAuth() {
     // Load organization info
     const loadOrg = async () => {
       try {
-        const response = await axios.get(`${API}/public/${orgId}/organization`);
+        const response = await api.get(`/public/${orgId}/organization`);
         setOrganization(response.data);
         setOrganizationName(response.data.name || 'Nexus');
       } catch (error) {
@@ -48,11 +46,11 @@ export default function ClientPortalAuth() {
 
     setLoading(true);
     try {
-      const response = await axios.post(`${API}/public/clients/login`, {
+      const response = await api.post('/public/clients/login', {
         phone,
         organization_id: orgId,
         pin
-      }, { withCredentials: true });
+      });
 
       toast.success('¡Bienvenido de nuevo!');
       navigate(`/portal/${orgId}/dashboard`);
@@ -82,13 +80,13 @@ export default function ClientPortalAuth() {
 
     setLoading(true);
     try {
-      const response = await axios.post(`${API}/public/clients/register`, {
+      const response = await api.post('/public/clients/register', {
         phone,
         organization_id: orgId,
         name: name.trim(),
         pin,
         marketing_consent: marketingConsent
-      }, { withCredentials: true });
+      });
 
       toast.success('¡Cuenta creada exitosamente!');
       navigate(`/portal/${orgId}/dashboard`);

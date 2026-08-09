@@ -2,9 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useSearchParams, useNavigate, Link } from 'react-router-dom';
 import { Lock, ArrowLeft, Loader2, CheckCircle2, XCircle, Eye, EyeOff } from 'lucide-react';
 import { toast } from 'sonner';
-import axios from 'axios';
-
-const API = process.env.REACT_APP_BACKEND_URL || 'http://localhost:8001/api';
+import { api } from '../api';
 
 export default function ResetPin() {
   const { orgId } = useParams();
@@ -40,7 +38,7 @@ export default function ResetPin() {
 
     setLoading(true);
     try {
-      await axios.post(`${API}/public/clients/reset-pin`, {
+      await api.post('/public/clients/reset-pin', {
         token,
         new_pin: newPin
       });

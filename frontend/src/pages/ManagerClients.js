@@ -288,7 +288,18 @@ const ManagerClients = () => {
                           <div className="w-10 h-10 rounded-full bg-[#0A84FF] flex items-center justify-center text-[var(--app-text-primary)] font-medium">
                             {client.name.charAt(0).toUpperCase()}
                           </div>
-                          <span className="text-[var(--app-text-primary)] font-medium">{client.name}</span>
+                          <div className="flex items-center gap-2">
+                            <span className="text-[var(--app-text-primary)] font-medium">{client.name}</span>
+                            {client.is_registered ? (
+                              <span className="px-2 py-0.5 rounded-full text-xs bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
+                                Registrado
+                              </span>
+                            ) : (
+                              <span className="px-2 py-0.5 rounded-full text-xs bg-zinc-500/15 text-zinc-400 border border-zinc-500/30">
+                                Invitado
+                              </span>
+                            )}
+                          </div>
                         </div>
                       </td>
                       <td className="px-6 py-4">
@@ -439,7 +450,18 @@ const ManagerClients = () => {
                       {client.name.charAt(0).toUpperCase()}
                     </div>
                     <div className="flex-1 min-w-0">
-                      <div className="text-[var(--app-text-primary)] font-medium mb-1">{client.name}</div>
+                      <div className="flex items-center gap-2 mb-1">
+                        <div className="text-[var(--app-text-primary)] font-medium">{client.name}</div>
+                        {client.is_registered ? (
+                          <span className="px-2 py-0.5 rounded-full text-xs bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
+                            Registrado
+                          </span>
+                        ) : (
+                          <span className="px-2 py-0.5 rounded-full text-xs bg-zinc-500/15 text-zinc-400 border border-zinc-500/30">
+                            Invitado
+                          </span>
+                        )}
+                      </div>
                       <div className="text-sm text-zinc-400 flex items-center gap-1">
                         <Phone size={14} />
                         {client.phone}

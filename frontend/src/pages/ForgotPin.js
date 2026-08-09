@@ -2,9 +2,7 @@ import React, { useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { Mail, ArrowLeft, Loader2, CheckCircle2 } from 'lucide-react';
 import { toast } from 'sonner';
-import axios from 'axios';
-
-const API = process.env.REACT_APP_BACKEND_URL || 'http://localhost:8001/api';
+import { api } from '../api';
 
 export default function ForgotPin() {
   const { orgId } = useParams();
@@ -22,7 +20,7 @@ export default function ForgotPin() {
 
     setLoading(true);
     try {
-      await axios.post(`${API}/public/clients/forgot-pin`, {
+      await api.post('/public/clients/forgot-pin', {
         phone: phone.trim(),
         organization_id: orgId
       });

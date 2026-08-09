@@ -15,9 +15,7 @@ import {
   ArrowLeft
 } from 'lucide-react';
 import { toast } from 'sonner';
-import axios from 'axios';
-
-const API = process.env.REACT_APP_BACKEND_URL || 'http://localhost:8001/api';
+import { api } from '../api';
 
 export default function ClientPortalDashboard() {
   const { orgId } = useParams();
@@ -47,13 +45,11 @@ export default function ClientPortalDashboard() {
     setLoading(true);
     try {
       // Get client info
-      const meResponse = await axios.get(`${API}/public/clients/me`, {
-        withCredentials: true
-      });
+      const meResponse = await api.get('/public/clients/me');
       setClientData(meResponse.data);
 
       // Get appointments history
-      const historyResponse = await axios.get(`${API}/public/clients/history`, {
+      const historyResponse = await api.get('/public/clients/history', {
         params: {
           phone: meResponse.data.phone,
           organization_id: orgId
@@ -74,9 +70,7 @@ export default function ClientPortalDashboard() {
 
   const handleLogout = async () => {
     try {
-      await axios.post(`${API}/public/clients/logout`, {}, {
-        withCredentials: true
-      });
+      await api.post('/public/clients/logout', {});
       toast.success('Sesión cerrada');
       navigate(`/portal/${orgId}/auth`);
     } catch (error) {
@@ -88,11 +82,7 @@ export default function ClientPortalDashboard() {
     if (!window.confirm('¿Estás seguro de cancelar esta cita?')) return;
 
     try {
-      await axios.post(
-        `${API}/public/clients/appointments/${appointmentId}/cancel`,
-        {},
-        { withCredentials: true }
-      );
+      await api.post(`/public/clients/appointments/${appointmentId}/cancel`, {});
       toast.success('Cita cancelada exitosamente');
       loadDashboardData();
     } catch (error) {
@@ -132,15 +122,11 @@ export default function ClientPortalDashboard() {
 
     setChangingPin(true);
     try {
-      await axios.post(
-        `${API}/public/clients/change-pin`,
-        {
-          old_pin: oldPin,
-          new_pin: newPin,
-          organization_id: orgId
-        },
-        { withCredentials: true }
-      );
+      await api.post('/public/clients/change-pin', {
+        old_pin: oldPin,
+        new_pin: newPin,
+        organization_id: orgId
+      });
       toast.success('PIN actualizado exitosamente');
       setShowChangePinModal(false);
       setOldPin('');
@@ -167,9 +153,8 @@ export default function ClientPortalDashboard() {
 
     setDeleting(true);
     try {
-      await axios.delete(`${API}/public/clients/me`, {
-        params: { organization_id: orgId },
-        withCredentials: true
+      await api.delete('/public/clients/me', {
+        params: { organization_id: orgId }
       });
       toast.success('Cuenta eliminada exitosamente');
       navigate(`/book/${orgId}`);
