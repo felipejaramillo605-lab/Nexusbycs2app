@@ -770,7 +770,7 @@ async def login_user(data: LoginRequest, response: Response, request: Request):
     })
     await db.users.update_one({"user_id": user["user_id"]}, {"$set": {"last_login": datetime.now(timezone.utc).isoformat()}})
     
-    response.set_cookie(key="session_token", value=session_token, httponly=True, secure=True, samesite="none", path="/", max_age=7*24*60*60)
+    response.set_cookie(key="session_token", value=session_token, httponly=True, secure=True, samesite="lax", path="/", max_age=7*24*60*60)
     
     if isinstance(user["created_at"], str):
         user["created_at"] = datetime.fromisoformat(user["created_at"])
@@ -3841,22 +3841,6 @@ async def get_client_history_public(phone: str, organization_id: str):
 
 # Unsubscribe from marketing (CAN-SPAM Act + TCPA compliance)
 @api_router.post("/public/clients/unsubscribe")
-
-
-@api_router.post("/public/clients/delete")
-async def delete_client_account_public(phone: str, organization_id: str):
-    """
-    Delete client profile (name, consents, PIN if exists).
-    Appointments remain intact as operational history for the business.
-    The verification is based on phone knowledge (same level as login).
-    """
-    result = await db.clients.delete_one({"phone": phone, "organization_id": organization_id})
-    if result.deleted_count == 0:
-        raise HTTPException(status_code=404, detail="Client not found")
-    
-    logger.info(f"Client account deleted: phone_fingerprint={recipient_fingerprint(phone)}, org={organization_id}")
-    return {"message": "Account deleted successfully"}
-
 async def unsubscribe_client(phone: Optional[str] = None, email: Optional[str] = None, organization_id: Optional[str] = None):
     """
     Public endpoint to unsubscribe from marketing communications.
@@ -4725,6 +4709,13 @@ async def delete_inventory_item(item_id: str, authorization: Optional[str] = Hea
     return {"message": "Item deleted"}
 
 @api_router.post("/inventory/generate-order")
+
+def _sanitize_for_prompt(value: str, max_len: int = 80) -> str:
+    """Sanitize user input before including in AI prompts to prevent injection"""
+    cleaned = str(value).replace("\n", " ").replace("\r", " ").strip()
+    return cleaned[:max_len]
+
+
 async def generate_purchase_order(authorization: Optional[str] = Header(None), session_token: Optional[str] = Cookie(None)):
     current_user = await get_current_user(authorization, session_token)
     require_management_role(current_user)
@@ -4738,7 +4729,10 @@ async def generate_purchase_order(authorization: Optional[str] = Header(None), s
     if not low_stock_items:
         return {"message": "No items need reordering", "items": []}
     
-    items_text = "\n".join([f"- {item['name']}: Current stock {item['quantity']} {item['unit']}, minimum {item['min_stock']} {item['unit']}" for item in low_stock_items])
+    items_text = "\n".join([
+        f"- {_sanitize_for_prompt(item['name'])}: Current stock {item['quantity']} {_sanitize_for_prompt(item['unit'], 20)}, minimum {item['min_stock']} {_sanitize_for_prompt(item['unit'], 20)}"
+        for item in low_stock_items
+    ])
     
     prompt = f"""Analiza los siguientes productos de inventario con stock bajo y genera recomendaciones de compra inteligentes:
 

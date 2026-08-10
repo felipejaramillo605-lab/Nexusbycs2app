@@ -123,9 +123,8 @@ export default function ClientPortalDashboard() {
     setChangingPin(true);
     try {
       await api.post('/public/clients/change-pin', {
-        old_pin: oldPin,
-        new_pin: newPin,
-        organization_id: orgId
+        current_pin: oldPin,
+        new_pin: newPin
       });
       toast.success('PIN actualizado exitosamente');
       setShowChangePinModal(false);

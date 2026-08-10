@@ -319,6 +319,14 @@ class EmailService:
         organization_phone: Optional[str] = None
     ) -> bool:
         """Send appointment reminder email (24h before)"""
+        # Escape all user inputs
+        customer_name = escape(customer_name)
+        barber_name = escape(barber_name)
+        service_name = escape(service_name)
+        organization_name = escape(organization_name)
+        if organization_phone:
+            organization_phone = escape(organization_phone)
+        
         subject = f"🔔 Recordatorio de Cita - {organization_name}"
         
         html_body = f"""
@@ -400,6 +408,10 @@ class EmailService:
         organization_name: str
     ) -> bool:
         """Send cancellation notification"""
+        # Escape all user inputs
+        customer_name = escape(customer_name)
+        organization_name = escape(organization_name)
+        
         subject = f"❌ Cita Cancelada - {organization_name}"
         
         html_body = f"""
@@ -445,6 +457,11 @@ class EmailService:
         service_name: str
     ) -> bool:
         """Send thank you email after completed appointment"""
+        # Escape all user inputs
+        customer_name = escape(customer_name)
+        organization_name = escape(organization_name)
+        service_name = escape(service_name)
+        
         subject = f"✨ ¡Gracias por tu visita! - {organization_name}"
         
         html_body = f"""
@@ -496,6 +513,13 @@ class EmailService:
         organization_name: str
     ) -> bool:
         """Notify admin of new appointment"""
+        # Escape all user inputs
+        customer_name = escape(customer_name)
+        customer_phone = escape(customer_phone)
+        service_name = escape(service_name)
+        barber_name = escape(barber_name)
+        organization_name = escape(organization_name)
+        
         subject = f"🔔 Nueva Reserva - {organization_name}"
         
         html_body = f"""
