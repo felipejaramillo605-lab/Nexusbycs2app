@@ -47,6 +47,7 @@ const Settings = () => {
     name: '',
     address: '',
     phone: '',
+    client_portal_theme: 'classic',
   });
 
   // Team Management State
@@ -83,6 +84,7 @@ const Settings = () => {
           name: data.name || '',
           address: data.address || '',
           phone: data.phone || '',
+          client_portal_theme: data.client_portal_theme || 'classic',
         });
       } else {
         const errorData = await response.json();
@@ -755,7 +757,7 @@ const Settings = () => {
               organizationId={organizationId}
               currentTheme={profileData.client_portal_theme || 'classic'}
               onThemeChange={(theme) => {
-                setProfileData({ ...profileData, client_portal_theme: theme });
+                setProfileData(current => ({ ...current, client_portal_theme: theme }));
               }}
             />
           </div>

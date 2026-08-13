@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Check, Palette } from 'lucide-react';
 import { CLIENT_PORTAL_THEMES } from '../constants/clientPortalThemes';
 import { toast } from 'sonner';
@@ -8,8 +8,13 @@ export default function PortalThemeSelector({ organizationId, currentTheme = 'cl
   const [saving, setSaving] = useState(false);
   const [selectedTheme, setSelectedTheme] = useState(currentTheme);
 
+  useEffect(() => {
+    const validTheme = CLIENT_PORTAL_THEMES[currentTheme] ? currentTheme : 'classic';
+    setSelectedTheme(validTheme);
+  }, [currentTheme]);
+
   const handleThemeSelect = async (themeKey) => {
-    if (saving) return;
+      if (saving || !CLIENT_PORTAL_THEMES[themeKey]) return;
     
     setSelectedTheme(themeKey);
     setSaving(true);

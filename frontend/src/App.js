@@ -17,6 +17,7 @@ import { Loader2 } from 'lucide-react';
 import './App.css';
 import CancelAppointment from './pages/CancelAppointment';
 import { RouteExperienceFrame } from './components/design';
+import { ClientPortalThemeWrapper } from './components/ClientPortalThemeWrapper';
 
 // NEXUS_FRONTEND_PERFORMANCE_4C1_V1
 const ReactQueryDevtools = process.env.NODE_ENV === 'development'
@@ -85,14 +86,14 @@ function AppRouter() {
         <Route path="/reset-password" element={<ResetPassword />} />
         <Route path="/pending-approval" element={<PendingApproval />} />
         <Route path="/auth/callback" element={<AuthCallback />} />
-        <Route path="/book/:orgId" element={<BookingFlow />} />
-        <Route path="/portal/:orgId" element={<CustomerPortal />} />
+        <Route path="/book/:orgId" element={<ClientPortalThemeWrapper><BookingFlow /></ClientPortalThemeWrapper>} />
+        <Route path="/portal/:orgId" element={<ClientPortalThemeWrapper><CustomerPortal /></ClientPortalThemeWrapper>} />
         
         {/* Client Portal with PIN */}
-        <Route path="/portal/:orgId/auth" element={<ClientPortalAuth />} />
-        <Route path="/portal/:orgId/dashboard" element={<ClientPortalDashboard />} />
-        <Route path="/portal/:orgId/forgot-pin" element={<ForgotPin />} />
-        <Route path="/portal/:orgId/reset-pin" element={<ResetPin />} />
+        <Route path="/portal/:orgId/auth" element={<ClientPortalThemeWrapper><ClientPortalAuth /></ClientPortalThemeWrapper>} />
+        <Route path="/portal/:orgId/dashboard" element={<ClientPortalThemeWrapper><ClientPortalDashboard /></ClientPortalThemeWrapper>} />
+        <Route path="/portal/:orgId/forgot-pin" element={<ClientPortalThemeWrapper><ForgotPin /></ClientPortalThemeWrapper>} />
+        <Route path="/portal/:orgId/reset-pin" element={<ClientPortalThemeWrapper><ResetPin /></ClientPortalThemeWrapper>} />
 
         <Route
           path="/owner/access-control"
