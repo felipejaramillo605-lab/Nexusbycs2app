@@ -1,7 +1,7 @@
 /* NEXUS_8A7B_ORGANIZATION_ONBOARDING_UI_V1 */
 import React,{useCallback,useEffect,useMemo,useState} from 'react';
 import {AlertTriangle,ArrowLeft,Building2,CheckCircle2,RefreshCw,Save,ShieldCheck,UserRoundCheck} from 'lucide-react';
-import {useNavigate} from 'react-router-dom';
+import {useNavigate,useSearchParams} from 'react-router-dom';
 import {toast} from 'sonner';
 import {organizationAPI,ownerAPI} from '../api';
 import {ActionButton,FieldGuide,LoadingState,MotionPage,PageHeader,StatusBadge,SurfaceCard} from '../components/design';
@@ -11,10 +11,11 @@ const required=[['name','Nombre de la organización'],['manager_user_id','Manage
 const detail=(e,fallback)=>{const d=e?.response?.data?.detail;if(typeof d==='string')return d;if(d?.message)return d.message;return fallback};
 const get=(o,path)=>path.split('.').reduce((v,k)=>v?.[k],o);
 export default function OwnerOrganizationOnboarding(){
- const navigate=useNavigate();const [form,setForm]=useState(initial),[users,setUsers]=useState([]),[loading,setLoading]=useState(true),[saving,setSaving]=useState(false),[review,setReview]=useState(false);
+ const navigate=useNavigate();const [searchParams]=useSearchParams();const requestedManagerId=searchParams.get('manager_user_id')||'';const [form,setForm]=useState(initial),[users,setUsers]=useState([]),[loading,setLoading]=useState(true),[saving,setSaving]=useState(false),[review,setReview]=useState(false);
  const load=useCallback(async()=>{setLoading(true);try{const r=await ownerAPI.getUsers();setUsers(r.data||[])}catch(e){toast.error(detail(e,'No fue posible cargar los Managers'))}finally{setLoading(false)}},[]);useEffect(()=>{load()},[load]);
  const managers=useMemo(()=>users.filter(x=>['manager','admin'].includes(x.role)&&x.access_status==='approved'&&x.active!==false&&!x.deleted_at&&!x.organization_id),[users]);
  const pending=useMemo(()=>users.filter(x=>['manager','admin'].includes(x.role)&&x.access_status==='pending'&&!x.organization_id),[users]);
+  useEffect(()=>{if(!requestedManagerId)return;const eligible=managers.some(x=>x.user_id===requestedManagerId);if(eligible){setForm(current=>current.manager_user_id?current:{...current,manager_user_id:requestedManagerId});}},[requestedManagerId,managers]);
  const set=(key,value)=>setForm(v=>({...v,[key]:value}));const setFiscal=(key,value)=>setForm(v=>({...v,fiscal_profile:{...v.fiscal_profile,[key]:value}}));
  const missing=useMemo(()=>required.filter(([path])=>!String(get(form,path)||'').trim()).map(([,label])=>label),[form]);
  const manager=managers.find(x=>x.user_id===form.manager_user_id);
@@ -22,7 +23,8 @@ export default function OwnerOrganizationOnboarding(){
  if(loading)return <LoadingState label="Cargando Managers disponibles"/>;
  return <MotionPage className="nexus-owner-page space-y-6"><PageHeader eyebrow="Administración Owner" title="Nueva organización" description="Crea el tercero, vincula un Manager aprobado y registra su perfil fiscal en una única operación segura." actions={<ActionButton variant="secondary" icon={ArrowLeft} onClick={()=>navigate('/owner/third-party-matrix')}>Volver a la matriz</ActionButton>}/>
  <section className="grid md:grid-cols-3 gap-3"><SurfaceCard><small>Managers elegibles</small><h2 className="text-2xl mt-2">{managers.length}</h2></SurfaceCard><SurfaceCard><small>Managers pendientes</small><h2 className="text-2xl mt-2">{pending.length}</h2></SurfaceCard><SurfaceCard><small>Suscripción y factura</small><h2 className="text-lg mt-2">No se crean automáticamente</h2></SurfaceCard></section>
- {!managers.length&&<SurfaceCard className="nexus-unsaved-banner"><div className="flex items-start gap-3"><AlertTriangle/><div><strong>No hay Managers aprobados y libres</strong><p className="mt-1">Aprueba primero una cuenta Manager pendiente. Un usuario ya asignado no puede moverse desde este flujo.</p><div className="mt-4 flex gap-2"><ActionButton onClick={()=>navigate('/owner/access-control')}>Ir a Control de accesos</ActionButton><ActionButton variant="secondary" icon={RefreshCw} onClick={load}>Actualizar</ActionButton></div></div></div></SurfaceCard>}
+ {requestedManagerId&&form.manager_user_id===requestedManagerId&&<SurfaceCard className="nexus-unsaved-banner"><div className="flex items-start gap-3"><UserRoundCheck/><div><strong>Manager preseleccionado de forma segura</strong><p className="mt-1">Revisa la organización y completa la información fiscal. La organización no se creará hasta la confirmación final.</p></div></div></SurfaceCard>}
+  {!managers.length&&<SurfaceCard className="nexus-unsaved-banner"><div className="flex items-start gap-3"><AlertTriangle/><div><strong>No hay Managers aprobados y libres</strong><p className="mt-1">Aprueba primero una cuenta Manager pendiente. Un usuario ya asignado no puede moverse desde este flujo.</p><div className="mt-4 flex gap-2"><ActionButton onClick={()=>navigate('/owner/access-control')}>Ir a Control de accesos</ActionButton><ActionButton variant="secondary" icon={RefreshCw} onClick={load}>Actualizar</ActionButton></div></div></div></SurfaceCard>}
  <SurfaceCard><form className="nexus-guided-form" onSubmit={e=>{e.preventDefault();setReview(true)}}>
  <div className="nexus-field-wide"><h2 className="text-xl">1. Organización y responsable</h2><p className="text-sm text-[var(--app-text-secondary)]">El Owner global no será reasignado. El Manager seleccionado debe estar aprobado y sin organización.</p></div>
  <label><FieldGuide label="Nombre de la organización" hint="Nombre visible en Nexus." example="Nueva Organización" required/><input value={form.name} onChange={e=>set('name',e.target.value)} maxLength={180} required/></label>
