@@ -245,4 +245,87 @@ def build_support_center_router(db, get_current_user, require_management_role, r
         messages = await db.support_messages.find({"conversation_id": conversation_id, "organization_id": item["organization_id"]}, {"_id": 0}).sort([("created_at", 1), ("message_id", 1)]).limit(500).to_list(500)
         return {"conversation": conversation_view(item), "messages": messages}
 
+
+    # NEXUS_8A7S1C_TEXT_MESSAGES_V1
+    async def append_text_message(user, conversation, data, from_owner=False):
+        if conversation.get("status") == "closed":
+            raise HTTPException(status_code=409, detail={"code": "support_conversation_closed", "message": "Closed conversations cannot receive messages"})
+        body = data.body.strip()
+        if not body:
+            raise HTTPException(status_code=400, detail={"code": "support_message_empty", "message": "Message cannot be empty"})
+        org_id = conversation["organization_id"]
+        key = data.idempotency_key.strip()
+        prior = await db.support_messages.find_one({"organization_id": org_id, "sender_user_id": user.user_id, "idempotency_key": key}, {"_id": 0})
+        if prior:
+            current = await db.support_conversations.find_one({"conversation_id": conversation["conversation_id"], "organization_id": org_id}, {"_id": 0})
+            return {"message": prior, "conversation": conversation_view(current or conversation), "idempotent": True}
+        now = now_iso()
+        message_id = "supm_" + uuid.uuid4().hex[:20]
+        previous = conversation_view(conversation)
+        previous_version = int(previous.get("version") or 1)
+        target_status = "waiting_organization" if from_owner else "waiting_owner"
+        unread_field = "organization_unread_count" if from_owner else "owner_unread_count"
+        message = {
+            "message_id": message_id, "conversation_id": previous["conversation_id"], "organization_id": org_id,
+            "sender_user_id": user.user_id, "sender_role": user.role, "message_type": "text", "body": body,
+            "attachment_ids": [], "idempotency_key": key, "created_at": now,
+        }
+        set_fields = {
+            "last_message_id": message_id, "last_message_at": now, "last_message_preview": body[:180],
+            "status": target_status, "updated_at": now,
+        }
+        inserted_message = conversation_updated = audit_inserted = False
+        audit_id = "audit_" + uuid.uuid4().hex[:12]
+        try:
+            await db.support_messages.insert_one(message.copy()); inserted_message = True
+            result = await db.support_conversations.update_one(
+                {"conversation_id": previous["conversation_id"], "organization_id": org_id, "version": previous_version, "status": {"$ne": "closed"}},
+                {"$set": set_fields, "$inc": {"message_count": 1, unread_field: 1, "version": 1}},
+            )
+            if result.modified_count != 1:
+                current = await db.support_conversations.find_one({"conversation_id": previous["conversation_id"], "organization_id": org_id}, {"_id": 0})
+                if current and current.get("status") == "closed":
+                    raise HTTPException(status_code=409, detail={"code": "support_conversation_closed", "message": "Closed conversations cannot receive messages"})
+                raise HTTPException(status_code=409, detail={"code": "support_conversation_changed", "message": "Conversation changed before the message was saved"})
+            conversation_updated = True
+            current = await db.support_conversations.find_one({"conversation_id": previous["conversation_id"], "organization_id": org_id}, {"_id": 0})
+            await db.audit_events.insert_one({
+                "audit_id": audit_id, "organization_id": org_id, "event_type": "support_message_sent",
+                "entity_type": "support_conversation", "entity_id": previous["conversation_id"], "actor_user_id": user.user_id,
+                "previous_value": {"status": previous.get("status"), "version": previous_version},
+                "new_value": {"status": target_status, "version": previous_version + 1, "message_id": message_id, "sender_role": user.role, "message_type": "text"},
+                "created_at": now,
+            }); audit_inserted = True
+            return {"message": message, "conversation": conversation_view(current), "idempotent": False}
+        except DuplicateKeyError:
+            if audit_inserted: await db.audit_events.delete_one({"audit_id": audit_id})
+            if conversation_updated: await db.support_conversations.replace_one({"conversation_id": previous["conversation_id"], "organization_id": org_id}, previous)
+            if inserted_message: await db.support_messages.delete_one({"message_id": message_id})
+            prior = await db.support_messages.find_one({"organization_id": org_id, "sender_user_id": user.user_id, "idempotency_key": key}, {"_id": 0})
+            current = await db.support_conversations.find_one({"conversation_id": previous["conversation_id"], "organization_id": org_id}, {"_id": 0})
+            if prior: return {"message": prior, "conversation": conversation_view(current or previous), "idempotent": True}
+            raise HTTPException(status_code=409, detail={"code": "support_message_conflict", "message": "Message could not be saved"})
+        except HTTPException:
+            if audit_inserted: await db.audit_events.delete_one({"audit_id": audit_id})
+            if conversation_updated: await db.support_conversations.replace_one({"conversation_id": previous["conversation_id"], "organization_id": org_id}, previous)
+            if inserted_message: await db.support_messages.delete_one({"message_id": message_id})
+            raise
+        except Exception:
+            if audit_inserted: await db.audit_events.delete_one({"audit_id": audit_id})
+            if conversation_updated: await db.support_conversations.replace_one({"conversation_id": previous["conversation_id"], "organization_id": org_id}, previous)
+            if inserted_message: await db.support_messages.delete_one({"message_id": message_id})
+            raise HTTPException(status_code=500, detail={"code": "support_message_failed", "message": "Message could not be saved"})
+
+    @router.post("/support/conversations/{conversation_id}/messages")
+    async def organization_support_message(conversation_id: str, data: SupportMessageCreate, authorization: Optional[str] = Header(None), session_token: Optional[str] = Cookie(None)):
+        user = await actor(authorization, session_token)
+        conversation = await visible_conversation(user, conversation_id)
+        return await append_text_message(user, conversation, data, from_owner=False)
+
+    @router.post("/owner/support/conversations/{conversation_id}/messages")
+    async def owner_support_message(conversation_id: str, data: SupportMessageCreate, authorization: Optional[str] = Header(None), session_token: Optional[str] = Cookie(None)):
+        user = await owner_actor(await actor(authorization, session_token))
+        conversation = await visible_conversation(user, conversation_id, owner_mode=True)
+        return await append_text_message(user, conversation, data, from_owner=True)
+
     return router
