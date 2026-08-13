@@ -5379,6 +5379,10 @@ api_router.include_router(build_lifecycle_router(db, get_current_user, invoice_p
 api_router.include_router(build_delivery_operations_router(db, get_current_user))
 api_router.include_router(build_platform_billing_router(db, get_current_user))
 api_router.include_router(build_third_party_matrix_router(db, get_current_user))
+# NEXUS_8A7S1A_SUPPORT_FOUNDATION_REGISTRATION_V1
+from support_center import build_support_center_router, ensure_support_center_indexes
+api_router.include_router(build_support_center_router(db, get_current_user, require_management_role, resolve_team_organization, record_security_event))
+
 # NEXUS_8A7D3A_SECURE_PROFESSIONAL_MEDIA_REGISTRATION_V1
 from professional_media import build_professional_media_router
 api_router.include_router(build_professional_media_router(db, get_current_user, require_management_role, resolve_team_organization, enforce_rls_on_write, record_security_event))
@@ -5533,6 +5537,8 @@ async def create_application_indexes():
     await ensure_platform_billing_indexes(db)
     await ensure_third_party_matrix_indexes(db)
     await ensure_professional_media_lifecycle_indexes(db)
+    # NEXUS_8A7S1A_SUPPORT_FOUNDATION_INDEXES_V1
+    await ensure_support_center_indexes(db)
     if os.getenv("SUBSCRIPTION_SCHEDULER_ENABLED","false").lower() in {"1","true","yes","on"}:
         asyncio.create_task(scheduler_loop(db, invoice_pdf))
     # NEXUS_PERSISTENT_QUERY_INDEXES_4E3_V1
