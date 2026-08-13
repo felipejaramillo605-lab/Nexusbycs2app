@@ -22,7 +22,7 @@ const TABS = {
 };
 
 const Settings = () => {
-  const { user, logout } = useAuth();
+  const { user, logout, checkAuth } = useAuth();
   const { updateOrganization, refreshOrganization } = useOrganization();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -40,7 +40,8 @@ const Settings = () => {
   };
 
   // Business Profile State
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(Boolean(organizationId));
+  const [loadError, setLoadError] = useState(null);
   const [saving, setSaving] = useState(false);
   const [profileData, setProfileData] = useState({
     name: '',
@@ -133,9 +134,27 @@ const Settings = () => {
   }, [organizationId]);
 
   useEffect(() => {
-    if (organizationId) {
-      loadOrganization(); loadTeamMembers(); loadInvitations(); loadCommissions();
-    }
+    let active = true;
+    const run = async () => {
+      if (!organizationId) {
+        setLoadError(null);
+        setLoading(false);
+        setCommissionLoading(false);
+        return;
+      }
+      setLoading(true);
+      setLoadError(null);
+      const results = await Promise.allSettled([
+        loadOrganization(), loadTeamMembers(), loadInvitations(), loadCommissions()
+      ]);
+      if (!active) return;
+      if (results.some(result => result.status === 'rejected')) {
+        setLoadError('No fue posible cargar toda la configuración.');
+      }
+      setLoading(false);
+    };
+    run();
+    return () => { active = false; };
   }, [organizationId, loadOrganization, loadTeamMembers, loadInvitations, loadCommissions]);
 
   const handleSaveProfile = async (e) => {
@@ -323,6 +342,45 @@ const Settings = () => {
     };
     return colors[role] || colors.staff;
   };
+
+  if (!organizationId) {
+    const refreshState = async () => {
+      await checkAuth();
+      navigate('/manager/dashboard', { replace: true });
+    };
+    const signOut = async () => {
+      await logout();
+      navigate('/login', { replace: true });
+    };
+    return (
+      <div className="min-h-screen nexus-screen grid place-items-center p-6">
+        <div className="w-full max-w-lg nexus-panel border border-[var(--app-border)] rounded-3xl p-6 sm:p-8 text-center">
+          <h1 className="text-2xl font-semibold text-[var(--app-text-primary)]">Configuración no disponible todavía</h1>
+          <p className="mt-3 text-[var(--app-text-secondary)]">Primero el Owner debe completar la vinculación de la cuenta con una organización.</p>
+          <div className="mt-6 flex flex-col sm:flex-row justify-center gap-3">
+            <button type="button" className="nexus-button nexus-button-primary" onClick={refreshState}>Actualizar estado</button>
+            <button type="button" className="nexus-button nexus-button-secondary" onClick={() => navigate('/manager/dashboard')}>Volver al inicio</button>
+            <button type="button" className="nexus-button nexus-button-ghost" onClick={signOut}>Cerrar sesión</button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (loadError && !loading) {
+    return (
+      <div className="min-h-screen nexus-screen grid place-items-center p-6">
+        <div className="w-full max-w-lg nexus-panel border border-[var(--app-border)] rounded-3xl p-6 sm:p-8 text-center">
+          <h1 className="text-2xl font-semibold text-[var(--app-text-primary)]">No se pudo cargar Configuración</h1>
+          <p className="mt-3 text-[var(--app-text-secondary)]">{loadError}</p>
+          <div className="mt-6 flex flex-col sm:flex-row justify-center gap-3">
+            <button type="button" className="nexus-button nexus-button-primary" onClick={() => window.location.reload()}>Reintentar</button>
+            <button type="button" className="nexus-button nexus-button-secondary" onClick={() => navigate('/manager/dashboard')}>Volver al inicio</button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   if (loading) {
     return (
