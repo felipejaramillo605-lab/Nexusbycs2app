@@ -14,6 +14,7 @@ from pydantic import BaseModel, Field, ConfigDict, EmailStr
 from typing import List, Optional
 import uuid
 from datetime import datetime, timezone, timedelta
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 import httpx
 from emergentintegrations.llm.chat import LlmChat, UserMessage, TextDelta, StreamDone
 import json
@@ -4811,11 +4812,43 @@ def _intervals_overlap(start_a: int, end_a: int, start_b: int, end_b: int) -> bo
     return start_a < end_b and end_a > start_b
 
 
+
+
+def _organization_timezone(organization: dict):
+    timezone_name = str((organization or {}).get("timezone") or "America/Bogota").strip()
+    try:
+        return timezone_name, ZoneInfo(timezone_name)
+    except ZoneInfoNotFoundError:
+        logger.warning("invalid_organization_timezone organization_id=%s timezone=%s", (organization or {}).get("organization_id"), timezone_name)
+        return "America/Bogota", ZoneInfo("America/Bogota")
+
+
+def _organization_lead_minutes(organization: dict) -> int:
+    try:
+        value = int((organization or {}).get("booking_min_lead_minutes") or 0)
+    except (TypeError, ValueError):
+        value = 0
+    return max(0, min(value, 24 * 60))
+
+
+def _slot_local_datetime(appointment_date, start_minutes: int, zone):
+    return datetime(appointment_date.year, appointment_date.month, appointment_date.day, start_minutes // 60, start_minutes % 60, tzinfo=zone)
+
+
+def _strict_slot_is_future(context: dict, requested_start: int) -> bool:
+    slot_at = _slot_local_datetime(context["date"], requested_start, context["timezone_info"])
+    return slot_at > context["minimum_start_at"]
 async def _strict_booking_context(org_id: str, barber_id: str, service_id: str, date_value: str):
     appointment_date = _strict_date(date_value)
-    today = datetime.now(timezone.utc).date()
-    if appointment_date < today:
-        raise HTTPException(status_code=400, detail="Cannot book appointments in the past")
+    organization = await db.organizations.find_one({"organization_id": org_id}, {"_id": 0})
+    if not organization:
+        raise HTTPException(status_code=404, detail="Organization not found")
+    timezone_name, timezone_info = _organization_timezone(organization)
+    local_now = datetime.now(timezone_info)
+    lead_minutes = _organization_lead_minutes(organization)
+    minimum_start_at = local_now + timedelta(minutes=lead_minutes)
+    if appointment_date < local_now.date():
+        raise HTTPException(status_code=400, detail={"code":"APPOINTMENT_DATE_IN_PAST","message":"No puedes reservar en una fecha pasada."})
 
     barber = await db.barbers.find_one({
         "barber_id": barber_id,
@@ -4895,6 +4928,12 @@ async def _strict_booking_context(org_id: str, barber_id: str, service_id: str, 
 
     return {
         "date": appointment_date,
+        "organization": organization,
+        "timezone": timezone_name,
+        "timezone_info": timezone_info,
+        "local_now": local_now,
+        "minimum_lead_minutes": lead_minutes,
+        "minimum_start_at": minimum_start_at,
         "weekday": weekday,
         "barber": barber,
         "service": service,
@@ -4923,7 +4962,7 @@ async def _strict_available_slots(org_id: str, barber_id: str, service_id: str, 
     if remainder:
         current += 30 - remainder
     while current + context["duration"] <= context["work_end"]:
-        if _strict_slot_is_available(context, current):
+        if _strict_slot_is_future(context, current) and _strict_slot_is_available(context, current):
             slots.append(f"{current // 60:02d}:{current % 60:02d}")
         current += 30
     return context, slots
@@ -4999,7 +5038,10 @@ async def get_availability(org_id: str, barber_id: str, date: str, service_id: s
         "working_day": True,
         "start_time": context["barber"].get("start_time") or "09:00",
         "end_time": context["barber"].get("end_time") or "18:00",
-        "service_duration": context["duration"]
+        "service_duration": context["duration"],
+        "timezone": context["timezone"],
+        "local_date": context["local_now"].date().isoformat(),
+        "minimum_lead_minutes": context["minimum_lead_minutes"]
     }
 
 @api_router.post("/public/{org_id}/appointments")
@@ -5037,8 +5079,10 @@ async def create_public_appointment(org_id: str, data: AppointmentCreate, reques
             org_id, data.barber_id, data.service_id, data.date
         )
         start_minutes = _strict_minutes(data.time, "appointment time")
+        if not _strict_slot_is_future(strict_context, start_minutes):
+            raise HTTPException(status_code=409, detail={"code":"APPOINTMENT_TIME_IN_PAST","message":"Este horario ya no está disponible. Selecciona uno posterior."})
         if data.time not in available_slots or not _strict_slot_is_available(strict_context, start_minutes):
-            raise HTTPException(status_code=409, detail="This time slot is no longer available")
+            raise HTTPException(status_code=409, detail={"code":"APPOINTMENT_SLOT_UNAVAILABLE","message":"Este horario ya no está disponible."})
     except Exception:
         await db.booking_locks.delete_one({"_id": booking_lock_id})
         raise
