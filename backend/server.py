@@ -1503,7 +1503,8 @@ async def get_all_users(authorization: Optional[str] = Header(None), session_tok
     if current_user.role != "owner":
         raise HTTPException(status_code=403, detail="Access denied")
     projection = {"_id": 0, "password_hash": 0, "session_token": 0, "token": 0, "token_hash": 0, "reset_token": 0, "secret": 0}
-    users = await db.users.find({}, projection).to_list(1000)
+    operational_filter = {"access_status": {"$ne": "deleted"}, "deleted_at": {"$exists": False}}
+    users = await db.users.find(operational_filter, projection).to_list(1000)
     for user in users:
         if isinstance(user.get("created_at"), str):
             user["created_at"] = datetime.fromisoformat(user["created_at"])
@@ -1520,6 +1521,8 @@ async def update_user_access(user_id: str, data: UserAccessUpdate, authorization
     target = await db.users.find_one({"user_id": user_id}, {"_id": 0})
     if not target:
         raise HTTPException(status_code=404, detail="User not found")
+    if target.get("access_status") == "deleted" or target.get("deleted_at"):
+        raise HTTPException(status_code=409, detail={"code":"deleted_account_cannot_be_approved","message":"Deleted accounts cannot be approved or updated"})
     if user_id == current_user.user_id and data.access_status != "approved":
         raise HTTPException(status_code=409, detail="Use account deletion to remove your own account")
     await _protect_owner_and_organization_administration(target, next_access=data.access_status)
@@ -1560,6 +1563,8 @@ async def update_user_role(user_id: str, data: UserRoleUpdate, authorization: Op
     target=await db.users.find_one({"user_id":user_id},{"_id":0})
     if not target:
         raise HTTPException(status_code=404,detail="User not found")
+    if target.get("access_status") == "deleted" or target.get("deleted_at"):
+        raise HTTPException(status_code=409, detail={"code":"deleted_account_cannot_change_role","message":"Deleted accounts cannot change role"})
     if user_id == current_user.user_id and data.role != "owner":
         raise HTTPException(status_code=409,detail="Transfer ownership before changing your own role")
     await _protect_owner_and_organization_administration(target,next_role=data.role)
