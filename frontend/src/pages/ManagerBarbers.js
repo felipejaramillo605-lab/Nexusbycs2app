@@ -204,16 +204,53 @@ const ManagerBarbers = () => {
   const handleCreate = async () => {
     const validationError = validateProfile(newBarber);
     if (validationError) return toast.error(validationError);
+    
+    // Verify organization is set
+    if (!organizationId) {
+      toast.error('No se pudo identificar la organización. Por favor, recarga la página.');
+      return;
+    }
+    
     setSaving(true);
     try {
-      await barberAPI.create(buildPayload(newBarber, true));
+      const payload = buildPayload(newBarber, true);
+      console.log('[ManagerBarbers] Creating barber with payload:', { ...payload, organization_id: organizationId });
+      
+      await barberAPI.create(payload);
       setIsCreateDialogOpen(false);
       setNewBarber(createEmptyBarber());
       await loadBarbers();
       toast.success('Profesional creado correctamente');
     } catch (error) {
-      console.error('Error creating barber:', error);
-      toast.error(error.response?.data?.detail || 'No fue posible crear el profesional');
+      console.error('[ManagerBarbers] Error creating barber:', {
+        message: error.message,
+        response: error.response?.data,
+        status: error.response?.status
+      });
+      
+      // More detailed error messages
+      const errorDetail = error.response?.data?.detail;
+      let errorMessage = 'No fue posible crear el profesional';
+      
+      if (typeof errorDetail === 'string') {
+        if (errorDetail.includes('Organization not found')) {
+          errorMessage = 'Organización no encontrada. Contacta al administrador.';
+        } else if (errorDetail.includes('No organization assigned')) {
+          errorMessage = 'Tu usuario no tiene organización asignada. Contacta al administrador.';
+        } else if (errorDetail.includes('services are invalid')) {
+          errorMessage = 'Uno o más servicios seleccionados no son válidos.';
+        } else if (errorDetail.includes('Name is required')) {
+          errorMessage = 'El nombre es requerido.';
+        } else if (errorDetail.includes('Access denied')) {
+          errorMessage = 'No tienes permisos para realizar esta acción.';
+        } else if (errorDetail.includes('origin is not allowed')) {
+          errorMessage = 'Error de configuración del servidor. Contacta al administrador.';
+        } else {
+          errorMessage = errorDetail;
+        }
+      }
+      
+      toast.error(errorMessage);
     } finally {
       setSaving(false);
     }

@@ -1,0 +1,25 @@
+{
+  "summary": "Tested manager professional creation fix. Login and services fetch work. Direct POST /api/barbers via curl blocked by request-security middleware (403 'Request origin is not allowed') even with Origin/Referer headers matching the public URL.",
+  "tested_scope": ["backend", "auth"],
+  "passed": [
+    "POST /api/auth/login manager@nexus.com -> 200 with session cookie",
+    "GET /api/services?organization_id=org_demo001 -> 200 (services returned)"
+  ],
+  "failed": [
+    {
+      "area": "backend/security",
+      "issue": "POST /api/barbers returns 403 'Request origin is not allowed' from curl even with Origin/Referer set to public preview URL",
+      "evidence": "curl -X POST .../api/barbers -H 'Origin: https://clipper-manage-1.preview.emergentagent.com' -> 403 {\"detail\":\"Request origin is not allowed\"}",
+      "priority": "MEDIUM"
+    }
+  ],
+  "action_items": [
+    "Verify enforce_request_security / TRUSTED_ORIGINS in request_security.py allows the frontend preview origin for state-changing methods; user's production 'no puede crear profesional' bug may stem from this same middleware if TRUSTED_ORIGINS does not include their production origin.",
+    "Confirm the browser flow works from actual UI (curl might be rejected due to missing custom headers the middleware requires). If UI works but curl fails, adjust TRUSTED_ORIGINS/policy accordingly.",
+    "Since actual UI-based creation could not be verified with backend directly, run a Playwright smoke test after confirming middleware allowlist."
+  ],
+  "success_rate": {"backend": "66%", "frontend": "not_tested"},
+  "retest_needed": true,
+  "full_testing_deferred": true,
+  "notes": "Frontend improvements (organization_id guard, detailed error messages including 'origin is not allowed' mapping) are correctly implemented in ManagerBarbers.js handleCreate. Backend endpoint reachability is blocked by request_security middleware in this test path — this is the most likely production root cause and should be validated."
+}

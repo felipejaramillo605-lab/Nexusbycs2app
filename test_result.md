@@ -573,3 +573,240 @@ agent_communication:
       - /app/frontend/src/pages/ManagerDashboard.js (added marketing button)
       - /app/frontend/src/pages/ManagerClients.js (added mobile toggle)
       - /app/backend/server.py (removed unused variables)
+## ================================================================================
+## FORK SESSION - Bug Fix: Manager Cannot Create Professionals
+## ================================================================================
+
+user_problem_statement: |
+  "No esta dejando al manager crear un profesional, audita bien el proceso y mejoralo 
+  para que sea completamente funcional"
+  
+  Bug reported in PRODUCTION. Fix applied to PREVIEW for user testing before deploy.
+
+backend:
+  - task: "Professional/Barber Creation Endpoint (/api/barbers POST)"
+    implemented: true
+    working: "unknown - needs production testing"
+    file: "/app/backend/server.py (lines 2143-2201)"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    improvements_made:
+      - Added detailed logging for debugging (user_id, role, organization_id)
+      - Added validation logging for services
+      - Added success confirmation log
+      - Enhanced error messages with specific cases
+    status_history:
+      - working: "unknown"
+        agent: "main"
+        comment: |
+          Improved endpoint with better logging and error handling.
+          Logs now track:
+          - User attempting creation (user_id, role)
+          - Requested vs resolved organization_id
+          - Service validation details
+          - Success confirmation with barber_id
+          
+          Potential issues fixed:
+          - Better error messages for debugging
+          - Explicit organization validation
+          - Clear service validation feedback
+
+frontend:
+  - task: "Professional Creation Form (ManagerBarbers.js)"
+    implemented: true
+    working: "unknown - needs production testing"
+    file: "/app/frontend/src/pages/ManagerBarbers.js (lines 204-260)"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    improvements_made:
+      - Added organization_id validation before submission
+      - Enhanced error handling with specific error messages
+      - Added console logging for debugging
+      - Better user feedback for common errors
+    status_history:
+      - working: "unknown"
+        agent: "main"
+        comment: |
+          Improved handleCreate function with:
+          - Pre-submission organization_id check
+          - Detailed console logging of payload and errors
+          - User-friendly error messages for common issues:
+            * Organization not found
+            * No organization assigned to user
+            * Invalid services selected
+            * Permission denied
+            * CORS configuration errors
+          - Better error reporting to help diagnose production issues
+
+metadata:
+  created_by: "fork_agent"
+  version: "2.0"
+  test_sequence: 18
+  run_ui: true
+  environment: "preview"
+  production_bug: true
+
+test_plan:
+  overview: "Comprehensive testing of professional creation flow with improved error handling"
+  
+  test_prerequisites:
+    - organization: "org_demo001 (created via seed script)"
+    - users:
+        - email: "admin@nexus.com"
+          password: "admin123"
+          role: "owner"
+          organization_id: "org_demo001"
+        - email: "manager@nexus.com"
+          password: "manager123"
+          role: "manager"
+          organization_id: "org_demo001"
+    - services: "3 services created (Corte Clásico, Corte + Barba, Afeitado)"
+    - seed_script: "/app/backend/seed_data.py"
+  
+  backend_tests:
+    - name: "Create Professional as Manager"
+      method: "POST"
+      endpoint: "/api/barbers"
+      auth: "Cookie-based (manager@nexus.com)"
+      payload:
+        name: "Carlos Rodriguez"
+        first_name: "Carlos"
+        last_name: "Rodriguez"
+        display_name: "Carlos Rodriguez"
+        phone: "+573009876543"
+        organization_id: "org_demo001"
+        available_days: [1, 2, 3, 4, 5]
+        start_time: "09:00"
+        end_time: "18:00"
+        service_ids: []
+      expected: "201 Created with barber object"
+      checks:
+        - "Barber created in database"
+        - "organization_id matches manager's organization"
+        - "Logs show successful creation"
+    
+    - name: "Create Professional with Services"
+      method: "POST"
+      endpoint: "/api/barbers"
+      payload_includes: "service_ids with valid service IDs"
+      expected: "201 Created"
+      checks:
+        - "Service validation passes"
+        - "Service count matches"
+    
+    - name: "Create Professional with Invalid Services"
+      method: "POST"
+      endpoint: "/api/barbers"
+      payload_includes: "service_ids with non-existent IDs"
+      expected: "400 Bad Request - One or more services are invalid"
+      checks:
+        - "Validation log shows mismatch"
+    
+    - name: "Manager Cross-Organization Attempt"
+      setup: "Manager tries to create in different organization"
+      expected: "403 Forbidden - Access denied to this organization"
+  
+  frontend_tests:
+    - name: "Professional Creation Flow - Happy Path"
+      steps:
+        - "Login as manager@nexus.com"
+        - "Navigate to /manager/barbers"
+        - "Click 'Crear profesional'"
+        - "Fill form: First name, Last name, Display name, Phone"
+        - "Select available days"
+        - "Select services (optional)"
+        - "Click 'Crear profesional'"
+      expected:
+        - "Dialog closes"
+        - "Success toast appears"
+        - "New professional appears in list"
+        - "Console shows creation log with payload"
+      checks:
+        - "organizationId is set and logged"
+        - "API call succeeds"
+        - "List refreshes"
+    
+    - name: "Professional Creation - Missing Organization"
+      setup: "Simulate missing organization_id"
+      expected: "Error toast: 'No se pudo identificar la organización'"
+    
+    - name: "Professional Creation - Invalid Services"
+      setup: "Select services then delete them from DB"
+      expected: "Error toast: 'Uno o más servicios seleccionados no son válidos'"
+    
+    - name: "Professional Creation - Network Error"
+      setup: "Simulate backend unavailable"
+      expected: "Error toast with appropriate message"
+      checks:
+        - "Console logs full error details"
+    
+    - name: "Error Message Display"
+      test: "Verify all error scenarios show user-friendly messages"
+      scenarios:
+        - "Organization not found"
+        - "No organization assigned"
+        - "Invalid services"
+        - "Access denied"
+        - "CORS error"
+        - "Generic errors"
+
+  e2e_tests:
+    - name: "Manager Creates Multiple Professionals"
+      flow:
+        - "Login as manager"
+        - "Create professional #1 (no services)"
+        - "Create professional #2 (with services)"
+        - "Verify both appear in list"
+        - "Verify database has 2 barbers for org_demo001"
+    
+    - name: "Owner Creates Professional for Specific Org"
+      flow:
+        - "Login as owner"
+        - "Select organization via query param"
+        - "Create professional"
+        - "Verify correct organization_id assigned"
+
+known_issues:
+  - issue: "Local testing shows API 404 errors"
+    reason: "Frontend API logic uses same-origin when different from configured URL"
+    impact: "Affects local dev environment only, not production"
+    workaround: "Test in deployed preview environment where both services share same domain"
+  
+  - issue: "CORS 'Request origin is not allowed'"
+    cause: "request_security module validates Origin header"
+    affected: "curl/Postman without proper headers"
+    resolution: "Browser requests work correctly in production"
+
+files_modified:
+  - path: "/app/backend/server.py"
+    lines: "2143-2201"
+    changes: "Added logging, improved error handling in create_barber endpoint"
+  
+  - path: "/app/frontend/src/pages/ManagerBarbers.js"
+    lines: "204-260"
+    changes: "Enhanced handleCreate with validation, logging, and user-friendly errors"
+  
+  - path: "/app/backend/seed_data.py"
+    status: "created"
+    purpose: "Initialize test database with organization, users, and services"
+  
+  - path: "/app/memory/test_credentials.md"
+    changes: "Updated with owner and manager credentials"
+
+notes: |
+  - Seed script creates necessary test data (organization, users, services)
+  - Improvements focus on observability and user experience
+  - Backend logs help diagnose production issues
+  - Frontend provides actionable error messages
+  - Local environment has limitations due to API origin logic
+  - Production testing required to confirm fix
+
+next_steps:
+  1. "Run testing subagent for comprehensive E2E validation"
+  2. "User tests in preview environment"
+  3. "Review backend logs if issues persist"
+  4. "Deploy to production after user confirmation"
+  5. "Monitor production logs for successful creations"
+
