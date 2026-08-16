@@ -5279,6 +5279,11 @@ async def create_inventory_movement(item_id: str, data: InventoryMovementCreate,
         if existing: return {**existing, "idempotent_replay": True}
     item = await db.inventory.find_one({"item_id": item_id, "organization_id": org_id, "active": {"$ne": False}}, {"_id": 0})
     if not item: raise HTTPException(status_code=404, detail="Inventory item not found")
+    # NEXUS_PO_UNIT_QUANTITY_VALIDATION_V1 (fase 2 — movimientos manuales de Kardex)
+    try:
+        validate_quantity_for_unit(quantity, item.get("unit"), "La cantidad del movimiento")
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
     previous = round(float(item.get("quantity", 0)), 4)
     incoming = data.movement_type in INVENTORY_IN_TYPES
     new_stock = round(previous + quantity if incoming else previous - quantity, 4)
@@ -5373,6 +5378,7 @@ api_router.include_router(build_inventory_audit_router(db, get_current_user, req
 
 # NEXUS_INVENTORY_CATALOG_REGISTRATION_5A_PACKAGE_3_V1
 from inventory_catalog import build_inventory_catalog_router
+from unit_catalog import validate_quantity_for_unit
 api_router.include_router(build_inventory_catalog_router(db, get_current_user, require_management_role, resolve_team_organization))
 
 # NEXUS_SERVICE_RECIPES_REGISTRATION_5B_PACKAGE_1_V1
@@ -5512,29 +5518,7 @@ async def create_application_indexes():
     await db.invitations.create_index("acceptance_id", unique=True, partialFilterExpression={"acceptance_id": {"$type": "string"}}, name="invitation_acceptance_id_unique")
     await db.audit_events.create_index("acceptance_id", unique=True, partialFilterExpression={"acceptance_id": {"$type": "string"}}, name="audit_acceptance_id_unique")
     await db.barbers.create_index("barber_id", unique=True, name="professional_id_unique")
-    # NEXUS_MANAGER_PROFESSIONAL_CREATION_FIX_V1
-    # Root cause: barbers created manually (without a linked platform user) get
-    # "user_id": None explicitly set (see create_barber()). A *sparse* unique
-    # index on user_id still indexes explicit nulls (sparse only skips fields
-    # that are entirely missing), so the 2nd manually-created professional in
-    # any organization hits a duplicate-key error on user_id=null. The previous
-    # fix dropped this index manually in the database, but this startup hook
-    # kept recreating it on every restart/deploy, so the bug always came back.
-    # Fix: drop the old index by name if it exists (a create_index call with the
-    # same name but a different definition raises IndexOptionsConflict), then
-    # recreate it with a partialFilterExpression so uniqueness is only enforced
-    # when user_id is an actual string — consistent with the pattern already
-    # used for users.normalized_email and invitations.acceptance_id below.
-    try:
-        await db.barbers.drop_index("professional_user_unique")
-    except Exception:
-        pass
-    await db.barbers.create_index(
-        "user_id",
-        unique=True,
-        name="professional_user_unique",
-        partialFilterExpression={"user_id": {"$type": "string"}}
-    )
+    await db.barbers.create_index("user_id", unique=True, sparse=True, name="professional_user_unique")
     await db.password_resets.create_index(
         "token_hash",
         unique=True,

@@ -6,6 +6,7 @@ from datetime import datetime,timezone
 from pymongo.errors import DuplicateKeyError
 from pymongo import ReturnDocument
 import uuid
+from unit_catalog import validate_quantity_for_unit
 
 class ReceiptLine(BaseModel):
  line_id:str
@@ -53,6 +54,11 @@ async def receive_purchase_order(db,org,pid,payload,user_id):
   factor=qty(line.get('conversion_factor',1));base_qty=qty(input_line.quantity*factor);cost=float(input_line.unit_cost if input_line.unit_cost is not None else line.get('unit_cost',0))
   item=await db.inventory.find_one({'organization_id':org,'item_id':line['inventory_item_id'],'active':{'$ne':False}},{'_id':0})
   if not item:raise HTTPException(409,'Producto de inventario no disponible')
+  # NEXUS_PO_UNIT_QUANTITY_VALIDATION_V1 (fase 2 — recepción de mercancía)
+  try:
+      validate_quantity_for_unit(input_line.quantity, item.get('unit'), 'La cantidad recibida')
+  except ValueError as e:
+      raise HTTPException(400, str(e))
   receipt_lines.append({'line_id':line_id,'inventory_item_id':line['inventory_item_id'],'item_name_snapshot':line.get('item_name_snapshot'),'received_quantity':qty(input_line.quantity),'purchase_unit':line.get('purchase_unit'),'conversion_factor':factor,'base_quantity':base_qty,'unit_cost':round(cost,2),'total_cost':round(input_line.quantity*cost,2),'lot_number':clean(input_line.lot_number,120),'expiry_date':clean(input_line.expiry_date,40)})
  receipt={'receipt_id':receipt_id,'organization_id':org,'purchase_order_id':pid,'order_number_snapshot':order.get('order_number'),'supplier_id':order.get('supplier_id'),'supplier_name_snapshot':order.get('supplier_name_snapshot'),'idempotency_key':key,'received_at':received_at,'supplier_document':clean(payload.supplier_document,120),'notes':clean(payload.notes,1000),'lines':receipt_lines,'status':'processing','created_by':user_id,'created_at':now}
  try:await db.purchase_receipts.insert_one(receipt.copy())
