@@ -6,6 +6,7 @@ from datetime import datetime,timezone
 from pymongo import ReturnDocument
 from pymongo.errors import DuplicateKeyError
 import uuid,re
+from unit_catalog import validate_quantity_for_unit
 STATES={'draft','submitted','approved','partially_received','received','cancelled'}
 class PurchaseLine(BaseModel):
  inventory_item_id:str
@@ -59,6 +60,18 @@ def build_purchase_order_router(db,get_current_user,require_management_role,reso
   if len(ids)!=len(set(ids)):raise HTTPException(400,'No se permiten productos repetidos')
   docs=await db.inventory.find({'organization_id':org,'item_id':{'$in':ids},'active':{'$ne':False}},{'_id':0}).to_list(len(ids));lookup={x['item_id']:x for x in docs}
   if len(lookup)!=len(ids):raise HTTPException(404,'Uno o más productos de inventario no existen')
+  # NEXUS_PO_UNIT_QUANTITY_VALIDATION_V1
+  # quantity es float por diseño (litros, kilos, etc. son legítimamente
+  # fraccionarios), pero para unidades discretas (unidades, cajas, pares,
+  # paquetes, frascos) una cantidad como 1.3 no tiene sentido físico. Se
+  # valida contra la unidad BASE real del producto de inventario (no contra
+  # purchase_unit, que es texto libre opcional de la línea) porque es el
+  # único dato confiable con el que ya contamos en este punto.
+  for x in data.lines:
+      try:
+          validate_quantity_for_unit(x.quantity, lookup[x.inventory_item_id].get('unit'), 'La cantidad solicitada')
+      except ValueError as e:
+          raise HTTPException(400, str(e))
   lines=[serialize_line(x,lookup[x.inventory_item_id]) for x in data.lines]
   subtotal=money(sum(x['subtotal'] for x in lines));discount=money(sum(x['discount_amount'] for x in lines));tax=money(sum(x['tax_amount'] for x in lines));total=money(sum(x['total'] for x in lines))
   return supplier,lines,{'subtotal':subtotal,'discount_total':discount,'tax_total':tax,'total':total}

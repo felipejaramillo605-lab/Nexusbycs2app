@@ -4,6 +4,7 @@ from pydantic import BaseModel
 from typing import Optional
 from datetime import datetime, timezone
 import re, uuid
+from unit_catalog import validate_quantity_for_unit, UNIT_CATALOG, DEFAULT_UNIT
 
 class CatalogItemCreate(BaseModel):
     name: str
@@ -60,11 +61,21 @@ def build_inventory_catalog_router(db,get_current_user,require_management_role,r
         for x in rows:x['is_low_stock']=float(x.get('quantity',0))<=float(x.get('min_stock',0));x['inventory_value']=round(float(x.get('quantity',0))*float(x.get('unit_cost',0)),2)
         return rows
 
+    @router.get('/inventory/catalog/units')
+    async def list_units():
+        return [{'value': k, **v} for k, v in UNIT_CATALOG.items()]
+
     @router.post('/inventory/catalog/items')
     async def create_item(data:CatalogItemCreate,authorization:Optional[str]=Header(None),session_token:Optional[str]=Cookie(None)):
         user=await get_current_user(authorization,session_token);oid=await org(user,data.organization_id)
         if min(data.quantity,data.min_stock,data.unit_cost)<0:raise HTTPException(400,'Stock, minimum stock and cost cannot be negative')
-        sku=normalize_sku(data.sku) or await next_sku(oid);await unique(oid,sku);now=datetime.now(timezone.utc).isoformat();doc={'item_id':f'item_{uuid.uuid4().hex[:12]}','organization_id':oid,'sku':sku,'sku_source':'manual' if data.sku else 'automatic','name':data.name.strip()[:160],'quantity':round(float(data.quantity),4),'min_stock':round(float(data.min_stock),4),'unit':data.unit.strip()[:40] or 'unidades','unit_cost':round(float(data.unit_cost),2),'active':True,'created_at':now,'updated_at':now}
+        unit=(data.unit.strip() or DEFAULT_UNIT)
+        try:
+            validate_quantity_for_unit(data.quantity,unit,'La existencia inicial')
+            validate_quantity_for_unit(data.min_stock,unit,'El stock mínimo')
+        except ValueError as e:
+            raise HTTPException(400,str(e))
+        sku=normalize_sku(data.sku) or await next_sku(oid);await unique(oid,sku);now=datetime.now(timezone.utc).isoformat();doc={'item_id':f'item_{uuid.uuid4().hex[:12]}','organization_id':oid,'sku':sku,'sku_source':'manual' if data.sku else 'automatic','name':data.name.strip()[:160],'quantity':round(float(data.quantity),4),'min_stock':round(float(data.min_stock),4),'unit':unit[:40],'unit_cost':round(float(data.unit_cost),2),'active':True,'created_at':now,'updated_at':now}
         if not doc['name']:raise HTTPException(400,'Name is required')
         await db.inventory.insert_one(doc.copy());doc['is_low_stock']=doc['quantity']<=doc['min_stock'];doc['inventory_value']=round(doc['quantity']*doc['unit_cost'],2);return doc
 
@@ -73,7 +84,12 @@ def build_inventory_catalog_router(db,get_current_user,require_management_role,r
         user=await get_current_user(authorization,session_token);oid=await org(user,data.organization_id);item=await db.inventory.find_one({'organization_id':oid,'item_id':item_id},{'_id':0})
         if not item:raise HTTPException(404,'Inventory item not found')
         if min(data.min_stock,data.unit_cost)<0:raise HTTPException(400,'Minimum stock and cost cannot be negative')
-        sku=normalize_sku(data.sku) or item.get('sku') or await next_sku(oid);await unique(oid,sku,item_id);updates={'sku':sku,'sku_source':'manual' if data.sku and sku!=item.get('sku') else item.get('sku_source','automatic'),'name':data.name.strip()[:160],'min_stock':round(float(data.min_stock),4),'unit':data.unit.strip()[:40] or 'unidades','unit_cost':round(float(data.unit_cost),2),'updated_at':datetime.now(timezone.utc).isoformat()}
+        unit=(data.unit.strip() or DEFAULT_UNIT)
+        try:
+            validate_quantity_for_unit(data.min_stock,unit,'El stock mínimo')
+        except ValueError as e:
+            raise HTTPException(400,str(e))
+        sku=normalize_sku(data.sku) or item.get('sku') or await next_sku(oid);await unique(oid,sku,item_id);updates={'sku':sku,'sku_source':'manual' if data.sku and sku!=item.get('sku') else item.get('sku_source','automatic'),'name':data.name.strip()[:160],'min_stock':round(float(data.min_stock),4),'unit':unit[:40],'unit_cost':round(float(data.unit_cost),2),'updated_at':datetime.now(timezone.utc).isoformat()}
         if not updates['name']:raise HTTPException(400,'Name is required')
         await db.inventory.update_one({'organization_id':oid,'item_id':item_id},{'$set':updates});return {**item,**updates}
 
