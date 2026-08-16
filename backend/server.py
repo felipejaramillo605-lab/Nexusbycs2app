@@ -5512,19 +5512,28 @@ async def create_application_indexes():
     await db.invitations.create_index("acceptance_id", unique=True, partialFilterExpression={"acceptance_id": {"$type": "string"}}, name="invitation_acceptance_id_unique")
     await db.audit_events.create_index("acceptance_id", unique=True, partialFilterExpression={"acceptance_id": {"$type": "string"}}, name="audit_acceptance_id_unique")
     await db.barbers.create_index("barber_id", unique=True, name="professional_id_unique")
-    # NEXUS_MANUAL_PROFESSIONALS_INDEX_MIGRATION_V1
-    # Manual professionals are stored with user_id=None; a plain unique/sparse index
-    # rejects the second null. Migrate to a partial unique index that only enforces
-    # uniqueness when user_id is a real string (linked account).
-    barber_indexes = await db.barbers.index_information()
-    legacy_user_index = barber_indexes.get("professional_user_unique")
-    if legacy_user_index and not legacy_user_index.get("partialFilterExpression"):
+    # NEXUS_MANAGER_PROFESSIONAL_CREATION_FIX_V1
+    # Root cause: barbers created manually (without a linked platform user) get
+    # "user_id": None explicitly set (see create_barber()). A *sparse* unique
+    # index on user_id still indexes explicit nulls (sparse only skips fields
+    # that are entirely missing), so the 2nd manually-created professional in
+    # any organization hits a duplicate-key error on user_id=null. The previous
+    # fix dropped this index manually in the database, but this startup hook
+    # kept recreating it on every restart/deploy, so the bug always came back.
+    # Fix: drop the old index by name if it exists (a create_index call with the
+    # same name but a different definition raises IndexOptionsConflict), then
+    # recreate it with a partialFilterExpression so uniqueness is only enforced
+    # when user_id is an actual string — consistent with the pattern already
+    # used for users.normalized_email and invitations.acceptance_id below.
+    try:
         await db.barbers.drop_index("professional_user_unique")
+    except Exception:
+        pass
     await db.barbers.create_index(
         "user_id",
         unique=True,
-        partialFilterExpression={"user_id": {"$type": "string"}},
         name="professional_user_unique",
+        partialFilterExpression={"user_id": {"$type": "string"}}
     )
     await db.password_resets.create_index(
         "token_hash",
