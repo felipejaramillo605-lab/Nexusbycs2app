@@ -2145,13 +2145,12 @@ async def create_barber(data: BarberCreate, authorization: Optional[str] = Heade
     current_user = await get_current_user(authorization, session_token)
     require_management_role(current_user)
     
-    logger.info(f"[create_barber] User {current_user.user_id} ({current_user.role}) attempting to create barber")
-    logger.info(f"[create_barber] Requested organization_id: {data.organization_id}, User organization_id: {current_user.organization_id}")
+    logger.info(f"[create_barber] actor_user_id={current_user.user_id} role={current_user.role} action=create_attempt")
     
     organization_id = await resolve_team_organization(current_user, data.organization_id)
     await enforce_rls_on_write(current_user, {}, organization_id)
     
-    logger.info(f"[create_barber] Resolved organization_id: {organization_id}")
+    logger.info(f"[create_barber] actor_user_id={current_user.user_id} resolved_organization_id={organization_id} action=org_resolved")
 
     name = data.name.strip()
     first_name = data.first_name.strip() if data.first_name else None
@@ -2164,18 +2163,19 @@ async def create_barber(data: BarberCreate, authorization: Optional[str] = Heade
 
     service_ids = list(dict.fromkeys(data.service_ids or []))
     if service_ids:
-        logger.info(f"[create_barber] Validating {len(service_ids)} services for organization {organization_id}")
+        logger.info(f"[create_barber] actor_user_id={current_user.user_id} service_count={len(service_ids)} action=validating_services")
         service_count = await db.services.count_documents({
             "organization_id": organization_id,
             "service_id": {"$in": service_ids}
         })
         if service_count != len(service_ids):
-            logger.warning(f"[create_barber] Service validation failed. Expected {len(service_ids)}, found {service_count}")
+            logger.warning(f"[create_barber] actor_user_id={current_user.user_id} expected={len(service_ids)} found={service_count} action=service_validation_failed")
             raise HTTPException(status_code=400, detail="One or more services are invalid")
 
     now = datetime.now(timezone.utc).isoformat()
+    barber_id = f"barber_{uuid.uuid4().hex[:12]}"
     barber_doc = {
-        "barber_id": f"barber_{uuid.uuid4().hex[:12]}",
+        "barber_id": barber_id,
         "organization_id": organization_id,
         "name": display_name,
         "display_name": display_name,
@@ -2196,7 +2196,7 @@ async def create_barber(data: BarberCreate, authorization: Optional[str] = Heade
     }
     
     await db.barbers.insert_one(barber_doc)
-    logger.info(f"[create_barber] Successfully created barber {barber_doc['barber_id']} in organization {organization_id}")
+    logger.info(f"[create_barber] actor_user_id={current_user.user_id} barber_id={barber_id} organization_id={organization_id} action=created_successfully")
     
     barber_doc["created_at"] = datetime.fromisoformat(barber_doc["created_at"])
     barber_doc["updated_at"] = datetime.fromisoformat(barber_doc["updated_at"])

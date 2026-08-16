@@ -1,0 +1,34 @@
+{
+  "summary": "CRITICAL PRODUCTION BLOCKER CONFIRMED: All state-changing POST requests coming through the public preview URL (proxied from 10.81.21.x) are rejected by request_security.enforce_request_security with 403 'Request origin is not allowed'. Manager login itself fails from a real browser (Playwright), which means the reported bug 'No fue posible crear el profesional' is a symptom — users cannot even authenticate reliably, let alone POST /api/barbers. Backend logic is otherwise correct: creating a barber via localhost:8001 with same Origin header succeeds, and the previous UI flow at 23:24 succeeded once. Frontend copy is now 'Profesionales' (no residual 'Barberos' strings in src).",
+  "tested_scope": ["backend", "frontend", "auth", "integration"],
+  "passed": [
+    "POST http://localhost:8001/api/auth/login with Origin=https://clipper-manage-1.preview.emergentagent.com -> 200 (TRUSTED_ORIGINS is loaded correctly in-process)",
+    "TRUSTED_ORIGINS resolved at runtime = ['https://clipper-manage-1.preview.emergentagent.com', 'https://clipper-manage-1.emergent.host']",
+    "Frontend source no longer contains user-facing 'Barbero(s)' strings (only 'Profesional(es)')",
+    "One successful create_barber for manager was observed in backend logs (23:24:36) with structured logs and no PII (phone/address/bio)",
+    "Frontend ManagerBarbers.js correctly omits organization_id in manager payload and includes extractErrorMessage handling 401/402/403/404/422"
+  ],
+  "failed": [
+    {
+      "area": "backend/security (preview gateway integration)",
+      "issue": "POST /api/auth/login through https://clipper-manage-1.preview.emergentagent.com returns 403 'Request origin is not allowed' from BOTH a real browser (Playwright) AND curl, even with Origin/Referer/Sec-Fetch-Site headers set to the preview URL. Backend access log shows repeated '10.81.21.x - POST /api/auth/login 403 Forbidden'. Same call to localhost:8001 with the same Origin succeeds. This means the internal preview proxy is either overwriting the client Origin header with an internal value or dropping the browser Sec-Fetch metadata in a way that triggers request_security.py line 122-124 rejection.",
+      "evidence": "curl -X POST https://clipper-manage-1.preview.emergentagent.com/api/auth/login -H 'Origin: https://clipper-manage-1.preview.emergentagent.com' -> 403 {\"detail\":\"Request origin is not allowed\"}. Same body via curl to http://localhost:8001 -> 200 OK. Playwright browser also gets 403 on login. Backend restarted; issue persists.",
+      "priority": "HIGH"
+    },
+    {
+      "area": "frontend flow",
+      "issue": "Because login is blocked at the preview URL, the manager cannot authenticate via the browser, so the create-professional UI flow (open dialog, fill form, submit) cannot be validated end-to-end from the deployed URL.",
+      "evidence": "After clicking 'Iniciar sesión', page remains on /login; console shows 403 on /api/auth/login and cascading 401 on /api/auth/me.",
+      "priority": "HIGH"
+    }
+  ],
+  "action_items": [
+    "Root cause the mismatch between the Origin header client sends and what request_security sees on requests proxied through 10.81.21.x. Options: (a) log the received Origin header value inside enforce_request_security temporarily to see what proxy delivers; (b) if the preview gateway rewrites Origin, add the gateway-provided origin to TRUSTED_ORIGINS or trust Sec-Fetch-Site=same-origin without also requiring Origin match on /api/auth/login (currently line 122 forces Origin match on login even when Sec-Fetch-Site indicates same-origin).",
+    "Consider relaxing /api/auth/login block: allow when Sec-Fetch-Site in {same-origin, same-site, none} even if Origin is present but not in TRUSTED_ORIGINS (the login endpoint already has strict rate limiting).",
+    "After fix, re-run the Playwright create-professional flow to confirm the manager creation UI succeeds end-to-end from the preview URL."
+  ],
+  "success_rate": {"backend": "50%", "frontend": "blocked_by_auth"},
+  "retest_needed": true,
+  "full_testing_deferred": true,
+  "notes": "This is the same root cause as iteration_18. The CORS_ORIGINS/FRONTEND_URL env change is loaded (verified in-process), but the preview proxy path still triggers the origin block. Backend business logic and frontend copy fixes look correct — the blocker is the request_security middleware behavior on proxied requests."
+}

@@ -113,6 +113,8 @@ const ManagerBarbers = () => {
   const [services, setServices] = useState([]);
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(null);
+  const [organizationUnavailable, setOrganizationUnavailable] = useState(false);
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isBlockDialogOpen, setIsBlockDialogOpen] = useState(false);
@@ -138,8 +140,27 @@ const ManagerBarbers = () => {
   }, [organizationId]);
 
   const loadBarbers = useCallback(async () => {
-    if (!organizationId) return;
+    // Check organization availability for manager/admin
+    if ((user?.role === 'manager' || user?.role === 'admin') && !user?.organization_id) {
+      setOrganizationUnavailable(true);
+      setLoading(false);
+      return;
+    }
+    
+    // Check organization selection for owner
+    if (user?.role === 'owner' && !organizationId) {
+      setLoadError('Por favor selecciona una organización desde el dashboard.');
+      setLoading(false);
+      return;
+    }
+    
+    if (!organizationId) {
+      setLoading(false);
+      return;
+    }
+    
     try {
+      setLoadError(null);
       const params = { organization_id: organizationId };
       const [barbersResponse, servicesResponse] = await Promise.all([
         barberAPI.getAll(params),
@@ -148,11 +169,12 @@ const ManagerBarbers = () => {
       setBarbers(barbersResponse.data);
       setServices(servicesResponse.data);
     } catch (error) {
-      console.error('Error loading barbers:', error);
+      console.error('[ManagerBarbers] Error loading data:', { status: error.response?.status });
+      setLoadError('Error al cargar los datos. Por favor intenta de nuevo.');
     } finally {
       setLoading(false);
     }
-  }, [organizationId]);
+  }, [organizationId, user]);
 
   useEffect(() => {
     if (organizationId) {
@@ -181,6 +203,94 @@ const ManagerBarbers = () => {
     return null;
   };
 
+  // Helper para extraer mensajes de error seguros y útiles
+  const extractErrorMessage = (error) => {
+    const status = error.response?.status;
+    const detail = error.response?.data?.detail;
+    
+    // Manejo por código de estado HTTP
+    if (status === 401) {
+      return 'Tu sesión ha expirado. Por favor inicia sesión nuevamente.';
+    }
+    
+    if (status === 402) {
+      // Suspensión de suscripción
+      if (typeof detail === 'object' && detail?.code === 'SUBSCRIPTION_ACCESS_SUSPENDED') {
+        return 'El acceso a la organización está temporalmente suspendido. Contacta al Owner.';
+      }
+      return 'Problema con la suscripción. Contacta al Owner.';
+    }
+    
+    if (status === 403) {
+      if (typeof detail === 'string') {
+        if (detail.includes('No organization assigned')) {
+          return 'Tu cuenta no tiene organización asignada. Contacta al Owner.';
+        }
+        if (detail.includes('Access denied')) {
+          return 'No tienes permisos para realizar esta acción.';
+        }
+        if (detail.includes('Request origin is not allowed')) {
+          return 'Error de configuración del servidor. Contacta al soporte técnico.';
+        }
+      }
+      return 'Acceso denegado. Verifica tus permisos.';
+    }
+    
+    if (status === 404) {
+      if (typeof detail === 'string' && detail.includes('Organization not found')) {
+        return 'Organización no encontrada. Contacta al administrador.';
+      }
+      return 'Recurso no encontrado.';
+    }
+    
+    if (status === 422) {
+      // Errores de validación de FastAPI
+      const errors = error.response?.data?.detail;
+      if (Array.isArray(errors) && errors.length > 0) {
+        const firstError = errors[0];
+        const field = firstError.loc?.join('.') || 'campo';
+        const msg = firstError.msg || 'inválido';
+        return `Error de validación: ${field} - ${msg}`;
+      }
+      return 'Datos inválidos. Revisa el formulario.';
+    }
+    
+    // Manejo de detail como string
+    if (typeof detail === 'string') {
+      // Casos específicos conocidos
+      if (detail.includes('services are invalid')) {
+        return 'Uno o más servicios seleccionados no son válidos.';
+      }
+      if (detail.includes('Name is required')) {
+        return 'El nombre es requerido.';
+      }
+      if (detail.includes('Bio must contain 500 characters or fewer')) {
+        return 'La biografía no puede superar 500 caracteres.';
+      }
+      // Si el mensaje es corto y seguro, mostrarlo
+      if (detail.length < 100 && !detail.includes('<') && !detail.includes('{')) {
+        return detail;
+      }
+    }
+    
+    // Manejo de detail como objeto con message
+    if (typeof detail === 'object' && detail?.message && typeof detail.message === 'string') {
+      // Solo si es un mensaje seguro de nuestro catálogo
+      const safeMessages = [
+        'Organization not found',
+        'No organization assigned',
+        'One or more services are invalid',
+        'Name is required'
+      ];
+      if (safeMessages.some(msg => detail.message.includes(msg))) {
+        return detail.message;
+      }
+    }
+    
+    // Fallback genérico
+    return 'No fue posible completar la operación. Intenta nuevamente.';
+  };
+
   const buildPayload = (profile, includeOrganization = false) => {
     const displayName = (profile.display_name || `${profile.first_name || ''} ${profile.last_name || ''}`).trim();
     return {
@@ -205,16 +315,12 @@ const ManagerBarbers = () => {
     const validationError = validateProfile(newBarber);
     if (validationError) return toast.error(validationError);
     
-    // Verify organization is set
-    if (!organizationId) {
-      toast.error('No se pudo identificar la organización. Por favor, recarga la página.');
-      return;
-    }
-    
     setSaving(true);
     try {
-      const payload = buildPayload(newBarber, true);
-      console.log('[ManagerBarbers] Creating barber with payload:', { ...payload, organization_id: organizationId });
+      // Manager/admin: backend deriva organization_id de la sesión
+      // Owner: envía organization_id explícito
+      const includeOrgId = user?.role === 'owner';
+      const payload = buildPayload(newBarber, includeOrgId);
       
       await barberAPI.create(payload);
       setIsCreateDialogOpen(false);
@@ -222,34 +328,8 @@ const ManagerBarbers = () => {
       await loadBarbers();
       toast.success('Profesional creado correctamente');
     } catch (error) {
-      console.error('[ManagerBarbers] Error creating barber:', {
-        message: error.message,
-        response: error.response?.data,
-        status: error.response?.status
-      });
-      
-      // More detailed error messages
-      const errorDetail = error.response?.data?.detail;
-      let errorMessage = 'No fue posible crear el profesional';
-      
-      if (typeof errorDetail === 'string') {
-        if (errorDetail.includes('Organization not found')) {
-          errorMessage = 'Organización no encontrada. Contacta al administrador.';
-        } else if (errorDetail.includes('No organization assigned')) {
-          errorMessage = 'Tu usuario no tiene organización asignada. Contacta al administrador.';
-        } else if (errorDetail.includes('services are invalid')) {
-          errorMessage = 'Uno o más servicios seleccionados no son válidos.';
-        } else if (errorDetail.includes('Name is required')) {
-          errorMessage = 'El nombre es requerido.';
-        } else if (errorDetail.includes('Access denied')) {
-          errorMessage = 'No tienes permisos para realizar esta acción.';
-        } else if (errorDetail.includes('origin is not allowed')) {
-          errorMessage = 'Error de configuración del servidor. Contacta al administrador.';
-        } else {
-          errorMessage = errorDetail;
-        }
-      }
-      
+      console.error('[ManagerBarbers] Create failed:', { status: error.response?.status });
+      const errorMessage = extractErrorMessage(error);
       toast.error(errorMessage);
     } finally {
       setSaving(false);
@@ -348,6 +428,98 @@ const ManagerBarbers = () => {
     return (
       <div className="min-h-screen nexus-screen flex items-center justify-center">
         <div className="text-[var(--app-text-primary)] text-lg">Cargando...</div>
+      </div>
+    );
+  }
+
+  // Estado: Manager/admin sin organización asignada
+  if (organizationUnavailable) {
+    return (
+      <div className="min-h-screen nexus-screen p-6">
+        <div className="max-w-2xl mx-auto">
+          <div className="flex items-center gap-4 mb-6">
+            <button
+              onClick={() => navigate('/manager/dashboard')}
+              className="p-2 rounded-xl bg-white/5 border border-[var(--app-border)] hover:bg-white/10 transition-all text-[var(--app-text-primary)]"
+            >
+              <ArrowLeft size={20} strokeWidth={1.5} />
+            </button>
+            <h1 className="text-2xl font-light text-[var(--app-text-primary)]">Profesionales</h1>
+          </div>
+          
+          <div className="bg-amber-500/10 border border-amber-500/30 rounded-xl p-6 text-center">
+            <div className="w-16 h-16 rounded-full bg-amber-500/20 flex items-center justify-center mx-auto mb-4">
+              <Users size={32} className="text-amber-300" strokeWidth={1.5} />
+            </div>
+            <h2 className="text-lg font-medium text-amber-200 mb-2">
+              Organización no asignada
+            </h2>
+            <p className="text-zinc-300 mb-6">
+              Tu cuenta aún no está asignada a una organización. Contacta al Owner para completar la asignación y poder gestionar profesionales.
+            </p>
+            <div className="flex gap-3 justify-center">
+              <button
+                onClick={() => navigate('/manager/dashboard')}
+                className="px-4 py-2 bg-white/10 hover:bg-white/20 border border-[var(--app-border)] rounded-lg text-[var(--app-text-primary)] transition-all"
+              >
+                Volver al dashboard
+              </button>
+              <button
+                onClick={() => window.location.reload()}
+                className="px-4 py-2 bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/40 rounded-lg text-amber-200 transition-all"
+              >
+                Recargar página
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Estado: Error de carga
+  if (loadError) {
+    return (
+      <div className="min-h-screen nexus-screen p-6">
+        <div className="max-w-2xl mx-auto">
+          <div className="flex items-center gap-4 mb-6">
+            <button
+              onClick={() => navigate('/manager/dashboard')}
+              className="p-2 rounded-xl bg-white/5 border border-[var(--app-border)] hover:bg-white/10 transition-all text-[var(--app-text-primary)]"
+            >
+              <ArrowLeft size={20} strokeWidth={1.5} />
+            </button>
+            <h1 className="text-2xl font-light text-[var(--app-text-primary)]">Profesionales</h1>
+          </div>
+          
+          <div className="bg-red-500/10 border border-red-500/30 rounded-xl p-6 text-center">
+            <div className="w-16 h-16 rounded-full bg-red-500/20 flex items-center justify-center mx-auto mb-4">
+              <Users size={32} className="text-red-300" strokeWidth={1.5} />
+            </div>
+            <h2 className="text-lg font-medium text-red-200 mb-2">
+              Error al cargar
+            </h2>
+            <p className="text-zinc-300 mb-6">{loadError}</p>
+            <div className="flex gap-3 justify-center">
+              <button
+                onClick={() => navigate('/manager/dashboard')}
+                className="px-4 py-2 bg-white/10 hover:bg-white/20 border border-[var(--app-border)] rounded-lg text-[var(--app-text-primary)] transition-all"
+              >
+                Volver al dashboard
+              </button>
+              <button
+                onClick={() => {
+                  setLoadError(null);
+                  setLoading(true);
+                  loadBarbers();
+                }}
+                className="px-4 py-2 bg-[#0A84FF] hover:bg-[#0071E3] rounded-lg text-white transition-all"
+              >
+                Reintentar
+              </button>
+            </div>
+          </div>
+        </div>
       </div>
     );
   }

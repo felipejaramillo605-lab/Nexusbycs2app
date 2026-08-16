@@ -116,11 +116,13 @@ async def enforce_request_security(request: Request):
     if path == "/api/auth/login":
         # Manual credential login keeps strict Origin validation whenever the
         # browser supplies Origin, while allowing same-site clients that omit it.
+        # RELAXED: Trust Sec-Fetch-Site when preview gateways may rewrite Origin
         if fetch_site and fetch_site not in {"same-origin", "same-site", "none"}:
             await record_security_event(event_type="cross_site_request_blocked", request_method=request.method, path=request.url.path, source=_client_source(request), metadata={"fetch_site":fetch_site})
             raise HTTPException(403, "Cross-site request blocked")
-        if origin and origin not in TRUSTED_ORIGINS:
-            await record_security_event(event_type="origin_blocked", request_method=request.method, path=request.url.path, source=_client_source(request), metadata={"fetch_site":fetch_site or "missing"})
+        # Allow when Sec-Fetch-Site indicates same-origin even if Origin header is modified by proxy
+        if origin and origin not in TRUSTED_ORIGINS and fetch_site not in {"same-origin", "same-site"}:
+            await record_security_event(event_type="origin_blocked", request_method=request.method, path=request.url.path, source=_client_source(request), metadata={"fetch_site":fetch_site or "missing", "origin":origin[:50] if origin else "none"})
             raise HTTPException(403, "Request origin is not allowed")
         return
     # Bearer and X-Session-ID integrations are not ambient cookie credentials.
