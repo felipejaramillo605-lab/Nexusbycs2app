@@ -5518,7 +5518,17 @@ async def create_application_indexes():
     await db.invitations.create_index("acceptance_id", unique=True, partialFilterExpression={"acceptance_id": {"$type": "string"}}, name="invitation_acceptance_id_unique")
     await db.audit_events.create_index("acceptance_id", unique=True, partialFilterExpression={"acceptance_id": {"$type": "string"}}, name="audit_acceptance_id_unique")
     await db.barbers.create_index("barber_id", unique=True, name="professional_id_unique")
-    await db.barbers.create_index("user_id", unique=True, sparse=True, name="professional_user_unique")
+    # NEXUS_MANAGER_PROFESSIONAL_CREATION_FIX_V1
+    try:
+        await db.barbers.drop_index("professional_user_unique")
+    except Exception:
+        pass
+    await db.barbers.create_index(
+        "user_id",
+        unique=True,
+        name="professional_user_unique",
+        partialFilterExpression={"user_id": {"$type": "string"}}
+    )
     await db.password_resets.create_index(
         "token_hash",
         unique=True,
