@@ -5512,7 +5512,20 @@ async def create_application_indexes():
     await db.invitations.create_index("acceptance_id", unique=True, partialFilterExpression={"acceptance_id": {"$type": "string"}}, name="invitation_acceptance_id_unique")
     await db.audit_events.create_index("acceptance_id", unique=True, partialFilterExpression={"acceptance_id": {"$type": "string"}}, name="audit_acceptance_id_unique")
     await db.barbers.create_index("barber_id", unique=True, name="professional_id_unique")
-    await db.barbers.create_index("user_id", unique=True, sparse=True, name="professional_user_unique")
+    # NEXUS_MANUAL_PROFESSIONALS_INDEX_MIGRATION_V1
+    # Manual professionals are stored with user_id=None; a plain unique/sparse index
+    # rejects the second null. Migrate to a partial unique index that only enforces
+    # uniqueness when user_id is a real string (linked account).
+    barber_indexes = await db.barbers.index_information()
+    legacy_user_index = barber_indexes.get("professional_user_unique")
+    if legacy_user_index and not legacy_user_index.get("partialFilterExpression"):
+        await db.barbers.drop_index("professional_user_unique")
+    await db.barbers.create_index(
+        "user_id",
+        unique=True,
+        partialFilterExpression={"user_id": {"$type": "string"}},
+        name="professional_user_unique",
+    )
     await db.password_resets.create_index(
         "token_hash",
         unique=True,
