@@ -5381,6 +5381,10 @@ from inventory_catalog import build_inventory_catalog_router
 from unit_catalog import validate_quantity_for_unit
 api_router.include_router(build_inventory_catalog_router(db, get_current_user, require_management_role, resolve_team_organization))
 
+# NEXUS_INVENTORY_REORDER_ALERTS_V1
+from inventory_reorder import build_inventory_reorder_router
+api_router.include_router(build_inventory_reorder_router(db, get_current_user, require_management_role, resolve_team_organization))
+
 # NEXUS_SERVICE_RECIPES_REGISTRATION_5B_PACKAGE_1_V1
 from service_recipes import build_service_recipes_router, ensure_service_recipe_indexes
 api_router.include_router(build_service_recipes_router(db, get_current_user, require_management_role, resolve_team_organization))

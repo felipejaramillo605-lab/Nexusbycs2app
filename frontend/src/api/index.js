@@ -166,6 +166,9 @@ export const inventoryAPI = {
   updateCatalogItem: (id, data) => api.put(`/inventory/catalog/items/${id}`, data),
   archiveCatalogItem: (id, params = {}) => api.delete(`/inventory/catalog/items/${id}`, { params }),
   migrateSkus: (params = {}) => api.post('/inventory/catalog/migrate-skus', {}, { params }),
+  // NEXUS_INVENTORY_REORDER_ALERTS_V1
+  getReorderAlerts: (params = {}) => api.get('/inventory/reorder-alerts', { params }),
+  generateReorderOrders: (data) => api.post('/inventory/reorder-alerts/generate-orders', data),
 };
 
 // NEXUS_COMMISSION_FOUNDATION_V1
