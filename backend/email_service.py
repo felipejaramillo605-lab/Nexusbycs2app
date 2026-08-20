@@ -500,7 +500,65 @@ class EmailService:
         """
         
         return self._send_email(to_email, subject, html_body)
-    
+
+    def send_review_request(
+        self,
+        to_email: str,
+        customer_name: str,
+        organization_name: str,
+        review_link: str
+    ) -> bool:
+        """Send review request email, 1h after appointment completion."""
+        # Escape all user inputs
+        customer_name = escape(customer_name)
+        organization_name = escape(organization_name)
+        # review_link viene de configuración del manager (no del cliente final),
+        # pero igual se valida esquema antes de usarlo como href para evitar
+        # inyección de javascript:/data: si algún día se abre a más edición.
+        safe_link = review_link if str(review_link).strip().lower().startswith("https://") else None
+        if not safe_link:
+            logger.warning("review_request_invalid_link_skipped")
+            return False
+
+        subject = f"⭐ ¿Cómo estuvo tu visita a {organization_name}?"
+
+        html_body = f"""
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <meta charset="UTF-8">
+            <style>
+                body {{ font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; margin: 0; padding: 0; background-color: #000000; }}
+                .container {{ max-width: 600px; margin: 40px auto; background: linear-gradient(135deg, #1a1a1a 0%, #0a0a0a 100%); border-radius: 16px; overflow: hidden; border: 1px solid rgba(255,255,255,0.1); }}
+                .header {{ background: linear-gradient(135deg, #E1306C 0%, #C13584 100%); padding: 40px 20px; text-align: center; }}
+                .header h1 {{ color: white; margin: 0; font-size: 26px; font-weight: 300; }}
+                .content {{ padding: 40px 30px; color: #ffffff; text-align: center; }}
+                .cta {{ display: inline-block; margin-top: 24px; padding: 14px 32px; background: linear-gradient(135deg, #E1306C 0%, #C13584 100%); color: white; text-decoration: none; border-radius: 999px; font-weight: 500; }}
+                .footer {{ padding: 30px; text-align: center; color: #666; font-size: 12px; border-top: 1px solid rgba(255,255,255,0.1); }}
+                .emoji {{ font-size: 48px; margin: 20px 0; }}
+            </style>
+        </head>
+        <body>
+            <div class="container">
+                <div class="header">
+                    <div class="emoji">⭐</div>
+                    <h1>¿Cómo estuvo tu visita?</h1>
+                </div>
+                <div class="content">
+                    <p style="font-size: 18px; color: #fff;">Hola <strong>{customer_name}</strong>,</p>
+                    <p style="color: #aaa;">Tu opinión nos ayuda muchísimo. ¿Nos regalas un minuto para dejarnos una reseña en Instagram?</p>
+                    <a href="{safe_link}" class="cta" target="_blank" rel="noopener noreferrer">Dejar reseña en Instagram</a>
+                </div>
+                <div class="footer">
+                    <p><strong>{organization_name}</strong></p>
+                </div>
+            </div>
+        </body>
+        </html>
+        """
+
+        return self._send_email(to_email, subject, html_body)
+
     def send_admin_new_appointment_notification(
         self,
         admin_email: str,

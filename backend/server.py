@@ -41,6 +41,7 @@ from request_security import TRUSTED_ORIGINS, enforce_request_security, refresh_
 from security_observability import configure_security_observability, ensure_security_observability_indexes, record_security_event
 from owner_delivery_operations import build_delivery_operations_router, ensure_delivery_operations_indexes, scheduler_loop
 from appointment_email_delivery import ensure_appointment_email_delivery_indexes, execute_compatibility_delivery, cancel_pending_deliveries
+from review_requests import schedule_review_request
 from platform_billing_settings import build_platform_billing_router, ensure_platform_billing_indexes
 from owner_third_party_matrix import build_third_party_matrix_router, ensure_third_party_matrix_indexes
 
@@ -166,6 +167,12 @@ class Organization(BaseModel):
     business_hours: Optional[str] = None  # JSON string: {"mon": "9:00-18:00", ...}
     phone: Optional[str] = None
     whatsapp_link: Optional[str] = None
+    # NEXUS_REVIEW_REQUEST_V1
+    review_link: Optional[str] = None
+    review_request_settings: Optional[dict] = Field(default_factory=lambda: {
+        "enabled": False,
+        "channels": {"email": False, "whatsapp": False},
+    })
     created_at: datetime
     # Notification settings (personalizable por admin)
     notification_settings: Optional[dict] = Field(default_factory=lambda: {
@@ -401,6 +408,8 @@ class OrganizationUpdate(BaseModel):
     business_hours: Optional[str] = None
     phone: Optional[str] = None
     whatsapp_link: Optional[str] = None
+    review_link: Optional[str] = None
+    review_request_settings: Optional[dict] = None
     client_portal_theme: Optional[str] = None  # classic | feminine | professional | cyberpunk | underground | neutral
 
 # Helper function to sanitize phone numbers
@@ -2461,13 +2470,26 @@ async def _trace_appointment_completion(appointment: dict, service: dict, worker
     appointment_id = appointment.get("appointment_id")
     organization_id = appointment.get("organization_id")
     try:
-        recipient = appointment.get("client_email")
-        if not recipient:
-            return
         organization = await db.organizations.find_one(
             {"organization_id": organization_id},
             {"_id": 0},
         ) or {}
+        # NEXUS_REVIEW_REQUEST_V1 — se evalúa ANTES del return temprano por
+        # falta de client_email de abajo, a propósito: la solicitud de reseña
+        # puede ir solo por WhatsApp, sin depender de que el cliente tenga
+        # correo registrado.
+        try:
+            await schedule_review_request(db, appointment=appointment, organization=organization)
+        except Exception as review_error:
+            logger.warning(
+                "review_request_schedule_failed appointment_id=%s diagnostic_code=%s",
+                appointment_id,
+                type(review_error).__name__,
+            )
+
+        recipient = appointment.get("client_email")
+        if not recipient:
+            return
         if not organization.get("notification_settings", {}).get("appointment_completed", True):
             return
         organization_name = organization.get("name") or "Nexus"
@@ -5381,10 +5403,6 @@ from inventory_catalog import build_inventory_catalog_router
 from unit_catalog import validate_quantity_for_unit
 api_router.include_router(build_inventory_catalog_router(db, get_current_user, require_management_role, resolve_team_organization))
 
-# NEXUS_INVENTORY_REORDER_ALERTS_V1
-from inventory_reorder import build_inventory_reorder_router, ensure_inventory_reorder_indexes
-api_router.include_router(build_inventory_reorder_router(db, get_current_user, require_management_role, resolve_team_organization))
-
 # NEXUS_SERVICE_RECIPES_REGISTRATION_5B_PACKAGE_1_V1
 from service_recipes import build_service_recipes_router, ensure_service_recipe_indexes
 api_router.include_router(build_service_recipes_router(db, get_current_user, require_management_role, resolve_team_organization))
@@ -5559,7 +5577,6 @@ async def create_application_indexes():
     await ensure_transaction_void_indexes(db)
     await ensure_supplier_indexes(db)
     await ensure_purchase_order_indexes(db)
-    await ensure_inventory_reorder_indexes(db)
     await ensure_purchase_receipt_indexes(db)
     await ensure_subscription_indexes(db)
     await ensure_billing_hub_indexes(db)

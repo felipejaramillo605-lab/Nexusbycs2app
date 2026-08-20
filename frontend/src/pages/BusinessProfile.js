@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { ArrowLeft, Save, Building, MapPin, Clock, Phone, MessageSquare, Loader2 } from 'lucide-react';
+import { ArrowLeft, Save, Building, MapPin, Clock, Phone, MessageSquare, Loader2, Star } from 'lucide-react';
 import { toast } from 'sonner';
 
 const BusinessProfile = () => {
@@ -19,6 +19,8 @@ const BusinessProfile = () => {
     business_hours: '',
     phone: '',
     whatsapp_link: '',
+    review_link: '',
+    review_request_settings: { enabled: false, channels: { email: false, whatsapp: false } },
   });
 
   const loadOrganization = useCallback(async () => {
@@ -37,6 +39,14 @@ const BusinessProfile = () => {
           business_hours: data.business_hours || '',
           phone: data.phone || '',
           whatsapp_link: data.whatsapp_link || '',
+          review_link: data.review_link || '',
+          review_request_settings: {
+            enabled: data.review_request_settings?.enabled || false,
+            channels: {
+              email: data.review_request_settings?.channels?.email || false,
+              whatsapp: data.review_request_settings?.channels?.whatsapp || false,
+            },
+          },
         });
       }
     } catch (error) {
@@ -205,6 +215,81 @@ const BusinessProfile = () => {
             <p className="text-xs text-zinc-500 mt-2">
               Los clientes podrán contactarte directamente desde el portal de reservas
             </p>
+          </div>
+
+          {/* Review Request Settings */}
+          <div className="border border-[var(--app-border)] rounded-xl p-4 space-y-4">
+            <div className="flex items-center justify-between">
+              <label className="flex items-center gap-2 text-sm font-medium text-zinc-300">
+                <Star size={16} className="text-[#E1306C]" />
+                Solicitud automática de reseña
+              </label>
+              <button
+                type="button"
+                onClick={() => setFormData({
+                  ...formData,
+                  review_request_settings: { ...formData.review_request_settings, enabled: !formData.review_request_settings.enabled },
+                })}
+                className={`relative w-11 h-6 rounded-full transition-colors ${formData.review_request_settings.enabled ? 'bg-[#0A84FF]' : 'bg-white/10'}`}
+              >
+                <span className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white transition-transform ${formData.review_request_settings.enabled ? 'translate-x-5' : ''}`} />
+              </button>
+            </div>
+            <p className="text-xs text-zinc-500">
+              1 hora después de completar cada cita, se le pide al cliente que deje una reseña en Instagram.
+            </p>
+
+            <div>
+              <label className="block text-sm font-medium text-zinc-400 mb-2">
+                Link de Instagram para reseñas
+              </label>
+              <input
+                type="url"
+                value={formData.review_link}
+                onChange={(e) => setFormData({ ...formData, review_link: e.target.value })}
+                className="w-full px-4 py-3 bg-white/5 border border-[var(--app-border)] rounded-xl text-[var(--app-text-primary)] placeholder-zinc-500 focus:border-[#0A84FF] focus:ring-2 focus:ring-[#0A84FF]/20 outline-none transition-all"
+                placeholder="https://instagram.com/tu_negocio"
+              />
+            </div>
+
+            <div>
+              <p className="text-sm font-medium text-zinc-400 mb-2">Canales de envío</p>
+              <div className="flex flex-col gap-2">
+                <label className="flex items-center gap-2 text-sm text-zinc-300">
+                  <input
+                    type="checkbox"
+                    checked={formData.review_request_settings.channels.email}
+                    onChange={(e) => setFormData({
+                      ...formData,
+                      review_request_settings: {
+                        ...formData.review_request_settings,
+                        channels: { ...formData.review_request_settings.channels, email: e.target.checked },
+                      },
+                    })}
+                    className="accent-[#0A84FF]"
+                  />
+                  Correo electrónico
+                </label>
+                <label className="flex items-center gap-2 text-sm text-zinc-300">
+                  <input
+                    type="checkbox"
+                    checked={formData.review_request_settings.channels.whatsapp}
+                    onChange={(e) => setFormData({
+                      ...formData,
+                      review_request_settings: {
+                        ...formData.review_request_settings,
+                        channels: { ...formData.review_request_settings.channels, whatsapp: e.target.checked },
+                      },
+                    })}
+                    className="accent-[#0A84FF]"
+                  />
+                  WhatsApp <span className="text-zinc-500">(modo de prueba — sin API de WhatsApp Business todavía)</span>
+                </label>
+              </div>
+              <p className="text-xs text-zinc-500 mt-2">
+                Puedes activar uno, ambos, o ninguno — algunos negocios prefieren no duplicar el mensaje.
+              </p>
+            </div>
           </div>
 
           {/* Actions */}
