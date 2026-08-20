@@ -173,13 +173,6 @@ class Organization(BaseModel):
         "enabled": False,
         "channels": {"email": False, "whatsapp": False},
     })
-    # NEXUS_LOYALTY_PROGRAM_V1
-    loyalty_settings: Optional[dict] = Field(default_factory=lambda: {
-        "enabled": False,
-        "points_per_visit": 10,
-        "reward_threshold": 100,
-        "reward_description": "",
-    })
     created_at: datetime
     # Notification settings (personalizable por admin)
     notification_settings: Optional[dict] = Field(default_factory=lambda: {
@@ -417,8 +410,6 @@ class OrganizationUpdate(BaseModel):
     whatsapp_link: Optional[str] = None
     review_link: Optional[str] = None
     review_request_settings: Optional[dict] = None
-    # NEXUS_LOYALTY_PROGRAM_V1
-    loyalty_settings: Optional[dict] = None
     client_portal_theme: Optional[str] = None  # classic | feminine | professional | cyberpunk | underground | neutral
 
 # Helper function to sanitize phone numbers
@@ -1804,9 +1795,8 @@ async def update_organization_profile(
 ):
     """Update organization business profile (owner/manager only)"""
     current_user = await get_current_user(authorization, session_token)
-    # NEXUS_ORG_UPDATE_AUTHZ_FIX_V1 — staff/barbers no pueden mutar la organización.
-    require_management_role(current_user)
-
+    
+    # ✅ CORRECCIÓN CRÍTICA: Pydantic model usa atributos, no .get()
     # Verify user belongs to this organization
     if current_user.organization_id != organization_id and current_user.role != "owner":
         raise HTTPException(status_code=403, detail="Access denied")
@@ -2572,11 +2562,46 @@ async def update_appointment_status(
     if result.matched_count == 0:
         raise HTTPException(status_code=404, detail="Appointment not found")
     
-    # NEXUS_APPOINTMENT_STATUS_LOYALTY_UNREACHABLE_REMOVAL_V1
-    # Este endpoint rechaza status='completed' arriba (usa checkout), así que
-    # cualquier lógica dependiente de "primera transición a completed" es
-    # inalcanzable. La acumulación de puntos y visitas ocurre en
-    # checkout_appointment (fuente única de verdad).
+    # If marking as completed for the first time, increment client's total_visits
+    if status == "completed" and previous_status != "completed":
+        client_phone = appointment.get("client_phone")
+        if client_phone:
+            await db.clients.update_one(
+                {
+                    "phone": client_phone,
+                    "organization_id": appointment["organization_id"]
+                },
+                {
+                    "$inc": {"total_visits": 1},
+                    "$set": {
+                        "last_visit": appointment.get("date"),
+                        "updated_at": datetime.now(timezone.utc).isoformat()
+                    }
+                }
+            )
+        
+        # ✅ SEND COMPLETED EMAIL (if enabled)
+        try:
+            organization = await db.organizations.find_one(
+                {"organization_id": appointment["organization_id"]}, 
+                {"_id": 0}
+            )
+            if organization and organization.get("notification_settings", {}).get("appointment_completed", True):
+                if appointment.get("client_email"):
+                    service = await db.services.find_one(
+                        {"service_id": appointment["service_id"]}, 
+                        {"_id": 0}
+                    )
+                    email_service.send_appointment_completed(
+                        to_email=appointment["client_email"],
+                        customer_name=appointment.get("client_name", "Cliente"),
+                        organization_name=organization.get("name", "Nexus"),
+                        date=appointment.get("date"),
+                        service_name=service.get("name", "Servicio") if service else "Servicio"
+                    )
+        except Exception as email_error:
+            print(f"⚠️ Completed email failed: {email_error}")
+    
     if status == "cancelled" and previous_status != "cancelled":
         await _trace_appointment_cancellation(
             appointment,
@@ -2616,14 +2641,7 @@ async def checkout_appointment(appointment_id: str, data: AppointmentCheckoutReq
         await rollback_checkout_inventory(db,reserved,org_id,item['transaction_id']);await db.transactions.update_one({'transaction_id':item['transaction_id']},{'$set':{'status':'voided','void_reason':'Checkout inventory rollback','voided_at':now}})
         if 'duplicate' in str(exc).lower() or 'E11000' in str(exc):raise HTTPException(409,'Appointment has already been charged')
         raise
-    if apt.get('client_phone'):
-        # NEXUS_LOYALTY_PROGRAM_V1 — sumar puntos si el programa está habilitado
-        organization = await db.organizations.find_one({'organization_id':org_id},{'_id':0,'loyalty_settings':1}) or {}
-        loyalty_cfg = organization.get('loyalty_settings') or {}
-        inc = {'total_visits': 1}
-        if loyalty_cfg.get('enabled') and int(loyalty_cfg.get('points_per_visit') or 0) > 0:
-            inc['loyalty_points'] = int(loyalty_cfg['points_per_visit'])
-        await db.clients.update_one({'phone':apt['client_phone'],'organization_id':org_id},{'$inc':inc,'$set':{'last_visit':apt.get('date'),'updated_at':now}})
+    if apt.get('client_phone'):await db.clients.update_one({'phone':apt['client_phone'],'organization_id':org_id},{'$inc':{'total_visits':1},'$set':{'last_visit':apt.get('date'),'updated_at':now}})
     await commission_audit(org_id,'appointment_checkout_completed',item['transaction_id'],user.user_id,None,{k:v for k,v in item.items() if k!='notes'},data.notes)
     await _trace_appointment_completion(
         apt,
@@ -4271,30 +4289,7 @@ async def get_client_profile(current_client: Client = Depends(get_current_client
         apt["service_name"] = service["name"] if service else "Unknown"
         apt["service_price"] = service["price"] if service else 0
         apt["barber_name"] = barber["name"] if barber else "Unknown"
-
-    # NEXUS_LOYALTY_PROGRAM_V1 — devolver puntos + configuración del programa
-    client_doc = await db.clients.find_one(
-        {"client_id": current_client.client_id},
-        {"_id": 0, "loyalty_points": 1}
-    ) or {}
-    loyalty_points = int(client_doc.get("loyalty_points") or 0)
-    org_loyalty = await db.organizations.find_one(
-        {"organization_id": current_client.organization_id},
-        {"_id": 0, "loyalty_settings": 1}
-    ) or {}
-    loyalty_settings = org_loyalty.get("loyalty_settings") or {}
-    loyalty_enabled = bool(loyalty_settings.get("enabled"))
-    reward_threshold = int(loyalty_settings.get("reward_threshold") or 0)
-    loyalty_summary = {
-        "enabled": loyalty_enabled,
-        "points": loyalty_points,
-        "points_per_visit": int(loyalty_settings.get("points_per_visit") or 0),
-        "reward_threshold": reward_threshold,
-        "reward_description": loyalty_settings.get("reward_description") or "",
-        "progress_percent": (min(100, round(loyalty_points * 100 / reward_threshold)) if reward_threshold > 0 else 0),
-        "points_to_next_reward": (max(0, reward_threshold - loyalty_points) if reward_threshold > 0 else 0),
-    }
-
+    
     return {
         "client": {
             "client_id": current_client.client_id,
@@ -4303,10 +4298,8 @@ async def get_client_profile(current_client: Client = Depends(get_current_client
             "email": current_client.email,
             "total_visits": current_client.total_visits,
             "last_visit": current_client.last_visit,
-            "accepts_marketing": current_client.accepts_marketing,
-            "loyalty_points": loyalty_points,
+            "accepts_marketing": current_client.accepts_marketing
         },
-        "loyalty": loyalty_summary,
         "appointments": appointments
     }
 

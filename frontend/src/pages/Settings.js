@@ -4,7 +4,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useOrganization } from '../context/OrganizationContext';
-import { ArrowLeft, Save, Building, Users, Mail, UserCog, Trash2, Loader2, Check, Percent, RotateCcw, Pencil, Copy, ExternalLink, X, Settings as SettingsIcon, FileText, CreditCard, Shield, Palette } from 'lucide-react';
+import { ArrowLeft, Save, Building, Users, Mail, UserCog, Trash2, Loader2, Check, Percent, RotateCcw, Pencil, Copy, ExternalLink, X, Settings as SettingsIcon, FileText, CreditCard, Shield, Palette, Star } from 'lucide-react';
 import { toast } from 'sonner';
 import { AccessibleModal, confirmAction } from '../components/design';
 import { teamAPI, commissionAPI } from '../api';
@@ -49,6 +49,14 @@ const Settings = () => {
     phone: '',
     client_portal_theme: 'classic',
   });
+  // NEXUS_LOYALTY_PROGRAM_V1
+  const [loyaltyData, setLoyaltyData] = useState({
+    enabled: false,
+    points_per_visit: 10,
+    reward_threshold: 100,
+    reward_description: '',
+  });
+  const [savingLoyalty, setSavingLoyalty] = useState(false);
 
   // Team Management State
   const [teamMembers, setTeamMembers] = useState([]);
@@ -85,6 +93,14 @@ const Settings = () => {
           address: data.address || '',
           phone: data.phone || '',
           client_portal_theme: data.client_portal_theme || 'classic',
+        });
+        // NEXUS_LOYALTY_PROGRAM_V1
+        const ls = data.loyalty_settings || {};
+        setLoyaltyData({
+          enabled: !!ls.enabled,
+          points_per_visit: Number(ls.points_per_visit ?? 10),
+          reward_threshold: Number(ls.reward_threshold ?? 100),
+          reward_description: ls.reward_description || '',
         });
       } else {
         const errorData = await response.json();
@@ -224,6 +240,37 @@ const Settings = () => {
       toast.error(`Error al actualizar el perfil: ${error.message}`);
     } finally {
       setSaving(false);
+    }
+  };
+
+  // NEXUS_LOYALTY_PROGRAM_V1
+  const handleSaveLoyalty = async (e) => {
+    e.preventDefault();
+    setSavingLoyalty(true);
+    try {
+      const payload = {
+        loyalty_settings: {
+          enabled: !!loyaltyData.enabled,
+          points_per_visit: Math.max(0, Number(loyaltyData.points_per_visit) || 0),
+          reward_threshold: Math.max(0, Number(loyaltyData.reward_threshold) || 0),
+          reward_description: (loyaltyData.reward_description || '').trim().slice(0, 240),
+        }
+      };
+      const response = await fetch(
+        `${process.env.REACT_APP_BACKEND_URL}/api/organizations/${organizationId}`,
+        { method: 'PUT', credentials: 'include', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) }
+      );
+      if (response.ok) {
+        toast.success('Programa de lealtad actualizado');
+        await refreshOrganization(organizationId);
+      } else {
+        const err = await response.json();
+        throw new Error(err.detail || 'No se pudo guardar');
+      }
+    } catch (error) {
+      toast.error(`Error al guardar lealtad: ${error.message}`);
+    } finally {
+      setSavingLoyalty(false);
     }
   };
 
@@ -524,6 +571,79 @@ const Settings = () => {
                     Guardar Cambios
                   </>
                 )}
+              </button>
+            </form>
+          </div>
+
+          {/* NEXUS_LOYALTY_PROGRAM_V1 — CARD Programa de Lealtad */}
+          <div data-testid="loyalty-settings-card" className="backdrop-blur-xl bg-white/3 border border-[var(--app-border)] rounded-2xl p-6">
+            <div className="flex items-center gap-3 mb-6">
+              <div className="w-10 h-10 rounded-xl bg-amber-500/20 flex items-center justify-center">
+                <Star size={20} strokeWidth={1.5} className="text-amber-400" />
+              </div>
+              <div>
+                <h2 className="text-lg font-medium text-[var(--app-text-primary)]">Programa de Lealtad</h2>
+                <p className="text-sm text-zinc-400">Fideliza clientes con puntos por cada visita</p>
+              </div>
+            </div>
+            <form onSubmit={handleSaveLoyalty} className="space-y-4">
+              <label className="flex items-center justify-between p-3 rounded-xl border border-[var(--app-border)] bg-white/5 cursor-pointer">
+                <div>
+                  <div className="text-sm font-medium text-[var(--app-text-primary)]">Activar programa de lealtad</div>
+                  <div className="text-xs text-zinc-400">Los clientes ganan puntos al completar cada cita</div>
+                </div>
+                <input
+                  type="checkbox"
+                  data-testid="loyalty-enabled-toggle"
+                  checked={loyaltyData.enabled}
+                  onChange={(e) => setLoyaltyData({ ...loyaltyData, enabled: e.target.checked })}
+                  className="w-5 h-5"
+                />
+              </label>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-sm font-medium text-zinc-400 mb-2">Puntos por visita</label>
+                  <input
+                    type="number" min="0" max="10000"
+                    data-testid="loyalty-points-per-visit"
+                    disabled={!loyaltyData.enabled}
+                    value={loyaltyData.points_per_visit}
+                    onChange={(e) => setLoyaltyData({ ...loyaltyData, points_per_visit: e.target.value })}
+                    className="w-full px-4 py-3 bg-white/5 border border-[var(--app-border)] rounded-xl text-[var(--app-text-primary)] outline-none disabled:opacity-50"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-zinc-400 mb-2">Umbral para recompensa</label>
+                  <input
+                    type="number" min="1" max="1000000"
+                    data-testid="loyalty-reward-threshold"
+                    disabled={!loyaltyData.enabled}
+                    value={loyaltyData.reward_threshold}
+                    onChange={(e) => setLoyaltyData({ ...loyaltyData, reward_threshold: e.target.value })}
+                    className="w-full px-4 py-3 bg-white/5 border border-[var(--app-border)] rounded-xl text-[var(--app-text-primary)] outline-none disabled:opacity-50"
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-zinc-400 mb-2">Descripción de la recompensa</label>
+                <input
+                  type="text" maxLength={240}
+                  data-testid="loyalty-reward-description"
+                  disabled={!loyaltyData.enabled}
+                  value={loyaltyData.reward_description}
+                  onChange={(e) => setLoyaltyData({ ...loyaltyData, reward_description: e.target.value })}
+                  placeholder="Ej: Corte gratis al llegar a 100 puntos"
+                  className="w-full px-4 py-3 bg-white/5 border border-[var(--app-border)] rounded-xl text-[var(--app-text-primary)] placeholder-zinc-500 outline-none disabled:opacity-50"
+                />
+                <p className="text-xs text-zinc-500 mt-1">Texto libre — el canje se realiza manualmente en el mostrador (Fase 1)</p>
+              </div>
+              <button
+                type="submit"
+                data-testid="loyalty-save-btn"
+                disabled={savingLoyalty}
+                className="w-full py-3 rounded-xl bg-amber-500 hover:bg-amber-600 text-white font-medium transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+              >
+                {savingLoyalty ? <><Loader2 size={18} className="animate-spin" />Guardando...</> : <><Save size={18} />Guardar programa</>}
               </button>
             </form>
           </div>

@@ -77,20 +77,8 @@ class EmailService:
         """
         try:
             # Parse date and time
-            # NEXUS_CALENDAR_LINK_TIME_FORMAT_FIX_V1
-            # Backend availability genera slots en 24h ("14:30"). Aceptamos
-            # también el legado 12h ("2:30 PM") por compatibilidad y a prueba
-            # de fallos si algún flujo aún envía el formato con AM/PM.
-            time_str = (time or "").strip()
-            time_obj = None
-            for fmt in ("%H:%M", "%I:%M %p", "%I:%M%p"):
-                try:
-                    time_obj = datetime.strptime(time_str, fmt)
-                    break
-                except ValueError:
-                    continue
-            if time_obj is None:
-                raise ValueError(f"unsupported_time_format")
+            # Convert time from "10:30 AM" format to 24h format
+            time_obj = datetime.strptime(time, "%I:%M %p")
             date_obj = datetime.strptime(date, "%Y-%m-%d")
             
             # Combine date and time
@@ -121,53 +109,6 @@ class EmailService:
         except Exception as exc:
             logger.warning(
                 "calendar_link_failed diagnostic_code=%s",
-                type(exc).__name__,
-            )
-            return ""
-
-    # NEXUS_OUTLOOK_CALENDAR_LINK_V1
-    def _create_outlook_calendar_link(
-        self,
-        title: str,
-        date: str,
-        time: str,
-        duration_minutes: int = 60,
-        description: str = "",
-        location: str = "",
-    ) -> str:
-        """Creates a Microsoft Outlook Calendar deeplink (funciona con
-        cuentas Microsoft personales y Office 365 autenticadas)."""
-        try:
-            time_str = (time or "").strip()
-            time_obj = None
-            for fmt in ("%H:%M", "%I:%M %p", "%I:%M%p"):
-                try:
-                    time_obj = datetime.strptime(time_str, fmt)
-                    break
-                except ValueError:
-                    continue
-            if time_obj is None:
-                raise ValueError("unsupported_time_format")
-            date_obj = datetime.strptime(date, "%Y-%m-%d")
-            start_dt = datetime.combine(date_obj.date(), time_obj.time())
-            end_dt = start_dt + timedelta(minutes=duration_minutes)
-            # Outlook usa ISO 8601 sin timezone
-            start_iso = start_dt.strftime("%Y-%m-%dT%H:%M:%S")
-            end_iso = end_dt.strftime("%Y-%m-%dT%H:%M:%S")
-            outlook_url = (
-                "https://outlook.live.com/calendar/0/deeplink/compose?"
-                "path=/calendar/action/compose"
-                "&rru=addevent"
-                f"&subject={quote(title)}"
-                f"&startdt={quote(start_iso)}"
-                f"&enddt={quote(end_iso)}"
-                f"&body={quote(description)}"
-                f"&location={quote(location)}"
-            )
-            return outlook_url
-        except Exception as exc:
-            logger.warning(
-                "outlook_link_failed diagnostic_code=%s",
                 type(exc).__name__,
             )
             return ""
@@ -251,15 +192,6 @@ class EmailService:
             description=calendar_description,
             location=calendar_location
         )
-        # NEXUS_OUTLOOK_CALENDAR_LINK_V1
-        outlook_calendar_link = self._create_outlook_calendar_link(
-            title=f"{service_name} - {organization_name}",
-            date=date,
-            time=time,
-            duration_minutes=60,
-            description=calendar_description,
-            location=calendar_location,
-        )
         
         # Google Maps link if address exists
         maps_link = ""
@@ -301,10 +233,8 @@ class EmailService:
                 .info-row:last-child {{ border-bottom: none; }}
                 .label {{ color: #888; font-size: 14px; }}
                 .value {{ color: #fff; font-weight: 500; }}
-                .calendar-btn {{ display: inline-block; margin: 25px 8px; padding: 14px 28px; background: linear-gradient(135deg, #34C759 0%, #30D158 100%); color: white; text-decoration: none; border-radius: 10px; font-weight: 500; font-size: 15px; text-align: center; box-shadow: 0 4px 12px rgba(52, 199, 89, 0.3); }}
+                .calendar-btn {{ display: inline-block; margin: 25px 0; padding: 14px 28px; background: linear-gradient(135deg, #34C759 0%, #30D158 100%); color: white; text-decoration: none; border-radius: 10px; font-weight: 500; font-size: 15px; text-align: center; box-shadow: 0 4px 12px rgba(52, 199, 89, 0.3); }}
                 .calendar-btn:hover {{ background: linear-gradient(135deg, #30D158 0%, #34C759 100%); }}
-                .outlook-btn {{ display: inline-block; margin: 25px 8px; padding: 14px 28px; background: linear-gradient(135deg, #0078D4 0%, #106EBE 100%); color: white; text-decoration: none; border-radius: 10px; font-weight: 500; font-size: 15px; text-align: center; box-shadow: 0 4px 12px rgba(0, 120, 212, 0.3); }}
-                .outlook-btn:hover {{ background: linear-gradient(135deg, #106EBE 0%, #0078D4 100%); }}
                 .footer {{ padding: 30px; text-align: center; color: #666; font-size: 12px; border-top: 1px solid rgba(255,255,255,0.1); }}
                 .emoji {{ font-size: 48px; margin: 20px 0; }}
             </style>
@@ -339,8 +269,7 @@ class EmailService:
                     </div>
                     
                     <div style="text-align: center;">
-                        {f'<a href="{google_calendar_link}" class="calendar-btn">📅 Google Calendar</a>' if google_calendar_link else ''}
-                        {f'<a href="{outlook_calendar_link}" class="outlook-btn">📆 Outlook Calendar</a>' if outlook_calendar_link else ''}
+                        <a href="{google_calendar_link}" class="calendar-btn">📅 Agregar a Google Calendar</a>
                         {maps_link}
                     </div>
                     

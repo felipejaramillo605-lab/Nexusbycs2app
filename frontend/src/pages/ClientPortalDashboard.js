@@ -12,7 +12,9 @@ import {
   XCircle,
   AlertCircle,
   Loader2,
-  ArrowLeft
+  ArrowLeft,
+  Star,
+  Gift
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { api } from '../api';
@@ -22,6 +24,8 @@ export default function ClientPortalDashboard() {
   const navigate = useNavigate();
   
   const [clientData, setClientData] = useState(null);
+  // NEXUS_LOYALTY_PROGRAM_V1
+  const [loyalty, setLoyalty] = useState(null);
   const [appointments, setAppointments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showChangePinModal, setShowChangePinModal] = useState(false);
@@ -46,12 +50,16 @@ export default function ClientPortalDashboard() {
     try {
       // Get client info
       const meResponse = await api.get('/public/clients/me');
-      setClientData(meResponse.data);
+      // NEXUS_LOYALTY_PROGRAM_V1 — el endpoint devuelve {client, loyalty, appointments}
+      // Retrocompatibilidad: si viene sin 'client', usar el objeto entero
+      const clientPayload = meResponse.data?.client || meResponse.data;
+      setClientData(clientPayload);
+      setLoyalty(meResponse.data?.loyalty || null);
 
       // Get appointments history
       const historyResponse = await api.get('/public/clients/history', {
         params: {
-          phone: meResponse.data.phone,
+          phone: clientPayload.phone,
           organization_id: orgId
         }
       });
@@ -259,6 +267,50 @@ export default function ClientPortalDashboard() {
       </div>
 
       <div className="max-w-4xl mx-auto px-4 py-8 space-y-8">
+        {/* NEXUS_LOYALTY_PROGRAM_V1 — Card de puntos con barra de progreso */}
+        {loyalty?.enabled && (
+          <div data-testid="loyalty-card" className="rounded-2xl border border-amber-500/30 bg-gradient-to-br from-amber-500/15 via-amber-500/5 to-transparent p-6">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-12 h-12 rounded-2xl bg-amber-500/20 flex items-center justify-center">
+                <Star size={22} className="text-amber-400" fill="currentColor" />
+              </div>
+              <div className="flex-1">
+                <h2 className="text-lg font-semibold text-white">Tus puntos de lealtad</h2>
+                <p className="text-xs text-zinc-400">
+                  {loyalty.points_per_visit > 0 ? `Ganas ${loyalty.points_per_visit} puntos por cada visita` : 'Programa de fidelización'}
+                </p>
+              </div>
+              <div data-testid="loyalty-points-value" className="text-3xl font-bold text-amber-400">
+                {loyalty.points}
+              </div>
+            </div>
+            {loyalty.reward_threshold > 0 && (
+              <>
+                <div className="w-full h-3 bg-white/10 rounded-full overflow-hidden mb-3">
+                  <div
+                    data-testid="loyalty-progress-bar"
+                    className="h-full bg-gradient-to-r from-amber-400 to-amber-500 transition-all duration-500"
+                    style={{ width: `${loyalty.progress_percent || 0}%` }}
+                  />
+                </div>
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-zinc-400">
+                    {loyalty.points_to_next_reward > 0
+                      ? `Te faltan ${loyalty.points_to_next_reward} puntos para tu próxima recompensa`
+                      : '¡Ya puedes canjear tu recompensa!'}
+                  </span>
+                  <span className="text-amber-400 font-medium">{loyalty.progress_percent}%</span>
+                </div>
+                {loyalty.reward_description && (
+                  <div className="mt-3 p-3 rounded-xl bg-white/5 border border-white/10 flex items-start gap-2">
+                    <Gift size={16} className="text-amber-400 flex-shrink-0 mt-0.5" />
+                    <p className="text-sm text-zinc-300">{loyalty.reward_description}</p>
+                  </div>
+                )}
+              </>
+            )}
+          </div>
+        )}
         {/* Quick Actions */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <button

@@ -1,0 +1,48 @@
+{
+  "summary": "Bloque 1 quick-wins tested end-to-end (backend + frontend). Loyalty program (settings CRUD, checkout accrual, /api/clients loyalty_points, /api/public/clients/me loyalty summary) and dual calendar buttons (Google + Outlook) work as specified. UI cards for /manager/settings (loyalty-settings-card), /manager/clients (Puntos column), and /portal/{orgId}/dashboard (loyalty-card with points-value + progress-bar) all render correctly. 14/15 pytest cases pass. One authorization bug found: staff role can call PUT /api/organizations/{org_id} and mutate loyalty_settings (and any org field) because require_management_role is not enforced. One review-request item is inconsistent with implementation: PATCH/PUT /api/appointments/{id}/status refuses status='completed' with HTTP 400 (must use checkout), so the loyalty-on-manual-completion branch is unreachable dead code.",
+  "backend_issues": {
+    "critical": [
+      {
+        "endpoint": "PUT /api/organizations/{organization_id}",
+        "issue": "Missing role check: staff users can update the organization (including loyalty_settings) and receive HTTP 200. Test test_staff_cannot_update_loyalty_settings expects 403 but got 200. Add require_management_role(current_user) at the top of update_organization_profile (server.py ~line 1806).",
+        "priority": "HIGH"
+      }
+    ],
+    "minor": [
+      {
+        "endpoint": "PUT /api/appointments/{appointment_id}/status",
+        "issue": "Dead code: the review request expected manual 'completed' transition to accrue loyalty points, but the endpoint returns 400 for status='completed' (must use checkout). Loyalty branch at lines 2575-2596 is unreachable. Either remove the dead branch or allow completed status here."
+      }
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_loyalty_and_calendar.py",
+    "/app/backend/tests/conftest.py",
+    "/app/test_reports/pytest/pytest_results.xml"
+  ],
+  "action_items": [
+    "Add require_management_role(current_user) inside update_organization_profile so staff cannot mutate organization/loyalty_settings.",
+    "Remove or make reachable the loyalty accrual branch inside update_appointment_status (currently unreachable because status='completed' is rejected)."
+  ],
+  "critical_code_review_comments": [
+    "PUT /api/organizations/{org_id} lacks RBAC: only org membership is validated. Add require_management_role and enforce_rls_on_write consistency with all other org-scoped mutations.",
+    "email_service._create_google_calendar_link and _create_outlook_calendar_link duplicate the time-parsing loop; extract a small helper _parse_time(time_str) for DRY.",
+    "update_appointment_status has dead loyalty code inside 'if status == \"completed\"' because the preceding validation already rejects that status; either allow completed here or delete the branch to avoid confusion."
+  ],
+  "updated_files": [
+    "/app/backend/tests/conftest.py (new)",
+    "/app/backend/tests/test_loyalty_and_calendar.py (new)"
+  ],
+  "success_rate": {"backend": "93% (14/15)", "frontend": "100% (3/3 UI surfaces verified)"},
+  "test_credentials": "manager@nexus.com/manager123, admin@nexus.com/admin123; ephemeral staff user created per test session via conftest.",
+  "seed_data_creation": "Ephemeral clients/appointments/transactions inserted directly into Mongo and cleaned up after tests. Loyalty settings restored to seeded values (enabled=true, ppv=15, threshold=100).",
+  "retest_needed": true,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "pytest.ini forces -n 2 --dist loadscope. Loyalty tests mutate org loyalty_settings and can race across workers; run with -n 0 or keep the class inside a single scope (already grouped as TestLoyaltySettings/TestLoyaltyAccrual). Backend requires Origin=https://clipper-manage-1.preview.emergentagent.com plus Sec-Fetch-Site: same-origin for state-changing requests (see conftest). To bypass the 5/hour public appointment rate-limit, tests insert appointments directly through MongoDB.",
+  "rca of the issue": "update_organization_profile (server.py L1798-1832) only verifies current_user.organization_id == organization_id (or owner). It never calls require_management_role, so any authenticated staff of the tenant can update the organization document including loyalty_settings, notification_settings, address, phone, review_link, etc. Reproduction: login as staff of org_demo001, PUT /api/organizations/org_demo001 {\"loyalty_settings\":{...}} -> 200 OK. Mitigation: add require_management_role(current_user) as the second line of the handler; also enforce_rls_on_write(current_user, {}, organization_id) for parity with other endpoints."
+}

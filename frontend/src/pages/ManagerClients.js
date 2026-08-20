@@ -276,6 +276,7 @@ const ManagerClients = () => {
                     <th className="text-left px-6 py-4 text-sm font-medium text-zinc-400">Teléfono</th>
                     <th className="text-left px-6 py-4 text-sm font-medium text-zinc-400">Email</th>
                     <th className="text-center px-6 py-4 text-sm font-medium text-zinc-400">Visitas</th>
+                    <th className="text-center px-6 py-4 text-sm font-medium text-zinc-400">Puntos</th>
                     <th className="text-left px-6 py-4 text-sm font-medium text-zinc-400">Última Visita</th>
                     <th className="text-right px-6 py-4 text-sm font-medium text-zinc-400">Acciones</th>
                   </tr>
@@ -317,6 +318,11 @@ const ManagerClients = () => {
                       <td className="px-6 py-4 text-center">
                         <span className="px-3 py-1 rounded-full bg-[#0A84FF]/20 text-[#0A84FF] text-sm font-medium">
                           {client.total_visits}
+                        </span>
+                      </td>
+                      <td data-testid={`client-loyalty-points-${client.client_id}`} className="px-6 py-4 text-center">
+                        <span className="px-3 py-1 rounded-full bg-amber-500/20 text-amber-400 text-sm font-medium">
+                          {Number(client.loyalty_points || 0)}
                         </span>
                       </td>
                       <td className="px-6 py-4">
