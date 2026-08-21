@@ -32,13 +32,14 @@ export default function ClientPortalDashboard() {
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   
   // Change PIN states
-  const [oldPin, setOldPin] = useState('');
+  const [currentPin, setCurrentPin] = useState('');
   const [newPin, setNewPin] = useState('');
   const [confirmNewPin, setConfirmNewPin] = useState('');
   const [changingPin, setChangingPin] = useState(false);
   
   // Delete account states
   const [deleteConfirmText, setDeleteConfirmText] = useState('');
+  const [deletePin, setDeletePin] = useState('');
   const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
@@ -108,7 +109,7 @@ export default function ClientPortalDashboard() {
   const handleChangePin = async (e) => {
     e.preventDefault();
     
-    if (!/^\d{4}$/.test(oldPin)) {
+    if (!/^\d{4}$/.test(currentPin)) {
       toast.error('El PIN actual debe ser de 4 dígitos');
       return;
     }
@@ -123,7 +124,7 @@ export default function ClientPortalDashboard() {
       return;
     }
     
-    if (oldPin === newPin) {
+    if (currentPin === newPin) {
       toast.error('El nuevo PIN debe ser diferente al actual');
       return;
     }
@@ -131,12 +132,12 @@ export default function ClientPortalDashboard() {
     setChangingPin(true);
     try {
       await api.post('/public/clients/change-pin', {
-        current_pin: oldPin,
+        current_pin: currentPin,
         new_pin: newPin
       });
       toast.success('PIN actualizado exitosamente');
       setShowChangePinModal(false);
-      setOldPin('');
+      setCurrentPin('');
       setNewPin('');
       setConfirmNewPin('');
     } catch (error) {
@@ -152,21 +153,29 @@ export default function ClientPortalDashboard() {
 
   const handleDeleteAccount = async (e) => {
     e.preventDefault();
-    
+   
     if (deleteConfirmText !== 'ELIMINAR') {
       toast.error('Debes escribir ELIMINAR en mayúsculas para confirmar');
       return;
     }
-
+    if (!/^\d{4}$/.test(deletePin)) {
+      toast.error('Ingresa tu PIN actual (4 dígitos)');
+      return;
+    }
     setDeleting(true);
     try {
       await api.delete('/public/clients/me', {
+        data: { current_pin: deletePin },
         params: { organization_id: orgId }
       });
       toast.success('Cuenta eliminada exitosamente');
       navigate(`/book/${orgId}`);
     } catch (error) {
-      toast.error(error.response?.data?.detail || 'Error al eliminar la cuenta');
+      if (error.response?.status === 401) {
+        toast.error('PIN incorrecto');
+      } else {
+        toast.error(error.response?.data?.detail || 'Error al eliminar la cuenta');
+      }
     } finally {
       setDeleting(false);
     }
@@ -445,8 +454,8 @@ export default function ClientPortalDashboard() {
                 </label>
                 <input
                   type="password"
-                  value={oldPin}
-                  onChange={(e) => setOldPin(e.target.value.replace(/\D/g, '').slice(0, 4))}
+                  value={currentPin}
+                  onChange={(e) => setCurrentPin(e.target.value.replace(/\D/g, '').slice(0, 4))}
                   maxLength={4}
                   placeholder="••••"
                   required
@@ -486,7 +495,7 @@ export default function ClientPortalDashboard() {
                   type="button"
                   onClick={() => {
                     setShowChangePinModal(false);
-                    setOldPin('');
+                    setCurrentPin('');
                     setNewPin('');
                     setConfirmNewPin('');
                   }}
@@ -535,6 +544,21 @@ export default function ClientPortalDashboard() {
             <form onSubmit={handleDeleteAccount} className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-zinc-400 mb-2">
+                  PIN actual (4 dígitos)
+                </label>
+                <input
+                  type="password"
+                  inputMode="numeric"
+                  value={deletePin}
+                  onChange={(e) => setDeletePin(e.target.value.replace(/\D/g, '').slice(0, 4))}
+                  placeholder="••••"
+                  maxLength={4}
+                  required
+                  className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-red-500/50 tracking-widest text-center"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-zinc-400 mb-2">
                   Escribe <span className="text-red-400 font-bold">ELIMINAR</span> para confirmar
                 </label>
                 <input
@@ -552,6 +576,7 @@ export default function ClientPortalDashboard() {
                   onClick={() => {
                     setShowDeleteModal(false);
                     setDeleteConfirmText('');
+                    setDeletePin('');
                   }}
                   className="flex-1 py-3 bg-white/5 hover:bg-white/10 border border-white/10 text-white rounded-xl transition-colors"
                 >
