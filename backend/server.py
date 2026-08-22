@@ -41,7 +41,6 @@ from request_security import TRUSTED_ORIGINS, enforce_request_security, refresh_
 from security_observability import configure_security_observability, ensure_security_observability_indexes, record_security_event
 from owner_delivery_operations import build_delivery_operations_router, ensure_delivery_operations_indexes, scheduler_loop
 from appointment_email_delivery import ensure_appointment_email_delivery_indexes, execute_compatibility_delivery, cancel_pending_deliveries
-from review_requests import schedule_review_request
 from platform_billing_settings import build_platform_billing_router, ensure_platform_billing_indexes
 from owner_third_party_matrix import build_third_party_matrix_router, ensure_third_party_matrix_indexes
 
@@ -103,10 +102,10 @@ async def validate_organization_access(user: User, organization_id: str) -> bool
     """
     if user.role == "owner":
         return True
-    
+
     if not user.organization_id:
         return False
-    
+
     return user.organization_id == organization_id
 
 async def get_organization_filter(user: User, provided_org_id: Optional[str] = None) -> dict:
@@ -123,16 +122,16 @@ async def get_organization_filter(user: User, provided_org_id: Optional[str] = N
             return {"organization_id": user.organization_id}
         # Fallback: return empty filter (will return all - owner privilege)
         return {}
-    
+
     # Managers can ONLY access their assigned organization
     if not user.organization_id:
         raise HTTPException(status_code=403, detail="No organization assigned")
-    
+
     # If org_id provided, validate it matches user's org
     if provided_org_id and provided_org_id != user.organization_id:
         await record_security_event(event_type="cross_tenant_access_blocked", severity="high", actor=user.user_id, organization=provided_org_id, path="/organization-filter", metadata={"reason_code":"read_scope"})
         raise HTTPException(status_code=403, detail="Access denied to this organization")
-    
+
     return {"organization_id": user.organization_id}
 
 async def enforce_rls_on_write(user: User, document: dict, organization_id: str) -> None:
@@ -143,7 +142,7 @@ async def enforce_rls_on_write(user: User, document: dict, organization_id: str)
     if user.role != "owner":
         if not user.organization_id:
             raise HTTPException(status_code=403, detail="No organization assigned")
-        
+
         if organization_id != user.organization_id:
             await record_security_event(event_type="cross_tenant_access_blocked", severity="high", actor=user.user_id, organization=organization_id, path="/organization-write", metadata={"reason_code":"write_scope"})
             raise HTTPException(status_code=403, detail="Cannot modify data outside your organization")
@@ -167,19 +166,6 @@ class Organization(BaseModel):
     business_hours: Optional[str] = None  # JSON string: {"mon": "9:00-18:00", ...}
     phone: Optional[str] = None
     whatsapp_link: Optional[str] = None
-    # NEXUS_REVIEW_REQUEST_V1
-    review_link: Optional[str] = None
-    review_request_settings: Optional[dict] = Field(default_factory=lambda: {
-        "enabled": False,
-        "channels": {"email": False, "whatsapp": False},
-    })
-    # NEXUS_LOYALTY_PROGRAM_V1
-    loyalty_settings: Optional[dict] = Field(default_factory=lambda: {
-        "enabled": False,
-        "points_per_visit": 10,
-        "reward_threshold": 100,
-        "reward_description": "",
-    })
     created_at: datetime
     # Notification settings (personalizable por admin)
     notification_settings: Optional[dict] = Field(default_factory=lambda: {
@@ -415,10 +401,6 @@ class OrganizationUpdate(BaseModel):
     business_hours: Optional[str] = None
     phone: Optional[str] = None
     whatsapp_link: Optional[str] = None
-    review_link: Optional[str] = None
-    review_request_settings: Optional[dict] = None
-    # NEXUS_LOYALTY_PROGRAM_V1
-    loyalty_settings: Optional[dict] = None
     client_portal_theme: Optional[str] = None  # classic | feminine | professional | cyberpunk | underground | neutral
 
 # Helper function to sanitize phone numbers
@@ -469,9 +451,6 @@ class ClientLoginRequest(BaseModel):
 class ClientChangePinRequest(BaseModel):
     current_pin: str
     new_pin: str
-
-class ClientDeleteAccountRequest(BaseModel):
-    current_pin: str  # PIN required to confirm account deletion
 
 class ClientForgotPinRequest(BaseModel):
     phone: str
@@ -577,14 +556,14 @@ async def get_current_user(authorization: Optional[str] = Header(None), session_
         token = session_token
     elif authorization and authorization.startswith("Bearer "):
         token = authorization.replace("Bearer ", "")
-    
+
     if not token:
         raise HTTPException(status_code=401, detail="Not authenticated")
-    
+
     session = await db.user_sessions.find_one({"session_token": token}, {"_id": 0})
     if not session:
         raise HTTPException(status_code=401, detail="Invalid session")
-    
+
     expires_at = session["expires_at"]
     if isinstance(expires_at, str):
         expires_at = datetime.fromisoformat(expires_at)
@@ -592,7 +571,7 @@ async def get_current_user(authorization: Optional[str] = Header(None), session_
         expires_at = expires_at.replace(tzinfo=timezone.utc)
     if expires_at < datetime.now(timezone.utc):
         raise HTTPException(status_code=401, detail="Session expired")
-    
+
     user = await db.users.find_one({"user_id": session["user_id"]}, {"_id": 0})
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
@@ -605,10 +584,10 @@ async def get_current_user(authorization: Optional[str] = Header(None), session_
         raise HTTPException(status_code=403, detail="Account access is not approved")
     if user.get("active") is False or user.get("deleted_at"):
         raise HTTPException(status_code=403, detail="Account is inactive")
-    
+
     if isinstance(user["created_at"], str):
         user["created_at"] = datetime.fromisoformat(user["created_at"])
-    
+
     current_user = User(**user)
     await enforce_subscription_access(db, current_user)
     return current_user
@@ -621,11 +600,11 @@ async def get_current_client(client_session_token: Optional[str] = Cookie(None))
     """
     if not client_session_token:
         raise HTTPException(status_code=401, detail="Not authenticated")
-    
+
     session = await db.client_sessions.find_one({"session_token": client_session_token}, {"_id": 0})
     if not session:
         raise HTTPException(status_code=401, detail="Invalid session")
-    
+
     expires_at = session["expires_at"]
     if isinstance(expires_at, str):
         expires_at = datetime.fromisoformat(expires_at)
@@ -633,15 +612,15 @@ async def get_current_client(client_session_token: Optional[str] = Cookie(None))
         expires_at = expires_at.replace(tzinfo=timezone.utc)
     if expires_at < datetime.now(timezone.utc):
         raise HTTPException(status_code=401, detail="Session expired")
-    
+
     client = await db.clients.find_one({"client_id": session["client_id"]}, {"_id": 0})
     if not client:
         raise HTTPException(status_code=404, detail="Client not found")
-    
+
     # Check if client account is not deleted
     if client.get("deletion_requested_at"):
         raise HTTPException(status_code=403, detail="Account deleted")
-    
+
     return Client(**client)
 
 # Health check endpoint
@@ -654,7 +633,7 @@ async def root():
 async def create_session(response: Response, x_session_id: str = Header(None)):
     if not x_session_id:
         raise HTTPException(status_code=400, detail="Session ID required")
-    
+
     async with httpx.AsyncClient() as client:
         try:
             res = await client.get(
@@ -667,14 +646,14 @@ async def create_session(response: Response, x_session_id: str = Header(None)):
         except Exception as e:
             logger.error(f"Failed to get session data: {e}")
             raise HTTPException(status_code=400, detail="Invalid session")
-    
+
     email = session_data["email"]
     name = session_data["name"]
     picture = session_data.get("picture")
     session_token = session_data["session_token"]
-    
+
     user = await db.users.find_one({"email": email}, {"_id": 0})
-    
+
     if not user:
         # NEXUS_AUTHORIZATION_HARDENING_V1
         # Bootstrap is explicit and one-time. It is only considered while no
@@ -689,7 +668,7 @@ async def create_session(response: Response, x_session_id: str = Header(None)):
         )
         role = "owner" if is_bootstrap_owner else "manager"
         access_status = "approved" if is_bootstrap_owner else "pending"
-        
+
         user_id = f"user_{uuid.uuid4().hex[:12]}"
         user_doc = {
             "user_id": user_id,
@@ -705,7 +684,7 @@ async def create_session(response: Response, x_session_id: str = Header(None)):
         user = user_doc
     else:
         user_id = user["user_id"]
-        
+
 
     expires_at = datetime.now(timezone.utc) + timedelta(days=7)
     session_doc = {
@@ -715,7 +694,7 @@ async def create_session(response: Response, x_session_id: str = Header(None)):
         "created_at": datetime.now(timezone.utc),
     }
     await db.user_sessions.update_one({"session_token": session_token}, {"$set": session_doc}, upsert=True)
-    
+
     response.set_cookie(
         key="session_token",
         value=session_token,
@@ -725,10 +704,10 @@ async def create_session(response: Response, x_session_id: str = Header(None)):
         path="/",
         max_age=7*24*60*60
     )
-    
+
     if isinstance(user["created_at"], str):
         user["created_at"] = datetime.fromisoformat(user["created_at"])
-    
+
     return User(**user)
 
 @api_router.get("/auth/me")
@@ -750,7 +729,7 @@ async def register_user(data: RegisterRequest):
     existing = await db.users.find_one({"email": data.email}, {"_id": 0})
     if existing:
         raise HTTPException(status_code=400, detail="Email already registered")
-    
+
     password_hash = hash_password(data.password)
     user_id = f"user_{uuid.uuid4().hex[:12]}"
     user_doc = {
@@ -781,7 +760,7 @@ async def login_user(data: LoginRequest, response: Response, request: Request):
         raise HTTPException(status_code=401, detail="Invalid credentials")
     if user["access_status"] != "approved":
         raise HTTPException(status_code=403, detail="Account pending approval")
-    
+
     session_token = secrets.token_urlsafe(32)
     expires_at = datetime.now(timezone.utc) + timedelta(days=7)
     await db.user_sessions.insert_one({
@@ -791,9 +770,9 @@ async def login_user(data: LoginRequest, response: Response, request: Request):
         "created_at": datetime.now(timezone.utc),
     })
     await db.users.update_one({"user_id": user["user_id"]}, {"$set": {"last_login": datetime.now(timezone.utc).isoformat()}})
-    
+
     response.set_cookie(key="session_token", value=session_token, httponly=True, secure=True, samesite="lax", path="/", max_age=7*24*60*60)
-    
+
     if isinstance(user["created_at"], str):
         user["created_at"] = datetime.fromisoformat(user["created_at"])
     if user.get("last_login") and isinstance(user["last_login"], str):
@@ -1731,7 +1710,7 @@ async def delete_my_account(
 async def get_organizations(authorization: Optional[str] = Header(None), session_token: Optional[str] = Cookie(None)):
     current_user = await get_current_user(authorization, session_token)
     require_management_role(current_user)
-    
+
     if current_user.role == "owner":
         orgs = await db.organizations.find({}, {"_id": 0}).to_list(1000)
     else:
@@ -1739,11 +1718,11 @@ async def get_organizations(authorization: Optional[str] = Header(None), session
             return []
         org = await db.organizations.find_one({"organization_id": current_user.organization_id}, {"_id": 0})
         orgs = [org] if org else []
-    
+
     for org in orgs:
         if isinstance(org["created_at"], str):
             org["created_at"] = datetime.fromisoformat(org["created_at"])
-    
+
     return orgs
 
 async def _eligible_onboarding_manager(manager: dict):
@@ -1807,30 +1786,29 @@ async def update_organization_profile(
 ):
     """Update organization business profile (owner/manager only)"""
     current_user = await get_current_user(authorization, session_token)
-    # NEXUS_ORG_UPDATE_AUTHZ_FIX_V1 — staff/barbers no pueden mutar la organización.
-    require_management_role(current_user)
 
+    # ✅ CORRECCIÓN CRÍTICA: Pydantic model usa atributos, no .get()
     # Verify user belongs to this organization
     if current_user.organization_id != organization_id and current_user.role != "owner":
         raise HTTPException(status_code=403, detail="Access denied")
-    
+
     update_data = {k: v for k, v in data.dict().items() if v is not None}
-    
+
     # Sanitize phone number if present
     if 'phone' in update_data and update_data['phone']:
         update_data['phone'] = sanitize_phone(update_data['phone'])
-    
+
     if not update_data:
         raise HTTPException(status_code=400, detail="No fields to update")
-    
+
     result = await db.organizations.update_one(
         {"organization_id": organization_id},
         {"$set": update_data}
     )
-    
+
     if result.matched_count == 0:
         raise HTTPException(status_code=404, detail="Organization not found")
-    
+
     # Return updated organization
     updated_org = await db.organizations.find_one({"organization_id": organization_id}, {"_id": 0})
     return updated_org
@@ -1854,7 +1832,7 @@ async def passwordless_login(data: PasswordlessLoginRequest, request: Request):
         },
         {"_id": 0}
     )
-    
+
     if client:
         # Existing client - update marketing consent if provided
         if data.marketing_consent and not client.get("accepts_marketing"):
@@ -1869,7 +1847,7 @@ async def passwordless_login(data: PasswordlessLoginRequest, request: Request):
                 }}
             )
             client["accepts_marketing"] = True
-        
+
         return {
             "status": "existing",
             "client": client,
@@ -1882,7 +1860,7 @@ async def passwordless_login(data: PasswordlessLoginRequest, request: Request):
                 status_code=400,
                 detail="name_required"
             )
-        
+
         # Create new client with TCPA/Ley 1581 compliance
         from uuid import uuid4
         new_client = {
@@ -1902,10 +1880,10 @@ async def passwordless_login(data: PasswordlessLoginRequest, request: Request):
             "created_at": datetime.now(timezone.utc).isoformat(),
             "updated_at": datetime.now(timezone.utc).isoformat()
         }
-        
+
         await db.clients.insert_one(new_client)
         new_client.pop('_id', None)  # Remove MongoDB _id before returning
-        
+
         return {
             "status": "new",
             "client": new_client,
@@ -1917,11 +1895,11 @@ async def passwordless_login(data: PasswordlessLoginRequest, request: Request):
 async def get_services(organization_id: Optional[str] = None, authorization: Optional[str] = Header(None), session_token: Optional[str] = Cookie(None)):
     current_user = await get_current_user(authorization, session_token)
     require_management_role(current_user)
-    
+
     # RLS: Get organization filter based on user role
     org_filter = await get_organization_filter(current_user, organization_id)
     services = await db.services.find(org_filter, {"_id": 0}).to_list(1000)
-    
+
     for service in services:
         if isinstance(service["created_at"], str):
             service["created_at"] = datetime.fromisoformat(service["created_at"])
@@ -1931,13 +1909,13 @@ async def get_services(organization_id: Optional[str] = None, authorization: Opt
 async def create_service(data: ServiceCreate, authorization: Optional[str] = Header(None), session_token: Optional[str] = Cookie(None)):
     current_user = await get_current_user(authorization, session_token)
     require_management_role(current_user)
-    
+
     if not current_user.organization_id:
         raise HTTPException(status_code=400, detail="No organization assigned")
-    
+
     # RLS: Enforce write access
     await enforce_rls_on_write(current_user, {}, current_user.organization_id)
-    
+
     service_id = f"service_{uuid.uuid4().hex[:12]}"
     service_doc = {
         "service_id": service_id,
@@ -1955,33 +1933,33 @@ async def create_service(data: ServiceCreate, authorization: Optional[str] = Hea
 async def update_service(service_id: str, data: ServiceCreate, authorization: Optional[str] = Header(None), session_token: Optional[str] = Cookie(None)):
     current_user = await get_current_user(authorization, session_token)
     require_management_role(current_user)
-    
+
     # Get the service first to verify it exists and belongs to accessible organization
     service = await db.services.find_one({"service_id": service_id}, {"_id": 0})
     if not service:
         raise HTTPException(status_code=404, detail="Service not found")
-    
+
     # RLS: Validate organization access
     if not await validate_organization_access(current_user, service["organization_id"]):
         raise HTTPException(status_code=403, detail="Access denied to this organization")
-    
+
     # RLS: Enforce write access
     await enforce_rls_on_write(current_user, service, service["organization_id"])
-    
+
     update_data = {
         "name": data.name,
         "duration": data.duration,
         "price": data.price
     }
-    
+
     result = await db.services.update_one(
         {"service_id": service_id},
         {"$set": update_data}
     )
-    
+
     if result.matched_count == 0:
         raise HTTPException(status_code=404, detail="Service not found")
-    
+
     updated_service = await db.services.find_one({"service_id": service_id}, {"_id": 0})
     if isinstance(updated_service["created_at"], str):
         updated_service["created_at"] = datetime.fromisoformat(updated_service["created_at"])
@@ -1991,15 +1969,15 @@ async def update_service(service_id: str, data: ServiceCreate, authorization: Op
 async def delete_service(service_id: str, authorization: Optional[str] = Header(None), session_token: Optional[str] = Cookie(None)):
     current_user = await get_current_user(authorization, session_token)
     require_management_role(current_user)
-    
+
     # RLS: Get service and validate access
     service = await db.services.find_one({"service_id": service_id}, {"_id": 0})
     if not service:
         raise HTTPException(status_code=404, detail="Service not found")
-    
+
     if not await validate_organization_access(current_user, service["organization_id"]):
         raise HTTPException(status_code=403, detail="Access denied")
-    
+
     await db.services.delete_one({"service_id": service_id})
     return {"message": "Service deleted"}
 
@@ -2152,11 +2130,11 @@ async def update_my_barber_profile(
 async def get_barbers(organization_id: Optional[str] = None, authorization: Optional[str] = Header(None), session_token: Optional[str] = Cookie(None)):
     current_user = await get_current_user(authorization, session_token)
     require_management_role(current_user)
-    
+
     # RLS: Get organization filter
     org_filter = await get_organization_filter(current_user, organization_id)
     barbers = await db.barbers.find(org_filter, {"_id": 0}).to_list(1000)
-    
+
     for barber in barbers:
         if isinstance(barber["created_at"], str):
             barber["created_at"] = datetime.fromisoformat(barber["created_at"])
@@ -2166,12 +2144,12 @@ async def get_barbers(organization_id: Optional[str] = None, authorization: Opti
 async def create_barber(data: BarberCreate, authorization: Optional[str] = Header(None), session_token: Optional[str] = Cookie(None)):
     current_user = await get_current_user(authorization, session_token)
     require_management_role(current_user)
-    
+
     logger.info(f"[create_barber] actor_user_id={current_user.user_id} role={current_user.role} action=create_attempt")
-    
+
     organization_id = await resolve_team_organization(current_user, data.organization_id)
     await enforce_rls_on_write(current_user, {}, organization_id)
-    
+
     logger.info(f"[create_barber] actor_user_id={current_user.user_id} resolved_organization_id={organization_id} action=org_resolved")
 
     name = data.name.strip()
@@ -2216,10 +2194,10 @@ async def create_barber(data: BarberCreate, authorization: Optional[str] = Heade
         "created_at": now,
         "updated_at": now
     }
-    
+
     await db.barbers.insert_one(barber_doc)
     logger.info(f"[create_barber] actor_user_id={current_user.user_id} barber_id={barber_id} organization_id={organization_id} action=created_successfully")
-    
+
     barber_doc["created_at"] = datetime.fromisoformat(barber_doc["created_at"])
     barber_doc["updated_at"] = datetime.fromisoformat(barber_doc["updated_at"])
     return Barber(**barber_doc)
@@ -2304,11 +2282,11 @@ async def get_blocked_times(barber_id: str, date: Optional[str] = None, authoriz
         raise HTTPException(status_code=404, detail="Barber not found")
     if not await validate_organization_access(current_user, barber["organization_id"]):
         raise HTTPException(status_code=403, detail="Access denied")
-    
+
     query = {"barber_id": barber_id, "organization_id": barber["organization_id"]}
     if date:
         query["date"] = date
-    
+
     blocked_times = await db.blocked_times.find(query, {"_id": 0}).to_list(1000)
     for bt in blocked_times:
         if isinstance(bt["created_at"], str):
@@ -2319,19 +2297,19 @@ async def get_blocked_times(barber_id: str, date: Optional[str] = None, authoriz
 async def create_blocked_time(barber_id: str, data: BlockedTimeCreate, authorization: Optional[str] = Header(None), session_token: Optional[str] = Cookie(None)):
     current_user = await get_current_user(authorization, session_token)
     require_management_role(current_user)
-    
+
     # Get barber to obtain organization_id
     barber = await db.barbers.find_one({"barber_id": barber_id}, {"_id": 0})
     if not barber:
         raise HTTPException(status_code=404, detail="Barber not found")
-    
+
     # Validate access for non-owner users
     if current_user.role != "owner":
         if not current_user.organization_id:
             raise HTTPException(status_code=400, detail="No organization assigned")
         if barber["organization_id"] != current_user.organization_id:
             raise HTTPException(status_code=403, detail="Not authorized")
-    
+
     block_id = f"block_{uuid.uuid4().hex[:12]}"
     block_doc = {
         "block_id": block_id,
@@ -2483,26 +2461,13 @@ async def _trace_appointment_completion(appointment: dict, service: dict, worker
     appointment_id = appointment.get("appointment_id")
     organization_id = appointment.get("organization_id")
     try:
+        recipient = appointment.get("client_email")
+        if not recipient:
+            return
         organization = await db.organizations.find_one(
             {"organization_id": organization_id},
             {"_id": 0},
         ) or {}
-        # NEXUS_REVIEW_REQUEST_V1 — se evalúa ANTES del return temprano por
-        # falta de client_email de abajo, a propósito: la solicitud de reseña
-        # puede ir solo por WhatsApp, sin depender de que el cliente tenga
-        # correo registrado.
-        try:
-            await schedule_review_request(db, appointment=appointment, organization=organization)
-        except Exception as review_error:
-            logger.warning(
-                "review_request_schedule_failed appointment_id=%s diagnostic_code=%s",
-                appointment_id,
-                type(review_error).__name__,
-            )
-
-        recipient = appointment.get("client_email")
-        if not recipient:
-            return
         if not organization.get("notification_settings", {}).get("appointment_completed", True):
             return
         organization_name = organization.get("name") or "Nexus"
@@ -2540,46 +2505,81 @@ async def _trace_appointment_completion(appointment: dict, service: dict, worker
 
 @api_router.put("/appointments/{appointment_id}/status")
 async def update_appointment_status(
-    appointment_id: str, 
+    appointment_id: str,
     status: str,
-    authorization: Optional[str] = Header(None), 
+    authorization: Optional[str] = Header(None),
     session_token: Optional[str] = Cookie(None)
 ):
     """Update appointment status to 'completed' or 'cancelled'"""
     current_user = await get_current_user(authorization, session_token)
     require_management_role(current_user)
-    
+
     if status not in ["confirmed", "cancelled"]:
         if status == "completed":
             raise HTTPException(status_code=400, detail="Use checkout to complete and charge this appointment")
         raise HTTPException(status_code=400, detail="Invalid status")
-    
+
     # Get appointment
     appointment = await db.appointments.find_one({"appointment_id": appointment_id}, {"_id": 0})
     if not appointment:
         raise HTTPException(status_code=404, detail="Appointment not found")
-    
+
     # RLS: Validate organization access
     if not await validate_organization_access(current_user, appointment["organization_id"]):
         raise HTTPException(status_code=403, detail="Access denied")
-    
+
     # Store previous status to check if this is a new completion
     previous_status = appointment.get("status")
-    
+
     # Update status
     result = await db.appointments.update_one(
         {"appointment_id": appointment_id},
         {"$set": {"status": status}}
     )
-    
+
     if result.matched_count == 0:
         raise HTTPException(status_code=404, detail="Appointment not found")
-    
-    # NEXUS_APPOINTMENT_STATUS_LOYALTY_UNREACHABLE_REMOVAL_V1
-    # Este endpoint rechaza status='completed' arriba (usa checkout), así que
-    # cualquier lógica dependiente de "primera transición a completed" es
-    # inalcanzable. La acumulación de puntos y visitas ocurre en
-    # checkout_appointment (fuente única de verdad).
+
+    # If marking as completed for the first time, increment client's total_visits
+    if status == "completed" and previous_status != "completed":
+        client_phone = appointment.get("client_phone")
+        if client_phone:
+            await db.clients.update_one(
+                {
+                    "phone": client_phone,
+                    "organization_id": appointment["organization_id"]
+                },
+                {
+                    "$inc": {"total_visits": 1},
+                    "$set": {
+                        "last_visit": appointment.get("date"),
+                        "updated_at": datetime.now(timezone.utc).isoformat()
+                    }
+                }
+            )
+
+        # ✅ SEND COMPLETED EMAIL (if enabled)
+        try:
+            organization = await db.organizations.find_one(
+                {"organization_id": appointment["organization_id"]},
+                {"_id": 0}
+            )
+            if organization and organization.get("notification_settings", {}).get("appointment_completed", True):
+                if appointment.get("client_email"):
+                    service = await db.services.find_one(
+                        {"service_id": appointment["service_id"]},
+                        {"_id": 0}
+                    )
+                    email_service.send_appointment_completed(
+                        to_email=appointment["client_email"],
+                        customer_name=appointment.get("client_name", "Cliente"),
+                        organization_name=organization.get("name", "Nexus"),
+                        date=appointment.get("date"),
+                        service_name=service.get("name", "Servicio") if service else "Servicio"
+                    )
+        except Exception as email_error:
+            print(f"⚠️ Completed email failed: {email_error}")
+
     if status == "cancelled" and previous_status != "cancelled":
         await _trace_appointment_cancellation(
             appointment,
@@ -2619,14 +2619,7 @@ async def checkout_appointment(appointment_id: str, data: AppointmentCheckoutReq
         await rollback_checkout_inventory(db,reserved,org_id,item['transaction_id']);await db.transactions.update_one({'transaction_id':item['transaction_id']},{'$set':{'status':'voided','void_reason':'Checkout inventory rollback','voided_at':now}})
         if 'duplicate' in str(exc).lower() or 'E11000' in str(exc):raise HTTPException(409,'Appointment has already been charged')
         raise
-    if apt.get('client_phone'):
-        # NEXUS_LOYALTY_PROGRAM_V1 — sumar puntos si el programa está habilitado
-        organization = await db.organizations.find_one({'organization_id':org_id},{'_id':0,'loyalty_settings':1}) or {}
-        loyalty_cfg = organization.get('loyalty_settings') or {}
-        inc = {'total_visits': 1}
-        if loyalty_cfg.get('enabled') and int(loyalty_cfg.get('points_per_visit') or 0) > 0:
-            inc['loyalty_points'] = int(loyalty_cfg['points_per_visit'])
-        await db.clients.update_one({'phone':apt['client_phone'],'organization_id':org_id},{'$inc':inc,'$set':{'last_visit':apt.get('date'),'updated_at':now}})
+    if apt.get('client_phone'):await db.clients.update_one({'phone':apt['client_phone'],'organization_id':org_id},{'$inc':{'total_visits':1},'$set':{'last_visit':apt.get('date'),'updated_at':now}})
     await commission_audit(org_id,'appointment_checkout_completed',item['transaction_id'],user.user_id,None,{k:v for k,v in item.items() if k!='notes'},data.notes)
     await _trace_appointment_completion(
         apt,
@@ -2809,7 +2802,7 @@ async def get_transaction_detail(
 @api_router.get("/statistics")
 async def get_statistics(start_date: str, end_date: str, organization_id: Optional[str] = None, authorization: Optional[str] = Header(None), session_token: Optional[str] = Cookie(None)):
     current_user = await get_current_user(authorization, session_token)
-    
+
     # Build query
     if current_user.role == "owner":
         if organization_id:
@@ -2820,68 +2813,68 @@ async def get_statistics(start_date: str, end_date: str, organization_id: Option
         if not current_user.organization_id:
             raise HTTPException(status_code=400, detail="No organization assigned")
         query = {"organization_id": current_user.organization_id}
-    
+
     # Add date range
     query["date"] = {"$gte": start_date, "$lte": end_date}
-    
+
     # Get appointments (exclude cancelled from revenue calculations)
     appointments = await db.appointments.find(query, {"_id": 0}).to_list(10000)
-    
+
     # Batch fetch all unique services and barbers to avoid N+1 queries
     service_ids = list(set(apt.get("service_id") for apt in appointments if apt.get("service_id")))
     barber_ids = list(set(apt.get("barber_id") for apt in appointments if apt.get("barber_id")))
-    
+
     # Fetch all services and barbers in single queries
     services = await db.services.find({"service_id": {"$in": service_ids}}, {"_id": 0}).to_list(1000)
     barbers = await db.barbers.find({"barber_id": {"$in": barber_ids}}, {"_id": 0}).to_list(1000)
-    
+
     # Create lookup dictionaries for O(1) access
     service_lookup = {s["service_id"]: s for s in services}
     barber_lookup = {b["barber_id"]: b for b in barbers}
-    
+
     # Calculate statistics
     daily_revenue = {}
     service_count = {}
     barber_count = {}
-    
+
     for apt in appointments:
         # Skip cancelled appointments for revenue calculations
         if apt.get("status") == "cancelled":
             continue
-            
+
         # Get service info from lookup
         service = service_lookup.get(apt.get("service_id"))
         service_price = service["price"] if service else 0
         service_name = service["name"] if service else "Unknown"
-        
+
         # Get barber info from lookup
         barber = barber_lookup.get(apt.get("barber_id"))
         barber_name = barber["name"] if barber else "Unknown"
-        
+
         # Daily revenue
         date = apt["date"]
         if date not in daily_revenue:
             daily_revenue[date] = 0
         daily_revenue[date] += service_price
-        
+
         # Service count
         if service_name not in service_count:
             service_count[service_name] = 0
         service_count[service_name] += 1
-        
+
         # Barber count
         if barber_name not in barber_count:
             barber_count[barber_name] = 0
         barber_count[barber_name] += 1
-    
+
     # Format for charts
     daily_stats = [{"date": date, "revenue": revenue} for date, revenue in sorted(daily_revenue.items())]
     service_stats = [{"name": name, "count": count} for name, count in service_count.items()]
     barber_stats = [{"name": name, "count": count} for name, count in barber_count.items()]
-    
+
     total_revenue = sum(daily_revenue.values())
     total_appointments = len(appointments)
-    
+
     return {
         "total_revenue": total_revenue,
         "total_appointments": total_appointments,
@@ -3684,15 +3677,15 @@ async def update_client(
     """Update client information (manager/owner only)"""
     current_user = await get_current_user(authorization, session_token)
     require_management_role(current_user)
-    
+
     client = await db.clients.find_one({"client_id": client_id}, {"_id": 0})
     if not client:
         raise HTTPException(status_code=404, detail="Client not found")
-    
+
     # RLS: Validate organization access
     if not await validate_organization_access(current_user, client["organization_id"]):
         raise HTTPException(status_code=403, detail="Access denied")
-    
+
     update_data = {}
     if accepts_marketing is not None:
         update_data["accepts_marketing"] = accepts_marketing
@@ -3700,14 +3693,14 @@ async def update_client(
         update_data["name"] = name
     if email:
         update_data["email"] = email
-    
+
     if update_data:
         update_data["updated_at"] = datetime.now(timezone.utc).isoformat()
         await db.clients.update_one(
             {"client_id": client_id},
             {"$set": update_data}
         )
-    
+
     updated_client = await db.clients.find_one({"client_id": client_id}, {"_id": 0})
     return updated_client
 
@@ -3715,33 +3708,33 @@ async def update_client(
 async def get_client_history(client_id: str, authorization: Optional[str] = Header(None), session_token: Optional[str] = Cookie(None)):
     current_user = await get_current_user(authorization, session_token)
     require_management_role(current_user)
-    
+
     # Get client first
     client = await db.clients.find_one({"client_id": client_id}, {"_id": 0})
     if not client:
         raise HTTPException(status_code=404, detail="Client not found")
-    
+
     # RLS: Validate access
     if not await validate_organization_access(current_user, client["organization_id"]):
         raise HTTPException(status_code=403, detail="Access denied")
-    
+
     # Get all appointments for this client
     appointments = await db.appointments.find(
         {"organization_id": client["organization_id"], "client_phone": client["phone"]},
         {"_id": 0}
     ).sort("created_at", -1).to_list(1000)
-    
+
     # Batch fetch all unique services and barbers to avoid N+1 queries
     service_ids = list(set(apt.get("service_id") for apt in appointments if apt.get("service_id")))
     barber_ids = list(set(apt.get("barber_id") for apt in appointments if apt.get("barber_id")))
-    
+
     services = await db.services.find({"service_id": {"$in": service_ids}}, {"_id": 0}).to_list(1000)
     barbers = await db.barbers.find({"barber_id": {"$in": barber_ids}}, {"_id": 0}).to_list(1000)
-    
+
     # Create lookup dictionaries for O(1) access
     service_lookup = {s["service_id"]: s for s in services}
     barber_lookup = {b["barber_id"]: b for b in barbers}
-    
+
     # Enrich with service and barber names
     for apt in appointments:
         service = service_lookup.get(apt.get("service_id"))
@@ -3749,16 +3742,16 @@ async def get_client_history(client_id: str, authorization: Optional[str] = Head
         apt["service_name"] = service["name"] if service else "Unknown"
         apt["service_price"] = service["price"] if service else 0
         apt["barber_name"] = barber["name"] if barber else "Unknown"
-        
+
         if isinstance(apt.get("created_at"), str):
             apt["created_at"] = datetime.fromisoformat(apt["created_at"])
-    
+
     return appointments
 
 async def upsert_client(
-    organization_id: str, 
-    phone: str, 
-    name: str, 
+    organization_id: str,
+    phone: str,
+    name: str,
     email: Optional[str] = None,
     marketing_consent: bool = False,
     consent_ip: Optional[str] = None,
@@ -3769,7 +3762,7 @@ async def upsert_client(
     TCPA/Ley 1581 compliance: accepts_marketing defaults to False, only True if explicitly consented.
     """
     existing = await db.clients.find_one({"organization_id": organization_id, "phone": phone}, {"_id": 0})
-    
+
     if existing:
         # Update existing client (don't increment visits here - only on appointment completion)
         update_data = {
@@ -3779,14 +3772,14 @@ async def upsert_client(
         }
         if email:
             update_data["email"] = email
-        
+
         # Update marketing consent if provided
         if marketing_consent and not existing.get("accepts_marketing"):
             update_data["accepts_marketing"] = True
             update_data["marketing_consent_given_at"] = datetime.now(timezone.utc).isoformat()
             update_data["marketing_consent_ip"] = consent_ip
             update_data["marketing_consent_text"] = consent_text
-        
+
         await db.clients.update_one(
             {"organization_id": organization_id, "phone": phone},
             {"$set": update_data}
@@ -3823,10 +3816,10 @@ async def get_client_history_public(phone: str, organization_id: str):
         {"phone": phone, "organization_id": organization_id},
         {"_id": 0}
     )
-    
+
     if not client:
         return {"client": None, "appointments": []}
-    
+
     # Get all appointments for this client
     appointments = await db.appointments.find(
         {
@@ -3835,27 +3828,27 @@ async def get_client_history_public(phone: str, organization_id: str):
         },
         {"_id": 0}
     ).sort("date", -1).to_list(1000)
-    
+
     # Enrich with service and barber info
     # Batch fetch all unique services and barbers to avoid N+1 queries
     service_ids = list(set(apt.get("service_id") for apt in appointments if apt.get("service_id")))
     barber_ids = list(set(apt.get("barber_id") for apt in appointments if apt.get("barber_id")))
-    
+
     services = await db.services.find({"service_id": {"$in": service_ids}}, {"_id": 0}).to_list(1000)
     barbers = await db.barbers.find({"barber_id": {"$in": barber_ids}}, {"_id": 0}).to_list(1000)
-    
+
     # Create lookup dictionaries for O(1) access
     service_lookup = {s["service_id"]: s for s in services}
     barber_lookup = {b["barber_id"]: b for b in barbers}
-    
+
     for apt in appointments:
         service = service_lookup.get(apt.get("service_id"))
         barber = barber_lookup.get(apt.get("barber_id"))
-        
+
         apt["service_name"] = service["name"] if service else "Unknown"
         apt["service_price"] = service["price"] if service else 0
         apt["barber_name"] = barber["name"] if barber else "Unknown"
-    
+
     return {
         "client": client,
         "appointments": appointments
@@ -3873,22 +3866,22 @@ async def unsubscribe_client(phone: Optional[str] = None, email: Optional[str] =
     """
     if not phone and not email:
         raise HTTPException(status_code=400, detail="Phone or email required")
-    
+
     if not organization_id:
         raise HTTPException(status_code=400, detail="organization_id required")
-    
+
     # Find client
     query = {"organization_id": organization_id}
     if phone:
         query["phone"] = phone
     elif email:
         query["email"] = email
-    
+
     client = await db.clients.find_one(query, {"_id": 0})
-    
+
     if not client:
         raise HTTPException(status_code=404, detail="Client not found")
-    
+
     # Update marketing consent
     await db.clients.update_one(
         {"client_id": client["client_id"]},
@@ -3897,7 +3890,7 @@ async def unsubscribe_client(phone: Optional[str] = None, email: Optional[str] =
             "updated_at": datetime.now(timezone.utc).isoformat()
         }}
     )
-    
+
     return {
         "status": "success",
         "message": "Has sido dado de baja de nuestras comunicaciones de marketing. Ya no recibirás promociones."
@@ -3915,10 +3908,10 @@ async def get_my_data(phone: str, organization_id: str):
         {"phone": phone, "organization_id": organization_id},
         {"_id": 0}
     )
-    
+
     if not client:
         raise HTTPException(status_code=404, detail="No data found for this phone number")
-    
+
     # Get all appointments for this client
     appointments = await db.appointments.find(
         {
@@ -3927,7 +3920,7 @@ async def get_my_data(phone: str, organization_id: str):
         },
         {"_id": 0}
     ).sort("date", -1).to_list(1000)
-    
+
     return {
         "client_data": client,
         "appointments": appointments,
@@ -3950,22 +3943,22 @@ async def update_my_data(phone: str, organization_id: str, name: Optional[str] =
         {"phone": phone, "organization_id": organization_id},
         {"_id": 0}
     )
-    
+
     if not client:
         raise HTTPException(status_code=404, detail="Client not found")
-    
+
     # Update fields
     update_data = {"updated_at": datetime.now(timezone.utc).isoformat()}
     if name:
         update_data["name"] = name
     if email:
         update_data["email"] = email
-    
+
     await db.clients.update_one(
         {"client_id": client["client_id"]},
         {"$set": update_data}
     )
-    
+
     # Log data request for compliance audit
     await db.data_requests.insert_one({
         "request_id": f"req_{uuid.uuid4().hex[:12]}",
@@ -3976,7 +3969,7 @@ async def update_my_data(phone: str, organization_id: str, name: Optional[str] =
         "status": "completed",
         "details": {"updated_fields": list(update_data.keys())}
     })
-    
+
     return {
         "status": "success",
         "message": "Tus datos han sido actualizados correctamente"
@@ -3995,10 +3988,10 @@ async def request_deletion(phone: str, organization_id: str):
         {"phone": phone, "organization_id": organization_id},
         {"_id": 0}
     )
-    
+
     if not client:
         raise HTTPException(status_code=404, detail="Client not found")
-    
+
     # Mark for deletion (don't delete immediately for audit/legal compliance)
     await db.clients.update_one(
         {"client_id": client["client_id"]},
@@ -4008,7 +4001,7 @@ async def request_deletion(phone: str, organization_id: str):
             "updated_at": datetime.now(timezone.utc).isoformat()
         }}
     )
-    
+
     # Log deletion request for compliance audit
     await db.data_requests.insert_one({
         "request_id": f"req_{uuid.uuid4().hex[:12]}",
@@ -4019,7 +4012,7 @@ async def request_deletion(phone: str, organization_id: str):
         "status": "pending_review",
         "details": {"reason": "user_requested"}
     })
-    
+
     return {
         "status": "success",
         "message": "Tu solicitud de eliminación ha sido recibida. Procesaremos tu solicitud en un plazo de 15 días hábiles."
@@ -4039,26 +4032,26 @@ async def register_client_with_pin(data: ClientRegisterRequest, request: Request
     import re
     if not re.match(r'^\d{4}$', data.pin):
         raise HTTPException(status_code=400, detail="PIN must be exactly 4 digits")
-    
+
     # Sanitize phone
     phone = sanitize_phone(data.phone)
-    
+
     # Check if client already exists (guest booking or previous registration)
     existing = await db.clients.find_one(
         {"phone": phone, "organization_id": data.organization_id},
         {"_id": 0}
     )
-    
+
     # Hash PIN
     pin_hash = bcrypt.hashpw(data.pin.encode(), bcrypt.gensalt()).decode()
-    
+
     now = datetime.now(timezone.utc).isoformat()
-    
+
     if existing:
         # Upgrade existing guest client to registered
         if existing.get("is_registered"):
             raise HTTPException(status_code=400, detail="Phone number already registered. Use login instead.")
-        
+
         await db.clients.update_one(
             {"client_id": existing["client_id"]},
             {"$set": {
@@ -4099,11 +4092,11 @@ async def register_client_with_pin(data: ClientRegisterRequest, request: Request
             "updated_at": now
         }
         await db.clients.insert_one(new_client)
-    
+
     # Create client session
     session_token = secrets.token_urlsafe(32)
     expires_at = datetime.now(timezone.utc) + timedelta(days=30)  # 30-day session
-    
+
     await db.client_sessions.insert_one({
         "session_id": f"csess_{uuid.uuid4().hex[:12]}",
         "client_id": client_id,
@@ -4112,7 +4105,7 @@ async def register_client_with_pin(data: ClientRegisterRequest, request: Request
         "expires_at": expires_at.isoformat(),
         "created_at": now
     })
-    
+
     # Set cookie
     response = JSONResponse(content={
         "message": "Registration successful",
@@ -4127,7 +4120,7 @@ async def register_client_with_pin(data: ClientRegisterRequest, request: Request
         path="/",
         max_age=30*24*60*60  # 30 days
     )
-    
+
     return response
 
 @api_router.post("/public/clients/login")
@@ -4138,22 +4131,22 @@ async def login_client_with_pin(data: ClientLoginRequest, request: Request):
     This is non-negotiable: 4-digit PIN = 10,000 combinations, brute-forceable without limit.
     """
     phone = sanitize_phone(data.phone)
-    
+
     # Find client
     client = await db.clients.find_one(
         {"phone": phone, "organization_id": data.organization_id, "is_registered": True},
         {"_id": 0}
     )
-    
+
     if not client:
         raise HTTPException(status_code=401, detail="Invalid phone number or PIN")
-    
+
     # Check if locked
     if client.get("pin_locked_until"):
         locked_until = datetime.fromisoformat(client["pin_locked_until"])
         if locked_until.tzinfo is None:
             locked_until = locked_until.replace(tzinfo=timezone.utc)
-        
+
         if datetime.now(timezone.utc) < locked_until:
             minutes_left = int((locked_until - datetime.now(timezone.utc)).total_seconds() / 60) + 1
             raise HTTPException(
@@ -4167,19 +4160,19 @@ async def login_client_with_pin(data: ClientLoginRequest, request: Request):
                 {"$set": {"pin_locked_until": None, "failed_pin_attempts": 0}}
             )
             client["failed_pin_attempts"] = 0
-    
+
     # Verify PIN
     if not bcrypt.checkpw(data.pin.encode(), client["pin_hash"].encode()):
         # Failed attempt
         failed_attempts = client.get("failed_pin_attempts", 0) + 1
         update_data = {"failed_pin_attempts": failed_attempts}
-        
+
         if failed_attempts >= 5:
             # Lock for 15 minutes
             locked_until = datetime.now(timezone.utc) + timedelta(minutes=15)
             update_data["pin_locked_until"] = locked_until.isoformat()
             update_data["failed_pin_attempts"] = 0  # Reset counter
-            
+
             await db.clients.update_one(
                 {"client_id": client["client_id"]},
                 {"$set": update_data}
@@ -4188,24 +4181,24 @@ async def login_client_with_pin(data: ClientLoginRequest, request: Request):
                 status_code=429,
                 detail="Too many failed attempts. Account locked for 15 minutes."
             )
-        
+
         await db.clients.update_one(
             {"client_id": client["client_id"]},
             {"$set": update_data}
         )
         raise HTTPException(status_code=401, detail="Invalid phone number or PIN")
-    
+
     # Success - reset failed attempts
     await db.clients.update_one(
         {"client_id": client["client_id"]},
         {"$set": {"failed_pin_attempts": 0, "pin_locked_until": None}}
     )
-    
+
     # Create session
     session_token = secrets.token_urlsafe(32)
     expires_at = datetime.now(timezone.utc) + timedelta(days=30)
     now = datetime.now(timezone.utc).isoformat()
-    
+
     await db.client_sessions.insert_one({
         "session_id": f"csess_{uuid.uuid4().hex[:12]}",
         "client_id": client["client_id"],
@@ -4214,7 +4207,7 @@ async def login_client_with_pin(data: ClientLoginRequest, request: Request):
         "expires_at": expires_at.isoformat(),
         "created_at": now
     })
-    
+
     # Set cookie
     response = JSONResponse(content={
         "message": "Login successful",
@@ -4234,7 +4227,7 @@ async def login_client_with_pin(data: ClientLoginRequest, request: Request):
         path="/",
         max_age=30*24*60*60
     )
-    
+
     return response
 
 @api_router.post("/public/clients/logout")
@@ -4242,7 +4235,7 @@ async def logout_client(client_session_token: Optional[str] = Cookie(None)):
     """Logout client and delete session"""
     if client_session_token:
         await db.client_sessions.delete_one({"session_token": client_session_token})
-    
+
     response = JSONResponse(content={"message": "Logged out successfully"})
     response.delete_cookie(key="client_session_token", path="/")
     return response
@@ -4256,17 +4249,17 @@ async def get_client_profile(current_client: Client = Depends(get_current_client
         {"client_phone": current_client.phone, "organization_id": current_client.organization_id},
         {"_id": 0}
     ).sort("date", -1).to_list(1000)
-    
+
     # Batch fetch services and barbers
     service_ids = list(set(apt.get("service_id") for apt in appointments if apt.get("service_id")))
     barber_ids = list(set(apt.get("barber_id") for apt in appointments if apt.get("barber_id")))
-    
+
     services = await db.services.find({"service_id": {"$in": service_ids}}, {"_id": 0}).to_list(1000) if service_ids else []
     barbers = await db.barbers.find({"barber_id": {"$in": barber_ids}}, {"_id": 0}).to_list(1000) if barber_ids else []
-    
+
     service_lookup = {s["service_id"]: s for s in services}
     barber_lookup = {b["barber_id"]: b for b in barbers}
-    
+
     # Enrich appointments
     for apt in appointments:
         service = service_lookup.get(apt.get("service_id"))
@@ -4274,29 +4267,6 @@ async def get_client_profile(current_client: Client = Depends(get_current_client
         apt["service_name"] = service["name"] if service else "Unknown"
         apt["service_price"] = service["price"] if service else 0
         apt["barber_name"] = barber["name"] if barber else "Unknown"
-
-    # NEXUS_LOYALTY_PROGRAM_V1 — devolver puntos + configuración del programa
-    client_doc = await db.clients.find_one(
-        {"client_id": current_client.client_id},
-        {"_id": 0, "loyalty_points": 1}
-    ) or {}
-    loyalty_points = int(client_doc.get("loyalty_points") or 0)
-    org_loyalty = await db.organizations.find_one(
-        {"organization_id": current_client.organization_id},
-        {"_id": 0, "loyalty_settings": 1}
-    ) or {}
-    loyalty_settings = org_loyalty.get("loyalty_settings") or {}
-    loyalty_enabled = bool(loyalty_settings.get("enabled"))
-    reward_threshold = int(loyalty_settings.get("reward_threshold") or 0)
-    loyalty_summary = {
-        "enabled": loyalty_enabled,
-        "points": loyalty_points,
-        "points_per_visit": int(loyalty_settings.get("points_per_visit") or 0),
-        "reward_threshold": reward_threshold,
-        "reward_description": loyalty_settings.get("reward_description") or "",
-        "progress_percent": (min(100, round(loyalty_points * 100 / reward_threshold)) if reward_threshold > 0 else 0),
-        "points_to_next_reward": (max(0, reward_threshold - loyalty_points) if reward_threshold > 0 else 0),
-    }
 
     return {
         "client": {
@@ -4306,10 +4276,8 @@ async def get_client_profile(current_client: Client = Depends(get_current_client
             "email": current_client.email,
             "total_visits": current_client.total_visits,
             "last_visit": current_client.last_visit,
-            "accepts_marketing": current_client.accepts_marketing,
-            "loyalty_points": loyalty_points,
+            "accepts_marketing": current_client.accepts_marketing
         },
-        "loyalty": loyalty_summary,
         "appointments": appointments
     }
 
@@ -4324,18 +4292,18 @@ async def cancel_appointment_from_portal(
         {"appointment_id": appointment_id},
         {"_id": 0}
     )
-    
+
     if not appointment:
         raise HTTPException(status_code=404, detail="Appointment not found")
-    
+
     # Verify ownership (client can only cancel their own appointments)
     if appointment["client_phone"] != current_client.phone:
         raise HTTPException(status_code=403, detail="Not authorized to cancel this appointment")
-    
+
     # Check if already cancelled
     if appointment["status"] == "cancelled":
         raise HTTPException(status_code=400, detail="Appointment already cancelled")
-    
+
     # Cancel appointment
     await db.appointments.update_one(
         {"appointment_id": appointment_id},
@@ -4344,7 +4312,7 @@ async def cancel_appointment_from_portal(
             "cancelled_at": datetime.now(timezone.utc).isoformat()
         }}
     )
-    
+
     # Send cancellation email if client has email
     if current_client.email:
         email_service.send_appointment_cancelled(
@@ -4354,7 +4322,7 @@ async def cancel_appointment_from_portal(
             time=appointment["time"],
             organization_name=appointment.get("organization_name", "Nexus")
         )
-    
+
     return {"message": "Appointment cancelled successfully"}
 
 @api_router.post("/public/clients/change-pin")
@@ -4364,18 +4332,18 @@ async def change_client_pin(
 ):
     """Change client PIN. Requires current PIN for verification."""
     import re
-    
+
     # Validate new PIN format
     if not re.match(r'^\d{4}$', data.new_pin):
         raise HTTPException(status_code=400, detail="New PIN must be exactly 4 digits")
-    
+
     # Verify current PIN
     if not bcrypt.checkpw(data.current_pin.encode(), current_client.pin_hash.encode()):
         raise HTTPException(status_code=401, detail="Current PIN is incorrect")
-    
+
     # Hash new PIN
     new_pin_hash = bcrypt.hashpw(data.new_pin.encode(), bcrypt.gensalt()).decode()
-    
+
     # Update PIN
     await db.clients.update_one(
         {"client_id": current_client.client_id},
@@ -4384,25 +4352,15 @@ async def change_client_pin(
             "updated_at": datetime.now(timezone.utc).isoformat()
         }}
     )
-    
+
     return {"message": "PIN changed successfully"}
 
 @api_router.delete("/public/clients/me")
-async def delete_client_account(
-    data: ClientDeleteAccountRequest,
-    current_client: Client = Depends(get_current_client)
-):
+async def delete_client_account(current_client: Client = Depends(get_current_client)):
     """
-    Delete client account. Requires current PIN for confirmation.
-    Removes client profile and sessions.
+    Delete client account. Removes client profile and sessions.
     Appointments remain for business records (they have their own copy of client data).
     """
-    # Verify current PIN (security: prevent account deletion with only a stolen session)
-    if not current_client.pin_hash or not bcrypt.checkpw(
-        data.current_pin.encode(), current_client.pin_hash.encode()
-    ):
-        raise HTTPException(status_code=401, detail="PIN incorrecto")
-
     # Delete all client sessions
     await db.client_sessions.delete_many({"client_id": current_client.client_id})
 
@@ -4412,3 +4370,1240 @@ async def delete_client_account(
     response = JSONResponse(content={"message": "Account deleted successfully"})
     response.delete_cookie(key="client_session_token", path="/")
     return response
+
+# A.5 - PIN Recovery via Email
+@api_router.post("/public/clients/forgot-pin")
+@limiter.limit("3/hour")
+async def forgot_client_pin(data: ClientForgotPinRequest, request: Request):
+    """
+    Send PIN reset link via email. Always returns same message (don't leak phone existence).
+    """
+    phone = sanitize_phone(data.phone)
+
+    # Find client
+    client = await db.clients.find_one(
+        {"phone": phone, "organization_id": data.organization_id, "is_registered": True},
+        {"_id": 0}
+    )
+
+    # Always return same message (don't leak existence)
+    generic_message = "If this phone number is registered and has an email, a reset link has been sent."
+
+    if not client or not client.get("email"):
+        # Client doesn't exist or has no email - but don't tell the requester
+        return {"message": generic_message}
+
+    # Generate reset token
+    reset_token = secrets.token_urlsafe(32)
+    expires_at = datetime.now(timezone.utc) + timedelta(hours=1)
+
+    await db.clients.update_one(
+        {"client_id": client["client_id"]},
+        {"$set": {
+            "pin_reset_token": reset_token,
+            "pin_reset_expires": expires_at.isoformat()
+        }}
+    )
+
+    # Send email
+    frontend_url = os.environ.get('REACT_APP_BACKEND_URL', '').replace('/api', '')
+    reset_url = f"{frontend_url}/portal/reset-pin?token={reset_token}"
+
+    email_service.send_pin_reset(
+        to_email=client["email"],
+        customer_name=client["name"],
+        reset_url=reset_url
+    )
+
+    return {"message": generic_message}
+
+@api_router.post("/public/clients/reset-pin")
+async def reset_client_pin(data: ClientResetPinRequest):
+    """Reset PIN using token from email. Invalidates all sessions."""
+    import re
+
+    # Validate new PIN
+    if not re.match(r'^\d{4}$', data.new_pin):
+        raise HTTPException(status_code=400, detail="PIN must be exactly 4 digits")
+
+    # Find client with valid token
+    client = await db.clients.find_one(
+        {"pin_reset_token": data.token},
+        {"_id": 0}
+    )
+
+    if not client:
+        raise HTTPException(status_code=400, detail="Invalid or expired reset link")
+
+    # Check expiration
+    expires_at = datetime.fromisoformat(client["pin_reset_expires"])
+    if expires_at.tzinfo is None:
+        expires_at = expires_at.replace(tzinfo=timezone.utc)
+
+    if datetime.now(timezone.utc) > expires_at:
+        raise HTTPException(status_code=400, detail="Reset link has expired")
+
+    # Hash new PIN
+    new_pin_hash = bcrypt.hashpw(data.new_pin.encode(), bcrypt.gensalt()).decode()
+
+    # Update PIN and clear reset token
+    await db.clients.update_one(
+        {"client_id": client["client_id"]},
+        {"$set": {
+            "pin_hash": new_pin_hash,
+            "pin_reset_token": None,
+            "pin_reset_expires": None,
+            "failed_pin_attempts": 0,
+            "pin_locked_until": None,
+            "updated_at": datetime.now(timezone.utc).isoformat()
+        }}
+    )
+
+    # Invalidate all existing sessions (if someone else had access with old PIN)
+    await db.client_sessions.delete_many({"client_id": client["client_id"]})
+
+    return {"message": "PIN reset successful. Please login with your new PIN."}
+
+# ==================== END CLIENT PORTAL ENDPOINTS ====================
+
+# ==================== END LEGAL COMPLIANCE ENDPOINTS ====================
+
+# ==================== END CLIENTS ENDPOINTS ====================
+
+# ==================== MARKETING & CAMPAIGNS ====================
+
+class CampaignRequest(BaseModel):
+    client_ids: List[str]  # List of client IDs to send to
+    message: str
+    send_immediately: bool = True
+    scheduled_date: Optional[str] = None  # ISO format for scheduled campaigns
+    channel: str = "whatsapp"  # "whatsapp", "email", or "both"
+    subject: Optional[str] = None  # Email subject (required if channel is email/both)
+
+@api_router.post("/marketing/campaigns")
+async def create_campaign(
+    data: CampaignRequest,
+    authorization: Optional[str] = Header(None),
+    session_token: Optional[str] = Cookie(None)
+):
+    """Send marketing campaign to selected clients via WhatsApp and/or Email"""
+    current_user = await get_current_user(authorization, session_token)
+
+    if not data.client_ids:
+        raise HTTPException(status_code=400, detail="No clients selected")
+
+    # Validate email channel requires subject
+    if data.channel in ["email", "both"] and not data.subject:
+        raise HTTPException(status_code=400, detail="Subject is required for email campaigns")
+
+    # Get clients and filter by accepts_marketing
+    clients = await db.clients.find(
+        {
+            "client_id": {"$in": data.client_ids},
+            "accepts_marketing": True  # Automatic filter
+        },
+        {"_id": 0}
+    ).to_list(1000)
+
+    # Verify organization access
+    for client in clients:
+        if not await validate_organization_access(current_user, client["organization_id"]):
+            raise HTTPException(status_code=403, detail="Access denied to one or more clients")
+
+    # Get organization info for email signature and CAN-SPAM compliance
+    org_id = clients[0]["organization_id"] if clients else None
+    organization = None
+    if org_id:
+        organization = await db.organizations.find_one({"organization_id": org_id}, {"_id": 0})
+
+    org_name = organization.get("name", "Nexus") if organization else "Nexus"
+    org_address = organization.get("address") if organization else None
+
+    # CAN-SPAM Act requires physical address for commercial emails
+    if (data.channel in ["email", "both"]) and not org_address:
+        raise HTTPException(
+            status_code=400,
+            detail="Cannot send marketing emails without organization address. Please complete your business profile in Settings."
+        )
+
+    # Get frontend URL for unsubscribe link
+    frontend_url = os.environ.get('REACT_APP_BACKEND_URL', '').replace('/api', '')
+
+    # Send campaigns
+    whatsapp_sent = 0
+    whatsapp_failed = 0
+    email_sent = 0
+    email_failed = 0
+
+    for client in clients:
+        # Send via WhatsApp (mocked)
+        if data.channel in ["whatsapp", "both"]:
+            try:
+                print(f"📱 [MOCK WhatsApp] Sending to {client['name']} ({client['phone']}): {data.message}")
+                whatsapp_sent += 1
+            except Exception as e:
+                print(f"❌ Failed WhatsApp to {client['phone']}: {str(e)}")
+                whatsapp_failed += 1
+
+        # Send via Email (real SMTP)
+        if data.channel in ["email", "both"] and client.get("email"):
+            try:
+                # Create unsubscribe link (CAN-SPAM Act requirement)
+                unsubscribe_url = f"{frontend_url}/unsubscribe?phone={client['phone']}&org={org_id}"
+
+                # Sanitize inputs to prevent HTML injection
+                safe_subject = html_escape(data.subject)
+                safe_name = html_escape(client['name'])
+                safe_message = html_escape(data.message)
+                safe_org_name = html_escape(org_name)
+                safe_org_address = html_escape(org_address)
+
+                # Create HTML email body with marketing message (CAN-SPAM compliant)
+                html_body = f"""
+                <!DOCTYPE html>
+                <html>
+                <head>
+                    <meta charset="UTF-8">
+                    <style>
+                        body {{ font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; margin: 0; padding: 0; background-color: #000000; }}
+                        .container {{ max-width: 600px; margin: 40px auto; background: linear-gradient(135deg, #1a1a1a 0%, #0a0a0a 100%); border-radius: 16px; overflow: hidden; border: 1px solid rgba(255,255,255,0.1); }}
+                        .header {{ background: linear-gradient(135deg, #FF9500 0%, #FF6B00 100%); padding: 40px 20px; text-align: center; }}
+                        .header h1 {{ color: white; margin: 0; font-size: 28px; font-weight: 300; }}
+                        .content {{ padding: 40px 30px; color: #ffffff; }}
+                        .message-box {{ background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); border-radius: 12px; padding: 24px; margin: 20px 0; white-space: pre-wrap; line-height: 1.6; }}
+                        .footer {{ padding: 30px; text-align: center; color: #666; font-size: 12px; border-top: 1px solid rgba(255,255,255,0.1); }}
+                        .footer a {{ color: #0A84FF; text-decoration: none; }}
+                        .footer a:hover {{ text-decoration: underline; }}
+                        .emoji {{ font-size: 48px; margin: 20px 0; }}
+                    </style>
+                </head>
+                <body>
+                    <div class="container">
+                        <div class="header">
+                            <div class="emoji">✨</div>
+                            <h1>{safe_subject}</h1>
+                        </div>
+                        <div class="content">
+                            <p style="font-size: 18px; color: #fff;">Hola <strong>{safe_name}</strong>,</p>
+
+                            <div class="message-box">
+                                {safe_message}
+                            </div>
+
+                            <p style="color: #aaa; margin-top: 30px;">¡Esperamos verte pronto!</p>
+                        </div>
+                        <div class="footer">
+                            <p><strong>{safe_org_name}</strong></p>
+                            <p style="margin: 10px 0;">📍 {safe_org_address}</p>
+                            <p style="margin: 15px 0;">
+                                Este es un email promocional.
+                                <a href="{unsubscribe_url}" style="color: #0A84FF;">Cancelar suscripción</a>
+                            </p>
+                            <p style="margin-top: 10px; font-size: 10px; color: #555;">
+                                Recibiste este email porque aceptaste recibir comunicaciones de marketing de {safe_org_name}.
+                            </p>
+                        </div>
+                    </div>
+                </body>
+                </html>
+                """
+
+                success = email_service._send_email(
+                    to_email=client["email"],
+                    subject=data.subject,
+                    html_body=html_body,
+                    text_body=data.message
+                )
+
+                if success:
+                    email_sent += 1
+                else:
+                    email_failed += 1
+
+            except Exception as e:
+                print(f"❌ Failed Email to {client.get('email')}: {str(e)}")
+                email_failed += 1
+
+    # Build response message
+    messages = []
+    if data.channel in ["whatsapp", "both"]:
+        messages.append(f"WhatsApp: {whatsapp_sent} enviados")
+    if data.channel in ["email", "both"]:
+        messages.append(f"Email: {email_sent} enviados")
+
+    return {
+        "status": "success",
+        "total_selected": len(data.client_ids),
+        "eligible_clients": len(clients),
+        "whatsapp_sent": whatsapp_sent,
+        "whatsapp_failed": whatsapp_failed,
+        "email_sent": email_sent,
+        "email_failed": email_failed,
+        "message": f"Campaña enviada: {', '.join(messages)}"
+    }
+
+# ==================== END MARKETING ====================
+
+# Inventory Endpoints
+@api_router.get("/inventory")
+async def get_inventory(organization_id: Optional[str] = None, authorization: Optional[str] = Header(None), session_token: Optional[str] = Cookie(None)):
+    current_user = await get_current_user(authorization, session_token)
+    require_management_role(current_user)
+
+    # Owner can query any organization, manager only their own
+    if current_user.role == "owner":
+        if not organization_id:
+            items = await db.inventory.find({}, {"_id": 0}).to_list(1000)
+        else:
+            items = await db.inventory.find({"organization_id": organization_id}, {"_id": 0}).to_list(1000)
+    else:
+        if not current_user.organization_id:
+            raise HTTPException(status_code=403, detail="No organization assigned")
+        if organization_id and organization_id != current_user.organization_id:
+            raise HTTPException(status_code=403, detail="Access denied to this organization")
+        items = await db.inventory.find({"organization_id": current_user.organization_id}, {"_id": 0}).to_list(1000)
+
+    for item in items:
+        if isinstance(item["created_at"], str):
+            item["created_at"] = datetime.fromisoformat(item["created_at"])
+        item["is_low_stock"] = item["quantity"] <= item["min_stock"]
+    return items
+
+@api_router.post("/inventory")
+async def create_inventory_item(data: InventoryCreate, authorization: Optional[str] = Header(None), session_token: Optional[str] = Cookie(None)):
+    current_user = await get_current_user(authorization, session_token)
+    require_management_role(current_user)
+
+    if not current_user.organization_id:
+        raise HTTPException(status_code=400, detail="No organization assigned")
+
+    # Validate non-negative stock
+    if data.quantity < 0:
+        raise HTTPException(status_code=400, detail="Quantity cannot be negative")
+    if data.min_stock < 0:
+        raise HTTPException(status_code=400, detail="Minimum stock cannot be negative")
+
+    item_id = f"item_{uuid.uuid4().hex[:12]}"
+    item_doc = {
+        "item_id": item_id,
+        "organization_id": current_user.organization_id,
+        "name": data.name,
+        "quantity": data.quantity,
+        "min_stock": data.min_stock,
+        "unit": data.unit,
+        "created_at": datetime.now(timezone.utc).isoformat()
+    }
+    await db.inventory.insert_one(item_doc.copy())  # Use copy to prevent _id mutation
+    item_doc["is_low_stock"] = item_doc["quantity"] <= item_doc["min_stock"]
+    return InventoryItem(**{**item_doc, "created_at": datetime.fromisoformat(item_doc["created_at"])})
+
+@api_router.put("/inventory/{item_id}")
+async def update_inventory_item(item_id: str, data: InventoryCreate, authorization: Optional[str] = Header(None), session_token: Optional[str] = Cookie(None)):
+    current_user = await get_current_user(authorization, session_token)
+    require_management_role(current_user)
+
+    # Validate non-negative stock
+    if data.quantity < 0:
+        raise HTTPException(status_code=400, detail="Quantity cannot be negative")
+    if data.min_stock < 0:
+        raise HTTPException(status_code=400, detail="Minimum stock cannot be negative")
+
+    result = await db.inventory.update_one(
+        {"item_id": item_id, "organization_id": current_user.organization_id},
+        {"$set": {"name": data.name, "quantity": data.quantity, "min_stock": data.min_stock, "unit": data.unit}}
+    )
+
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Item not found")
+
+    return {"message": "Item updated"}
+
+@api_router.delete("/inventory/{item_id}")
+async def delete_inventory_item(item_id: str, authorization: Optional[str] = Header(None), session_token: Optional[str] = Cookie(None)):
+    current_user = await get_current_user(authorization, session_token)
+    require_management_role(current_user)
+    await db.inventory.delete_one({"item_id": item_id, "organization_id": current_user.organization_id})
+    return {"message": "Item deleted"}
+
+@api_router.post("/inventory/generate-order")
+
+def _sanitize_for_prompt(value: str, max_len: int = 80) -> str:
+    """Sanitize user input before including in AI prompts to prevent injection"""
+    cleaned = str(value).replace("\n", " ").replace("\r", " ").strip()
+    return cleaned[:max_len]
+
+
+async def generate_purchase_order(authorization: Optional[str] = Header(None), session_token: Optional[str] = Cookie(None)):
+    current_user = await get_current_user(authorization, session_token)
+    require_management_role(current_user)
+
+    if not current_user.organization_id:
+        raise HTTPException(status_code=400, detail="No organization assigned")
+
+    items = await db.inventory.find({"organization_id": current_user.organization_id}, {"_id": 0}).to_list(1000)
+    low_stock_items = [item for item in items if item["quantity"] <= item["min_stock"]]
+
+    if not low_stock_items:
+        return {"message": "No items need reordering", "items": []}
+
+    items_text = "\n".join([
+        f"- {_sanitize_for_prompt(item['name'])}: Current stock {item['quantity']} {_sanitize_for_prompt(item['unit'], 20)}, minimum {item['min_stock']} {_sanitize_for_prompt(item['unit'], 20)}"
+        for item in low_stock_items
+    ])
+
+    prompt = f"""Analiza los siguientes productos de inventario con stock bajo y genera recomendaciones de compra inteligentes:
+
+{items_text}
+
+Para cada producto, recomienda:
+1. Cantidad a pedir (considerando el stock mínimo y uso estimado)
+2. Prioridad de compra (Alta/Media/Baja)
+
+Formatea la respuesta como una lista clara y accionable."""
+
+    async def generate():
+        try:
+            chat = LlmChat(
+                api_key=EMERGENT_LLM_KEY,
+                session_id=f"purchase_order_{current_user.user_id}",
+                system_message="Eres un asistente experto en gestión de inventarios para organizaciones de servicios."
+            ).with_model("gemini", "gemini-3.5-flash")
+
+            user_message = UserMessage(text=prompt)
+            full_response = ""
+
+            async for event in chat.stream_message(user_message):
+                if isinstance(event, TextDelta):
+                    full_response += event.content
+                    yield f"data: {json.dumps({'content': event.content})}\n\n"
+                elif isinstance(event, StreamDone):
+                    yield f"data: {json.dumps({'done': True, 'full_response': full_response})}\n\n"
+                    break
+        except Exception as e:
+            logger.error(f"Error generating purchase order: {e}")
+            error_msg = str(e)
+            if "budget" in error_msg.lower():
+                error_msg = "El presupuesto del servicio de IA se ha agotado. Por favor, contacta al administrador."
+            elif "quota" in error_msg.lower():
+                error_msg = "Se ha excedido la cuota del servicio de IA. Intenta de nuevo más tarde."
+            else:
+                error_msg = "Error al generar la recomendación. Por favor, intenta de nuevo."
+            yield f"data: {json.dumps({'error': error_msg})}\n\n"
+
+    return StreamingResponse(
+        generate(),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"}
+    )
+
+
+# ==================== STRICT PUBLIC AVAILABILITY ====================
+# NEXUS_STRICT_AVAILABILITY_V1
+
+def _strict_date(value: str):
+    try:
+        return datetime.strptime(value, "%Y-%m-%d").date()
+    except (TypeError, ValueError):
+        raise HTTPException(status_code=400, detail="Date must use YYYY-MM-DD format")
+
+
+def _strict_minutes(value: str, field: str = "time") -> int:
+    if not isinstance(value, str) or not re.fullmatch(r"([01]\d|2[0-3]):[0-5]\d", value):
+        raise HTTPException(status_code=400, detail=f"Invalid {field}")
+    hour, minute = map(int, value.split(":"))
+    return hour * 60 + minute
+
+
+def _nexus_weekday(value) -> int:
+    # Python: Monday=0. Nexus: Sunday=0, Monday=1 ... Saturday=6.
+    return (value.weekday() + 1) % 7
+
+
+def _intervals_overlap(start_a: int, end_a: int, start_b: int, end_b: int) -> bool:
+    return start_a < end_b and end_a > start_b
+
+
+
+
+def _organization_timezone(organization: dict):
+    timezone_name = str((organization or {}).get("timezone") or "America/Bogota").strip()
+    try:
+        return timezone_name, ZoneInfo(timezone_name)
+    except ZoneInfoNotFoundError:
+        logger.warning("invalid_organization_timezone organization_id=%s timezone=%s", (organization or {}).get("organization_id"), timezone_name)
+        return "America/Bogota", ZoneInfo("America/Bogota")
+
+
+def _organization_lead_minutes(organization: dict) -> int:
+    try:
+        value = int((organization or {}).get("booking_min_lead_minutes") or 0)
+    except (TypeError, ValueError):
+        value = 0
+    return max(0, min(value, 24 * 60))
+
+
+def _slot_local_datetime(appointment_date, start_minutes: int, zone):
+    return datetime(appointment_date.year, appointment_date.month, appointment_date.day, start_minutes // 60, start_minutes % 60, tzinfo=zone)
+
+
+def _strict_slot_is_future(context: dict, requested_start: int) -> bool:
+    slot_at = _slot_local_datetime(context["date"], requested_start, context["timezone_info"])
+    return slot_at > context["minimum_start_at"]
+async def _strict_booking_context(org_id: str, barber_id: str, service_id: str, date_value: str):
+    appointment_date = _strict_date(date_value)
+    organization = await db.organizations.find_one({"organization_id": org_id}, {"_id": 0})
+    if not organization:
+        raise HTTPException(status_code=404, detail="Organization not found")
+    timezone_name, timezone_info = _organization_timezone(organization)
+    local_now = datetime.now(timezone_info)
+    lead_minutes = _organization_lead_minutes(organization)
+    minimum_start_at = local_now + timedelta(minutes=lead_minutes)
+    if appointment_date < local_now.date():
+        raise HTTPException(status_code=400, detail={"code":"APPOINTMENT_DATE_IN_PAST","message":"No puedes reservar en una fecha pasada."})
+
+    barber = await db.barbers.find_one({
+        "barber_id": barber_id,
+        "organization_id": org_id,
+        "$or": [{"active": True}, {"active": {"$exists": False}}]
+    }, {"_id": 0})
+    if not barber:
+        raise HTTPException(status_code=404, detail="Professional not found")
+
+    service = await db.services.find_one({
+        "service_id": service_id,
+        "organization_id": org_id
+    }, {"_id": 0})
+    if not service:
+        raise HTTPException(status_code=404, detail="Service not found")
+
+    service_ids = barber.get("service_ids") or []
+    if service_ids and service_id not in service_ids:
+        raise HTTPException(status_code=409, detail="The selected professional does not provide this service")
+
+    available_days = barber.get("available_days") or [1, 2, 3, 4, 5]
+    weekday = _nexus_weekday(appointment_date)
+    if weekday not in available_days:
+        raise HTTPException(status_code=409, detail="The selected professional does not work on this day")
+
+    start_time = barber.get("start_time") or "09:00"
+    end_time = barber.get("end_time") or "18:00"
+    work_start = _strict_minutes(start_time, "professional start time")
+    work_end = _strict_minutes(end_time, "professional end time")
+    if work_end <= work_start:
+        raise HTTPException(status_code=409, detail="The professional schedule is not configured correctly")
+
+    try:
+        duration = int(service.get("duration") or 0)
+    except (TypeError, ValueError):
+        duration = 0
+    if duration <= 0 or duration > 24 * 60:
+        raise HTTPException(status_code=409, detail="The service duration is not configured correctly")
+
+    appointments = await db.appointments.find({
+        "organization_id": org_id,
+        "barber_id": barber_id,
+        "date": date_value,
+        "status": {"$ne": "cancelled"}
+    }, {"_id": 0, "time": 1, "service_id": 1}).to_list(1000)
+
+    appointment_service_ids = list({item.get("service_id") for item in appointments if item.get("service_id")})
+    appointment_services = await db.services.find({
+        "organization_id": org_id,
+        "service_id": {"$in": appointment_service_ids}
+    }, {"_id": 0, "service_id": 1, "duration": 1}).to_list(1000) if appointment_service_ids else []
+    duration_lookup = {
+        item["service_id"]: int(item.get("duration") or 30)
+        for item in appointment_services
+    }
+
+    occupied = []
+    for item in appointments:
+        try:
+            item_start = _strict_minutes(item.get("time"), "existing appointment time")
+        except HTTPException:
+            logger.warning("Skipping appointment with invalid time: %s", item.get("appointment_id"))
+            continue
+        item_duration = max(1, duration_lookup.get(item.get("service_id"), 30))
+        occupied.append((item_start, item_start + item_duration, "appointment"))
+
+    blocked_times = await db.blocked_times.find({
+        "organization_id": org_id,
+        "barber_id": barber_id,
+        "date": date_value
+    }, {"_id": 0, "start_time": 1, "end_time": 1}).to_list(1000)
+    for item in blocked_times:
+        block_start = _strict_minutes(item.get("start_time"), "blocked start time")
+        block_end = _strict_minutes(item.get("end_time"), "blocked end time")
+        if block_end > block_start:
+            occupied.append((block_start, block_end, "blocked"))
+
+    return {
+        "date": appointment_date,
+        "organization": organization,
+        "timezone": timezone_name,
+        "timezone_info": timezone_info,
+        "local_now": local_now,
+        "minimum_lead_minutes": lead_minutes,
+        "minimum_start_at": minimum_start_at,
+        "weekday": weekday,
+        "barber": barber,
+        "service": service,
+        "duration": duration,
+        "work_start": work_start,
+        "work_end": work_end,
+        "occupied": occupied
+    }
+
+
+def _strict_slot_is_available(context: dict, requested_start: int) -> bool:
+    requested_end = requested_start + context["duration"]
+    if requested_start < context["work_start"] or requested_end > context["work_end"]:
+        return False
+    return not any(
+        _intervals_overlap(requested_start, requested_end, busy_start, busy_end)
+        for busy_start, busy_end, _ in context["occupied"]
+    )
+
+
+async def _strict_available_slots(org_id: str, barber_id: str, service_id: str, date_value: str):
+    context = await _strict_booking_context(org_id, barber_id, service_id, date_value)
+    slots = []
+    current = context["work_start"]
+    remainder = current % 30
+    if remainder:
+        current += 30 - remainder
+    while current + context["duration"] <= context["work_end"]:
+        if _strict_slot_is_future(context, current) and _strict_slot_is_available(context, current):
+            slots.append(f"{current // 60:02d}:{current % 60:02d}")
+        current += 30
+    return context, slots
+
+
+async def _acquire_booking_lock(org_id: str, barber_id: str, date_value: str) -> str:
+    lock_id = f"booking:{org_id}:{barber_id}:{date_value}"
+    now = datetime.now(timezone.utc)
+    expires_at = now + timedelta(seconds=15)
+    await db.booking_locks.delete_many({"_id": lock_id, "expires_at": {"$lte": now}})
+    try:
+        await db.booking_locks.insert_one({
+            "_id": lock_id,
+            "organization_id": org_id,
+            "barber_id": barber_id,
+            "date": date_value,
+            "created_at": now,
+            "expires_at": expires_at
+        })
+    except Exception as error:
+        if "E11000" in str(error) or "duplicate key" in str(error).lower():
+            raise HTTPException(status_code=409, detail="This schedule is being updated. Please try again")
+        raise
+    return lock_id
+
+
+# ==================== END STRICT PUBLIC AVAILABILITY ====================
+
+# Public Endpoints (for clients)
+@api_router.get("/public/{org_id}/services")
+async def get_public_services(org_id: str):
+    services = await db.services.find({"organization_id": org_id}, {"_id": 0}).to_list(1000)
+    for service in services:
+        if isinstance(service["created_at"], str):
+            service["created_at"] = datetime.fromisoformat(service["created_at"])
+    return services
+
+@api_router.get("/public/{org_id}/barbers")
+async def get_public_barbers(org_id: str):
+    query = {
+        "organization_id": org_id,
+        "$or": [{"active": True}, {"active": {"$exists": False}}]
+    }
+    projection = {
+        "_id": 0,
+        "barber_id": 1,
+        "name": 1,
+        "display_name": 1,
+        "bio": 1,
+        "avatar": 1,
+        "available_days": 1,
+        "start_time": 1,
+        "end_time": 1,
+        "service_ids": 1
+    }
+    barbers = await db.barbers.find(query, projection).to_list(1000)
+    for barber in barbers:
+        barber["display_name"] = barber.get("display_name") or barber.get("name")
+        barber["name"] = barber.get("name") or barber["display_name"]
+        barber["available_days"] = barber.get("available_days") or [1, 2, 3, 4, 5]
+        barber["start_time"] = barber.get("start_time") or "09:00"
+        barber["end_time"] = barber.get("end_time") or "18:00"
+        barber["service_ids"] = barber.get("service_ids") or []
+    return barbers
+
+@api_router.get("/public/{org_id}/availability")
+async def get_availability(org_id: str, barber_id: str, date: str, service_id: str):
+    context, slots = await _strict_available_slots(org_id, barber_id, service_id, date)
+    return {
+        "available_slots": slots,
+        "date": date,
+        "weekday": context["weekday"],
+        "working_day": True,
+        "start_time": context["barber"].get("start_time") or "09:00",
+        "end_time": context["barber"].get("end_time") or "18:00",
+        "service_duration": context["duration"],
+        "timezone": context["timezone"],
+        "local_date": context["local_now"].date().isoformat(),
+        "minimum_lead_minutes": context["minimum_lead_minutes"]
+    }
+
+@api_router.post("/public/{org_id}/appointments")
+@limiter.limit("5/hour")
+async def create_public_appointment(org_id: str, data: AppointmentCreate, request: Request):
+    # NEXUS_STRICT_AVAILABILITY_V1
+    # Parse safely so malformed requests return 400 instead of 500.
+    appointment_date = _strict_date(data.date)
+    today = datetime.now(timezone.utc).date()
+    if appointment_date < today:
+        raise HTTPException(status_code=400, detail="Cannot book appointments in the past")
+
+    # Get service to know duration
+    service = await db.services.find_one({"service_id": data.service_id, "organization_id": org_id}, {"_id": 0})
+    if not service:
+        raise HTTPException(status_code=404, detail="Service not found")
+
+    barber = await db.barbers.find_one({
+        "barber_id": data.barber_id,
+        "organization_id": org_id,
+        "$or": [{"active": True}, {"active": {"$exists": False}}]
+    }, {"_id": 0})
+    if not barber:
+        raise HTTPException(status_code=404, detail="Barber not found")
+    service_ids = barber.get("service_ids") or []
+    if service_ids and data.service_id not in service_ids:
+        raise HTTPException(status_code=400, detail="Barber does not provide this service")
+
+    service_duration = service["duration"]
+
+    # NEXUS_STRICT_AVAILABILITY_V1: backend is the final authority.
+    booking_lock_id = await _acquire_booking_lock(org_id, data.barber_id, data.date)
+    try:
+        strict_context, available_slots = await _strict_available_slots(
+            org_id, data.barber_id, data.service_id, data.date
+        )
+        start_minutes = _strict_minutes(data.time, "appointment time")
+        if not _strict_slot_is_future(strict_context, start_minutes):
+            raise HTTPException(status_code=409, detail={"code":"APPOINTMENT_TIME_IN_PAST","message":"Este horario ya no está disponible. Selecciona uno posterior."})
+        if data.time not in available_slots or not _strict_slot_is_available(strict_context, start_minutes):
+            raise HTTPException(status_code=409, detail={"code":"APPOINTMENT_SLOT_UNAVAILABLE","message":"Este horario ya no está disponible."})
+    except Exception:
+        await db.booking_locks.delete_one({"_id": booking_lock_id})
+        raise
+
+    # Compatibility check retained as defense in depth.
+    # Get current appointments
+    appointments = await db.appointments.find({
+        "organization_id": org_id,
+        "barber_id": data.barber_id,
+        "date": data.date,
+        "status": {"$ne": "cancelled"}
+    }, {"_id": 0}).to_list(1000)
+
+    # Check for conflicts
+    for apt in appointments:
+        apt_service = await db.services.find_one({"service_id": apt["service_id"]}, {"_id": 0})
+        apt_duration = apt_service["duration"] if apt_service else 30
+        apt_hour, apt_minute = map(int, apt["time"].split(":"))
+        apt_start_minutes = apt_hour * 60 + apt_minute
+        apt_end_minutes = apt_start_minutes + apt_duration
+
+        new_end_minutes = start_minutes + service_duration
+
+        # Check for overlap
+        if not (new_end_minutes <= apt_start_minutes or start_minutes >= apt_end_minutes):
+            raise HTTPException(status_code=409, detail="This time slot is no longer available")
+
+        # NEXUS_8A7G1B0_PUBLIC_APPOINTMENT_ROUTE_OWNERSHIP_V1
+    # NEXUS_PUBLIC_APPOINTMENT_TOKEN_V1
+
+    # Sanitize phone number for consistency
+    sanitized_phone = sanitize_phone(data.client_phone)
+
+    appointment_id = f"apt_{uuid.uuid4().hex[:12]}"
+    management_token = secrets.token_urlsafe(32)
+    management_token_hash = hashlib.sha256(management_token.encode("utf-8")).hexdigest()
+    appointment_doc = {
+        "appointment_id": appointment_id,
+        "organization_id": org_id,
+        "service_id": data.service_id,
+        "barber_id": data.barber_id,
+        "client_name": data.client_name.strip()[:100],  # Limit length
+        "client_phone": sanitized_phone,
+        "client_email": data.client_email,
+        "date": data.date,
+        "time": data.time,
+        "status": "confirmed",
+        "management_token_hash": management_token_hash,
+        "created_at": datetime.now(timezone.utc).isoformat()
+    }
+
+    try:
+        await db.appointments.insert_one(appointment_doc)
+        await db.booking_locks.delete_one({"_id": booking_lock_id})
+        booking_lock_id = None
+
+        # NEXUS_8A7G1B1B_V2_CONFIRMATION_TRACE_BRIDGE
+        if data.client_email:
+            try:
+                organization = await db.organizations.find_one({"organization_id": org_id}, {"_id": 0}) or {}
+                professional = await db.barbers.find_one({"barber_id": data.barber_id, "organization_id": org_id}, {"_id": 0}) or {}
+                professional_name = professional.get("display_name") or professional.get("name") or "Profesional"
+                organization_name = organization.get("name") or "Nexus"
+                confirmation_payload = {
+                    "customer_name": data.client_name,
+                    "professional_name": professional_name,
+                    "service_name": service.get("name", "Servicio"),
+                    "service_duration": service.get("duration"),
+                    "date": data.date,
+                    "time": data.time,
+                    "organization_name": organization_name,
+                    "organization_address": organization.get("address"),
+                }
+                # Build cancellation URL with FRONTEND_URL validation
+                frontend_url = os.environ.get('FRONTEND_URL', '').rstrip('/')
+                if not frontend_url:
+                    logger.error(f"FRONTEND_URL is not configured; cancellation link omitted for appointment {appointment_id}")
+                    cancellation_url = None
+                else:
+                    cancellation_url = f"{frontend_url}/cancel/{appointment_id}?token={management_token}"
+
+                await execute_compatibility_delivery(
+                    db, organization_id=org_id, appointment_id=appointment_id,
+                    event_type="confirmation", recipient=data.client_email,
+                    payload=confirmation_payload,
+                    sender=lambda: email_service.send_appointment_confirmation(
+                        to_email=data.client_email, customer_name=data.client_name,
+                        barber_name=professional_name, service_name=service.get("name", "Servicio"),
+                        date=data.date, time=data.time, organization_name=organization_name,
+                        organization_address=organization.get("address"),
+                        cancellation_url=cancellation_url,
+                    ), worker_id="public_booking_confirmation",
+                )
+                if organization.get("notification_settings", {}).get("admin_new_appointment", True):
+                    admin_user = await db.users.find_one({
+                        "organization_id": org_id,
+                        "role": {"$in": ["owner", "manager", "admin"]},
+                        "access_status": "approved", "active": {"$ne": False},
+                        "deleted_at": {"$exists": False}, "email": {"$type": "string"},
+                    }, {"_id": 0, "email": 1}, sort=[("role", 1), ("created_at", 1)])
+                    if admin_user and admin_user.get("email"):
+                        await execute_compatibility_delivery(
+                            db, organization_id=org_id, appointment_id=appointment_id,
+                            event_type="admin_new_booking", recipient=admin_user["email"],
+                            payload={"customer_name": data.client_name, "customer_phone": data.client_phone,
+                                     "professional_name": professional_name, "service_name": service.get("name", "Servicio"),
+                                     "date": data.date, "time": data.time, "organization_name": organization_name},
+                            sender=lambda: email_service.send_admin_new_appointment_notification(
+                                admin_email=admin_user["email"], customer_name=data.client_name,
+                                customer_phone=data.client_phone, service_name=service.get("name", "Servicio"),
+                                barber_name=professional_name, date=data.date, time=data.time,
+                                organization_name=organization_name,
+                            ), worker_id="public_booking_admin_notification",
+                        )
+            except Exception as email_error:
+                logger.warning("appointment_email_trace_failed appointment_id=%s diagnostic_code=%s", appointment_id, type(email_error).__name__)
+
+    except Exception as e:
+        if booking_lock_id:
+            await db.booking_locks.delete_one({"_id": booking_lock_id})
+        # Handle duplicate key error from unique index
+        if "E11000" in str(e) or "duplicate key" in str(e).lower():
+            raise HTTPException(status_code=409, detail="This time slot is no longer available")
+        raise
+
+    # Create or update client record with TCPA/Ley 1581 consent
+    await upsert_client(
+        organization_id=org_id,
+        phone=sanitized_phone,
+        name=data.client_name.strip()[:100],
+        email=data.client_email,
+        marketing_consent=data.marketing_consent,
+        consent_ip=request.client.host if request.client else None,
+        consent_text="Acepto recibir promociones y novedades por correo/WhatsApp" if data.marketing_consent else None
+    )
+
+    logger.info(f"[MOCK] Appointment {appointment_id} confirmed for {data.date} at {data.time}")
+
+    appointment_doc["created_at"] = datetime.fromisoformat(appointment_doc["created_at"])
+    response_doc = Appointment(**appointment_doc).model_dump()
+    response_doc["management_token"] = management_token
+    return response_doc
+
+
+# NEXUS_INVENTORY_LEDGER_ROUTES_5A_V1
+INVENTORY_MOVEMENT_TYPES = {"purchase", "manual_in", "manual_out", "adjustment_in", "adjustment_out", "return", "waste", "service_consumption", "audit_adjustment_in", "audit_adjustment_out"}
+INVENTORY_IN_TYPES = {"purchase", "manual_in", "adjustment_in", "return", "audit_adjustment_in"}
+
+async def inventory_organization(user: User, requested: Optional[str]) -> str:
+    require_management_role(user)
+    return await resolve_team_organization(user, requested)
+
+@api_router.get("/inventory/summary")
+async def inventory_summary(organization_id: Optional[str] = None, authorization: Optional[str] = Header(None), session_token: Optional[str] = Cookie(None)):
+    user = await get_current_user(authorization, session_token)
+    org_id = await inventory_organization(user, organization_id)
+    items = await db.inventory.find({"organization_id": org_id, "active": {"$ne": False}}, {"_id": 0}).to_list(100000)
+    return {"item_count": len(items), "low_stock_count": sum(1 for x in items if float(x.get("quantity", 0)) <= float(x.get("min_stock", 0))), "total_units": round(sum(float(x.get("quantity", 0)) for x in items), 4), "inventory_value": round(sum(float(x.get("quantity", 0))*float(x.get("unit_cost", 0)) for x in items), 2)}
+
+@api_router.get("/inventory/movements")
+async def inventory_movements(organization_id: Optional[str] = None, inventory_item_id: Optional[str] = None, movement_type: Optional[str] = None, page: int = 1, page_size: int = 25, authorization: Optional[str] = Header(None), session_token: Optional[str] = Cookie(None)):
+    user = await get_current_user(authorization, session_token)
+    org_id = await inventory_organization(user, organization_id)
+    page, page_size = max(1, page), max(1, min(page_size, 100))
+    query = {"organization_id": org_id}
+    if inventory_item_id: query["inventory_item_id"] = inventory_item_id
+    if movement_type: query["movement_type"] = movement_type
+    total = await db.inventory_movements.count_documents(query)
+    items = await db.inventory_movements.find(query, {"_id": 0}).sort([("created_at", -1), ("movement_id", -1)]).skip((page-1)*page_size).limit(page_size).to_list(page_size)
+    pages = (total + page_size - 1)//page_size
+    return {"items": items, "page": page, "page_size": page_size, "total": total, "total_pages": pages, "has_next": page < pages, "has_previous": page > 1}
+
+@api_router.post("/inventory/{item_id}/movements")
+async def create_inventory_movement(item_id: str, data: InventoryMovementCreate, authorization: Optional[str] = Header(None), session_token: Optional[str] = Cookie(None)):
+    user = await get_current_user(authorization, session_token)
+    org_id = await inventory_organization(user, data.organization_id)
+    if data.movement_type not in INVENTORY_MOVEMENT_TYPES: raise HTTPException(status_code=400, detail="Unsupported inventory movement type")
+    quantity = round(float(data.quantity), 4)
+    if quantity <= 0: raise HTTPException(status_code=400, detail="Movement quantity must be positive")
+    key = (data.idempotency_key or "").strip()[:200] or None
+    if key:
+        existing = await db.inventory_movements.find_one({"organization_id": org_id, "idempotency_key": key}, {"_id": 0})
+        if existing: return {**existing, "idempotent_replay": True}
+    item = await db.inventory.find_one({"item_id": item_id, "organization_id": org_id, "active": {"$ne": False}}, {"_id": 0})
+    if not item: raise HTTPException(status_code=404, detail="Inventory item not found")
+    # NEXUS_PO_UNIT_QUANTITY_VALIDATION_V1 (fase 2 — movimientos manuales de Kardex)
+    try:
+        validate_quantity_for_unit(quantity, item.get("unit"), "La cantidad del movimiento")
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    previous = round(float(item.get("quantity", 0)), 4)
+    incoming = data.movement_type in INVENTORY_IN_TYPES
+    new_stock = round(previous + quantity if incoming else previous - quantity, 4)
+    if new_stock < 0: raise HTTPException(status_code=409, detail="Insufficient inventory stock")
+    cost = round(float(data.unit_cost if data.unit_cost is not None else item.get("unit_cost", 0) or 0), 4)
+    if cost < 0: raise HTTPException(status_code=400, detail="Unit cost cannot be negative")
+    now = datetime.now(timezone.utc).isoformat()
+    changed = await db.inventory.update_one({"item_id": item_id, "organization_id": org_id, "quantity": item.get("quantity", 0)}, {"$set": {"quantity": new_stock, "unit_cost": cost if data.unit_cost is not None else item.get("unit_cost", 0), "updated_at": now}})
+    if changed.modified_count != 1: raise HTTPException(status_code=409, detail="Inventory changed concurrently; retry")
+    movement = {"movement_id": f"mov_{uuid.uuid4().hex[:16]}", "organization_id": org_id, "inventory_item_id": item_id, "item_name_snapshot": item.get("name"), "movement_type": data.movement_type, "direction": "in" if incoming else "out", "quantity": quantity, "unit_cost": cost, "total_cost": round(quantity*cost, 2), "previous_stock": previous, "new_stock": new_stock, "reference_type": (data.reference_type or "manual")[:80], "reference_id": (data.reference_id or "")[:160] or None, "idempotency_key": key, "created_by": user.user_id, "created_at": now, "notes": (data.notes or "").strip()[:500] or None}
+    try: await db.inventory_movements.insert_one(movement.copy())
+    except Exception:
+        await db.inventory.update_one({"item_id": item_id, "organization_id": org_id, "quantity": new_stock}, {"$set": {"quantity": previous, "updated_at": now}})
+        raise
+    return movement
+
+# Public appointment management endpoints
+# NEXUS_PUBLIC_APPOINTMENT_TOKEN_V1
+def _appointment_token_hash(token: str) -> str:
+    return hashlib.sha256(token.encode("utf-8")).hexdigest()
+
+
+async def _get_public_appointment_with_token(appointment_id: str, token: str):
+    if not token or len(token) < 32:
+        raise HTTPException(status_code=403, detail="Invalid or missing appointment link")
+
+    appointment = await db.appointments.find_one(
+        {"appointment_id": appointment_id}, {"_id": 0}
+    )
+    stored_hash = appointment.get("management_token_hash") if appointment else None
+    supplied_hash = _appointment_token_hash(token)
+    if not appointment or not stored_hash or not secrets.compare_digest(stored_hash, supplied_hash):
+        raise HTTPException(status_code=403, detail="Invalid or expired appointment link")
+    return appointment
+
+
+@api_router.post("/public/appointments/{appointment_id}/cancel")
+async def cancel_public_appointment(appointment_id: str, token: str):
+    appointment = await _get_public_appointment_with_token(appointment_id, token)
+    if appointment.get("status") == "cancelled":
+        raise HTTPException(status_code=400, detail="Appointment already cancelled")
+    if appointment.get("status") == "completed":
+        raise HTTPException(status_code=400, detail="Completed appointments cannot be cancelled")
+
+    result = await db.appointments.update_one(
+        {
+            "appointment_id": appointment_id,
+            "management_token_hash": appointment["management_token_hash"],
+            "status": {"$nin": ["cancelled", "completed"]}
+        },
+        {"$set": {
+            "status": "cancelled",
+            "cancelled_at": datetime.now(timezone.utc).isoformat(),
+            "cancelled_by": "client_public_link"
+        }}
+    )
+    if result.modified_count != 1:
+        raise HTTPException(status_code=409, detail="Appointment status changed; refresh the page")
+
+    await _trace_appointment_cancellation(
+        appointment,
+        worker_id="public_appointment_cancellation",
+    )
+    logger.info(f"Public appointment {appointment_id} cancelled using a valid management token")
+    return {"message": "Appointment cancelled successfully", "appointment_id": appointment_id}
+
+
+@api_router.get("/public/appointments/{appointment_id}")
+async def get_public_appointment(appointment_id: str, token: str):
+    appointment = await _get_public_appointment_with_token(appointment_id, token)
+    organization_id = appointment["organization_id"]
+    service = await db.services.find_one(
+        {"service_id": appointment["service_id"], "organization_id": organization_id}, {"_id": 0}
+    )
+    barber = await db.barbers.find_one(
+        {"barber_id": appointment["barber_id"], "organization_id": organization_id}, {"_id": 0}
+    )
+    return {
+        "appointment_id": appointment["appointment_id"],
+        "organization_id": appointment["organization_id"],
+        "date": appointment["date"],
+        "time": appointment["time"],
+        "status": appointment.get("status", "confirmed"),
+        "service_name": service.get("name", "Servicio") if service else "Servicio",
+        "service_price": service.get("price", 0) if service else 0,
+        "barber_name": (barber.get("display_name") or barber.get("name") or "Profesional") if barber else "Profesional"
+    }
+
+# NEXUS_INVENTORY_AUDIT_REGISTRATION_5A_PACKAGE_2_V1
+from inventory_audit import build_inventory_audit_router
+api_router.include_router(build_inventory_audit_router(db, get_current_user, require_management_role, resolve_team_organization))
+
+# NEXUS_INVENTORY_CATALOG_REGISTRATION_5A_PACKAGE_3_V1
+from inventory_catalog import build_inventory_catalog_router
+from unit_catalog import validate_quantity_for_unit
+api_router.include_router(build_inventory_catalog_router(db, get_current_user, require_management_role, resolve_team_organization))
+
+# NEXUS_INVENTORY_REORDER_ALERTS_V1
+from inventory_reorder import build_inventory_reorder_router, ensure_inventory_reorder_indexes
+api_router.include_router(build_inventory_reorder_router(db, get_current_user, require_management_role, resolve_team_organization))
+
+# NEXUS_SERVICE_RECIPES_REGISTRATION_5B_PACKAGE_1_V1
+from service_recipes import build_service_recipes_router, ensure_service_recipe_indexes
+api_router.include_router(build_service_recipes_router(db, get_current_user, require_management_role, resolve_team_organization))
+
+# NEXUS_TRANSACTION_VOID_REVERSAL_5B_PACKAGE_3_V1
+api_router.include_router(build_transaction_void_router(db, get_current_user, require_management_role, validate_organization_access))
+api_router.include_router(build_supplier_router(db, get_current_user, require_management_role, resolve_team_organization))
+api_router.include_router(build_purchase_order_router(db, get_current_user, require_management_role, resolve_team_organization))
+api_router.include_router(build_purchase_receipt_router(db, get_current_user, require_management_role, resolve_team_organization))
+api_router.include_router(build_subscription_router(db, get_current_user))
+api_router.include_router(build_billing_hub_router(db, get_current_user))
+api_router.include_router(build_lifecycle_router(db, get_current_user, invoice_pdf))
+api_router.include_router(build_delivery_operations_router(db, get_current_user))
+api_router.include_router(build_platform_billing_router(db, get_current_user))
+api_router.include_router(build_third_party_matrix_router(db, get_current_user))
+# NEXUS_8A7S1A_SUPPORT_FOUNDATION_REGISTRATION_V1
+from support_center import build_support_center_router, ensure_support_center_indexes
+api_router.include_router(build_support_center_router(db, get_current_user, require_management_role, resolve_team_organization, record_security_event))
+
+# NEXUS_8A7D3A_SECURE_PROFESSIONAL_MEDIA_REGISTRATION_V1
+from professional_media import build_professional_media_router
+api_router.include_router(build_professional_media_router(db, get_current_user, require_management_role, resolve_team_organization, enforce_rls_on_write, record_security_event))
+# NEXUS_8A7D3C1_OWNER_MEDIA_RECONCILIATION_REGISTRATION_V1
+from professional_media_lifecycle import build_professional_media_lifecycle_router, ensure_professional_media_lifecycle_indexes
+api_router.include_router(build_professional_media_lifecycle_router(db, get_current_user))
+
+app.include_router(api_router)
+
+# ==================== SECURITY MIDDLEWARE ====================
+
+# CORS is fail-closed. Wildcards are discarded by request_security.
+app.add_middleware(
+    CORSMiddleware,
+    allow_credentials=True,
+    allow_origins=list(TRUSTED_ORIGINS),
+    allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allow_headers=["Content-Type", "Authorization", "Cookie", "X-Session-ID"],
+    expose_headers=["Set-Cookie", "Retry-After"],
+    max_age=600,
+)
+
+@app.middleware("http")
+async def request_security_and_headers(request: Request, call_next):
+    try:
+        await enforce_request_security(request)
+        response = await call_next(request)
+    except HTTPException as exc:
+        response = JSONResponse(
+            status_code=exc.status_code,
+            content={"detail": exc.detail},
+            headers=exc.headers or {},
+        )
+    response.headers["X-Frame-Options"] = "DENY"
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["X-XSS-Protection"] = "0"
+    response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
+    response.headers["Content-Security-Policy"] = "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'"
+    response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+    response.headers["Permissions-Policy"] = "geolocation=(), microphone=(), camera=()"
+    response.headers["Cross-Origin-Opener-Policy"] = "same-origin"
+    response.headers["Cross-Origin-Resource-Policy"] = "same-site"
+    return response
+
+# ==================== END SECURITY MIDDLEWARE ====================
+
+# NEXUS_SESSION_LIFECYCLE_V1
+async def _migrate_user_session_dates_and_indexes():
+    invalid_expires = 0
+    cursor = db.user_sessions.find({}, {"expires_at": 1, "created_at": 1})
+    async for session in cursor:
+        updates = {}
+        for field in ("expires_at", "created_at"):
+            value = session.get(field)
+            if isinstance(value, str):
+                try:
+                    parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+                    if parsed.tzinfo is None:
+                        parsed = parsed.replace(tzinfo=timezone.utc)
+                    updates[field] = parsed
+                except (TypeError, ValueError):
+                    if field == "expires_at":
+                        invalid_expires += 1
+        if updates:
+            await db.user_sessions.update_one({"_id": session["_id"]}, {"$set": updates})
+    if invalid_expires:
+        logger.error("Invalid session expiry values: %s; TTL index skipped", invalid_expires)
+        return
+    await db.user_sessions.create_index("session_token", unique=True, name="user_sessions_token_unique")
+    await db.user_sessions.create_index("user_id", name="user_sessions_user_id")
+    await db.user_sessions.create_index("expires_at", expireAfterSeconds=0, name="user_sessions_ttl")
+
+
+@app.on_event("startup")
+async def create_application_indexes():
+    await _migrate_user_session_dates_and_indexes()
+    await ensure_security_observability_indexes(db)
+    # NEXUS_CHECKOUT_BACKEND_V1
+    await db.transactions.create_index("transaction_id",unique=True)
+    await db.transactions.create_index("appointment_id",unique=True,partialFilterExpression={"status":"confirmed"})
+    await db.transactions.create_index([("organization_id",1),("created_at",-1)])
+    # NEXUS_TRANSACTION_REVENUE_STATISTICS_V1
+    await db.transactions.create_index([("organization_id", 1), ("status", 1), ("created_at", -1)])
+    await db.transactions.create_index([("organization_id", 1), ("barber_id", 1), ("status", 1), ("created_at", -1)])
+    await db.transactions.create_index([("organization_id", 1), ("payment_method", 1), ("status", 1), ("created_at", -1)])
+    # NEXUS_STAFF_INCOME_BACKEND_V1
+    await db.transactions.create_index([("organization_id", 1), ("barber_id", 1), ("status", 1), ("created_at", -1)])
+    # NEXUS_COMMISSION_FOUNDATION_V1
+    await db.commission_settings.create_index("organization_id", unique=True)
+    await db.staff_commission_overrides.create_index([("organization_id", 1), ("barber_id", 1), ("active", 1)])
+    # NEXUS_STAFF_APPOINTMENTS_BACKEND_V1
+    await db.appointments.create_index([("organization_id", 1), ("barber_id", 1), ("date", 1), ("time", 1)])
+    await db.appointments.create_index([("organization_id", 1), ("barber_id", 1), ("status", 1), ("date", 1)])
+    # NEXUS_HARDENING_3C_V1
+    await db.booking_locks.create_index(
+        "expires_at", expireAfterSeconds=0, name="booking_locks_ttl"
+    )
+    # NEXUS_STAFF_SETTLEMENTS_FOUNDATION_V1
+    await db.staff_settlements.create_index("settlement_id", unique=True)
+    await db.staff_settlements.create_index([("organization_id", 1), ("status", 1), ("created_at", -1)])
+    await db.staff_settlements.create_index([("organization_id", 1), ("barber_id", 1), ("created_at", -1)])
+    await db.transactions.create_index([("organization_id", 1), ("barber_id", 1), ("settlement_id", 1), ("created_at", 1)])
+    await db.audit_events.create_index([("organization_id", 1), ("created_at", -1)])
+    await db.invitations.create_index(
+        "token_hash",
+        unique=True,
+        partialFilterExpression={"token_hash": {"$exists": True}}
+    )
+    await db.invitations.create_index([
+        ("organization_id", 1),
+        ("normalized_email", 1),
+        ("status", 1)
+    ])
+    # NEXUS_8A7C3A_ATOMIC_INVITATION_ACCEPTANCE_V1
+    await db.users.create_index("normalized_email", unique=True, partialFilterExpression={"normalized_email": {"$type": "string"}}, name="users_normalized_email_unique")
+    await db.invitations.create_index("acceptance_id", unique=True, partialFilterExpression={"acceptance_id": {"$type": "string"}}, name="invitation_acceptance_id_unique")
+    await db.audit_events.create_index("acceptance_id", unique=True, partialFilterExpression={"acceptance_id": {"$type": "string"}}, name="audit_acceptance_id_unique")
+    await db.barbers.create_index("barber_id", unique=True, name="professional_id_unique")
+    # NEXUS_MANAGER_PROFESSIONAL_CREATION_FIX_V1
+    try:
+        await db.barbers.drop_index("professional_user_unique")
+    except Exception:
+        pass
+    await db.barbers.create_index(
+        "user_id",
+        unique=True,
+        name="professional_user_unique",
+        partialFilterExpression={"user_id": {"$type": "string"}}
+    )
+    await db.password_resets.create_index(
+        "token_hash",
+        unique=True,
+        partialFilterExpression={"token_hash": {"$exists": True}}
+    )
+    await db.password_resets.create_index("expires_at")
+    # NEXUS_INVENTORY_PACKAGE_1_INDEXES_5A_V1
+    await db.inventory.create_index([("organization_id", 1), ("name", 1)], name="nexus_inventory_org_name")
+    await db.inventory_movements.create_index([("organization_id", 1), ("inventory_item_id", 1), ("created_at", -1), ("movement_id", -1)], name="nexus_inventory_movements_item_created")
+    await db.inventory_movements.create_index([("organization_id", 1), ("movement_type", 1), ("created_at", -1)], name="nexus_inventory_movements_type_created")
+    await db.inventory_movements.create_index([("organization_id", 1), ("idempotency_key", 1)], unique=True, partialFilterExpression={"idempotency_key": {"$type": "string"}}, name="nexus_inventory_movement_idempotency")
+    await db.inventory.create_index(
+        [("organization_id", 1), ("sku", 1)],
+        unique=True,
+        partialFilterExpression={"sku": {"$type": "string"}},
+        name="nexus_inventory_org_sku_unique",
+    )
+    await db.inventory_audits.create_index([("organization_id", 1), ("created_at", -1)], name="nexus_inventory_audits_org_created")
+    await db.inventory_audit_lines.create_index([("audit_id", 1), ("audit_line_id", 1)], unique=True, name="nexus_inventory_audit_lines_unique")
+    # NEXUS_SERVICE_RECIPES_INDEXES_5B_PACKAGE_1_V1
+    await ensure_service_recipe_indexes(db)
+    # NEXUS_CHECKOUT_INVENTORY_INDEXES_5B_PACKAGE_2_V1
+    await ensure_checkout_inventory_indexes(db)
+    await ensure_transaction_void_indexes(db)
+    await ensure_supplier_indexes(db)
+    await ensure_purchase_order_indexes(db)
+    await ensure_inventory_reorder_indexes(db)
+    await ensure_purchase_receipt_indexes(db)
+    await ensure_subscription_indexes(db)
+    await ensure_billing_hub_indexes(db)
+    await ensure_lifecycle_indexes(db)
+    await ensure_delivery_operations_indexes(db)
+    await ensure_appointment_email_delivery_indexes(db)
+    await ensure_platform_billing_indexes(db)
+    await ensure_third_party_matrix_indexes(db)
+    await ensure_professional_media_lifecycle_indexes(db)
+    # NEXUS_8A7S1A_SUPPORT_FOUNDATION_INDEXES_V1
+    await ensure_support_center_indexes(db)
+    if os.getenv("SUBSCRIPTION_SCHEDULER_ENABLED","false").lower() in {"1","true","yes","on"}:
+        asyncio.create_task(scheduler_loop(db, invoice_pdf))
+    # NEXUS_PERSISTENT_QUERY_INDEXES_4E3_V1
+    await db.appointments.create_index(
+        [("organization_id", 1), ("date", -1), ("time", -1), ("appointment_id", -1)],
+        name="nexus_org_date_time_appointment_desc",
+    )
+    await db.appointments.create_index(
+        [("organization_id", 1), ("status", 1), ("date", -1), ("time", -1), ("appointment_id", -1)],
+        name="nexus_org_status_date_time_appointment_desc",
+    )
+    await db.clients.create_index(
+        [("organization_id", 1), ("total_visits", -1), ("client_id", 1)],
+        name="nexus_org_visits_client",
+    )
+    await db.transactions.create_index(
+        [("organization_id", 1), ("created_at", -1), ("transaction_id", -1)],
+        name="nexus_org_created_transaction_desc",
+    )
+    await db.transactions.create_index(
+        [("organization_id", 1), ("payment_method", 1), ("created_at", -1), ("transaction_id", -1)],
+        name="nexus_org_payment_created_transaction_desc",
+    )
+    await db.staff_settlements.create_index(
+        [("organization_id", 1), ("created_at", -1), ("settlement_id", -1)],
+        name="nexus_org_created_settlement_desc",
+    )
+    await db.staff_settlements.create_index(
+        [("organization_id", 1), ("status", 1), ("created_at", -1), ("settlement_id", -1)],
+        name="nexus_org_status_created_settlement_desc",
+    )
+
+
+@app.on_event("shutdown")
+async def shutdown_db_client():
+    client.close()
