@@ -41,6 +41,7 @@ from request_security import TRUSTED_ORIGINS, enforce_request_security, refresh_
 from security_observability import configure_security_observability, ensure_security_observability_indexes, record_security_event
 from owner_delivery_operations import build_delivery_operations_router, ensure_delivery_operations_indexes, scheduler_loop
 from appointment_email_delivery import ensure_appointment_email_delivery_indexes, execute_compatibility_delivery, cancel_pending_deliveries
+from review_requests import schedule_review_request, ensure_review_request_indexes
 from platform_billing_settings import build_platform_billing_router, ensure_platform_billing_indexes
 from owner_third_party_matrix import build_third_party_matrix_router, ensure_third_party_matrix_indexes
 
@@ -2473,6 +2474,11 @@ async def _trace_appointment_completion(appointment: dict, service: dict, worker
         ) or {}
         if not organization.get("notification_settings", {}).get("appointment_completed", True):
             return
+        try:
+            completed_appointment = {**appointment, "status": "completed"}
+            await schedule_review_request(db, appointment=completed_appointment, organization=organization)
+        except Exception as review_error:
+            logger.warning("review_request_schedule_failed appointment_id=%s diagnostic_code=%s", appointment_id, type(review_error).__name__)
         organization_name = organization.get("name") or "Nexus"
         service_name = (service or {}).get("name") or "Servicio"
         payload = {
@@ -5579,6 +5585,7 @@ async def create_application_indexes():
     await ensure_lifecycle_indexes(db)
     await ensure_delivery_operations_indexes(db)
     await ensure_appointment_email_delivery_indexes(db)
+    await ensure_review_request_indexes(db)
     await ensure_platform_billing_indexes(db)
     await ensure_third_party_matrix_indexes(db)
     await ensure_professional_media_lifecycle_indexes(db)

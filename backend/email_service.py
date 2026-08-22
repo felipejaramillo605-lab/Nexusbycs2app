@@ -617,8 +617,8 @@ class EmailService:
                 </div>
                 <div class="content">
                     <p style="font-size: 18px; color: #fff;">Hola <strong>{customer_name}</strong>,</p>
-                    <p style="color: #aaa;">Tu opinión nos ayuda muchísimo. ¿Nos regalas un minuto para dejarnos una reseña en Instagram?</p>
-                    <a href="{safe_link}" class="cta" target="_blank" rel="noopener noreferrer">Dejar reseña en Instagram</a>
+                    <p style="color: #aaa;">Tu opinión nos ayuda a seguir mejorando. ¿Nos regalas un minuto para compartir tu experiencia?</p>
+                    <a href="{safe_link}" class="cta" target="_blank" rel="noopener noreferrer">Compartir mi experiencia</a>
                 </div>
                 <div class="footer">
                     <p><strong>{organization_name}</strong></p>

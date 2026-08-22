@@ -29,6 +29,10 @@ EVENT_CONTRACTS = {
         "required": {"customer_name", "professional_name", "service_name", "date", "time", "organization_name"},
         "forbidden": set(),
     },
+    "review_request": {
+        "required": {"customer_name", "organization_name", "review_link", "client_id", "review_request_id"},
+        "forbidden": {"management_token", "cancellation_url"},
+    },
 }
 
 
@@ -105,6 +109,11 @@ def build_sender(delivery: Mapping[str, Any], service=email_service):
             time=payload["time"],
             organization_name=payload["organization_name"],
         )
+    if event_type == "review_request":
+        return lambda: service.send_review_request(
+            to_email=recipient, customer_name=payload["customer_name"],
+            organization_name=payload["organization_name"], review_link=payload["review_link"],
+        )
     if event_type == "completed":
         return lambda: service.send_appointment_completed(
             to_email=recipient,
@@ -125,8 +134,15 @@ def build_sender(delivery: Mapping[str, Any], service=email_service):
     )
 
 
-async def dispatch_claimed_delivery(delivery: Mapping[str, Any], service=email_service) -> dict[str, Any]:
+async def dispatch_claimed_delivery(delivery: Mapping[str, Any], service=email_service, db=None) -> dict[str, Any]:
     try:
+        if delivery.get("event_type") == "review_request":
+            if db is None:
+                raise DispatchContractError("review_db_required")
+            from review_requests import revalidate_review_delivery
+            reason = await revalidate_review_delivery(db, delivery)
+            if reason:
+                return {"accepted": False, "provider": "dispatcher", "provider_response_code": "contract_rejected", "error_code": reason}
         sender = build_sender(delivery, service=service)
         raw = await asyncio.to_thread(sender)
         return normalize_sender_result(raw)

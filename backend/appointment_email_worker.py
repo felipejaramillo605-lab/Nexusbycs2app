@@ -35,7 +35,7 @@ async def process_claimed_delivery(
     recorder=record_attempt,
 ) -> dict[str, Any]:
     try:
-        result = await dispatcher(delivery)
+        result = await dispatcher(delivery, db=db)
     except Exception as exc:
         result = {
             "accepted": False,

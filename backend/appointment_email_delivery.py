@@ -19,11 +19,14 @@ RETRYABLE_ERROR_CODES = {
 PERMANENT_ERROR_CODES = {
     "smtpauthenticationerror", "smtprecipientsrefused",
     "smtpsenderrefused", "invalid_recipient", "missing_recipient",
+    "consent_required", "consent_revoked", "client_inactive", "client_deleted",
+    "review_disabled", "email_channel_disabled", "invalid_review_link",
+    "organization_unavailable", "missing_client", "ambiguous_client", "review_link_changed",
 }
 RETRYABLE_SMTP_CODES = {"421", "450", "451", "452", "454"}
 PERMANENT_SMTP_CODES = {"530", "534", "535", "550", "551", "552", "553", "554"}
 
-EVENT_TYPES = {"confirmation", "reminder_24h", "cancelled", "completed", "admin_new_booking"}
+EVENT_TYPES = {"confirmation", "reminder_24h", "cancelled", "completed", "admin_new_booking", "review_request"}
 SAFE_ERROR = re.compile(r"[^A-Za-z0-9_.:-]+")
 
 
