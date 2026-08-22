@@ -452,6 +452,9 @@ class ClientChangePinRequest(BaseModel):
     current_pin: str
     new_pin: str
 
+class ClientDeleteAccountRequest(BaseModel):
+    current_pin: str = Field(..., pattern=r"^\d{4}$")
+
 class ClientForgotPinRequest(BaseModel):
     phone: str
     organization_id: str
@@ -4356,11 +4359,21 @@ async def change_client_pin(
     return {"message": "PIN changed successfully"}
 
 @api_router.delete("/public/clients/me")
-async def delete_client_account(current_client: Client = Depends(get_current_client)):
+async def delete_client_account(
+    data: ClientDeleteAccountRequest,
+    current_client: Client = Depends(get_current_client)
+):
     """
-    Delete client account. Removes client profile and sessions.
+    Delete client account. Requires the current PIN for confirmation.
+    Removes client profile and sessions.
     Appointments remain for business records (they have their own copy of client data).
     """
+    # NEXUS_SECURITY_CURRENT_PIN_ACCOUNT_DELETION_S1
+    if not current_client.pin_hash or not bcrypt.checkpw(
+        data.current_pin.encode(), current_client.pin_hash.encode()
+    ):
+        raise HTTPException(status_code=401, detail="PIN incorrecto")
+
     # Delete all client sessions
     await db.client_sessions.delete_many({"client_id": current_client.client_id})
 
