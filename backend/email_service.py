@@ -601,12 +601,13 @@ class EmailService:
             <style>
                 body {{ font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; margin: 0; padding: 0; background-color: #000000; }}
                 .container {{ max-width: 600px; margin: 40px auto; background: linear-gradient(135deg, #1a1a1a 0%, #0a0a0a 100%); border-radius: 16px; overflow: hidden; border: 1px solid rgba(255,255,255,0.1); }}
-                .header {{ background: linear-gradient(135deg, #E1306C 0%, #C13584 100%); padding: 40px 20px; text-align: center; }}
+                .header {{ background: linear-gradient(135deg, #4285F4 0%, #34A853 100%); padding: 40px 20px; text-align: center; }}
                 .header h1 {{ color: white; margin: 0; font-size: 26px; font-weight: 300; }}
                 .content {{ padding: 40px 30px; color: #ffffff; text-align: center; }}
-                .cta {{ display: inline-block; margin-top: 24px; padding: 14px 32px; background: linear-gradient(135deg, #E1306C 0%, #C13584 100%); color: white; text-decoration: none; border-radius: 999px; font-weight: 500; }}
+                .cta {{ display: inline-block; margin-top: 24px; padding: 14px 32px; background: linear-gradient(135deg, #4285F4 0%, #34A853 100%); color: white; text-decoration: none; border-radius: 999px; font-weight: 500; box-shadow: 0 4px 14px rgba(66,133,244,0.4); }}
                 .footer {{ padding: 30px; text-align: center; color: #666; font-size: 12px; border-top: 1px solid rgba(255,255,255,0.1); }}
                 .emoji {{ font-size: 48px; margin: 20px 0; }}
+                .stars {{ font-size: 32px; letter-spacing: 8px; margin: 12px 0; }}
             </style>
         </head>
         <body>
@@ -617,8 +618,10 @@ class EmailService:
                 </div>
                 <div class="content">
                     <p style="font-size: 18px; color: #fff;">Hola <strong>{customer_name}</strong>,</p>
-                    <p style="color: #aaa;">Tu opinión nos ayuda a seguir mejorando. ¿Nos regalas un minuto para compartir tu experiencia?</p>
-                    <a href="{safe_link}" class="cta" target="_blank" rel="noopener noreferrer">Compartir mi experiencia</a>
+                    <p style="color: #aaa;">Tu opinión nos ayuda a seguir mejorando y a que más clientes nos encuentren. ¿Nos regalas un minuto para dejarnos una reseña en Google?</p>
+                    <div class="stars">⭐ ⭐ ⭐ ⭐ ⭐</div>
+                    <a href="{safe_link}" class="cta" target="_blank" rel="noopener noreferrer">Calificar en Google</a>
+                    <p style="color: #666; font-size: 12px; margin-top: 20px;">Solo te tomará 30 segundos</p>
                 </div>
                 <div class="footer">
                     <p><strong>{organization_name}</strong></p>

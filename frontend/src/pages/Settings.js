@@ -4,7 +4,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useOrganization } from '../context/OrganizationContext';
-import { ArrowLeft, Save, Building, Users, Mail, UserCog, Trash2, Loader2, Check, Percent, RotateCcw, Pencil, Copy, ExternalLink, X, Settings as SettingsIcon, FileText, CreditCard, Shield, Palette, Star } from 'lucide-react';
+import { ArrowLeft, Save, Building, Users, Mail, UserCog, Trash2, Loader2, Check, Percent, RotateCcw, Pencil, Copy, ExternalLink, X, Settings as SettingsIcon, FileText, CreditCard, Shield, Palette, Star, MessageSquare } from 'lucide-react';
 import { toast } from 'sonner';
 import { AccessibleModal, confirmAction } from '../components/design';
 import { teamAPI, commissionAPI } from '../api';
@@ -57,6 +57,13 @@ const Settings = () => {
     reward_description: '',
   });
   const [savingLoyalty, setSavingLoyalty] = useState(false);
+  // NEXUS_REVIEW_REQUEST_SETTINGS_UI_V1
+  const [reviewData, setReviewData] = useState({
+    review_link: '',
+    enabled: false,
+    email_channel: false,
+  });
+  const [savingReview, setSavingReview] = useState(false);
 
   // Team Management State
   const [teamMembers, setTeamMembers] = useState([]);
@@ -101,6 +108,13 @@ const Settings = () => {
           points_per_visit: Number(ls.points_per_visit ?? 10),
           reward_threshold: Number(ls.reward_threshold ?? 100),
           reward_description: ls.reward_description || '',
+        });
+        // NEXUS_REVIEW_REQUEST_SETTINGS_UI_V1
+        const rrs = data.review_request_settings || {};
+        setReviewData({
+          review_link: data.review_link || '',
+          enabled: !!rrs.enabled,
+          email_channel: !!((rrs.channels || {}).email),
         });
       } else {
         const errorData = await response.json();
@@ -271,6 +285,41 @@ const Settings = () => {
       toast.error(`Error al guardar lealtad: ${error.message}`);
     } finally {
       setSavingLoyalty(false);
+    }
+  };
+
+  // NEXUS_REVIEW_REQUEST_SETTINGS_UI_V1
+  const handleSaveReview = async (e) => {
+    e.preventDefault();
+    const link = (reviewData.review_link || '').trim();
+    if (reviewData.enabled && link && !link.toLowerCase().startsWith('https://')) {
+      toast.error('El enlace debe empezar con https://');
+      return;
+    }
+    setSavingReview(true);
+    try {
+      const payload = {
+        review_link: link || null,
+        review_request_settings: {
+          enabled: !!reviewData.enabled,
+          channels: { email: !!reviewData.email_channel },
+        },
+      };
+      const response = await fetch(
+        `${process.env.REACT_APP_BACKEND_URL}/api/organizations/${organizationId}`,
+        { method: 'PUT', credentials: 'include', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) }
+      );
+      if (response.ok) {
+        toast.success('Solicitudes de reseña actualizadas');
+        await refreshOrganization(organizationId);
+      } else {
+        const err = await response.json();
+        throw new Error(err.detail || 'No se pudo guardar');
+      }
+    } catch (error) {
+      toast.error(`Error: ${error.message}`);
+    } finally {
+      setSavingReview(false);
     }
   };
 
@@ -644,6 +693,68 @@ const Settings = () => {
                 className="w-full py-3 rounded-xl bg-amber-500 hover:bg-amber-600 text-white font-medium transition-all disabled:opacity-50 flex items-center justify-center gap-2"
               >
                 {savingLoyalty ? <><Loader2 size={18} className="animate-spin" />Guardando...</> : <><Save size={18} />Guardar programa</>}
+              </button>
+            </form>
+          </div>
+
+          {/* NEXUS_REVIEW_REQUEST_SETTINGS_UI_V1 — CARD Solicitud automática de reseñas */}
+          <div data-testid="review-request-settings-card" className="backdrop-blur-xl bg-white/3 border border-[var(--app-border)] rounded-2xl p-6">
+            <div className="flex items-center gap-3 mb-6">
+              <div className="w-10 h-10 rounded-xl bg-blue-500/20 flex items-center justify-center">
+                <MessageSquare size={20} strokeWidth={1.5} className="text-blue-400" />
+              </div>
+              <div>
+                <h2 className="text-lg font-medium text-[var(--app-text-primary)]">Solicitud automática de reseña</h2>
+                <p className="text-sm text-zinc-400">Envía un email 1 hora después de cada cita completada con enlace a Google</p>
+              </div>
+            </div>
+            <form onSubmit={handleSaveReview} className="space-y-4">
+              <label className="flex items-center justify-between p-3 rounded-xl border border-[var(--app-border)] bg-white/5 cursor-pointer">
+                <div>
+                  <div className="text-sm font-medium text-[var(--app-text-primary)]">Activar solicitudes automáticas</div>
+                  <div className="text-xs text-zinc-400">Solo se envía si el cliente aceptó marketing y tiene email</div>
+                </div>
+                <input
+                  type="checkbox"
+                  data-testid="review-request-enabled-toggle"
+                  checked={reviewData.enabled}
+                  onChange={(e) => setReviewData({ ...reviewData, enabled: e.target.checked })}
+                  className="w-5 h-5"
+                />
+              </label>
+              <label className="flex items-center justify-between p-3 rounded-xl border border-[var(--app-border)] bg-white/5 cursor-pointer">
+                <div>
+                  <div className="text-sm font-medium text-[var(--app-text-primary)]">Canal: Email</div>
+                  <div className="text-xs text-zinc-400">Enviar por correo electrónico</div>
+                </div>
+                <input
+                  type="checkbox"
+                  data-testid="review-request-email-toggle"
+                  disabled={!reviewData.enabled}
+                  checked={reviewData.email_channel}
+                  onChange={(e) => setReviewData({ ...reviewData, email_channel: e.target.checked })}
+                  className="w-5 h-5"
+                />
+              </label>
+              <div>
+                <label className="block text-sm font-medium text-zinc-400 mb-2">Enlace de reseñas de Google</label>
+                <input
+                  type="url"
+                  data-testid="review-link-input"
+                  value={reviewData.review_link}
+                  onChange={(e) => setReviewData({ ...reviewData, review_link: e.target.value })}
+                  placeholder="https://g.page/tu-barberia/review"
+                  className="w-full px-4 py-3 bg-white/5 border border-[var(--app-border)] rounded-xl text-[var(--app-text-primary)] placeholder-zinc-500 outline-none"
+                />
+                <p className="text-xs text-zinc-500 mt-1">Debe empezar con <code>https://</code>. Obtén tu enlace en Google Business Profile → Compartir enlace de reseñas.</p>
+              </div>
+              <button
+                type="submit"
+                data-testid="review-request-save-btn"
+                disabled={savingReview}
+                className="w-full py-3 rounded-xl bg-blue-500 hover:bg-blue-600 text-white font-medium transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+              >
+                {savingReview ? <><Loader2 size={18} className="animate-spin" />Guardando...</> : <><Save size={18} />Guardar configuración</>}
               </button>
             </form>
           </div>

@@ -402,6 +402,10 @@ class OrganizationUpdate(BaseModel):
     business_hours: Optional[str] = None
     phone: Optional[str] = None
     whatsapp_link: Optional[str] = None
+    review_link: Optional[str] = None
+    review_request_settings: Optional[dict] = None
+    # NEXUS_LOYALTY_PROGRAM_V1
+    loyalty_settings: Optional[dict] = None
     client_portal_theme: Optional[str] = None  # classic | feminine | professional | cyberpunk | underground | neutral
 
 # Helper function to sanitize phone numbers
