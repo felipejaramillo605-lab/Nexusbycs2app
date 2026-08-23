@@ -13,7 +13,7 @@ def now_iso(): return datetime.now(timezone.utc).isoformat()
 def make_id(prefix): return f"{prefix}_{uuid.uuid4().hex[:16]}"
 def public(doc): return {k:v for k,v in (doc or {}).items() if k != "_id"}
 
-FISCAL_REQUIRED_FIELDS=("legal_name","document_type","tax_id","billing_email","city","address")
+FISCAL_REQUIRED_FIELDS=("legal_name","document_type","tax_id","billing_email","billing_contact_name","city","address")
 def clean_optional(value):
     if value is None:return None
     value=str(value).strip();return value or None
@@ -34,7 +34,7 @@ def normalize_fiscal_profile(data):
     item=data.model_dump(mode="json",exclude={"expected_version","change_reason"})
     fields=("billing_contact_name","billing_contact_phone","person_type","commercial_name","legal_name","document_type","verification_digit","tax_responsibility","tax_regime","country","department","city","address","postal_code","fiscal_notes")
     for field in fields:item[field]=clean_optional(item.get(field))
-    item["billing_email"]=str(item["billing_email"]).strip().lower();item["tax_id"]=normalize_tax_id(item.get("tax_id"));item["cc_emails"]=list(dict.fromkeys(str(v).strip().lower() for v in item.get("cc_emails",[]) if str(v).strip()));return item
+    billing_email=clean_optional(item.get("billing_email"));item["billing_email"]=billing_email.lower() if billing_email else None;item["tax_id"]=normalize_tax_id(item.get("tax_id"));item["cc_emails"]=list(dict.fromkeys(str(v).strip().lower() for v in item.get("cc_emails",[]) if str(v).strip()));return item
 
 # NEXUS_8A1_FISCAL_PROFILE_FOUNDATION_V1
 class BillingProfileRequest(BaseModel):
@@ -145,8 +145,10 @@ def build_billing_hub_router(db,get_current_user):
     @router.get("/profile")
     async def get_profile(organization_id:Optional[str]=None,authorization:Optional[str]=Header(None),session_token:Optional[str]=Cookie(None)):
         user=await actor(authorization,session_token);oid=org_for(user,organization_id);profile=await db.organization_billing_profiles.find_one({"organization_id":oid},{"_id":0})
-        if profile:return fiscal_profile_view(profile)
-        _,manager,org,email=await resolve_billing_recipient(db,oid);return fiscal_profile_view({"organization_id":oid,"billing_email":email,"billing_contact_name":manager.get("name"),"legal_name":org.get("legal_name") or org.get("name"),"email_source":"fallback","profile_version":0})
+        if profile:
+            profile["profile_source"]="organization_billing_profiles"
+            return fiscal_profile_view(profile)
+        _,manager,org,email=await resolve_billing_recipient(db,oid);return fiscal_profile_view({"organization_id":oid,"billing_email":email,"billing_contact_name":manager.get("name"),"legal_name":org.get("legal_name") or org.get("name"),"email_source":"fallback","profile_source":"fallback","profile_version":0})
     @router.put("/profile")
     async def put_profile(data:BillingProfileRequest,organization_id:Optional[str]=None,authorization:Optional[str]=Header(None),session_token:Optional[str]=Cookie(None)):
         user=await actor(authorization,session_token);oid=org_for(user,organization_id);organization=await db.organizations.find_one({"organization_id":oid},{"_id":0,"organization_id":1})

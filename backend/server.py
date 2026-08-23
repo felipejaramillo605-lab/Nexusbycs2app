@@ -1754,13 +1754,15 @@ async def create_organization(data: OrganizationCreate, authorization: Optional[
         raise HTTPException(status_code=409, detail={"code":"owner_record_missing","message":"Owner account could not be revalidated"})
     manager_before = await db.users.find_one({"user_id":data.manager_user_id},{"_id":0})
     await _eligible_onboarding_manager(manager_before)
+    manager_had_organization = "organization_id" in manager_before
+    manager_original_organization = manager_before.get("organization_id")
     name = data.name.strip()
     duplicate = await db.organizations.find_one({"name":{"$regex":f"^{re.escape(name)}$","$options":"i"}},{"_id":0,"organization_id":1})
     if duplicate:
         raise HTTPException(status_code=409, detail={"code":"organization_name_exists","message":"An organization with this name already exists","organization_id":duplicate.get("organization_id")})
     normalized_profile = fiscal_profile_view({**normalize_fiscal_profile(data.fiscal_profile),"profile_version":1})
     if normalized_profile["profile_status"] != "complete":
-        raise HTTPException(status_code=409, detail={"code":"fiscal_profile_incomplete","message":"Complete the fiscal profile before creating the organization","missing_required_fields":normalized_profile["missing_required_fields"]})
+        raise HTTPException(status_code=422, detail={"code":"fiscal_profile_incomplete","message":"Complete the fiscal profile before creating the organization","missing_required_fields":normalized_profile["missing_required_fields"],"profile_version":normalized_profile["profile_version"]})
     org_id=f"org_{uuid.uuid4().hex[:12]}";now=datetime.now(timezone.utc).isoformat();audit_id=f"audit_{uuid.uuid4().hex[:12]}"
     org_doc={"organization_id":org_id,"name":name,"owner_id":current_user.user_id,"created_by_owner_id":current_user.user_id,"primary_manager_user_id":data.manager_user_id,"address":data.address,"business_hours":data.business_hours,"phone":sanitize_phone(data.phone) if data.phone else None,"whatsapp_link":data.whatsapp_link,"created_at":now}
     profile={**normalized_profile,"organization_id":org_id,"profile_version":1,"created_by":current_user.user_id,"created_at":now,"updated_by":current_user.user_id,"updated_at":now}
@@ -1769,7 +1771,7 @@ async def create_organization(data: OrganizationCreate, authorization: Optional[
     try:
         await db.organizations.insert_one(org_doc.copy());inserted_org=True
         result=await db.users.update_one({"user_id":data.manager_user_id,"role":{"$in":["manager","admin"]},"access_status":"approved","active":{"$ne":False},"deleted_at":{"$exists":False},"$or":[{"organization_id":None},{"organization_id":{"$exists":False}}]},{"$set":{"organization_id":org_id,"organization_joined_at":now,"organization_joined_by":current_user.user_id}})
-        if result.modified_count != 1:raise HTTPException(status_code=409, detail={"code":"manager_assignment_conflict","message":"Manager changed before organization assignment"})
+        if result.modified_count != 1:raise HTTPException(status_code=409, detail={"code":"manager_assignment_conflict","message":"Manager changed before organization assignment","manager_user_id":data.manager_user_id})
         linked_manager=True
         await db.organization_billing_profiles.insert_one(profile.copy());inserted_profile=True
         await db.audit_events.insert_one(audit.copy());inserted_audit=True
@@ -1777,10 +1779,14 @@ async def create_organization(data: OrganizationCreate, authorization: Optional[
         if owner_after != owner_before:raise RuntimeError("OWNER_ORGANIZATION_INVARIANT_VIOLATION")
     except Exception:
         if inserted_audit:await db.audit_events.delete_one({"audit_id":audit_id})
-        if inserted_profile:await db.organization_billing_profiles.delete_one({"organization_id":org_id,"profile_version":1,"created_by":current_user.user_id})
+        if inserted_profile:await db.organization_billing_profiles.delete_one({"organization_id":org_id,"profile_version":1,"created_by":current_user.user_id,"updated_by":current_user.user_id})
         if linked_manager:
-            restore={k:v for k,v in manager_before.items() if k != "_id"}
-            await db.users.replace_one({"user_id":data.manager_user_id,"organization_id":org_id},restore)
+            rollback_update={"$unset":{"organization_joined_at":"","organization_joined_by":""}}
+            if manager_had_organization:
+                rollback_update["$set"]={"organization_id":manager_original_organization}
+            else:
+                rollback_update["$unset"]["organization_id"]=""
+            await db.users.update_one({"user_id":data.manager_user_id,"organization_id":org_id,"organization_joined_by":current_user.user_id},rollback_update)
         if inserted_org:await db.organizations.delete_one({"organization_id":org_id,"created_by_owner_id":current_user.user_id})
         raise
     return {"organization":{k:v for k,v in org_doc.items()},"manager":{"user_id":manager_before.get("user_id"),"name":manager_before.get("name"),"email":manager_before.get("email"),"role":manager_before.get("role"),"organization_id":org_id},"fiscal_profile":profile,"audit_id":audit_id}
