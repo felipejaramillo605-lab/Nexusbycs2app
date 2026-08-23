@@ -370,7 +370,7 @@ class EmailService:
         Fecha: {date}
         Hora: {time}
         Servicio: {service_name}
-        Barbero: {barber_name}
+        Profesional: {barber_name}
         {f'Dirección: {organization_address}' if organization_address else ''}
         
         {organization_name}
@@ -436,7 +436,7 @@ class EmailService:
                         <p style="margin: 0 0 10px 0; color: #aaa;">Detalles de tu cita:</p>
                         <p style="margin: 8px 0;"><strong>📅 {date}</strong> a las <strong>🕐 {time}</strong></p>
                         <p style="margin: 8px 0;">✂️ {service_name}</p>
-                        <p style="margin: 8px 0;">👨‍💼 {barber_name}</p>
+                        <p style="margin: 8px 0;">👤 {barber_name}</p>
                         {f'<p style="margin: 8px 0;">📞 {organization_phone}</p>' if organization_phone else ''}
                     </div>
                     
@@ -461,7 +461,7 @@ class EmailService:
         Fecha: {date}
         Hora: {time}
         Servicio: {service_name}
-        Barbero: {barber_name}
+        Profesional: {barber_name}
         
         ¡Te esperamos!
         
@@ -679,7 +679,7 @@ class EmailService:
                         <p style="margin: 8px 0;"><strong>Cliente:</strong> {customer_name}</p>
                         <p style="margin: 8px 0;"><strong>Teléfono:</strong> {customer_phone}</p>
                         <p style="margin: 8px 0;"><strong>Servicio:</strong> {service_name}</p>
-                        <p style="margin: 8px 0;"><strong>Barbero:</strong> {barber_name}</p>
+                        <p style="margin: 8px 0;"><strong>Profesional:</strong> {barber_name}</p>
                         <p style="margin: 8px 0;"><strong>Fecha:</strong> {date}</p>
                         <p style="margin: 8px 0;"><strong>Hora:</strong> {time}</p>
                     </div>
