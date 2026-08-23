@@ -638,7 +638,10 @@ async def root():
 
 # Auth Endpoints
 @api_router.post("/auth/session")
-async def create_session(response: Response, x_session_id: str = Header(None)):
+@limiter.limit("10/minute")
+async def create_session(response: Response, request: Request, x_session_id: str = Header(None)):
+    # NEXUS_EMERGENT_GOOGLE_AUTH_V1
+    # REMINDER: DO NOT HARDCODE THE URL, OR ADD ANY FALLBACKS OR REDIRECT URLS, THIS BREAKS THE AUTH
     if not x_session_id:
         raise HTTPException(status_code=400, detail="Session ID required")
 
@@ -683,8 +686,10 @@ async def create_session(response: Response, x_session_id: str = Header(None)):
             "email": email,
             "name": name,
             "picture": picture,
+            "auth_method": "google",
             "role": role,
             "access_status": access_status,
+            "active": True,
             "organization_id": None,
             "created_at": datetime.now(timezone.utc).isoformat()
         }
@@ -708,7 +713,7 @@ async def create_session(response: Response, x_session_id: str = Header(None)):
         value=session_token,
         httponly=True,
         secure=True,
-        samesite="lax",
+        samesite="none",
         path="/",
         max_age=7*24*60*60
     )
