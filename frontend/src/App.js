@@ -57,6 +57,7 @@ const StaffAppointments = lazy(() => import('./pages/StaffAppointments'));
 const AccountPrivacy = lazy(() => import('./pages/AccountPrivacy'));
 const ClientPortalAuth = lazy(() => import('./pages/ClientPortalAuth'));
 const ClientPortalDashboard = lazy(() => import('./pages/ClientPortalDashboard'));
+const RescheduleAppointment = lazy(() => import('./pages/RescheduleAppointment'));
 const ForgotPin = lazy(() => import('./pages/ForgotPin'));
 const ResetPin = lazy(() => import('./pages/ResetPin'));
 
@@ -92,6 +93,7 @@ function AppRouter() {
         {/* Client Portal with PIN */}
         <Route path="/portal/:orgId/auth" element={<ClientPortalThemeWrapper><ClientPortalAuth /></ClientPortalThemeWrapper>} />
         <Route path="/portal/:orgId/dashboard" element={<ClientPortalThemeWrapper><ClientPortalDashboard /></ClientPortalThemeWrapper>} />
+        <Route path="/portal/:orgId/reschedule/:appointmentId" element={<ClientPortalThemeWrapper><RescheduleAppointment /></ClientPortalThemeWrapper>} />
         <Route path="/portal/:orgId/forgot-pin" element={<ClientPortalThemeWrapper><ForgotPin /></ClientPortalThemeWrapper>} />
         <Route path="/portal/:orgId/reset-pin" element={<ClientPortalThemeWrapper><ResetPin /></ClientPortalThemeWrapper>} />
 

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useCallback, useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { 
   Calendar, 
@@ -42,11 +42,7 @@ export default function ClientPortalDashboard() {
   const [deletePin, setDeletePin] = useState('');
   const [deleting, setDeleting] = useState(false);
 
-  useEffect(() => {
-    loadDashboardData();
-  }, []);
-
-  const loadDashboardData = async () => {
+  const loadDashboardData = useCallback(async () => {
     setLoading(true);
     try {
       // Get client info
@@ -75,7 +71,11 @@ export default function ClientPortalDashboard() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [orgId, navigate]);
+
+  useEffect(() => {
+    loadDashboardData();
+  }, [loadDashboardData]);
 
   const handleLogout = async () => {
     try {
@@ -394,6 +394,12 @@ export default function ClientPortalDashboard() {
                       Cancelar cita
                     </button>
                   )}
+                  <button
+                    onClick={() => navigate(`/portal/${orgId}/reschedule/${apt.appointment_id}`)}
+                    className="w-full mt-2 py-2 bg-blue-500/10 hover:bg-blue-500/20 border border-blue-500/30 text-blue-300 rounded-lg text-sm transition-colors"
+                  >
+                    Reprogramar cita
+                  </button>
                 </div>
               ))}
             </div>

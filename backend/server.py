@@ -321,6 +321,10 @@ class AppointmentCreate(BaseModel):
     time: str
     marketing_consent: bool = False  # TCPA/Ley 1581 compliance
 
+class AppointmentRescheduleRequest(BaseModel):
+    date: str = Field(..., min_length=10, max_length=10)
+    time: str = Field(..., pattern=r"^([01]\d|2[0-3]):[0-5]\d$")
+
 # NEXUS_CHECKOUT_BACKEND_V1
 class AppointmentCheckoutRequest(BaseModel):
     discount_amount: float = 0
@@ -4305,6 +4309,62 @@ async def get_client_profile(current_client: Client = Depends(get_current_client
         "appointments": appointments
     }
 
+async def _perform_appointment_reschedule(appointment: dict, new_date: str, new_time: str, actor: str):
+    if appointment.get("status") in {"cancelled", "completed"}:
+        raise HTTPException(status_code=400, detail="Esta cita no se puede reprogramar")
+    if appointment.get("date") == new_date and appointment.get("time") == new_time:
+        raise HTTPException(status_code=400, detail="Selecciona una fecha u hora diferente")
+
+    lock_id = await _acquire_booking_lock(appointment["organization_id"], appointment["barber_id"], new_date)
+    try:
+        _, slots = await _strict_available_slots(
+            appointment["organization_id"], appointment["barber_id"], appointment["service_id"], new_date
+        )
+        if new_time not in slots:
+            raise HTTPException(
+                status_code=409,
+                detail={
+                    "code": "APPOINTMENT_SLOT_UNAVAILABLE",
+                    "message": "El horario seleccionado ya no estÃ¡ disponible",
+                    "alternatives": [{"date": new_date, "time": slot} for slot in slots[:10]],
+                },
+            )
+        result = await db.appointments.update_one(
+            {
+                "appointment_id": appointment["appointment_id"],
+                "organization_id": appointment["organization_id"],
+                "status": {"$nin": ["cancelled", "completed"]},
+                "date": appointment["date"],
+                "time": appointment["time"],
+            },
+            {"$set": {
+                "date": new_date,
+                "time": new_time,
+                "rescheduled_at": datetime.now(timezone.utc).isoformat(),
+                "rescheduled_by": actor,
+            }},
+        )
+        if result.modified_count != 1:
+            raise HTTPException(status_code=409, detail="La cita cambiÃ³ mientras la actualizabas; vuelve a intentarlo")
+        return {**appointment, "date": new_date, "time": new_time, "status": "confirmed"}
+    finally:
+        await db.booking_locks.delete_one({"_id": lock_id})
+
+@api_router.post("/public/clients/appointments/{appointment_id}/reschedule")
+async def reschedule_appointment_from_portal(
+    appointment_id: str,
+    data: AppointmentRescheduleRequest,
+    current_client: Client = Depends(get_current_client),
+):
+    appointment = await db.appointments.find_one(
+        {"appointment_id": appointment_id, "organization_id": current_client.organization_id, "client_phone": current_client.phone},
+        {"_id": 0},
+    )
+    if not appointment:
+        raise HTTPException(status_code=404, detail="Appointment not found")
+    updated = await _perform_appointment_reschedule(appointment, data.date, data.time, "client_portal")
+    return {"message": "Cita reprogramada correctamente", "appointment": updated}
+
 @api_router.post("/public/clients/appointments/{appointment_id}/cancel")
 async def cancel_appointment_from_portal(
     appointment_id: str,
@@ -5089,6 +5149,43 @@ async def get_availability(org_id: str, barber_id: str, date: str, service_id: s
         "minimum_lead_minutes": context["minimum_lead_minutes"]
     }
 
+@api_router.get("/public/{org_id}/availability/search")
+async def search_public_availability(
+    org_id: str,
+    barber_id: str,
+    service_id: str,
+    preferred_time: str,
+    date_from: Optional[str] = None,
+    days: int = 30,
+):
+    """Find dates with an exact preferred time and nearest available alternatives."""
+    preferred_minutes = _strict_minutes(preferred_time, "preferred time")
+    start_date = _strict_date(date_from or datetime.now(timezone.utc).date().isoformat())
+    days = max(1, min(days, 60))
+    exact = []
+    alternatives = []
+    for offset in range(days):
+        candidate = start_date + timedelta(days=offset)
+        try:
+            _, slots = await _strict_available_slots(org_id, barber_id, service_id, candidate.isoformat())
+        except HTTPException as exc:
+            if exc.status_code in (400, 409):
+                continue
+            raise
+        if preferred_time in slots:
+            exact.append({"date": candidate.isoformat(), "time": preferred_time})
+        for slot in slots:
+            distance = abs(_strict_minutes(slot) - preferred_minutes)
+            alternatives.append((distance, offset, {"date": candidate.isoformat(), "time": slot}))
+    alternatives.sort(key=lambda item: (item[0], item[1], item[2]["time"]))
+    return {
+        "preferred_time": preferred_time,
+        "date_from": start_date.isoformat(),
+        "days": days,
+        "available_dates": exact,
+        "alternatives": [item[2] for item in alternatives[:10]],
+    }
+
 @api_router.post("/public/{org_id}/appointments")
 @limiter.limit("5/hour")
 async def create_public_appointment(org_id: str, data: AppointmentCreate, request: Request):
@@ -5384,6 +5481,16 @@ async def cancel_public_appointment(appointment_id: str, token: str):
     logger.info(f"Public appointment {appointment_id} cancelled using a valid management token")
     return {"message": "Appointment cancelled successfully", "appointment_id": appointment_id}
 
+
+@api_router.post("/public/appointments/{appointment_id}/reschedule")
+async def reschedule_public_appointment(
+    appointment_id: str,
+    data: AppointmentRescheduleRequest,
+    token: str,
+):
+    appointment = await _get_public_appointment_with_token(appointment_id, token)
+    updated = await _perform_appointment_reschedule(appointment, data.date, data.time, "client_public_link")
+    return {"message": "Cita reprogramada correctamente", "appointment": updated}
 
 @api_router.get("/public/appointments/{appointment_id}")
 async def get_public_appointment(appointment_id: str, token: str):
