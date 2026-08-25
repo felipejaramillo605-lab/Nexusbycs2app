@@ -53,8 +53,10 @@ NO vendemos tu información personal a terceros. Compartimos tus datos únicamen
 
 ### Proveedores de servicios necesarios:
 - **Proveedor de Email (Gmail SMTP)** - Para enviar confirmaciones y recordatorios
+- **WhatsApp Business API** - Para enviar confirmaciones y recordatorios de citas por WhatsApp (solo si el negocio lo tiene activado)
 - **Proveedor de Hosting** - Para almacenar tu información de forma segura
 - **MongoDB Atlas** - Base de datos donde se almacenan tus datos
+- **Procesadores de pago (Wompi / Stripe)** - Solo si el negocio cobra suscripciones o pagos a través de la plataforma; Nexus no almacena datos de tarjetas, estos son procesados directamente por el proveedor de pago
 
 ### Compartimos solo lo necesario y bajo acuerdos de confidencialidad.
 
@@ -64,17 +66,22 @@ NO vendemos tu información personal a terceros. Compartimos tus datos únicamen
 
 Tienes los siguientes derechos sobre tus datos personales:
 
+Para ejercer estos derechos, primero debes iniciar sesión en tu Portal de Cliente (con tu número de teléfono y PIN) — esto es necesario para verificar tu identidad antes de mostrar o modificar tus datos personales. Si nunca creaste un PIN, puedes registrarte gratis en el Portal de Cliente del negocio, o escribirnos directamente a nuestro correo de contacto.
+
 ### 📊 **Acceso**
 Solicita una copia de todos tus datos personales que tenemos almacenados.
-- **Endpoint:** `GET /api/public/clients/my-data?phone={tu_telefono}&organization_id={org_id}`
+- **Cómo:** Inicia sesión en tu Portal de Cliente → sección "Mis Datos"
+- **Endpoint técnico:** `GET /api/public/clients/my-data` (requiere sesión activa)
 
 ### ✏️ **Corrección/Actualización**
 Corrige o actualiza tu nombre o correo electrónico.
-- **Endpoint:** `PUT /api/public/clients/update-my-data`
+- **Cómo:** Inicia sesión en tu Portal de Cliente → sección "Mis Datos"
+- **Endpoint técnico:** `PUT /api/public/clients/update-my-data` (requiere sesión activa)
 
 ### 🗑️ **Supresión/Eliminación**
 Solicita la eliminación de tus datos personales.
-- **Endpoint:** `POST /api/public/clients/request-deletion`
+- **Cómo:** Inicia sesión en tu Portal de Cliente → sección "Mis Datos"
+- **Endpoint técnico:** `POST /api/public/clients/request-deletion` (requiere sesión activa)
 - **Plazo de respuesta:** 15 días hábiles
 
 ### 🚫 **Revocación de Consentimiento**

@@ -1,6 +1,3 @@
-// NEXUS_ONBOARDING_V1
-// Simple, on-brand line-art illustrations for the onboarding tour.
-// These are original SVG diagrams (not screenshots of the running app).
 import React from 'react';
 
 const stroke = 'var(--app-primary, #7C3AED)';

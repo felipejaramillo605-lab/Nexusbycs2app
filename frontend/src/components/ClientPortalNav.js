@@ -3,13 +3,20 @@ import { useNavigate } from 'react-router-dom';
 import { Calendar, User } from 'lucide-react';
 import { useOrganization } from '../context/OrganizationContext';
 
+/**
+ * Persistent navigation bar for public client pages
+ * Shows "Book Appointment" and "My Account" / "Sign In" buttons
+ * Visible on BookingFlow, CustomerPortal, and CancelAppointment pages
+ */
 export default function ClientPortalNav({ orgId }) {
   const navigate = useNavigate();
   const { organization } = useOrganization();
 
   if (!orgId) return null;
 
+  // Check if there's an active client session
   const hasSession = !!sessionStorage.getItem(`nexus_customer_phone_${orgId}`);
+  // NEXUS_PORTAL_PERSONALIZATION_V1: show the manager's own branding instead of a generic label
   const brandName = organization?.organization_id === orgId ? (organization?.name || 'Nexus') : 'Nexus';
   const logoUrl = organization?.organization_id === orgId ? organization?.logo_url : null;
 
@@ -44,7 +51,7 @@ export default function ClientPortalNav({ orgId }) {
             >
               <User size={16} />
               <span className="hidden sm:inline">
-                {hasSession ? 'Mi cuenta' : 'Iniciar sesion'}
+                {hasSession ? 'Mi cuenta' : 'Iniciar sesión'}
               </span>
               <span className="sm:hidden">
                 {hasSession ? 'Cuenta' : 'Entrar'}
