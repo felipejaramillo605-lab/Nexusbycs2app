@@ -125,7 +125,7 @@ def build_subscription_router(db, get_current_user):
         existing=await db.subscription_invoices.find_one({"organization_id":organization_id,"period_start":data.period_start,"period_end":data.period_end},{"_id":0})
         if existing: raise HTTPException(409,"Invoice already exists for this period")
         contract_amount=int(subscription["monthly_amount_minor"])
-        if data.discount_minor > contract_amount: raise HTTPException(400,"discount_minor cannot exceed monthly contract amount")
+        if data.discount_minor >= contract_amount: raise HTTPException(400,"discount_minor must be less than the monthly contract amount; invoices cannot be issued at zero")
         if data.discount_minor and not (data.discount_reason or "").strip(): raise HTTPException(400,"discount_reason is required when discount is applied")
         expected_amount=contract_amount-data.discount_minor
         if data.amount_minor != expected_amount: raise HTTPException(409,"Invoice amount must equal monthly contract amount minus period discount")
@@ -162,14 +162,17 @@ def build_subscription_router(db, get_current_user):
         duplicate=await db.subscription_payment_events.find_one({"provider":"manual","provider_reference":data.provider_reference},{"_id":0})
         if duplicate: raise HTTPException(409,"Payment reference was already used")
         now=_now(); event={"payment_event_id":_id("spay"),"organization_id":organization_id,"invoice_id":invoice_id,"provider":"manual","provider_reference":data.provider_reference.strip(),"idempotency_key":data.idempotency_key,"amount_minor":data.amount_minor,"currency":currency,"status":"confirmed","confirmed_by":user.user_id,"confirmed_at":now,"notes":data.notes,"request_fingerprint":hashlib.sha256(f"{organization_id}|{invoice_id}|{data.amount_minor}|{currency}|{data.provider_reference}".encode()).hexdigest(),"created_at":now}
+        # NEXUS_FIX_PAYMENT_EVENT_ORDERING_V1: persist the payment event first so a crash or write
+        # failure after this point never leaves an invoice marked "paid" without evidence of payment.
+        # If the invoice-side transition then fails, delete the event rather than leaving it behind:
+        # a lingering event would satisfy the idempotency-key lookup above on retry and falsely report
+        # idempotent_replay=True for a payment that was never actually applied to the invoice.
+        await db.subscription_payment_events.insert_one(event.copy())
         result=await db.subscription_invoices.update_one({"organization_id":organization_id,"invoice_id":invoice_id,"status":{"$in":["draft","issued","pending","overdue"]}},{"$set":{"status":"paid","paid_amount_minor":data.amount_minor,"balance_minor":0,"paid_at":now,"payment_event_id":event["payment_event_id"],"updated_at":now}})
         if result.modified_count!=1:
             current=await db.subscription_invoices.find_one({"organization_id":organization_id,"invoice_id":invoice_id},{"_id":0})
+            await db.subscription_payment_events.delete_one({"payment_event_id":event["payment_event_id"]})
             raise HTTPException(409,"Invoice state changed before payment confirmation" if not current or current.get("status")!="paid" else "Invoice is already paid")
-        try: await db.subscription_payment_events.insert_one(event.copy())
-        except Exception:
-            await db.subscription_invoices.update_one({"organization_id":organization_id,"invoice_id":invoice_id,"payment_event_id":event["payment_event_id"]},{"$set":invoice})
-            raise
         current=await db.subscription_invoices.find_one({"organization_id":organization_id,"invoice_id":invoice_id},{"_id":0})
         await _audit(db,organization_id,"manual_payment_confirmed","invoice",invoice_id,user,invoice,current,data.notes or "Manual payment confirmed",data.idempotency_key)
         reactivation=await reactivate_after_payment(db,organization_id,invoice_id,user.user_id)

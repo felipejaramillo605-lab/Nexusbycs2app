@@ -1,7 +1,10 @@
 from datetime import datetime, timezone, timedelta
 from email.message import EmailMessage
 from typing import Optional
-import os, smtplib, ssl, uuid
+import logging, os, smtplib, ssl, uuid
+from pymongo.errors import DuplicateKeyError
+
+logger = logging.getLogger(__name__)
 
 # NEXUS_7I_FLEXIBLE_BILLING_V2
 REMINDER_DAYS = (7, 5, 3, 1, 0)
@@ -60,8 +63,12 @@ def send_invoice_email(invoice, recipient, cc, event_type, pdf_bytes):
 
 async def record_event(db, *, organization_id, invoice_id, event_type, dedupe_key, mode, data):
     row={"lifecycle_event_id":make_id("slife"),"organization_id":organization_id,"invoice_id":invoice_id,"event_type":event_type,"dedupe_key":dedupe_key,"mode":mode,"data":data,"created_at":now_iso()}
+    # NEXUS_FIX_DEDUPE_EXCEPTION_NARROWING_V1: only treat a genuine duplicate-key error as
+    # "already recorded"; any other failure (connection loss, permissions, etc.) must surface
+    # instead of silently returning a stale/missing row as if dedupe had succeeded.
     try: await db.subscription_lifecycle_events.insert_one(row.copy()); return row,True
-    except Exception: return await db.subscription_lifecycle_events.find_one({"dedupe_key":dedupe_key},{"_id":0}),False
+    except DuplicateKeyError: return await db.subscription_lifecycle_events.find_one({"dedupe_key":dedupe_key},{"_id":0}),False
+    except Exception: logger.exception("Failed to record lifecycle event %s (dedupe_key=%s)",row["lifecycle_event_id"],dedupe_key); raise
 
 async def queue_or_deliver(db, invoice, event_type, mode, pdf_factory):
     key=f"{invoice['invoice_id']}:{event_type}"

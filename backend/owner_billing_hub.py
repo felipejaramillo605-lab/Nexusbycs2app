@@ -2,9 +2,11 @@ from fastapi import APIRouter, Cookie, Header, HTTPException, Response
 from pydantic import BaseModel, Field, EmailStr
 from typing import Optional, List
 from datetime import datetime, timezone, timedelta
-import asyncio, hashlib, os, smtplib, ssl, uuid
+import asyncio, hashlib, logging, os, smtplib, ssl, uuid
 from email.message import EmailMessage
 from platform_billing_settings import get_seller_settings
+
+logger = logging.getLogger(__name__)
 
 # NEXUS_7I_FLEXIBLE_BILLING_V2
 NOTICE = "Documento administrativo de cobro generado por Nexus. No constituye factura electrónica de venta validada por la DIAN."
@@ -114,7 +116,7 @@ async def post_invoice_side_effects(db,item):
     dedupe=f"{item['invoice_id']}:invoice_issued"
     notification={"notification_id":make_id("snot"),"organization_id":item["organization_id"],"event_type":"invoice_issued","severity":"billing","title":f"Nueva factura {item['invoice_number']}","message":f"Se emitió el cobro del periodo {item['period_start'][:10]} al {item['period_end'][:10]}. Vence el {item['due_at'][:10]}.","related_entity_type":"invoice","related_entity_id":item["invoice_id"],"dedupe_key":dedupe,"created_at":now_iso(),"read_by":[]}
     try: await db.subscription_notifications.insert_one(notification)
-    except Exception: pass
+    except Exception: logger.exception("Failed to insert billing notification %s for invoice %s", notification["notification_id"], item["invoice_id"])
     delivery={"email_delivery_id":make_id("semail"),"organization_id":item["organization_id"],"invoice_id":item["invoice_id"],"invoice_number":item["invoice_number"],"recipient":item.get("delivery_email_snapshot"),"cc":item.get("delivery_cc_snapshot",[]),"status":"queued" if item.get("delivery_email_snapshot") else "missing_recipient","attempt_count":0,"created_at":now_iso()}
     await db.subscription_email_deliveries.insert_one(delivery)
     return delivery
@@ -162,8 +164,14 @@ def build_billing_hub_router(db,get_current_user):
         audit={"audit_id":make_id("bp_audit"),"organization_id":oid,"event_type":"billing_profile_updated" if previous else "billing_profile_created","actor_user_id":user.user_id,"actor_role":user.role,"previous_value":previous,"new_value":item,"reason":data.change_reason or "Actualización de perfil fiscal","profile_version":item["profile_version"],"source":"billing_profile_api","created_at":now}
         try:await db.organization_billing_profile_audits.insert_one(audit.copy())
         except Exception:
-            if previous:await db.organization_billing_profiles.replace_one({"organization_id":oid,"profile_version":item["profile_version"],"updated_by":user.user_id},previous)
-            else:await db.organization_billing_profiles.delete_one({"organization_id":oid,"profile_version":1,"updated_by":user.user_id})
+            # NEXUS_FIX_FISCAL_ROLLBACK_PRECISION_V1: match on the exact document we just wrote
+            # (organization_id + profile_version + updated_at) so a concurrent edit from another
+            # actor is never clobbered by this rollback; log instead of guessing when it doesn't match.
+            rollback_filter={"organization_id":oid,"profile_version":item["profile_version"],"updated_at":item["updated_at"]}
+            if previous:rollback_result=await db.organization_billing_profiles.replace_one(rollback_filter,previous)
+            else:rollback_result=await db.organization_billing_profiles.delete_one(rollback_filter)
+            if rollback_result.matched_count==0 if previous else rollback_result.deleted_count==0:
+                logger.error("Fiscal profile rollback did not match any document for organization_id=%s profile_version=%s; profile may be inconsistent with its audit trail",oid,item["profile_version"])
             raise
         return item
     @router.get("/invoices")
