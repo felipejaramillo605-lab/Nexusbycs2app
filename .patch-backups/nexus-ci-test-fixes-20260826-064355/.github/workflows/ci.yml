@@ -37,20 +37,12 @@ jobs:
       # pre-existing flake8 findings and would need reformatting on ~35 files,
       # none of which this task was asked to clean up. This gate catches new
       # regressions without failing on unrelated legacy debt.
-      # continue-on-error: black wants to reformat ~5.7k pre-existing lines in
-      # server.py unrelated to this change; this keeps the check visible without
-      # blocking the pipeline until that formatting debt is cleaned up separately.
       - name: black --check (changed files only)
         if: steps.changed.outputs.files != ''
-        continue-on-error: true
         run: python -m black --check --line-length 120 ${{ steps.changed.outputs.files }}
 
-      # continue-on-error: same pre-existing debt as black above — flake8 also
-      # lints the whole file, not just the diff, and server.py has thousands of
-      # legacy style violations unrelated to this change.
       - name: flake8 (changed files only)
         if: steps.changed.outputs.files != ''
-        continue-on-error: true
         run: python -m flake8 --max-line-length 120 ${{ steps.changed.outputs.files }}
 
   backend-test:

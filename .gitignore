@@ -4,6 +4,9 @@
 .idea/
 .vscode/
 
+# CS2 patch tooling backups (created by apply-patch.sh, not part of the app)
+.patch-backups/
+
 # Dependencies
 node_modules/
 /node_modules
@@ -99,3 +102,4 @@ frontend/node_modules/.cache/default-development/4.pack
 .env
 .env.*
 *.env
+frontend/node_modules/.cache/default-development/2.pack
