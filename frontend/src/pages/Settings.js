@@ -503,8 +503,11 @@ const Settings = () => {
 
   return (
     <div className="min-h-screen nexus-screen">
-      {/* Navigation Bar */}
-      <nav className="backdrop-blur-xl bg-white/3 border-b border-[var(--app-border)] sticky top-0 z-50">
+      {/* Navigation Bar + Tabs (single sticky unit — a separate sticky tabs bar
+          used to sit in normal document flow right below this nav, which meant
+          it scrolled away and got hidden behind this nav's own sticky position
+          as soon as the page scrolled even slightly, on mobile especially) */}
+      <nav className="backdrop-blur-xl bg-white/3 sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 py-3 sm:py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
@@ -521,36 +524,36 @@ const Settings = () => {
             </div>
           </div>
         </div>
-      </nav>
 
-      {/* Tabs Navigation */}
-      <div className="border-b border-[var(--app-border)] bg-[var(--app-bg-primary)]">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6">
-          <div className="flex gap-1 overflow-x-auto">
-            {Object.values(TABS).map((tab) => {
-              const Icon = tab.icon;
-              const isActive = activeTab === tab.key;
-              return (
-                <button
-                  key={tab.key}
-                  onClick={() => setActiveTab(tab.key)}
-                  className={`
-                    flex items-center gap-2 px-4 py-3 text-sm font-medium transition-all whitespace-nowrap
-                    border-b-2 -mb-px
-                    ${isActive 
-                      ? 'border-[var(--app-accent)] text-[var(--app-accent)]' 
-                      : 'border-transparent text-[var(--app-text-secondary)] hover:text-[var(--app-text-primary)] hover:border-[var(--app-border)]'
-                    }
-                  `}
-                >
-                  <Icon size={16} />
-                  <span className="hidden sm:inline">{tab.label}</span>
-                </button>
-              );
-            })}
+        {/* Tabs Navigation */}
+        <div className="border-b border-[var(--app-border)] bg-[var(--app-bg-primary)]">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6">
+            <div className="flex gap-1 overflow-x-auto">
+              {Object.values(TABS).map((tab) => {
+                const Icon = tab.icon;
+                const isActive = activeTab === tab.key;
+                return (
+                  <button
+                    key={tab.key}
+                    onClick={() => setActiveTab(tab.key)}
+                    className={`
+                      flex items-center gap-2 px-4 py-3 text-sm font-medium transition-all whitespace-nowrap
+                      border-b-2 -mb-px
+                      ${isActive
+                        ? 'border-[var(--app-accent)] text-[var(--app-accent)]'
+                        : 'border-transparent text-[var(--app-text-secondary)] hover:text-[var(--app-text-primary)] hover:border-[var(--app-border)]'
+                      }
+                    `}
+                  >
+                    <Icon size={16} />
+                    <span>{tab.label}</span>
+                  </button>
+                );
+              })}
+            </div>
           </div>
         </div>
-      </div>
+      </nav>
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 py-8">
         {/* Render content based on active tab */}
