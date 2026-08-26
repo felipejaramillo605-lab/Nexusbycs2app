@@ -2,7 +2,7 @@ import React, { Suspense, lazy } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { QueryClientProvider } from '@tanstack/react-query';
 import { queryClient } from './lib/queryClient';
-import { AuthProvider } from './context/AuthContext';
+import { AuthProvider, useAuth } from './context/AuthContext';
 import { OrganizationProvider } from './context/OrganizationContext';
 import { ThemeProvider } from './context/ThemeContext';
 import { Toaster } from './components/ui/sonner';
@@ -69,6 +69,16 @@ const PageLoader = () => (
   </div>
 );
 
+// Managers/owners/admins keep their privacy settings inside the Settings tabs;
+// staff has no access to /manager/settings, so they get the standalone page instead.
+const AccountPrivacyRedirect = () => {
+  const { user } = useAuth();
+  if (user && ['owner', 'manager', 'admin'].includes(user.role)) {
+    return <Navigate to="/manager/settings?tab=privacy" replace />;
+  }
+  return <AccountPrivacy />;
+};
+
 function AppRouter() {
   const location = useLocation();
 
@@ -114,7 +124,6 @@ function AppRouter() {
         {/* Settings and related redirects */}
         <Route path="/manager/settings" element={<ProtectedRoute allowedRoles={['owner', 'manager', 'admin']}><Settings /></ProtectedRoute>} />
         <Route path="/manager/fiscal-profile" element={<Navigate to="/manager/settings?tab=fiscal" replace />} />
-        <Route path="/account/privacy" element={<Navigate to="/manager/settings?tab=privacy" replace />} />
         
         <Route path="/manager/billing" element={<ProtectedRoute allowedRoles={['owner', 'manager', 'admin']}><ManagerBilling /></ProtectedRoute>} />
         <Route path="/manager/fiscal-profile" element={<ProtectedRoute allowedRoles={['owner', 'manager', 'admin']}><ManagerFiscalProfile /></ProtectedRoute>} />
@@ -246,7 +255,7 @@ function AppRouter() {
           }
         />
 
-        <Route path="/account/privacy" element={<ProtectedRoute allowedRoles={['owner', 'manager', 'admin', 'staff']}><AccountPrivacy /></ProtectedRoute>} />
+        <Route path="/account/privacy" element={<ProtectedRoute allowedRoles={['owner', 'manager', 'admin', 'staff']}><AccountPrivacyRedirect /></ProtectedRoute>} />
         
         {/* Public Routes */}
         <Route path="/unsubscribe" element={<Unsubscribe />} />
