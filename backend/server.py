@@ -52,6 +52,7 @@ refresh_trusted_origins()
 mongo_url = os.environ['MONGO_URL']
 db_name = os.environ['DB_NAME']
 EMERGENT_LLM_KEY = os.environ['EMERGENT_LLM_KEY']
+COOKIE_SECURE = os.environ.get('COOKIE_SECURE', 'true').lower() != 'false'
 
 client = AsyncIOMotorClient(mongo_url)
 db = client[db_name]
@@ -724,8 +725,8 @@ async def create_session(response: Response, request: Request, x_session_id: str
         key="session_token",
         value=session_token,
         httponly=True,
-        secure=True,
-        samesite="none",
+        secure=COOKIE_SECURE,
+        samesite="none" if COOKIE_SECURE else "lax",
         path="/",
         max_age=7*24*60*60
     )
@@ -803,7 +804,7 @@ async def login_user(data: LoginRequest, response: Response, request: Request):
     })
     await db.users.update_one({"user_id": user["user_id"]}, {"$set": {"last_login": datetime.now(timezone.utc).isoformat()}})
 
-    response.set_cookie(key="session_token", value=session_token, httponly=True, secure=True, samesite="lax", path="/", max_age=7*24*60*60)
+    response.set_cookie(key="session_token", value=session_token, httponly=True, secure=COOKIE_SECURE, samesite="lax", path="/", max_age=7*24*60*60)
 
     if isinstance(user["created_at"], str):
         user["created_at"] = datetime.fromisoformat(user["created_at"])
@@ -4148,7 +4149,7 @@ async def register_client_with_pin(data: ClientRegisterRequest, request: Request
         key="client_session_token",
         value=session_token,
         httponly=True,
-        secure=True,
+        secure=COOKIE_SECURE,
         samesite="lax",
         path="/",
         max_age=30*24*60*60  # 30 days
@@ -4255,7 +4256,7 @@ async def login_client_with_pin(data: ClientLoginRequest, request: Request):
         key="client_session_token",
         value=session_token,
         httponly=True,
-        secure=True,
+        secure=COOKIE_SECURE,
         samesite="lax",
         path="/",
         max_age=30*24*60*60

@@ -58,6 +58,7 @@ jobs:
       DB_NAME: test_database
       EMERGENT_LLM_KEY: dummy-ci-key
       CORS_ORIGINS: http://localhost:3000
+      COOKIE_SECURE: "false"
     steps:
       - uses: actions/checkout@v4
 
