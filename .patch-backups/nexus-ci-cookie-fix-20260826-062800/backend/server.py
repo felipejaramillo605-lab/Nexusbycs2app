@@ -52,7 +52,6 @@ refresh_trusted_origins()
 mongo_url = os.environ['MONGO_URL']
 db_name = os.environ['DB_NAME']
 EMERGENT_LLM_KEY = os.environ['EMERGENT_LLM_KEY']
-COOKIE_SECURE = os.environ.get('COOKIE_SECURE', 'true').lower() != 'false'
 
 client = AsyncIOMotorClient(mongo_url)
 db = client[db_name]
@@ -248,7 +247,6 @@ class Client(BaseModel):
     failed_pin_attempts: int = 0  # Counter for rate limiting
     pin_locked_until: Optional[datetime] = None  # Lockout timestamp after 5 failed attempts
     total_visits: int = 0
-    loyalty_points: int = 0
     last_visit: Optional[str] = None
     created_at: datetime
     updated_at: datetime
@@ -726,8 +724,8 @@ async def create_session(response: Response, request: Request, x_session_id: str
         key="session_token",
         value=session_token,
         httponly=True,
-        secure=COOKIE_SECURE,
-        samesite="none" if COOKIE_SECURE else "lax",
+        secure=True,
+        samesite="none",
         path="/",
         max_age=7*24*60*60
     )
@@ -805,7 +803,7 @@ async def login_user(data: LoginRequest, response: Response, request: Request):
     })
     await db.users.update_one({"user_id": user["user_id"]}, {"$set": {"last_login": datetime.now(timezone.utc).isoformat()}})
 
-    response.set_cookie(key="session_token", value=session_token, httponly=True, secure=COOKIE_SECURE, samesite="lax", path="/", max_age=7*24*60*60)
+    response.set_cookie(key="session_token", value=session_token, httponly=True, secure=True, samesite="lax", path="/", max_age=7*24*60*60)
 
     if isinstance(user["created_at"], str):
         user["created_at"] = datetime.fromisoformat(user["created_at"])
@@ -1826,7 +1824,6 @@ async def update_organization_profile(
 ):
     """Update organization business profile (owner/manager only)"""
     current_user = await get_current_user(authorization, session_token)
-    require_management_role(current_user)
 
     # ✅ CORRECCIÓN CRÍTICA: Pydantic model usa atributos, no .get()
     # Verify user belongs to this organization
@@ -2665,13 +2662,7 @@ async def checkout_appointment(appointment_id: str, data: AppointmentCheckoutReq
         await rollback_checkout_inventory(db,reserved,org_id,item['transaction_id']);await db.transactions.update_one({'transaction_id':item['transaction_id']},{'$set':{'status':'voided','void_reason':'Checkout inventory rollback','voided_at':now}})
         if 'duplicate' in str(exc).lower() or 'E11000' in str(exc):raise HTTPException(409,'Appointment has already been charged')
         raise
-    if apt.get('client_phone'):
-        client_update={'$inc':{'total_visits':1},'$set':{'last_visit':apt.get('date'),'updated_at':now}}
-        org_doc=await db.organizations.find_one({'organization_id':org_id},{'_id':0,'loyalty_settings':1})
-        loyalty_settings=(org_doc or {}).get('loyalty_settings') or {}
-        if loyalty_settings.get('enabled'):
-            client_update['$inc']['loyalty_points']=int(loyalty_settings.get('points_per_visit') or 0)
-        await db.clients.update_one({'phone':apt['client_phone'],'organization_id':org_id},client_update)
+    if apt.get('client_phone'):await db.clients.update_one({'phone':apt['client_phone'],'organization_id':org_id},{'$inc':{'total_visits':1},'$set':{'last_visit':apt.get('date'),'updated_at':now}})
     await commission_audit(org_id,'appointment_checkout_completed',item['transaction_id'],user.user_id,None,{k:v for k,v in item.items() if k!='notes'},data.notes)
     await _trace_appointment_completion(
         apt,
@@ -4157,7 +4148,7 @@ async def register_client_with_pin(data: ClientRegisterRequest, request: Request
         key="client_session_token",
         value=session_token,
         httponly=True,
-        secure=COOKIE_SECURE,
+        secure=True,
         samesite="lax",
         path="/",
         max_age=30*24*60*60  # 30 days
@@ -4264,7 +4255,7 @@ async def login_client_with_pin(data: ClientLoginRequest, request: Request):
         key="client_session_token",
         value=session_token,
         httponly=True,
-        secure=COOKIE_SECURE,
+        secure=True,
         samesite="lax",
         path="/",
         max_age=30*24*60*60
@@ -4310,13 +4301,6 @@ async def get_client_profile(current_client: Client = Depends(get_current_client
         apt["service_price"] = service["price"] if service else 0
         apt["barber_name"] = barber["name"] if barber else "Unknown"
 
-    org = await db.organizations.find_one({"organization_id": current_client.organization_id}, {"_id": 0})
-    loyalty_settings = (org or {}).get("loyalty_settings") or {}
-    points = current_client.loyalty_points or 0
-    reward_threshold = loyalty_settings.get("reward_threshold") or 0
-    progress_percent = min(100, round(points / reward_threshold * 100)) if reward_threshold else 0
-    points_to_next_reward = max(0, reward_threshold - points)
-
     return {
         "client": {
             "client_id": current_client.client_id,
@@ -4326,15 +4310,6 @@ async def get_client_profile(current_client: Client = Depends(get_current_client
             "total_visits": current_client.total_visits,
             "last_visit": current_client.last_visit,
             "accepts_marketing": current_client.accepts_marketing
-        },
-        "loyalty": {
-            "enabled": loyalty_settings.get("enabled", False),
-            "points": points,
-            "points_per_visit": loyalty_settings.get("points_per_visit", 0),
-            "reward_threshold": reward_threshold,
-            "reward_description": loyalty_settings.get("reward_description", ""),
-            "progress_percent": progress_percent,
-            "points_to_next_reward": points_to_next_reward
         },
         "appointments": appointments
     }

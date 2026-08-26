@@ -139,7 +139,36 @@ async def seed_database():
         else:
             print(f"⊙ Service already exists: {service_data['name']}")
     
-    # 5. Summary
+    # 5. Create sample barber
+    barber_name = "Carlos Peluquero"
+    existing_barber = await db.barbers.find_one({"organization_id": org_id, "name": barber_name})
+    if not existing_barber:
+        barber_doc = {
+            "barber_id": f"barber_{uuid4().hex[:12]}",
+            "organization_id": org_id,
+            "name": barber_name,
+            "display_name": barber_name,
+            "first_name": "Carlos",
+            "last_name": "Peluquero",
+            "user_id": None,
+            "phone": None,
+            "address": None,
+            "bio": None,
+            "avatar": None,
+            "active": True,
+            "available_days": [1, 2, 3, 4, 5],
+            "start_time": "09:00",
+            "end_time": "18:00",
+            "service_ids": [],
+            "created_at": now,
+            "updated_at": now
+        }
+        await db.barbers.insert_one(barber_doc)
+        print(f"✓ Created barber: {barber_name}")
+    else:
+        print(f"⊙ Barber already exists: {barber_name}")
+
+    # 6. Summary
     print("\n=== Database Summary ===")
     org_count = await db.organizations.count_documents({})
     user_count = await db.users.count_documents({})
