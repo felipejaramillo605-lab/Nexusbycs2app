@@ -53,12 +53,58 @@ mongo_url = os.environ['MONGO_URL']
 db_name = os.environ['DB_NAME']
 EMERGENT_LLM_KEY = os.environ['EMERGENT_LLM_KEY']
 COOKIE_SECURE = os.environ.get('COOKIE_SECURE', 'true').lower() != 'false'
+# NEXUS_OPENAPI_DOCS_V1
+# Docs are public by default (matches prior behavior / Emergent preview usage).
+# Set ENABLE_API_DOCS=false in the production deployment to hide /docs, /redoc
+# and /openapi.json (avoids exposing the full internal API surface publicly).
+ENABLE_API_DOCS = os.environ.get('ENABLE_API_DOCS', 'true').lower() != 'false'
 
 client = AsyncIOMotorClient(mongo_url)
 db = client[db_name]
 configure_security_observability(db)
 
-app = FastAPI()
+tags_metadata = [
+    {"name": "health", "description": "Service health check."},
+    {"name": "auth", "description": "Staff/manager/owner authentication (email+password and Google OAuth session)."},
+    {"name": "account", "description": "Authenticated user's own account."},
+    {"name": "organizations", "description": "Organization (barbershop/salon) profile and settings, including loyalty program configuration."},
+    {"name": "team", "description": "Team members and invitations for an organization."},
+    {"name": "owner-users", "description": "Owner-level user management across organizations."},
+    {"name": "barbers", "description": "Barber/professional profiles, schedules and blocked times."},
+    {"name": "services", "description": "Service catalog (haircuts, treatments, pricing)."},
+    {"name": "appointments", "description": "Appointment scheduling, checkout and status management."},
+    {"name": "clients", "description": "Client (customer) records and history."},
+    {"name": "commissions", "description": "Staff commission settings and overrides."},
+    {"name": "transactions", "description": "Checkout transactions and revenue statistics."},
+    {"name": "settlements", "description": "Staff settlement workflow (approve/pay/cancel)."},
+    {"name": "staff-portal", "description": "Staff-facing self-service portal (income, appointments, settlements)."},
+    {"name": "inventory", "description": "Inventory items, movements and reorder suggestions."},
+    {"name": "service-recipes", "description": "Recipes linking services to inventory consumption."},
+    {"name": "procurement", "description": "Suppliers, purchase orders and purchase receipts."},
+    {"name": "owner-subscriptions", "description": "Owner subscription plans and lifecycle (trial/active/grace/suspended)."},
+    {"name": "owner-billing", "description": "Owner billing hub and fiscal profiles."},
+    {"name": "owner-delivery-ops", "description": "Owner delivery/operations settings."},
+    {"name": "owner-integrations", "description": "Owner third-party integrations matrix."},
+    {"name": "platform-billing", "description": "Platform-level billing settings (CS2 side, not per-organization)."},
+    {"name": "support-center", "description": "In-app support center."},
+    {"name": "professional-media", "description": "Professional profile media uploads and lifecycle."},
+    {"name": "marketing", "description": "Marketing campaigns."},
+    {"name": "statistics", "description": "Cross-cutting statistics."},
+    {"name": "public-booking", "description": "Public (unauthenticated) booking flow: organization info, services, barbers, availability, appointment creation/reschedule/cancel."},
+    {"name": "public-auth", "description": "Public passwordless authentication."},
+    {"name": "public-invitations", "description": "Public team invitation validation/acceptance."},
+    {"name": "public-client-portal", "description": "Public client-facing portal: registration, PIN login, profile, history, loyalty, ARCO data rights."},
+]
+
+app = FastAPI(
+    title="Nexus by CS2 API",
+    description="Backend API for Nexus, a barbershop/salon management SaaS.",
+    version="1.0.0",
+    openapi_tags=tags_metadata,
+    docs_url="/docs" if ENABLE_API_DOCS else None,
+    redoc_url="/redoc" if ENABLE_API_DOCS else None,
+    openapi_url="/openapi.json" if ENABLE_API_DOCS else None,
+)
 api_router = APIRouter(prefix="/api")
 
 # Rate limiting configuration
@@ -646,12 +692,12 @@ async def get_current_client(client_session_token: Optional[str] = Cookie(None))
     return Client(**client)
 
 # Health check endpoint
-@api_router.get("/")
+@api_router.get("/", tags=["health"])
 async def root():
     return {"message": "Nexus by CS2 API - Barber Shop Management System", "status": "running"}
 
 # Auth Endpoints
-@api_router.post("/auth/session")
+@api_router.post("/auth/session", tags=["auth"])
 @limiter.limit("10/minute")
 async def create_session(response: Response, request: Request, x_session_id: str = Header(None)):
     # NEXUS_EMERGENT_GOOGLE_AUTH_V1
@@ -737,12 +783,12 @@ async def create_session(response: Response, request: Request, x_session_id: str
 
     return User(**user)
 
-@api_router.get("/auth/me")
+@api_router.get("/auth/me", tags=["auth"])
 async def get_me(authorization: Optional[str] = Header(None), session_token: Optional[str] = Cookie(None)):
     user = await get_current_user(authorization, session_token)
     return user
 
-@api_router.post("/auth/logout")
+@api_router.post("/auth/logout", tags=["auth"])
 async def logout(response: Response, session_token: Optional[str] = Cookie(None)):
     if session_token:
         await db.user_sessions.delete_many({"session_token": session_token})
@@ -750,7 +796,7 @@ async def logout(response: Response, session_token: Optional[str] = Cookie(None)
     return {"message": "Logged out"}
 
 # Manual Auth Endpoints
-@api_router.post("/auth/register")
+@api_router.post("/auth/register", tags=["auth"])
 async def register_user(data: RegisterRequest, request: Request):
     """Register new user with email/password. User starts with pending status."""
     if not data.tos_accepted:
@@ -783,7 +829,7 @@ async def register_user(data: RegisterRequest, request: Request):
     logger.info(f"New user registered: {data.email} (pending approval)")
     return {"message": "Registration successful. Awaiting admin approval.", "user_id": user_id}
 
-@api_router.post("/auth/login")
+@api_router.post("/auth/login", tags=["auth"])
 @limiter.limit("5/minute")
 async def login_user(data: LoginRequest, response: Response, request: Request):
     """Login with email/password."""
@@ -813,7 +859,7 @@ async def login_user(data: LoginRequest, response: Response, request: Request):
         user["last_login"] = datetime.fromisoformat(user["last_login"])
     return User(**user)
 
-@api_router.post("/auth/forgot-password")
+@api_router.post("/auth/forgot-password", tags=["auth"])
 async def forgot_password(data: ForgotPasswordRequest):
     """Create and deliver a one-time password reset token without disclosing account existence."""
     generic_response = {"message": "If the email exists, a reset link has been sent"}
@@ -858,7 +904,7 @@ async def forgot_password(data: ForgotPasswordRequest):
     return generic_response
 
 
-@api_router.post("/auth/reset-password")
+@api_router.post("/auth/reset-password", tags=["auth"])
 async def reset_password(data: ResetPasswordRequest):
     """Reset a manual account password using a hashed, expiring, one-time token."""
     if data.confirm_password is not None and data.new_password != data.confirm_password:
@@ -903,7 +949,7 @@ async def reset_password(data: ResetPasswordRequest):
 
 
 # Team management endpoints
-@api_router.get("/team/members")
+@api_router.get("/team/members", tags=["team"])
 async def list_team_members(
     organization_id: Optional[str] = None,
     authorization: Optional[str] = Header(None),
@@ -922,7 +968,7 @@ async def list_team_members(
     return members
 
 
-@api_router.put("/team/members/{user_id}/role")
+@api_router.put("/team/members/{user_id}/role", tags=["team"])
 async def update_team_member_role(
     user_id: str,
     data: TeamRoleUpdate,
@@ -948,7 +994,7 @@ async def update_team_member_role(
     return {"message": "Team member role updated", "role": data.role}
 
 
-@api_router.delete("/team/members/{user_id}")
+@api_router.delete("/team/members/{user_id}", tags=["team"])
 async def deactivate_team_member(
     user_id: str,
     organization_id: Optional[str] = None,
@@ -979,7 +1025,7 @@ async def deactivate_team_member(
 
 
 # Team invitation endpoints
-@api_router.get("/team/invitations")
+@api_router.get("/team/invitations", tags=["team"])
 async def list_team_invitations(
     organization_id: Optional[str] = None,
     authorization: Optional[str] = Header(None),
@@ -1065,7 +1111,7 @@ async def record_invitation_audit(event_type,invitation,actor_user_id,delivery_m
         "created_at":datetime.now(timezone.utc).isoformat(),
     })
 
-@api_router.post("/team/invitations")
+@api_router.post("/team/invitations", tags=["team"])
 async def create_team_invitation(
     data: TeamInvitationCreate,
     authorization: Optional[str] = Header(None),
@@ -1158,7 +1204,7 @@ async def create_team_invitation(
     }
 
 
-@api_router.post("/team/invitations/{invitation_id}/resend")
+@api_router.post("/team/invitations/{invitation_id}/resend", tags=["team"])
 async def resend_team_invitation(
     invitation_id: str,
     authorization: Optional[str] = Header(None),
@@ -1249,7 +1295,7 @@ async def resend_team_invitation(
     }
 
 
-@api_router.post("/team/invitations/{invitation_id}/revoke")
+@api_router.post("/team/invitations/{invitation_id}/revoke", tags=["team"])
 async def revoke_team_invitation(
     invitation_id: str,
     data: TeamInvitationRevokeRequest,
@@ -1281,7 +1327,7 @@ async def revoke_team_invitation(
     return {"message":"Invitation revoked","invitation_id":invitation_id,"status":"revoked"}
 
 
-@api_router.get("/public/invitations/validate")
+@api_router.get("/public/invitations/validate", tags=["public-invitations"])
 async def validate_public_invitation(token: str):
     invitation = await db.invitations.find_one(
         {"token_hash": token_digest(token)}, {"_id": 0, "token_hash": 0, "last_delivery_error": 0}
@@ -1362,7 +1408,7 @@ async def _reserve_invitation_acceptance(digest: str, acceptance_id: str):
     return reserved, False
 
 
-@api_router.post("/public/invitations/accept")
+@api_router.post("/public/invitations/accept", tags=["public-invitations"])
 async def accept_public_invitation(data: InvitationAcceptRequest):
     if data.password != data.confirm_password:
         raise HTTPException(status_code=400, detail="Passwords do not match")
@@ -1426,14 +1472,14 @@ async def commission_org(user: User, requested_org_id: Optional[str]) -> str:
     require_management_role(user)
     return await resolve_team_organization(user, requested_org_id)
 
-@api_router.get("/commissions/settings")
+@api_router.get("/commissions/settings", tags=["commissions"])
 async def get_commission_settings(organization_id: Optional[str] = None, authorization: Optional[str] = Header(None), session_token: Optional[str] = Cookie(None)):
     user = await get_current_user(authorization, session_token)
     org_id = await commission_org(user, organization_id)
     item = await db.commission_settings.find_one({"organization_id": org_id}, {"_id": 0})
     return {**({"organization_id": org_id, **DEFAULT_COMMISSION_SETTINGS} if not item else item), "is_default": not bool(item)}
 
-@api_router.put("/commissions/settings")
+@api_router.put("/commissions/settings", tags=["commissions"])
 async def put_commission_settings(data: CommissionSettingsUpdate, organization_id: Optional[str] = None, authorization: Optional[str] = Header(None), session_token: Optional[str] = Cookie(None)):
     user = await get_current_user(authorization, session_token)
     org_id = await commission_org(user, organization_id)
@@ -1447,7 +1493,7 @@ async def put_commission_settings(data: CommissionSettingsUpdate, organization_i
     await commission_audit(org_id, "commission_settings_updated", org_id, user.user_id, previous, item)
     return {**item, "is_default": False}
 
-@api_router.get("/commissions/staff")
+@api_router.get("/commissions/staff", tags=["commissions"])
 async def get_staff_commissions(organization_id: Optional[str] = None, authorization: Optional[str] = Header(None), session_token: Optional[str] = Cookie(None)):
     user = await get_current_user(authorization, session_token)
     org_id = await commission_org(user, organization_id)
@@ -1461,7 +1507,7 @@ async def get_staff_commissions(organization_id: Optional[str] = None, authoriza
         staff.append({"barber_id": barber["barber_id"], "name": barber.get("display_name") or barber.get("name") or "Profesional", "active": barber.get("active", True), "source": "override" if override else "default", "staff_percent": override.get("staff_percent") if override else settings["default_staff_percent"], "business_percent": override.get("business_percent") if override else settings["default_business_percent"], "reason": override.get("reason") if override else None})
     return {"settings": settings, "staff": staff}
 
-@api_router.put("/commissions/staff/{barber_id}")
+@api_router.put("/commissions/staff/{barber_id}", tags=["commissions"])
 async def put_staff_commission(barber_id: str, data: StaffCommissionOverrideUpdate, organization_id: Optional[str] = None, authorization: Optional[str] = Header(None), session_token: Optional[str] = Cookie(None)):
     user = await get_current_user(authorization, session_token)
     org_id = await commission_org(user, organization_id)
@@ -1479,7 +1525,7 @@ async def put_staff_commission(barber_id: str, data: StaffCommissionOverrideUpda
     await commission_audit(org_id, "staff_commission_override_updated", barber_id, user.user_id, previous, item, reason)
     return item
 
-@api_router.delete("/commissions/staff/{barber_id}")
+@api_router.delete("/commissions/staff/{barber_id}", tags=["commissions"])
 async def delete_staff_commission(barber_id: str, organization_id: Optional[str] = None, authorization: Optional[str] = Header(None), session_token: Optional[str] = Cookie(None)):
     user = await get_current_user(authorization, session_token)
     org_id = await commission_org(user, organization_id)
@@ -1532,7 +1578,7 @@ async def _owner_account_audit(event_type: str, target: dict, actor: User, previ
     await db.audit_events.insert_one({"audit_id": f"audit_{uuid.uuid4().hex[:12]}", "organization_id": target.get("organization_id"), "event_type": event_type, "entity_type": "user_account", "entity_id": target.get("user_id"), "actor_user_id": actor.user_id, "previous_value": previous, "new_value": new_value, "created_at": datetime.now(timezone.utc).isoformat()})
 
 
-@api_router.get("/owner/users")
+@api_router.get("/owner/users", tags=["owner-users"])
 async def get_all_users(authorization: Optional[str] = Header(None), session_token: Optional[str] = Cookie(None)):
     current_user = await get_current_user(authorization, session_token)
     if current_user.role != "owner":
@@ -1546,7 +1592,7 @@ async def get_all_users(authorization: Optional[str] = Header(None), session_tok
     return users
 
 
-@api_router.put("/owner/users/{user_id}/access")
+@api_router.put("/owner/users/{user_id}/access", tags=["owner-users"])
 async def update_user_access(user_id: str, data: UserAccessUpdate, authorization: Optional[str] = Header(None), session_token: Optional[str] = Cookie(None)):
     current_user = await get_current_user(authorization, session_token)
     if current_user.role != "owner":
@@ -1568,7 +1614,7 @@ async def update_user_access(user_id: str, data: UserAccessUpdate, authorization
     return {"message":"Access updated"}
 
 
-@api_router.delete("/owner/users/{user_id}")
+@api_router.delete("/owner/users/{user_id}", tags=["owner-users"])
 async def delete_user(user_id: str, authorization: Optional[str] = Header(None), session_token: Optional[str] = Cookie(None)):
     current_user=await get_current_user(authorization,session_token)
     if current_user.role != "owner":
@@ -1588,7 +1634,7 @@ async def delete_user(user_id: str, authorization: Optional[str] = Header(None),
     return {"message":"User anonymized and access revoked"}
 
 
-@api_router.put("/owner/users/{user_id}/role")
+@api_router.put("/owner/users/{user_id}/role", tags=["owner-users"])
 async def update_user_role(user_id: str, data: UserRoleUpdate, authorization: Optional[str] = Header(None), session_token: Optional[str] = Cookie(None)):
     current_user=await get_current_user(authorization,session_token)
     if current_user.role != "owner":
@@ -1615,7 +1661,7 @@ def _owner_recovery_professional(target, organization_id, now):
     return {"barber_id":f"barber_{uuid.uuid4().hex[:12]}","organization_id":organization_id,"user_id":target["user_id"],"name":name,"display_name":name,"first_name":target.get("first_name"),"last_name":target.get("last_name"),"phone":target.get("phone"),"address":target.get("address"),"bio":None,"avatar":target.get("picture"),"active":True,"available_days":[1,2,3,4,5],"start_time":"09:00","end_time":"18:00","service_ids":[],"created_at":now,"updated_at":now}
 
 
-@api_router.post("/owner/users/{user_id}/organization-role")
+@api_router.post("/owner/users/{user_id}/organization-role", tags=["owner-users"])
 async def owner_update_user_organization_role(user_id: str, data: OwnerOrganizationRoleUpdate, authorization: Optional[str] = Header(None), session_token: Optional[str] = Cookie(None)):
     actor=await get_current_user(authorization,session_token)
     if actor.role!="owner":raise HTTPException(status_code=403,detail="Access denied")
@@ -1663,7 +1709,7 @@ async def owner_update_user_organization_role(user_id: str, data: OwnerOrganizat
 
 
 # NEXUS_ACCOUNT_SAFETY_V1
-@api_router.delete("/account/me")
+@api_router.delete("/account/me", tags=["account"])
 async def delete_my_account(
     data: AccountDeletionRequest,
     authorization: Optional[str] = Header(None),
@@ -1740,7 +1786,7 @@ async def delete_my_account(
     }
 
 # Organization Endpoints
-@api_router.get("/organizations")
+@api_router.get("/organizations", tags=["organizations"])
 async def get_organizations(authorization: Optional[str] = Header(None), session_token: Optional[str] = Cookie(None)):
     current_user = await get_current_user(authorization, session_token)
     require_management_role(current_user)
@@ -1770,7 +1816,7 @@ async def _eligible_onboarding_manager(manager: dict):
         raise HTTPException(status_code=409, detail={"code":"manager_already_assigned","message":"Selected Manager already belongs to an organization","organization_id":manager.get("organization_id")})
     return manager
 
-@api_router.post("/organizations")
+@api_router.post("/organizations", tags=["organizations"])
 async def create_organization(data: OrganizationCreate, authorization: Optional[str] = Header(None), session_token: Optional[str] = Cookie(None)):
     current_user = await get_current_user(authorization, session_token)
     if current_user.role != "owner" or current_user.access_status != "approved":
@@ -1817,7 +1863,7 @@ async def create_organization(data: OrganizationCreate, authorization: Optional[
         raise
     return {"organization":{k:v for k,v in org_doc.items()},"manager":{"user_id":manager_before.get("user_id"),"name":manager_before.get("name"),"email":manager_before.get("email"),"role":manager_before.get("role"),"organization_id":org_id},"fiscal_profile":profile,"audit_id":audit_id}
 
-@api_router.put("/organizations/{organization_id}")
+@api_router.put("/organizations/{organization_id}", tags=["organizations"])
 async def update_organization_profile(
     organization_id: str,
     data: OrganizationUpdate,
@@ -1854,7 +1900,7 @@ async def update_organization_profile(
     updated_org = await db.organizations.find_one({"organization_id": organization_id}, {"_id": 0})
     return updated_org
 
-@api_router.get("/public/{organization_id}/organization")
+@api_router.get("/public/{organization_id}/organization", tags=["public-booking"])
 async def get_organization_public(organization_id: str):
     """Get organization details (public endpoint for booking flow)"""
     org = await db.organizations.find_one({"organization_id": organization_id}, {"_id": 0})
@@ -1862,7 +1908,7 @@ async def get_organization_public(organization_id: str):
         raise HTTPException(status_code=404, detail="Organization not found")
     return org
 
-@api_router.post("/public/auth/passwordless")
+@api_router.post("/public/auth/passwordless", tags=["public-auth"])
 async def passwordless_login(data: PasswordlessLoginRequest, request: Request):
     """Passwordless authentication for clients using phone number - TCPA/Ley 1581 compliant"""
     # Check if client exists
@@ -1932,7 +1978,7 @@ async def passwordless_login(data: PasswordlessLoginRequest, request: Request):
         }
 
 # Services Endpoints
-@api_router.get("/services")
+@api_router.get("/services", tags=["services"])
 async def get_services(organization_id: Optional[str] = None, authorization: Optional[str] = Header(None), session_token: Optional[str] = Cookie(None)):
     current_user = await get_current_user(authorization, session_token)
     require_management_role(current_user)
@@ -1946,7 +1992,7 @@ async def get_services(organization_id: Optional[str] = None, authorization: Opt
             service["created_at"] = datetime.fromisoformat(service["created_at"])
     return services
 
-@api_router.post("/services")
+@api_router.post("/services", tags=["services"])
 async def create_service(data: ServiceCreate, authorization: Optional[str] = Header(None), session_token: Optional[str] = Cookie(None)):
     current_user = await get_current_user(authorization, session_token)
     require_management_role(current_user)
@@ -1970,7 +2016,7 @@ async def create_service(data: ServiceCreate, authorization: Optional[str] = Hea
     service_doc["created_at"] = datetime.fromisoformat(service_doc["created_at"])
     return Service(**service_doc)
 
-@api_router.put("/services/{service_id}")
+@api_router.put("/services/{service_id}", tags=["services"])
 async def update_service(service_id: str, data: ServiceCreate, authorization: Optional[str] = Header(None), session_token: Optional[str] = Cookie(None)):
     current_user = await get_current_user(authorization, session_token)
     require_management_role(current_user)
@@ -2006,7 +2052,7 @@ async def update_service(service_id: str, data: ServiceCreate, authorization: Op
         updated_service["created_at"] = datetime.fromisoformat(updated_service["created_at"])
     return Service(**updated_service)
 
-@api_router.delete("/services/{service_id}")
+@api_router.delete("/services/{service_id}", tags=["services"])
 async def delete_service(service_id: str, authorization: Optional[str] = Header(None), session_token: Optional[str] = Cookie(None)):
     current_user = await get_current_user(authorization, session_token)
     require_management_role(current_user)
@@ -2023,7 +2069,7 @@ async def delete_service(service_id: str, authorization: Optional[str] = Header(
     return {"message": "Service deleted"}
 
 # NEXUS_8A7C2D_STAFF_PROFILE_ACCESS_V1
-@api_router.get("/staff/services")
+@api_router.get("/staff/services", tags=["staff-portal"])
 async def get_staff_services(
     authorization: Optional[str] = Header(None),
     session_token: Optional[str] = Cookie(None)
@@ -2055,7 +2101,7 @@ async def get_staff_services(
 
 
 # Barbers Endpoints
-@api_router.get("/barbers/me/profile")
+@api_router.get("/barbers/me/profile", tags=["barbers"])
 async def get_my_barber_profile(
     authorization: Optional[str] = Header(None),
     session_token: Optional[str] = Cookie(None)
@@ -2086,7 +2132,7 @@ async def get_my_barber_profile(
     return barber
 
 
-@api_router.put("/barbers/me/profile")
+@api_router.put("/barbers/me/profile", tags=["barbers"])
 async def update_my_barber_profile(
     data: StaffBarberProfileUpdate,
     authorization: Optional[str] = Header(None),
@@ -2167,7 +2213,7 @@ async def update_my_barber_profile(
     return updated
 
 
-@api_router.get("/barbers")
+@api_router.get("/barbers", tags=["barbers"])
 async def get_barbers(organization_id: Optional[str] = None, authorization: Optional[str] = Header(None), session_token: Optional[str] = Cookie(None)):
     current_user = await get_current_user(authorization, session_token)
     require_management_role(current_user)
@@ -2181,7 +2227,7 @@ async def get_barbers(organization_id: Optional[str] = None, authorization: Opti
             barber["created_at"] = datetime.fromisoformat(barber["created_at"])
     return barbers
 
-@api_router.post("/barbers")
+@api_router.post("/barbers", tags=["barbers"])
 async def create_barber(data: BarberCreate, authorization: Optional[str] = Header(None), session_token: Optional[str] = Cookie(None)):
     current_user = await get_current_user(authorization, session_token)
     require_management_role(current_user)
@@ -2243,7 +2289,7 @@ async def create_barber(data: BarberCreate, authorization: Optional[str] = Heade
     barber_doc["updated_at"] = datetime.fromisoformat(barber_doc["updated_at"])
     return Barber(**barber_doc)
 
-@api_router.put("/barbers/{barber_id}")
+@api_router.put("/barbers/{barber_id}", tags=["barbers"])
 async def update_barber(barber_id: str, data: BarberCreate, authorization: Optional[str] = Header(None), session_token: Optional[str] = Cookie(None)):
     current_user = await get_current_user(authorization, session_token)
     require_management_role(current_user)
@@ -2296,7 +2342,7 @@ async def update_barber(barber_id: str, data: BarberCreate, authorization: Optio
         updated_barber["updated_at"] = datetime.fromisoformat(updated_barber["updated_at"])
     return Barber(**updated_barber)
 
-@api_router.delete("/barbers/{barber_id}")
+@api_router.delete("/barbers/{barber_id}", tags=["barbers"])
 async def delete_barber(barber_id: str, authorization: Optional[str] = Header(None), session_token: Optional[str] = Cookie(None)):
     current_user = await get_current_user(authorization, session_token)
     require_management_role(current_user)
@@ -2314,7 +2360,7 @@ async def delete_barber(barber_id: str, authorization: Optional[str] = Header(No
     return {"message": "Barber deactivated"}
 
 # Blocked Times Endpoints
-@api_router.get("/barbers/{barber_id}/blocked-times")
+@api_router.get("/barbers/{barber_id}/blocked-times", tags=["barbers"])
 async def get_blocked_times(barber_id: str, date: Optional[str] = None, authorization: Optional[str] = Header(None), session_token: Optional[str] = Cookie(None)):
     current_user = await get_current_user(authorization, session_token)
     require_management_role(current_user)
@@ -2334,7 +2380,7 @@ async def get_blocked_times(barber_id: str, date: Optional[str] = None, authoriz
             bt["created_at"] = datetime.fromisoformat(bt["created_at"])
     return blocked_times
 
-@api_router.post("/barbers/{barber_id}/blocked-times")
+@api_router.post("/barbers/{barber_id}/blocked-times", tags=["barbers"])
 async def create_blocked_time(barber_id: str, data: BlockedTimeCreate, authorization: Optional[str] = Header(None), session_token: Optional[str] = Cookie(None)):
     current_user = await get_current_user(authorization, session_token)
     require_management_role(current_user)
@@ -2366,7 +2412,7 @@ async def create_blocked_time(barber_id: str, data: BlockedTimeCreate, authoriza
     block_doc["created_at"] = datetime.fromisoformat(block_doc["created_at"])
     return BlockedTime(**block_doc)
 
-@api_router.delete("/barbers/{barber_id}/blocked-times/{block_id}")
+@api_router.delete("/barbers/{barber_id}/blocked-times/{block_id}", tags=["barbers"])
 async def delete_blocked_time(barber_id: str, block_id: str, authorization: Optional[str] = Header(None), session_token: Optional[str] = Cookie(None)):
     current_user = await get_current_user(authorization, session_token)
     require_management_role(current_user)
@@ -2386,7 +2432,7 @@ async def delete_blocked_time(barber_id: str, block_id: str, authorization: Opti
 
 # Appointments Endpoints
 # NEXUS_PAGINATION_FOUNDATION_4D1_V2
-@api_router.get("/appointments")
+@api_router.get("/appointments", tags=["appointments"])
 async def get_appointments(date: Optional[str] = None, organization_id: Optional[str] = None, status: Optional[str] = None, start_date: Optional[str] = None, end_date: Optional[str] = None, page: Optional[int] = None, page_size: Optional[int] = None, authorization: Optional[str] = Header(None), session_token: Optional[str] = Cookie(None)):
     current_user = await get_current_user(authorization, session_token)
     require_management_role(current_user)
@@ -2442,7 +2488,7 @@ async def get_appointments(date: Optional[str] = None, organization_id: Optional
     total_pages = (total + safe_size - 1) // safe_size
     return {"items": appointments, "page": safe_page, "page_size": safe_size, "total": total, "total_pages": total_pages, "has_next": safe_page < total_pages, "has_previous": safe_page > 1}
 
-@api_router.get("/appointments/today")
+@api_router.get("/appointments/today", tags=["appointments"])
 async def get_today_appointments(authorization: Optional[str] = Header(None), session_token: Optional[str] = Cookie(None)):
     today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
     return await get_appointments(date=today, authorization=authorization, session_token=session_token)
@@ -2549,7 +2595,7 @@ async def _trace_appointment_completion(appointment: dict, service: dict, worker
         )
 
 
-@api_router.put("/appointments/{appointment_id}/status")
+@api_router.put("/appointments/{appointment_id}/status", tags=["appointments"])
 async def update_appointment_status(
     appointment_id: str,
     status: str,
@@ -2637,7 +2683,7 @@ async def update_appointment_status(
 # NEXUS_CHECKOUT_BACKEND_V1
 CHECKOUT_PAYMENT_METHODS = {"cash", "card", "transfer", "nequi", "daviplata", "other"}
 
-@api_router.post("/appointments/{appointment_id}/checkout")
+@api_router.post("/appointments/{appointment_id}/checkout", tags=["appointments"])
 async def checkout_appointment(appointment_id: str, data: AppointmentCheckoutRequest, authorization: Optional[str] = Header(None), session_token: Optional[str] = Cookie(None)):
     user=await get_current_user(authorization,session_token);require_management_role(user)
     apt=await db.appointments.find_one({'appointment_id':appointment_id},{'_id':0})
@@ -2680,7 +2726,7 @@ async def checkout_appointment(appointment_id: str, data: AppointmentCheckoutReq
     )
     return item
 
-@api_router.get("/appointments/{appointment_id}/transaction")
+@api_router.get("/appointments/{appointment_id}/transaction", tags=["appointments"])
 async def get_appointment_transaction(appointment_id: str, authorization: Optional[str] = Header(None), session_token: Optional[str] = Cookie(None)):
     user=await get_current_user(authorization,session_token); require_management_role(user)
     apt=await db.appointments.find_one({"appointment_id":appointment_id},{"_id":0})
@@ -2741,7 +2787,7 @@ async def transaction_query(
     return query
 
 
-@api_router.get("/transactions")
+@api_router.get("/transactions", tags=["transactions"])
 async def list_transactions(
     organization_id: Optional[str] = None,
     start_date: Optional[str] = None,
@@ -2770,7 +2816,7 @@ async def list_transactions(
     return {"items": items, "page": safe_page, "page_size": safe_size, "total": total, "total_pages": total_pages, "has_next": safe_page < total_pages, "has_previous": safe_page > 1}
 
 
-@api_router.get("/transactions/summary")
+@api_router.get("/transactions/summary", tags=["transactions"])
 async def transaction_summary(
     organization_id: Optional[str] = None,
     start_date: Optional[str] = None,
@@ -2830,7 +2876,7 @@ async def transaction_summary(
     return totals
 
 
-@api_router.get("/transactions/{transaction_id}")
+@api_router.get("/transactions/{transaction_id}", tags=["transactions"])
 async def get_transaction_detail(
     transaction_id: str,
     authorization: Optional[str] = Header(None),
@@ -2851,7 +2897,7 @@ async def get_transaction_detail(
 # ==================== END TRANSACTION REVENUE STATISTICS ====================
 
 # Statistics Endpoints
-@api_router.get("/statistics")
+@api_router.get("/statistics", tags=["statistics"])
 async def get_statistics(start_date: str, end_date: str, organization_id: Optional[str] = None, authorization: Optional[str] = Header(None), session_token: Optional[str] = Cookie(None)):
     current_user = await get_current_user(authorization, session_token)
     require_management_role(current_user)
@@ -2971,7 +3017,7 @@ async def current_staff_income_query(
     return query
 
 
-@api_router.get("/staff/income/transactions")
+@api_router.get("/staff/income/transactions", tags=["staff-portal"])
 async def get_my_income_transactions(
     start_date: Optional[str] = None,
     end_date: Optional[str] = None,
@@ -2999,7 +3045,7 @@ async def get_my_income_transactions(
     return items
 
 
-@api_router.get("/staff/income/summary")
+@api_router.get("/staff/income/summary", tags=["staff-portal"])
 async def get_my_income_summary(
     start_date: Optional[str] = None,
     end_date: Optional[str] = None,
@@ -3058,7 +3104,7 @@ async def get_my_income_summary(
 # ==================== STAFF SETTLEMENT HISTORY ====================
 # NEXUS_STAFF_SETTLEMENTS_COMPLETION_V1
 
-@api_router.get("/staff/settlements/summary")
+@api_router.get("/staff/settlements/summary", tags=["staff-portal"])
 async def get_my_settlement_summary(
     authorization: Optional[str] = Header(None),
     session_token: Optional[str] = Cookie(None)
@@ -3095,7 +3141,7 @@ async def get_my_settlement_summary(
     }
 
 
-@api_router.get("/staff/settlements")
+@api_router.get("/staff/settlements", tags=["staff-portal"])
 async def list_my_settlements(
     status: Optional[str] = None,
     limit: int = 200,
@@ -3130,7 +3176,7 @@ async def list_my_settlements(
     }).sort("created_at", -1).to_list(safe_limit)
 
 
-@api_router.get("/staff/settlements/{settlement_id}")
+@api_router.get("/staff/settlements/{settlement_id}", tags=["staff-portal"])
 async def get_my_settlement_detail(
     settlement_id: str,
     authorization: Optional[str] = Header(None),
@@ -3238,7 +3284,7 @@ async def enrich_staff_appointments(items: List[dict], organization_id: str) -> 
     return items
 
 
-@api_router.get("/staff/appointments")
+@api_router.get("/staff/appointments", tags=["staff-portal"])
 async def get_my_staff_appointments(
     start_date: Optional[str] = None,
     end_date: Optional[str] = None,
@@ -3269,7 +3315,7 @@ async def get_my_staff_appointments(
     return await enrich_staff_appointments(items, barber["organization_id"])
 
 
-@api_router.get("/staff/appointments/summary")
+@api_router.get("/staff/appointments/summary", tags=["staff-portal"])
 async def get_my_staff_appointments_summary(
     start_date: Optional[str] = None,
     end_date: Optional[str] = None,
@@ -3324,7 +3370,7 @@ async def settlement_organization(current_user: User, organization_id: Optional[
     return await resolve_team_organization(current_user, organization_id)
 
 
-@api_router.get("/settlements/pending")
+@api_router.get("/settlements/pending", tags=["settlements"])
 async def get_pending_settlements(
     organization_id: Optional[str] = None,
     barber_id: Optional[str] = None,
@@ -3384,7 +3430,7 @@ async def get_pending_settlements(
     } for row in rows]
 
 
-@api_router.post("/settlements")
+@api_router.post("/settlements", tags=["settlements"])
 async def create_staff_settlement(
     data: SettlementCreateRequest,
     organization_id: Optional[str] = None,
@@ -3468,7 +3514,7 @@ async def create_staff_settlement(
     return settlement
 
 
-@api_router.get("/settlements")
+@api_router.get("/settlements", tags=["settlements"])
 async def list_staff_settlements(
     organization_id: Optional[str] = None,
     barber_id: Optional[str] = None,
@@ -3500,7 +3546,7 @@ async def list_staff_settlements(
     return {"items": items, "page": safe_page, "page_size": safe_size, "total": total, "total_pages": total_pages, "has_next": safe_page < total_pages, "has_previous": safe_page > 1}
 
 
-@api_router.get("/settlements/{settlement_id}")
+@api_router.get("/settlements/{settlement_id}", tags=["settlements"])
 async def get_staff_settlement(
     settlement_id: str,
     authorization: Optional[str] = Header(None),
@@ -3538,7 +3584,7 @@ async def get_authorized_settlement(current_user: User, settlement_id: str) -> d
     return settlement
 
 
-@api_router.post("/settlements/{settlement_id}/approve")
+@api_router.post("/settlements/{settlement_id}/approve", tags=["settlements"])
 async def approve_staff_settlement(
     settlement_id: str,
     authorization: Optional[str] = Header(None),
@@ -3582,7 +3628,7 @@ async def approve_staff_settlement(
     return updated
 
 
-@api_router.post("/settlements/{settlement_id}/pay")
+@api_router.post("/settlements/{settlement_id}/pay", tags=["settlements"])
 async def pay_staff_settlement(
     settlement_id: str,
     data: SettlementPaymentRequest,
@@ -3636,7 +3682,7 @@ async def pay_staff_settlement(
     return updated
 
 
-@api_router.post("/settlements/{settlement_id}/cancel")
+@api_router.post("/settlements/{settlement_id}/cancel", tags=["settlements"])
 async def cancel_staff_settlement(
     settlement_id: str,
     data: SettlementCancelRequest,
@@ -3684,7 +3730,7 @@ async def cancel_staff_settlement(
 
 # ==================== CLIENTS ENDPOINTS ====================
 
-@api_router.get("/clients")
+@api_router.get("/clients", tags=["clients"])
 async def get_clients(organization_id: Optional[str] = None, page: Optional[int] = None, page_size: Optional[int] = None, search: Optional[str] = Query(default=None, max_length=100), authorization: Optional[str] = Header(None), session_token: Optional[str] = Cookie(None)):
     current_user = await get_current_user(authorization, session_token)
     require_management_role(current_user)
@@ -3718,7 +3764,7 @@ async def get_clients(organization_id: Optional[str] = None, page: Optional[int]
     total_pages = (total + safe_size - 1) // safe_size
     return {"items": clients, "page": safe_page, "page_size": safe_size, "total": total, "total_pages": total_pages, "has_next": safe_page < total_pages, "has_previous": safe_page > 1}
 
-@api_router.put("/clients/{client_id}")
+@api_router.put("/clients/{client_id}", tags=["clients"])
 async def update_client(
     client_id: str,
     accepts_marketing: Optional[bool] = None,
@@ -3757,7 +3803,7 @@ async def update_client(
     updated_client = await db.clients.find_one({"client_id": client_id}, {"_id": 0})
     return updated_client
 
-@api_router.get("/clients/{client_id}/history")
+@api_router.get("/clients/{client_id}/history", tags=["clients"])
 async def get_client_history(client_id: str, authorization: Optional[str] = Header(None), session_token: Optional[str] = Cookie(None)):
     current_user = await get_current_user(authorization, session_token)
     require_management_role(current_user)
@@ -3861,7 +3907,7 @@ async def upsert_client(
         await db.clients.insert_one(client_doc)
         return client_doc
 
-@api_router.get("/public/clients/history")
+@api_router.get("/public/clients/history", tags=["public-client-portal"])
 @limiter.limit("20/hour")
 async def get_client_history_public(request: Request, phone: str, organization_id: str):
     """Get client appointment history by phone number (public endpoint for customer portal).
@@ -3913,7 +3959,7 @@ async def get_client_history_public(request: Request, phone: str, organization_i
 # ==================== LEGAL COMPLIANCE ENDPOINTS (TCPA, CAN-SPAM, Ley 1581 Colombia) ====================
 
 # Unsubscribe from marketing (CAN-SPAM Act + TCPA compliance)
-@api_router.post("/public/clients/unsubscribe")
+@api_router.post("/public/clients/unsubscribe", tags=["public-client-portal"])
 @limiter.limit("10/hour")
 async def unsubscribe_client(request: Request, phone: Optional[str] = None, email: Optional[str] = None, organization_id: Optional[str] = None):
     """
@@ -3956,7 +4002,7 @@ async def unsubscribe_client(request: Request, phone: Optional[str] = None, emai
 # ARCO Rights - Access (Ley 1581 Colombia compliance)
 # SECURITY: requires an authenticated client session (PIN login). Without this, phone+org_id
 # alone let anyone read any client's PII by guessing/enumerating phone numbers.
-@api_router.get("/public/clients/my-data")
+@api_router.get("/public/clients/my-data", tags=["public-client-portal"])
 @limiter.limit("15/hour")
 async def get_my_data(request: Request, client: Client = Depends(get_current_client)):
     """
@@ -3989,7 +4035,7 @@ async def get_my_data(request: Request, client: Client = Depends(get_current_cli
 
 # ARCO Rights - Rectification (Corrección)
 # SECURITY: requires an authenticated client session — see get_my_data above for why.
-@api_router.put("/public/clients/update-my-data")
+@api_router.put("/public/clients/update-my-data", tags=["public-client-portal"])
 @limiter.limit("15/hour")
 async def update_my_data(request: Request, name: Optional[str] = None, email: Optional[str] = None, client: Client = Depends(get_current_client)):
     """
@@ -4026,7 +4072,7 @@ async def update_my_data(request: Request, name: Optional[str] = None, email: Op
 
 # ARCO Rights - Deletion/Suppression (Supresión)
 # SECURITY: requires an authenticated client session — see get_my_data above for why.
-@api_router.post("/public/clients/request-deletion")
+@api_router.post("/public/clients/request-deletion", tags=["public-client-portal"])
 @limiter.limit("15/hour")
 async def request_deletion(request: Request, client: Client = Depends(get_current_client)):
     """
@@ -4063,7 +4109,7 @@ async def request_deletion(request: Request, client: Client = Depends(get_curren
 # ==================== CLIENT PORTAL ENDPOINTS (PIN-based authentication) ====================
 
 # A.2 - Register and Login with PIN
-@api_router.post("/public/clients/register")
+@api_router.post("/public/clients/register", tags=["public-client-portal"])
 @limiter.limit("5/hour")
 async def register_client_with_pin(data: ClientRegisterRequest, request: Request):
     """
@@ -4165,7 +4211,7 @@ async def register_client_with_pin(data: ClientRegisterRequest, request: Request
 
     return response
 
-@api_router.post("/public/clients/login")
+@api_router.post("/public/clients/login", tags=["public-client-portal"])
 @limiter.limit("5/minute")
 async def login_client_with_pin(data: ClientLoginRequest, request: Request):
     """
@@ -4272,7 +4318,7 @@ async def login_client_with_pin(data: ClientLoginRequest, request: Request):
 
     return response
 
-@api_router.post("/public/clients/logout")
+@api_router.post("/public/clients/logout", tags=["public-client-portal"])
 async def logout_client(client_session_token: Optional[str] = Cookie(None)):
     """Logout client and delete session"""
     if client_session_token:
@@ -4283,7 +4329,7 @@ async def logout_client(client_session_token: Optional[str] = Cookie(None)):
     return response
 
 # A.4 - Portal Functionalities (protected by get_current_client)
-@api_router.get("/public/clients/me")
+@api_router.get("/public/clients/me", tags=["public-client-portal"])
 async def get_client_profile(current_client: Client = Depends(get_current_client)):
     """Get client profile and appointment history"""
     # Get appointments
@@ -4380,7 +4426,7 @@ async def _perform_appointment_reschedule(appointment: dict, new_date: str, new_
     finally:
         await db.booking_locks.delete_one({"_id": lock_id})
 
-@api_router.post("/public/clients/appointments/{appointment_id}/reschedule")
+@api_router.post("/public/clients/appointments/{appointment_id}/reschedule", tags=["public-client-portal"])
 async def reschedule_appointment_from_portal(
     appointment_id: str,
     data: AppointmentRescheduleRequest,
@@ -4395,7 +4441,7 @@ async def reschedule_appointment_from_portal(
     updated = await _perform_appointment_reschedule(appointment, data.date, data.time, "client_portal")
     return {"message": "Cita reprogramada correctamente", "appointment": updated}
 
-@api_router.post("/public/clients/appointments/{appointment_id}/cancel")
+@api_router.post("/public/clients/appointments/{appointment_id}/cancel", tags=["public-client-portal"])
 async def cancel_appointment_from_portal(
     appointment_id: str,
     current_client: Client = Depends(get_current_client)
@@ -4439,7 +4485,7 @@ async def cancel_appointment_from_portal(
 
     return {"message": "Appointment cancelled successfully"}
 
-@api_router.post("/public/clients/change-pin")
+@api_router.post("/public/clients/change-pin", tags=["public-client-portal"])
 async def change_client_pin(
     data: ClientChangePinRequest,
     current_client: Client = Depends(get_current_client)
@@ -4469,7 +4515,7 @@ async def change_client_pin(
 
     return {"message": "PIN changed successfully"}
 
-@api_router.delete("/public/clients/me")
+@api_router.delete("/public/clients/me", tags=["public-client-portal"])
 async def delete_client_account(
     data: ClientDeleteAccountRequest,
     current_client: Client = Depends(get_current_client)
@@ -4496,7 +4542,7 @@ async def delete_client_account(
     return response
 
 # A.5 - PIN Recovery via Email
-@api_router.post("/public/clients/forgot-pin")
+@api_router.post("/public/clients/forgot-pin", tags=["public-client-portal"])
 @limiter.limit("3/hour")
 async def forgot_client_pin(data: ClientForgotPinRequest, request: Request):
     """
@@ -4541,7 +4587,7 @@ async def forgot_client_pin(data: ClientForgotPinRequest, request: Request):
 
     return {"message": generic_message}
 
-@api_router.post("/public/clients/reset-pin")
+@api_router.post("/public/clients/reset-pin", tags=["public-client-portal"])
 async def reset_client_pin(data: ClientResetPinRequest):
     """Reset PIN using token from email. Invalidates all sessions."""
     import re
@@ -4604,7 +4650,7 @@ class CampaignRequest(BaseModel):
     channel: str = "whatsapp"  # "whatsapp", "email", or "both"
     subject: Optional[str] = None  # Email subject (required if channel is email/both)
 
-@api_router.post("/marketing/campaigns")
+@api_router.post("/marketing/campaigns", tags=["marketing"])
 async def create_campaign(
     data: CampaignRequest,
     authorization: Optional[str] = Header(None),
@@ -4770,7 +4816,7 @@ async def create_campaign(
 # ==================== END MARKETING ====================
 
 # Inventory Endpoints
-@api_router.get("/inventory")
+@api_router.get("/inventory", tags=["inventory"])
 async def get_inventory(organization_id: Optional[str] = None, authorization: Optional[str] = Header(None), session_token: Optional[str] = Cookie(None)):
     current_user = await get_current_user(authorization, session_token)
     require_management_role(current_user)
@@ -4794,7 +4840,7 @@ async def get_inventory(organization_id: Optional[str] = None, authorization: Op
         item["is_low_stock"] = item["quantity"] <= item["min_stock"]
     return items
 
-@api_router.post("/inventory")
+@api_router.post("/inventory", tags=["inventory"])
 async def create_inventory_item(data: InventoryCreate, authorization: Optional[str] = Header(None), session_token: Optional[str] = Cookie(None)):
     current_user = await get_current_user(authorization, session_token)
     require_management_role(current_user)
@@ -4822,7 +4868,7 @@ async def create_inventory_item(data: InventoryCreate, authorization: Optional[s
     item_doc["is_low_stock"] = item_doc["quantity"] <= item_doc["min_stock"]
     return InventoryItem(**{**item_doc, "created_at": datetime.fromisoformat(item_doc["created_at"])})
 
-@api_router.put("/inventory/{item_id}")
+@api_router.put("/inventory/{item_id}", tags=["inventory"])
 async def update_inventory_item(item_id: str, data: InventoryCreate, authorization: Optional[str] = Header(None), session_token: Optional[str] = Cookie(None)):
     current_user = await get_current_user(authorization, session_token)
     require_management_role(current_user)
@@ -4843,14 +4889,14 @@ async def update_inventory_item(item_id: str, data: InventoryCreate, authorizati
 
     return {"message": "Item updated"}
 
-@api_router.delete("/inventory/{item_id}")
+@api_router.delete("/inventory/{item_id}", tags=["inventory"])
 async def delete_inventory_item(item_id: str, authorization: Optional[str] = Header(None), session_token: Optional[str] = Cookie(None)):
     current_user = await get_current_user(authorization, session_token)
     require_management_role(current_user)
     await db.inventory.delete_one({"item_id": item_id, "organization_id": current_user.organization_id})
     return {"message": "Item deleted"}
 
-@api_router.post("/inventory/generate-order")
+@api_router.post("/inventory/generate-order", tags=["inventory"])
 
 def _sanitize_for_prompt(value: str, max_len: int = 80) -> str:
     """Sanitize user input before including in AI prompts to prevent injection"""
@@ -5128,7 +5174,7 @@ async def _acquire_booking_lock(org_id: str, barber_id: str, date_value: str) ->
 # ==================== END STRICT PUBLIC AVAILABILITY ====================
 
 # Public Endpoints (for clients)
-@api_router.get("/public/{org_id}/services")
+@api_router.get("/public/{org_id}/services", tags=["public-booking"])
 async def get_public_services(org_id: str):
     services = await db.services.find({"organization_id": org_id}, {"_id": 0}).to_list(1000)
     for service in services:
@@ -5136,7 +5182,7 @@ async def get_public_services(org_id: str):
             service["created_at"] = datetime.fromisoformat(service["created_at"])
     return services
 
-@api_router.get("/public/{org_id}/barbers")
+@api_router.get("/public/{org_id}/barbers", tags=["public-booking"])
 async def get_public_barbers(org_id: str):
     query = {
         "organization_id": org_id,
@@ -5164,7 +5210,7 @@ async def get_public_barbers(org_id: str):
         barber["service_ids"] = barber.get("service_ids") or []
     return barbers
 
-@api_router.get("/public/{org_id}/availability")
+@api_router.get("/public/{org_id}/availability", tags=["public-booking"])
 async def get_availability(org_id: str, barber_id: str, date: str, service_id: str):
     context, slots = await _strict_available_slots(org_id, barber_id, service_id, date)
     return {
@@ -5180,7 +5226,7 @@ async def get_availability(org_id: str, barber_id: str, date: str, service_id: s
         "minimum_lead_minutes": context["minimum_lead_minutes"]
     }
 
-@api_router.get("/public/{org_id}/availability/search")
+@api_router.get("/public/{org_id}/availability/search", tags=["public-booking"])
 async def search_public_availability(
     org_id: str,
     barber_id: str,
@@ -5217,7 +5263,7 @@ async def search_public_availability(
         "alternatives": [item[2] for item in alternatives[:10]],
     }
 
-@api_router.post("/public/{org_id}/appointments")
+@api_router.post("/public/{org_id}/appointments", tags=["public-booking"])
 @limiter.limit("5/hour")
 async def create_public_appointment(org_id: str, data: AppointmentCreate, request: Request):
     # NEXUS_STRICT_AVAILABILITY_V1
@@ -5408,14 +5454,14 @@ async def inventory_organization(user: User, requested: Optional[str]) -> str:
     require_management_role(user)
     return await resolve_team_organization(user, requested)
 
-@api_router.get("/inventory/summary")
+@api_router.get("/inventory/summary", tags=["inventory"])
 async def inventory_summary(organization_id: Optional[str] = None, authorization: Optional[str] = Header(None), session_token: Optional[str] = Cookie(None)):
     user = await get_current_user(authorization, session_token)
     org_id = await inventory_organization(user, organization_id)
     items = await db.inventory.find({"organization_id": org_id, "active": {"$ne": False}}, {"_id": 0}).to_list(100000)
     return {"item_count": len(items), "low_stock_count": sum(1 for x in items if float(x.get("quantity", 0)) <= float(x.get("min_stock", 0))), "total_units": round(sum(float(x.get("quantity", 0)) for x in items), 4), "inventory_value": round(sum(float(x.get("quantity", 0))*float(x.get("unit_cost", 0)) for x in items), 2)}
 
-@api_router.get("/inventory/movements")
+@api_router.get("/inventory/movements", tags=["inventory"])
 async def inventory_movements(organization_id: Optional[str] = None, inventory_item_id: Optional[str] = None, movement_type: Optional[str] = None, page: int = 1, page_size: int = 25, authorization: Optional[str] = Header(None), session_token: Optional[str] = Cookie(None)):
     user = await get_current_user(authorization, session_token)
     org_id = await inventory_organization(user, organization_id)
@@ -5428,7 +5474,7 @@ async def inventory_movements(organization_id: Optional[str] = None, inventory_i
     pages = (total + page_size - 1)//page_size
     return {"items": items, "page": page, "page_size": page_size, "total": total, "total_pages": pages, "has_next": page < pages, "has_previous": page > 1}
 
-@api_router.post("/inventory/{item_id}/movements")
+@api_router.post("/inventory/{item_id}/movements", tags=["inventory"])
 async def create_inventory_movement(item_id: str, data: InventoryMovementCreate, authorization: Optional[str] = Header(None), session_token: Optional[str] = Cookie(None)):
     user = await get_current_user(authorization, session_token)
     org_id = await inventory_organization(user, data.organization_id)
@@ -5482,7 +5528,7 @@ async def _get_public_appointment_with_token(appointment_id: str, token: str):
     return appointment
 
 
-@api_router.post("/public/appointments/{appointment_id}/cancel")
+@api_router.post("/public/appointments/{appointment_id}/cancel", tags=["public-booking"])
 async def cancel_public_appointment(appointment_id: str, token: str):
     appointment = await _get_public_appointment_with_token(appointment_id, token)
     if appointment.get("status") == "cancelled":
@@ -5513,7 +5559,7 @@ async def cancel_public_appointment(appointment_id: str, token: str):
     return {"message": "Appointment cancelled successfully", "appointment_id": appointment_id}
 
 
-@api_router.post("/public/appointments/{appointment_id}/reschedule")
+@api_router.post("/public/appointments/{appointment_id}/reschedule", tags=["public-booking"])
 async def reschedule_public_appointment(
     appointment_id: str,
     data: AppointmentRescheduleRequest,
@@ -5523,7 +5569,7 @@ async def reschedule_public_appointment(
     updated = await _perform_appointment_reschedule(appointment, data.date, data.time, "client_public_link")
     return {"message": "Cita reprogramada correctamente", "appointment": updated}
 
-@api_router.get("/public/appointments/{appointment_id}")
+@api_router.get("/public/appointments/{appointment_id}", tags=["public-booking"])
 async def get_public_appointment(appointment_id: str, token: str):
     appointment = await _get_public_appointment_with_token(appointment_id, token)
     organization_id = appointment["organization_id"]
@@ -5546,42 +5592,42 @@ async def get_public_appointment(appointment_id: str, token: str):
 
 # NEXUS_INVENTORY_AUDIT_REGISTRATION_5A_PACKAGE_2_V1
 from inventory_audit import build_inventory_audit_router
-api_router.include_router(build_inventory_audit_router(db, get_current_user, require_management_role, resolve_team_organization))
+api_router.include_router(build_inventory_audit_router(db, get_current_user, require_management_role, resolve_team_organization), tags=["inventory"])
 
 # NEXUS_INVENTORY_CATALOG_REGISTRATION_5A_PACKAGE_3_V1
 from inventory_catalog import build_inventory_catalog_router
 from unit_catalog import validate_quantity_for_unit
-api_router.include_router(build_inventory_catalog_router(db, get_current_user, require_management_role, resolve_team_organization))
+api_router.include_router(build_inventory_catalog_router(db, get_current_user, require_management_role, resolve_team_organization), tags=["inventory"])
 
 # NEXUS_INVENTORY_REORDER_ALERTS_V1
 from inventory_reorder import build_inventory_reorder_router, ensure_inventory_reorder_indexes
-api_router.include_router(build_inventory_reorder_router(db, get_current_user, require_management_role, resolve_team_organization))
+api_router.include_router(build_inventory_reorder_router(db, get_current_user, require_management_role, resolve_team_organization), tags=["inventory"])
 
 # NEXUS_SERVICE_RECIPES_REGISTRATION_5B_PACKAGE_1_V1
 from service_recipes import build_service_recipes_router, ensure_service_recipe_indexes
-api_router.include_router(build_service_recipes_router(db, get_current_user, require_management_role, resolve_team_organization))
+api_router.include_router(build_service_recipes_router(db, get_current_user, require_management_role, resolve_team_organization), tags=["service-recipes"])
 
 # NEXUS_TRANSACTION_VOID_REVERSAL_5B_PACKAGE_3_V1
-api_router.include_router(build_transaction_void_router(db, get_current_user, require_management_role, validate_organization_access))
-api_router.include_router(build_supplier_router(db, get_current_user, require_management_role, resolve_team_organization))
-api_router.include_router(build_purchase_order_router(db, get_current_user, require_management_role, resolve_team_organization))
-api_router.include_router(build_purchase_receipt_router(db, get_current_user, require_management_role, resolve_team_organization))
-api_router.include_router(build_subscription_router(db, get_current_user))
-api_router.include_router(build_billing_hub_router(db, get_current_user))
-api_router.include_router(build_lifecycle_router(db, get_current_user, invoice_pdf))
-api_router.include_router(build_delivery_operations_router(db, get_current_user))
-api_router.include_router(build_platform_billing_router(db, get_current_user))
-api_router.include_router(build_third_party_matrix_router(db, get_current_user))
+api_router.include_router(build_transaction_void_router(db, get_current_user, require_management_role, validate_organization_access), tags=["transactions"])
+api_router.include_router(build_supplier_router(db, get_current_user, require_management_role, resolve_team_organization), tags=["procurement"])
+api_router.include_router(build_purchase_order_router(db, get_current_user, require_management_role, resolve_team_organization), tags=["procurement"])
+api_router.include_router(build_purchase_receipt_router(db, get_current_user, require_management_role, resolve_team_organization), tags=["procurement"])
+api_router.include_router(build_subscription_router(db, get_current_user), tags=["owner-subscriptions"])
+api_router.include_router(build_billing_hub_router(db, get_current_user), tags=["owner-billing"])
+api_router.include_router(build_lifecycle_router(db, get_current_user, invoice_pdf), tags=["owner-subscriptions"])
+api_router.include_router(build_delivery_operations_router(db, get_current_user), tags=["owner-delivery-ops"])
+api_router.include_router(build_platform_billing_router(db, get_current_user), tags=["platform-billing"])
+api_router.include_router(build_third_party_matrix_router(db, get_current_user), tags=["owner-integrations"])
 # NEXUS_8A7S1A_SUPPORT_FOUNDATION_REGISTRATION_V1
 from support_center import build_support_center_router, ensure_support_center_indexes
-api_router.include_router(build_support_center_router(db, get_current_user, require_management_role, resolve_team_organization, record_security_event))
+api_router.include_router(build_support_center_router(db, get_current_user, require_management_role, resolve_team_organization, record_security_event), tags=["support-center"])
 
 # NEXUS_8A7D3A_SECURE_PROFESSIONAL_MEDIA_REGISTRATION_V1
 from professional_media import build_professional_media_router
-api_router.include_router(build_professional_media_router(db, get_current_user, require_management_role, resolve_team_organization, enforce_rls_on_write, record_security_event))
+api_router.include_router(build_professional_media_router(db, get_current_user, require_management_role, resolve_team_organization, enforce_rls_on_write, record_security_event), tags=["professional-media"])
 # NEXUS_8A7D3C1_OWNER_MEDIA_RECONCILIATION_REGISTRATION_V1
 from professional_media_lifecycle import build_professional_media_lifecycle_router, ensure_professional_media_lifecycle_indexes
-api_router.include_router(build_professional_media_lifecycle_router(db, get_current_user))
+api_router.include_router(build_professional_media_lifecycle_router(db, get_current_user), tags=["professional-media"])
 
 app.include_router(api_router)
 
