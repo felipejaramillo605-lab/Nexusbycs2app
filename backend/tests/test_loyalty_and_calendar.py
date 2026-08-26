@@ -16,6 +16,13 @@ from email_service import email_service  # noqa: E402
 
 # ---------------- Organization loyalty_settings CRUD ----------------
 
+# These 3 classes all read/write organizations.loyalty_settings for the same
+# shared ORG_ID. Under `-n 2 --dist loadscope` (pytest.ini), different classes
+# can land on different xdist workers and run concurrently, racing on the same
+# Mongo document (one test's "set enabled=False" gets clobbered mid-flight by
+# another class's "set enabled=True"). xdist_group pins all three to one worker
+# so they're serialized relative to each other without forcing the whole suite serial.
+@pytest.mark.xdist_group(name="org_demo001_loyalty_settings")
 class TestLoyaltySettings:
     def test_put_loyalty_settings_manager_success(self, manager_client):
         payload = {
@@ -61,6 +68,7 @@ class TestLoyaltySettings:
 
 # ---------------- Loyalty accrual (checkout + manual status) ----------------
 
+@pytest.mark.xdist_group(name="org_demo001_loyalty_settings")
 class TestLoyaltyAccrual:
     def _make_appointment(self, db, phone: str, org_id: str = ORG_ID):
         """Insert appointment directly to avoid public rate limit & availability logic."""
@@ -196,6 +204,7 @@ class TestClientsListLoyalty:
 
 # ---------------- Client portal /me includes loyalty summary ----------------
 
+@pytest.mark.xdist_group(name="org_demo001_loyalty_settings")
 class TestClientPortalMe:
     def test_client_me_includes_loyalty(self, db):
         import requests, bcrypt
