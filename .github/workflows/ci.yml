@@ -65,9 +65,16 @@ jobs:
         with:
           python-version: "3.12"
 
+      # --no-deps: requirements.txt is a fully pinned pip-freeze snapshot (every
+      # package has an exact version or wheel URL). Without --no-deps, pip also
+      # tries to resolve each package's own declared dependencies — and hits a
+      # ResolutionImpossible conflict because emergentintegrations' internal
+      # litellm dependency (a bare wheel URL) and the explicit litellm line in
+      # requirements.txt (same URL, but with a #sha256= fragment) look like two
+      # different requirements to pip even though they're the same wheel.
       - name: Install backend dependencies
         working-directory: backend
-        run: pip install -r requirements.txt
+        run: pip install --no-deps -r requirements.txt
 
       - name: Start backend server
         working-directory: backend
