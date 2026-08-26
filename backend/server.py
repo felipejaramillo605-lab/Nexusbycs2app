@@ -2845,6 +2845,7 @@ async def get_transaction_detail(
 @api_router.get("/statistics")
 async def get_statistics(start_date: str, end_date: str, organization_id: Optional[str] = None, authorization: Optional[str] = Header(None), session_token: Optional[str] = Cookie(None)):
     current_user = await get_current_user(authorization, session_token)
+    require_management_role(current_user)
 
     # Build query
     if current_user.role == "owner":
@@ -4586,6 +4587,7 @@ async def create_campaign(
 ):
     """Send marketing campaign to selected clients via WhatsApp and/or Email"""
     current_user = await get_current_user(authorization, session_token)
+    require_management_role(current_user)
 
     if not data.client_ids:
         raise HTTPException(status_code=400, detail="No clients selected")
