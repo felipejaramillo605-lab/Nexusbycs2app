@@ -10,6 +10,7 @@ import { MANAGER } from '../constants/testIds';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '../components/ui/dialog';
 import { toast } from 'sonner';
 import { confirmAction, FieldGuide, ProfessionalImageUpload } from '../components/design';
+import TeamReviewsPanel from '../components/manager/TeamReviewsPanel';
 
 const DAYS = [
   { value: 1, label: 'Lun' },
@@ -134,6 +135,7 @@ const ManagerBarbers = () => {
   const [blockedTimes, setBlockedTimes] = useState([]);
   const [newBlock, setNewBlock] = useState({ date: '', start_time: '13:00', end_time: '14:00', reason: 'Almuerzo' });
   const [organizationName, setOrganizationName] = useState('');
+  const [activeTab, setActiveTab] = useState('equipo');
 
   // Get org_id from query param (for owner) or user.organization_id (for manager)
   const organizationId = (user?.role === 'owner' ? searchParams.get('org_id') : user?.organization_id) || user?.organization_id;
@@ -705,6 +707,29 @@ const ManagerBarbers = () => {
           </DialogContent>
         </Dialog>
 
+        <div className="flex gap-2 mb-6 border-b border-[var(--app-border)]">
+          {[
+            { id: 'equipo', label: 'Equipo' },
+            { id: 'resenas', label: 'Reseñas' },
+          ].map((tab) => (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id)}
+              className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors ${
+                activeTab === tab.id
+                  ? 'border-[#0A84FF] text-[var(--app-text-primary)]'
+                  : 'border-transparent text-zinc-500 hover:text-zinc-300'
+              }`}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </div>
+
+        {activeTab === 'resenas' && <TeamReviewsPanel organizationId={organizationId} />}
+
+        {activeTab === 'equipo' && (
+        <>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {barbers.map((barber) => {
             const displayName = barber.display_name || barber.name || 'Profesional';
@@ -750,6 +775,8 @@ const ManagerBarbers = () => {
             <p className="text-zinc-400 mb-4">No hay barberos registrados</p>
             <p className="text-zinc-500 text-sm">Agrega tu primer barbero para comenzar</p>
           </div>
+        )}
+        </>
         )}
       </div>
     </div>
