@@ -29,6 +29,8 @@ const OwnerAccessControl = lazy(() => import('./pages/OwnerAccessControl'));
 const OwnerSubscriptions = lazy(() => import('./pages/OwnerSubscriptions'));
 const OwnerThirdPartyMatrix = lazy(() => import('./pages/OwnerThirdPartyMatrix'));
 const OwnerAnnouncements = lazy(() => import('./pages/OwnerAnnouncements'));
+const ProfessionalMetrics = lazy(() => import('./pages/ProfessionalMetrics'));
+const StaffReviews = lazy(() => import('./pages/StaffReviews'));
 const OwnerOrganizationOnboarding = lazy(() => import('./pages/OwnerOrganizationOnboarding'));
 const ManagerDashboard = lazy(() => import('./pages/ManagerDashboard'));
 const ManagerBilling = lazy(() => import('./pages/ManagerBilling'));
@@ -121,6 +123,8 @@ function AppRouter() {
         <Route path="/owner/subscriptions" element={<ProtectedRoute requiredRole="owner"><OwnerSubscriptions /></ProtectedRoute>} />
         <Route path="/owner/third-party-matrix" element={<ProtectedRoute requiredRole="owner"><OwnerThirdPartyMatrix /></ProtectedRoute>} />
               <Route path="/owner/announcements" element={<ProtectedRoute requiredRole="owner"><Suspense fallback={<PageLoader />}><OwnerAnnouncements /></Suspense></ProtectedRoute>} />
+              <Route path="/manager/barbers/:barberId/metrics" element={<ProtectedRoute requiredRole="manager"><Suspense fallback={<PageLoader />}><ProfessionalMetrics /></Suspense></ProtectedRoute>} />
+              <Route path="/staff/reviews" element={<ProtectedRoute requiredRole="staff"><Suspense fallback={<PageLoader />}><StaffReviews /></Suspense></ProtectedRoute>} />
         <Route path="/owner/organizations/new" element={<ProtectedRoute requiredRole="owner"><OwnerOrganizationOnboarding /></ProtectedRoute>} />
 
         {/* Settings and related redirects */}

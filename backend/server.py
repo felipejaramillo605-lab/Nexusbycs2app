@@ -43,6 +43,7 @@ from owner_delivery_operations import build_delivery_operations_router, ensure_d
 from appointment_email_delivery import ensure_appointment_email_delivery_indexes, execute_compatibility_delivery, cancel_pending_deliveries
 from review_requests import schedule_review_request, ensure_review_request_indexes
 from internal_reviews import build_internal_reviews_router, ensure_internal_reviews_indexes
+from professional_metrics import build_professional_metrics_router
 from platform_billing_settings import build_platform_billing_router, ensure_platform_billing_indexes
 from owner_third_party_matrix import build_third_party_matrix_router, ensure_third_party_matrix_indexes
 
@@ -5635,6 +5636,7 @@ from professional_media_lifecycle import build_professional_media_lifecycle_rout
 api_router.include_router(build_professional_media_lifecycle_router(db, get_current_user), tags=["professional-media"])
 
 api_router.include_router(build_internal_reviews_router(db, get_current_client, get_current_user, require_management_role, resolve_team_organization), tags=["internal-reviews"])
+api_router.include_router(build_professional_metrics_router(db, get_current_user, require_management_role, resolve_team_organization), tags=["professional-metrics"])
 
 app.include_router(api_router)
 

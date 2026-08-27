@@ -5,7 +5,7 @@ import React, { useEffect, useState, useCallback } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { barberAPI, organizationAPI, serviceAPI } from '../api';
-import { Plus, Trash2, ArrowLeft, Users, Edit2, Clock, Calendar, Mail } from 'lucide-react';
+import { Plus, Trash2, ArrowLeft, Users, Edit2, Clock, Calendar, Mail, BarChart3 } from 'lucide-react';
 import { MANAGER } from '../constants/testIds';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '../components/ui/dialog';
 import { toast } from 'sonner';
@@ -735,6 +735,9 @@ const ManagerBarbers = () => {
                 {selectedServices.length > 0 && <div className="flex flex-wrap gap-1.5 mb-4">{selectedServices.map((service) => <span key={service.service_id} className="px-2 py-1 rounded-md bg-purple-500/10 text-xs text-purple-300">{service.name}</span>)}</div>}
                 <button onClick={() => handleManageBlocks(barber)} disabled={barber.active === false} className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-white/5 hover:bg-white/10 border border-[var(--app-border)] rounded-xl text-zinc-300 hover:text-[var(--app-text-primary)] transition-all text-sm disabled:opacity-40 disabled:cursor-not-allowed">
                   <Clock size={16} strokeWidth={1.5} /> Gestionar Horarios
+                </button>
+                <button onClick={() => navigate(`/manager/barbers/${barber.barber_id}/metrics?org_id=${barber.organization_id}`)} className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-purple-500/10 hover:bg-purple-500/20 border border-purple-500/20 rounded-xl text-purple-300 hover:text-purple-200 transition-all text-sm">
+                  <BarChart3 size={16} strokeWidth={1.5} /> Ver métricas
                 </button>
               </div>
             );
