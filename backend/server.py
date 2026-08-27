@@ -42,6 +42,7 @@ from security_observability import configure_security_observability, ensure_secu
 from owner_delivery_operations import build_delivery_operations_router, ensure_delivery_operations_indexes, scheduler_loop
 from appointment_email_delivery import ensure_appointment_email_delivery_indexes, execute_compatibility_delivery, cancel_pending_deliveries
 from review_requests import schedule_review_request, ensure_review_request_indexes
+from internal_reviews import build_internal_reviews_router, ensure_internal_reviews_indexes
 from platform_billing_settings import build_platform_billing_router, ensure_platform_billing_indexes
 from owner_third_party_matrix import build_third_party_matrix_router, ensure_third_party_matrix_indexes
 
@@ -4382,6 +4383,10 @@ async def get_client_profile(current_client: Client = Depends(get_current_client
             "progress_percent": progress_percent,
             "points_to_next_reward": points_to_next_reward
         },
+        "google_review": {
+            "enabled": bool(org and (org.get("review_request_settings") or {}).get("enabled") and str(org.get("review_link") or "").strip().lower().startswith("https://")),
+            "link": (org.get("review_link") or "").strip() if org else ""
+        },
         "appointments": appointments
     }
 
@@ -5629,6 +5634,8 @@ api_router.include_router(build_professional_media_router(db, get_current_user, 
 from professional_media_lifecycle import build_professional_media_lifecycle_router, ensure_professional_media_lifecycle_indexes
 api_router.include_router(build_professional_media_lifecycle_router(db, get_current_user), tags=["professional-media"])
 
+api_router.include_router(build_internal_reviews_router(db, get_current_client, get_current_user, require_management_role, resolve_team_organization), tags=["internal-reviews"])
+
 app.include_router(api_router)
 
 # ==================== SECURITY MIDDLEWARE ====================
@@ -5785,6 +5792,7 @@ async def create_application_indexes():
     await ensure_delivery_operations_indexes(db)
     await ensure_appointment_email_delivery_indexes(db)
     await ensure_review_request_indexes(db)
+    await ensure_internal_reviews_indexes(db)
     await ensure_platform_billing_indexes(db)
     await ensure_third_party_matrix_indexes(db)
     await ensure_professional_media_lifecycle_indexes(db)

@@ -18,6 +18,7 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { api } from '../api';
+import ReviewModal from '../components/ReviewModal';
 
 export default function ClientPortalDashboard() {
   const { orgId } = useParams();
@@ -26,6 +27,8 @@ export default function ClientPortalDashboard() {
   const [clientData, setClientData] = useState(null);
   // NEXUS_LOYALTY_PROGRAM_V1
   const [loyalty, setLoyalty] = useState(null);
+  const [pendingReviews, setPendingReviews] = useState([]);
+  const [googleReview, setGoogleReview] = useState(null);
   const [appointments, setAppointments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showChangePinModal, setShowChangePinModal] = useState(false);
@@ -52,6 +55,13 @@ export default function ClientPortalDashboard() {
       const clientPayload = meResponse.data?.client || meResponse.data;
       setClientData(clientPayload);
       setLoyalty(meResponse.data?.loyalty || null);
+      setGoogleReview(meResponse.data?.google_review || null);
+      try {
+        const pendingResponse = await api.get('/public/clients/reviews/pending');
+        setPendingReviews(pendingResponse.data?.pending || []);
+      } catch (pendingError) {
+        setPendingReviews([]);
+      }
 
       // Get appointments history
       const historyResponse = await api.get('/public/clients/history', {
@@ -247,6 +257,14 @@ export default function ClientPortalDashboard() {
 
   return (
     <div className="min-h-screen bg-black">
+      {pendingReviews[0] && (
+        <ReviewModal
+          appointment={pendingReviews[0]}
+          googleReview={googleReview}
+          onSubmitted={(id) => setPendingReviews((prev) => prev.filter((p) => p.appointment_id !== id))}
+          onSkip={() => setPendingReviews((prev) => prev.slice(1))}
+        />
+      )}
       {/* Header */}
       <div className="border-b border-white/10 bg-white/5 backdrop-blur-sm">
         <div className="max-w-4xl mx-auto px-4 py-6">

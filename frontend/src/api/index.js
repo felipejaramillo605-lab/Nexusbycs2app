@@ -107,6 +107,7 @@ export const serviceAPI = {
 
 export const barberAPI = {
   getMyProfile: () => api.get('/barbers/me/profile'),
+  getMyReviews: () => api.get('/barbers/me/reviews'),
   getMyServices: () => api.get('/staff/services'),
   updateMyProfile: (data) => api.put('/barbers/me/profile', data),
   uploadMyAvatar: (file, onUploadProgress) => { const data = new FormData(); data.append('file', file); return api.post('/barbers/me/avatar', data, { onUploadProgress }); },
@@ -270,6 +271,7 @@ export const billingAPI = {
   getNotifications: (params={}) => api.get('/billing/notifications',{params}),
   markNotificationRead: id => api.post(`/billing/notifications/${id}/read`),
   announce: data => api.post('/billing/owner/announcements',data),
+  getSubscriptions: () => api.get('/billing/owner/subscriptions'),
 };
 
 export const thirdPartyMatrixAPI = {list:(params={})=>api.get('/owner/third-party-matrix',{params}),detail:id=>api.get(`/owner/third-party-matrix/${id}`)};
