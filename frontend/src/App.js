@@ -64,6 +64,9 @@ const ClientPortalDashboard = lazy(() => import('./pages/ClientPortalDashboard')
 const RescheduleAppointment = lazy(() => import('./pages/RescheduleAppointment'));
 const ForgotPin = lazy(() => import('./pages/ForgotPin'));
 const ResetPin = lazy(() => import('./pages/ResetPin'));
+// NEXUS_GUIDE_V9
+const GuideModule = lazy(() => import('./guide').then((m) => ({ default: m.GuideModule })));
+// NEXUS_GUIDE_V9 end
 
 // Loading fallback
 const PageLoader = () => (
@@ -260,6 +263,11 @@ function AppRouter() {
             </ProtectedRoute>
           }
         />
+
+        {/* NEXUS_GUIDE_V9 */}
+        <Route path="/manager/guia" element={<ProtectedRoute allowedRoles={['owner', 'manager', 'admin']}><GuideModule /></ProtectedRoute>} />
+        <Route path="/staff/guia" element={<ProtectedRoute requiredRole="staff"><GuideModule /></ProtectedRoute>} />
+        {/* NEXUS_GUIDE_V9 end */}
 
         <Route path="/account/privacy" element={<ProtectedRoute allowedRoles={['owner', 'manager', 'admin', 'staff']}><AccountPrivacyRedirect /></ProtectedRoute>} />
         

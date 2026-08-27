@@ -1,0 +1,59 @@
+/* frontend/src/guide/guide.css */
+.nexus-guide { display: grid; gap: 1.25rem; }
+/* I-1: staff chrome provides no page container; match .nexus-staff-page. Manager chrome (.nexus-shell-main>main) already pads, so scope to staff only. */
+.nexus-staff-content .nexus-guide-page { max-width: 1160px; margin: auto; padding: 1.5rem clamp(1rem, 3vw, 2rem) 6rem; }
+.nexus-guide-shot { position: relative; margin: 0; border-radius: 12px; overflow: hidden; border: 1px solid var(--app-border); }
+.nexus-guide-shot img { display: block; width: 100%; height: auto; }
+.nexus-guide-shot-placeholder { display: flex; align-items: center; justify-content: center; text-align: center; padding: 2rem 1rem; border: 1px dashed var(--app-border); border-radius: 12px; color: var(--app-text-secondary); font-size: .85rem; }
+.nexus-guide-shot-marker { position: absolute; transform: translate(-50%, -50%); width: 24px; height: 24px; border-radius: 999px; background: var(--app-primary); color: #fff; font-size: .72rem; font-weight: 700; display: flex; align-items: center; justify-content: center; box-shadow: 0 0 0 3px rgba(0,0,0,.25); }
+.nexus-guide-table-wrap { overflow-x: auto; }
+.nexus-guide-table { width: 100%; border-collapse: collapse; font-size: .88rem; }
+.nexus-guide-table th, .nexus-guide-table td { text-align: left; padding: .55rem .6rem; border-bottom: 1px solid var(--app-border); vertical-align: top; }
+.nexus-guide-step { border: 1px solid var(--app-border); border-radius: 12px; padding: 1rem; }
+.nexus-guide-step-n { display: inline-flex; width: 22px; height: 22px; border-radius: 999px; background: var(--app-primary); color: #fff; font-size: .74rem; font-weight: 700; align-items: center; justify-content: center; margin-right: .5rem; }
+.nexus-guide-expected { margin-top: .6rem; padding: .5rem .7rem; border-radius: 8px; background: color-mix(in srgb, var(--app-primary) 12%, transparent); font-size: .84rem; }
+.nexus-guide-example { border-left: 3px solid var(--app-primary); padding: .8rem 1rem; border-radius: 0 10px 10px 0; background: var(--app-surface-elevated, rgba(127,127,127,.06)); }
+.nexus-guide-pitfall { display: grid; gap: .5rem; }
+.nexus-guide-pitfall li { list-style: none; padding: .5rem .7rem; border-radius: 8px; background: rgba(245, 158, 11, .1); font-size: .86rem; }
+@media (max-width: 640px) {
+  .nexus-guide-shot-marker { width: 20px; height: 20px; font-size: .66rem; }
+}
+
+/* --- Task 5: section checklist + reconciled block classes --- */
+.nexus-guide-checklist { display: grid; gap: .4rem; }
+.nexus-guide-checklist label { display: flex; gap: .55rem; align-items: flex-start; padding: .5rem .6rem; border: 1px solid var(--app-border); border-radius: 8px; cursor: pointer; font-size: .88rem; }
+.nexus-guide-checklist input { margin-top: .15rem; }
+.nexus-guide-checklist label.is-done { opacity: .6; text-decoration: line-through; }
+
+.nexus-guide-summary { display: grid; gap: .5rem; }
+.nexus-guide-summary-list { display: grid; gap: .6rem; margin: 0; }
+.nexus-guide-summary-list dt { font-size: .78rem; font-weight: 700; text-transform: uppercase; letter-spacing: .03em; color: var(--app-text-secondary); }
+.nexus-guide-summary-list dd { margin: .1rem 0 0; font-size: .9rem; color: var(--app-text-primary); }
+
+.nexus-guide-walkthrough { display: grid; gap: .6rem; }
+.nexus-guide-walkthrough-zones { margin: 0; padding-left: 1.1rem; display: grid; gap: .3rem; font-size: .86rem; color: var(--app-text-secondary); }
+
+.nexus-guide-substeps { margin: .5rem 0 0; padding-left: 1.1rem; display: grid; gap: .3rem; font-size: .88rem; }
+.nexus-guide-example-steps { margin: .5rem 0 0; padding-left: 1.1rem; display: grid; gap: .3rem; font-size: .88rem; }
+
+/* --- Task 7: shell layout --- */
+.nexus-guide-viewline { font-size: .82rem; color: var(--app-text-secondary); margin: .2rem 0 0; text-transform: capitalize; }
+.nexus-guide-layout { display: grid; grid-template-columns: 240px minmax(0, 1fr); gap: 1.5rem; align-items: start; }
+.nexus-guide-index { display: grid; gap: .3rem; position: sticky; top: 5.5rem; }
+.nexus-guide-index button { display: grid; grid-template-columns: 18px 1fr; gap: .5rem; align-items: center; padding: .5rem .6rem; border-radius: 8px; font-size: .86rem; color: var(--app-text-secondary); cursor: pointer; width: 100%; text-align: left; background: transparent; border: 0; font-family: inherit; }
+.nexus-guide-index button.is-active { background: color-mix(in srgb, var(--app-primary) 14%, transparent); color: var(--app-text-primary); }
+.nexus-guide-index button:focus-visible { outline: 2px solid var(--app-primary); outline-offset: 2px; }
+.nexus-guide-minibar { grid-column: 2; height: 3px; border-radius: 2px; background: var(--app-border); overflow: hidden; }
+.nexus-guide-minibar > i { display: block; height: 100%; background: var(--app-primary); }
+.nexus-guide-progresshead { display: grid; gap: .4rem; margin-bottom: 1rem; }
+.nexus-guide-progressbar { height: 6px; border-radius: 3px; background: var(--app-border); overflow: hidden; }
+.nexus-guide-progressbar > i { display: block; height: 100%; background: var(--app-primary); transition: width .3s ease; }
+.nexus-guide-progresstext { font-size: .84rem; color: var(--app-text-secondary); }
+.nexus-guide-selector { margin-bottom: 1rem; }
+.nexus-guide-index-mobile { display: none; }
+.nexus-guide-index-mobile select { width: 100%; padding: .5rem .6rem; border-radius: 8px; border: 1px solid var(--app-border); background: var(--app-surface-elevated, transparent); color: var(--app-text-primary); font-size: .88rem; }
+@media (max-width: 900px) {
+  .nexus-guide-layout { grid-template-columns: 1fr; }
+  .nexus-guide-index { display: none; }
+  .nexus-guide-index-mobile { display: block; margin-bottom: 1rem; }
+}

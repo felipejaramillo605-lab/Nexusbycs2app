@@ -2,6 +2,9 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import { ChevronLeft, ChevronRight, X } from 'lucide-react';
+// NEXUS_GUIDE_V9
+import { useNavigate } from 'react-router-dom';
+// NEXUS_GUIDE_V9 end
 import { ONBOARDING_STEPS, ONBOARDING_ROLE_LABEL } from './onboardingSteps';
 import { ONBOARDING_ILLUSTRATIONS } from './onboardingIllustrations';
 
@@ -17,6 +20,10 @@ export default function OnboardingTour({ role, autoStart = true }) {
   const [open, setOpen] = useState(false);
   const [index, setIndex] = useState(0);
   const reduced = useReducedMotion();
+  // NEXUS_GUIDE_V9
+  const navigate = useNavigate();
+  const guideHref = role === 'staff' ? '/staff/guia' : '/manager/guia';
+  // NEXUS_GUIDE_V9 end
 
   useEffect(() => {
     if (!autoStart || !role || !steps.length) return;
@@ -81,7 +88,7 @@ export default function OnboardingTour({ role, autoStart = true }) {
             </motion.div>
           </AnimatePresence>
 
-          <div className="mt-6 flex items-center justify-between">
+          <div className="mt-6 flex flex-wrap items-center justify-between gap-2">
             <div className="flex gap-1.5">
               {steps.map((_, i) => (
                 <span
@@ -94,7 +101,18 @@ export default function OnboardingTour({ role, autoStart = true }) {
                 />
               ))}
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
+              {/* NEXUS_GUIDE_V9 */}
+              {isLast && (
+                <button
+                  type="button"
+                  onClick={() => { close(); navigate(guideHref); }}
+                  className="flex items-center gap-1 px-3 py-2 rounded-lg text-sm text-[var(--app-text-secondary)] hover:text-[var(--app-text-primary)]"
+                >
+                  Ver guía completa
+                </button>
+              )}
+              {/* NEXUS_GUIDE_V9 end */}
               {index > 0 && (
                 <button
                   type="button"
