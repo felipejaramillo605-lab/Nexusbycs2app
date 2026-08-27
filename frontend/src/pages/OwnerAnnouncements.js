@@ -130,7 +130,7 @@ export default function OwnerAnnouncements() {
       <div className="bg-zinc-900 rounded-xl border border-zinc-800 p-4 space-y-4">
         <div>
           <label className="text-sm font-medium text-zinc-300 mb-1.5 block">Prioridad</label>
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
             {SEVERITY_OPTIONS.map(opt => (
               <button
                 key={opt.value}

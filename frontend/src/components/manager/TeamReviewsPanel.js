@@ -108,7 +108,52 @@ export default function TeamReviewsPanel({ organizationId }) {
         </button>
       </div>
 
-      <div className="backdrop-blur-xl bg-white/3 border border-[var(--app-border)] rounded-2xl overflow-hidden">
+      {/* Mobile: tarjetas apiladas */}
+      <ul className="space-y-3 sm:hidden">
+        {team.map((row, index) => {
+          const isLow = (row.average_rating || 0) < LOW_RATING_THRESHOLD;
+          return (
+            <li
+              key={row.barber_id}
+              className="backdrop-blur-xl bg-white/3 border border-[var(--app-border)] rounded-2xl p-4"
+            >
+              <div className="flex items-start justify-between gap-2">
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="text-zinc-500 text-sm">{index + 1}.</span>
+                    <span className="text-[var(--app-text-primary)] font-medium truncate">
+                      {row.barber_name || 'Profesional'}
+                    </span>
+                    {isLow && (
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] bg-amber-500/15 text-amber-300 border border-amber-500/30">
+                        <AlertTriangle size={11} strokeWidth={2} /> Baja
+                      </span>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-2 mt-1.5">
+                    <StarMeter value={row.average_rating || 0} size={14} />
+                    <span className={isLow ? 'text-amber-300 text-sm' : 'text-zinc-300 text-sm'}>
+                      {(row.average_rating || 0).toFixed(2)}
+                    </span>
+                    <span className="text-zinc-500 text-xs">· {row.total_reviews || 0} reseñas</span>
+                  </div>
+                </div>
+              </div>
+              <button
+                onClick={() =>
+                  navigate(`/manager/barbers/${row.barber_id}/metrics?org_id=${organizationId}`)
+                }
+                className="mt-3 w-full inline-flex items-center justify-center gap-1.5 px-3 py-2 bg-purple-500/10 hover:bg-purple-500/20 border border-purple-500/20 rounded-lg text-purple-300 hover:text-purple-200 transition-all text-xs"
+              >
+                <BarChart3 size={14} strokeWidth={1.5} /> Ver métricas
+              </button>
+            </li>
+          );
+        })}
+      </ul>
+
+      {/* Desktop: tabla */}
+      <div className="hidden sm:block backdrop-blur-xl bg-white/3 border border-[var(--app-border)] rounded-2xl overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
