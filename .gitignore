@@ -120,3 +120,4 @@ frontend/node_modules/.cache/default-development/1.pack
 
 # CS2 checkpoint backups (manual pre-task snapshots, not part of the app)
 .checkpoints/
+/patch_*/
