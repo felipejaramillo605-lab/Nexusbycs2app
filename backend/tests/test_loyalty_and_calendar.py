@@ -2,6 +2,7 @@
 import os
 import sys
 import uuid
+import time
 from datetime import datetime, timezone
 
 import pytest
@@ -110,6 +111,12 @@ class TestLoyaltyAccrual:
         })
         return client_id
 
+    # NEXUS_LOYALTY_FLAKE_FIX_V1: verify the write is visible before returning.
+    # The test writes via a sync pymongo client while the app reads via an
+    # async motor client -- both different connections to the same single-node
+    # mongod. Reads should be immediately consistent, but CI has shown rare
+    # flakes where checkout observes the previous loyalty_settings. Polling
+    # here removes that race without masking a genuine failure to persist.
     def _set_loyalty(self, db, enabled: bool, ppv: int = 15):
         db.organizations.update_one(
             {"organization_id": ORG_ID},
@@ -117,6 +124,12 @@ class TestLoyaltyAccrual:
                 "enabled": enabled, "points_per_visit": ppv,
                 "reward_threshold": 100, "reward_description": "Corte gratis"}}},
         )
+        for _ in range(20):
+            doc = db.organizations.find_one({"organization_id": ORG_ID}, {"loyalty_settings": 1})
+            settings = (doc or {}).get("loyalty_settings") or {}
+            if settings.get("enabled") == enabled and settings.get("points_per_visit") == ppv:
+                return
+            time.sleep(0.05)
 
     def test_checkout_increments_loyalty_when_enabled(self, manager_client, db):
         phone = f"+57300{uuid.uuid4().hex[:7]}"
