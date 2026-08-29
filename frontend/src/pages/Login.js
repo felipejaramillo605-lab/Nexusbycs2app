@@ -1,4 +1,7 @@
 // NEXUS_8A7D1B_REMAINING_NEUTRAL_COPY_V1
+// NEXUS_AUTH_BRAND_UNIFY_V15: replaced hardcoded black/blue look with the
+// app's theme tokens (--bg-*/--text-*/--accent, .glass-panel) so pre-auth
+// pages match the purple brand + light/dark support used everywhere else.
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { LogIn, Mail, Lock, Eye, EyeOff } from 'lucide-react';
@@ -79,32 +82,30 @@ const Login = () => {
   };
 
   return (
-    <div className="min-h-screen bg-[#000000] flex items-center justify-center relative overflow-hidden">
+    <div className="min-h-screen bg-[var(--bg-primary)] flex items-center justify-center relative overflow-hidden">
       <div
-        className="absolute inset-0 opacity-20"
+        className="absolute inset-0 opacity-70 pointer-events-none"
         style={{
           backgroundImage:
-            'url(https://images.pexels.com/photos/17027433/pexels-photo-17027433.jpeg)',
-          backgroundSize: 'cover',
-          backgroundPosition: 'center'
+            'radial-gradient(ellipse 60% 50% at 15% 15%, var(--accent-glow), transparent), radial-gradient(ellipse 55% 45% at 85% 85%, var(--accent-glow), transparent)'
         }}
       />
 
-      <div className="relative z-10 backdrop-blur-xl bg-white/5 border border-white/10 rounded-3xl p-8 sm:p-12 max-w-md w-full mx-4">
+      <div className="relative z-10 glass-panel rounded-3xl p-8 sm:p-12 max-w-md w-full mx-4">
         <div className="text-center mb-8">
           <h1
-            className="text-4xl sm:text-5xl font-light tracking-tight text-white mb-4"
+            className="text-4xl sm:text-5xl font-light tracking-tight text-[var(--text-primary)] mb-4"
             style={{ fontFamily: 'Outfit, sans-serif' }}
           >
             Nexus by CS2
           </h1>
-          <p className="text-zinc-400 text-sm sm:text-base leading-relaxed">
+          <p className="text-[var(--text-secondary)] text-sm sm:text-base leading-relaxed">
             Plataforma de gestión para organizaciones de servicios
           </p>
         </div>
 
         <div
-          className="flex gap-2 mb-6 bg-white/5 p-1 rounded-xl"
+          className="flex gap-2 mb-6 bg-[var(--bg-secondary)] p-1 rounded-xl border border-[var(--border-primary)]"
           role="tablist"
           aria-label="Método de inicio de sesión"
         >
@@ -116,8 +117,8 @@ const Login = () => {
             disabled={loading}
             className={`flex-1 py-2.5 rounded-lg text-sm font-medium transition-all disabled:cursor-not-allowed ${
               activeTab === 'email'
-                ? 'bg-[#0A84FF] text-white shadow-lg'
-                : 'text-zinc-400 hover:text-white'
+                ? 'bg-[var(--accent)] text-white shadow-lg'
+                : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
             }`}
           >
             Email
@@ -131,8 +132,8 @@ const Login = () => {
             disabled={loading}
             className={`flex-1 py-2.5 rounded-lg text-sm font-medium transition-all disabled:cursor-not-allowed ${
               activeTab === 'google'
-                ? 'bg-[#0A84FF] text-white shadow-lg'
-                : 'text-zinc-400 hover:text-white'
+                ? 'bg-[var(--accent)] text-white shadow-lg'
+                : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
             }`}
           >
             Google
@@ -144,14 +145,14 @@ const Login = () => {
             <div>
               <label
                 htmlFor="login-email"
-                className="block text-sm font-medium text-zinc-400 mb-2"
+                className="block text-sm font-medium text-[var(--text-secondary)] mb-2"
               >
                 Correo electrónico
               </label>
               <div className="relative">
                 <Mail
                   size={20}
-                  className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-500 pointer-events-none"
+                  className="absolute left-4 top-1/2 -translate-y-1/2 text-[var(--text-tertiary)] pointer-events-none"
                   strokeWidth={1.5}
                   aria-hidden="true"
                 />
@@ -169,7 +170,7 @@ const Login = () => {
                       email: event.target.value
                     }))
                   }
-                  className="w-full pl-12 pr-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-zinc-500 focus:border-[#0A84FF] focus:ring-2 focus:ring-[#0A84FF]/20 outline-none transition-all disabled:opacity-60 disabled:cursor-not-allowed"
+                  className="w-full pl-12 pr-4 py-3 bg-[var(--bg-secondary)] border border-[var(--border-primary)] rounded-xl text-[var(--text-primary)] placeholder-[var(--text-tertiary)] focus:border-[var(--accent)] focus:ring-2 focus:ring-[var(--accent-glow)] outline-none transition-all disabled:opacity-60 disabled:cursor-not-allowed"
                   placeholder="tu@email.com"
                 />
               </div>
@@ -178,14 +179,14 @@ const Login = () => {
             <div>
               <label
                 htmlFor="login-password"
-                className="block text-sm font-medium text-zinc-400 mb-2"
+                className="block text-sm font-medium text-[var(--text-secondary)] mb-2"
               >
                 Contraseña
               </label>
               <div className="relative">
                 <Lock
                   size={20}
-                  className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-500 pointer-events-none"
+                  className="absolute left-4 top-1/2 -translate-y-1/2 text-[var(--text-tertiary)] pointer-events-none"
                   strokeWidth={1.5}
                   aria-hidden="true"
                 />
@@ -203,7 +204,7 @@ const Login = () => {
                       password: event.target.value
                     }))
                   }
-                  className="w-full pl-12 pr-12 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-zinc-500 focus:border-[#0A84FF] focus:ring-2 focus:ring-[#0A84FF]/20 outline-none transition-all disabled:opacity-60 disabled:cursor-not-allowed"
+                  className="w-full pl-12 pr-12 py-3 bg-[var(--bg-secondary)] border border-[var(--border-primary)] rounded-xl text-[var(--text-primary)] placeholder-[var(--text-tertiary)] focus:border-[var(--accent)] focus:ring-2 focus:ring-[var(--accent-glow)] outline-none transition-all disabled:opacity-60 disabled:cursor-not-allowed"
                   placeholder="Tu contraseña"
                 />
                 <button
@@ -212,7 +213,7 @@ const Login = () => {
                     setShowPassword((currentValue) => !currentValue)
                   }
                   disabled={loading}
-                  className="absolute right-4 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="absolute right-4 top-1/2 -translate-y-1/2 text-[var(--text-tertiary)] hover:text-[var(--text-primary)] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                   aria-label={
                     showPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'
                   }
@@ -225,7 +226,7 @@ const Login = () => {
                 </button>
               </div>
               <div className="flex justify-end mt-2">
-                <Link to="/forgot-password" className="text-sm text-[#0A84FF] hover:underline">
+                <Link to="/forgot-password" className="text-sm text-[var(--accent)] hover:underline">
                   ¿Olvidaste tu contraseña?
                 </Link>
               </div>
@@ -236,7 +237,7 @@ const Login = () => {
               disabled={loading}
               data-testid={AUTH.loginBtn}
               aria-busy={loading}
-              className="w-full min-h-[44px] h-14 bg-[#0A84FF] hover:bg-[#0071E3] text-white rounded-xl font-medium transition-all hover:-translate-y-1 active:scale-95 flex items-center justify-center gap-3 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:translate-y-0"
+              className="w-full min-h-[44px] h-14 bg-[var(--accent)] hover:bg-[var(--accent-hover)] text-white rounded-xl font-medium transition-all hover:-translate-y-1 active:scale-95 flex items-center justify-center gap-3 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:translate-y-0"
             >
               {loading ? (
                 'Iniciando sesión...'
@@ -248,11 +249,11 @@ const Login = () => {
               )}
             </button>
 
-            <p className="text-center text-sm text-zinc-400 mt-4">
+            <p className="text-center text-sm text-[var(--text-secondary)] mt-4">
               ¿No tienes cuenta?{' '}
               <Link
                 to="/register"
-                className="text-[#0A84FF] hover:underline font-medium"
+                className="text-[var(--accent)] hover:underline font-medium"
               >
                 Crear cuenta
               </Link>
@@ -262,7 +263,7 @@ const Login = () => {
 
         {activeTab === 'google' && (
           <div className="space-y-4">
-            <p className="text-center text-sm text-zinc-400 mb-6">
+            <p className="text-center text-sm text-[var(--text-secondary)] mb-6">
               Inicia sesión con tu cuenta de Google
             </p>
 
@@ -271,7 +272,7 @@ const Login = () => {
               onClick={handleGoogleLogin}
               disabled={loading}
               aria-busy={loading}
-              className="w-full min-h-[44px] h-14 bg-white hover:bg-zinc-100 text-zinc-900 rounded-xl font-medium transition-all hover:-translate-y-1 active:scale-95 flex items-center justify-center gap-3 disabled:opacity-60 disabled:cursor-not-allowed disabled:hover:translate-y-0"
+              className="w-full min-h-[44px] h-14 bg-white hover:bg-zinc-100 text-zinc-900 rounded-xl font-medium transition-all hover:-translate-y-1 active:scale-95 flex items-center justify-center gap-3 disabled:opacity-60 disabled:cursor-not-allowed disabled:hover:translate-y-0 shadow-sm border border-[var(--border-primary)]"
             >
               <svg className="w-5 h-5" viewBox="0 0 24 24" aria-hidden="true">
                 <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
@@ -283,11 +284,11 @@ const Login = () => {
               {loading ? 'Redirigiendo a Google...' : 'Continuar con Google'}
             </button>
 
-            <p className="text-center text-sm text-zinc-400 mt-4">
+            <p className="text-center text-sm text-[var(--text-secondary)] mt-4">
               ¿No tienes cuenta?{' '}
               <Link
                 to="/register"
-                className="text-[#0A84FF] hover:underline font-medium"
+                className="text-[var(--accent)] hover:underline font-medium"
               >
                 Crear cuenta
               </Link>
@@ -295,7 +296,7 @@ const Login = () => {
           </div>
         )}
 
-        <p className="text-xs text-zinc-500 text-center mt-6">
+        <p className="text-xs text-[var(--text-tertiary)] text-center mt-6">
           Al iniciar sesión, aceptas los términos y condiciones
         </p>
       </div>

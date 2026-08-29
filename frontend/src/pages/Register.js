@@ -78,7 +78,7 @@ const Register = () => {
         <div className="glass-panel p-8 rounded-3xl shadow-elevation-high">
           {/* Header */}
           <div className="text-center mb-8">
-            <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-gradient-to-br from-[#0A84FF] to-[#0071E3] flex items-center justify-center shadow-lg shadow-[#0A84FF]/25">
+            <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-gradient-to-br from-[var(--accent)] to-[var(--accent-hover)] flex items-center justify-center shadow-lg shadow-[var(--accent-glow)]">
               <User size={32} strokeWidth={1.5} className="text-white" />
             </div>
             <h1 className="text-3xl font-light tracking-tight text-[var(--text-primary)] mb-2" style={{ fontFamily: 'Outfit, sans-serif' }}>

@@ -1,4 +1,5 @@
 // NEXUS_8A7C3B_IDEMPOTENT_ACCEPTANCE_UI_V1
+// NEXUS_AUTH_BRAND_UNIFY_V15: theme tokens instead of hardcoded black/blue.
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { UserPlus, Loader2, ArrowLeft, RefreshCw } from 'lucide-react';
@@ -107,38 +108,38 @@ const AcceptInvitation = () => {
     }
   };
 
-  const fieldClass = 'w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-zinc-600 focus:border-[#0A84FF] focus:ring-2 focus:ring-[#0A84FF]/20 outline-none';
+  const fieldClass = 'w-full px-4 py-3 bg-[var(--bg-secondary)] border border-[var(--border-primary)] rounded-xl text-[var(--text-primary)] placeholder-[var(--text-tertiary)] focus:border-[var(--accent)] focus:ring-2 focus:ring-[var(--accent-glow)] outline-none';
 
   return (
-    <div className="min-h-screen bg-[#000000] flex items-center justify-center p-4 py-10">
+    <div className="min-h-screen bg-[var(--bg-primary)] flex items-center justify-center p-4 py-10">
       <div className="w-full max-w-xl">
-        <Link to="/login" className="inline-flex items-center gap-2 mb-6 text-zinc-400 hover:text-white"><ArrowLeft size={18} /> Volver al login</Link>
-        <div className="backdrop-blur-xl bg-white/5 border border-white/10 rounded-3xl p-7 sm:p-10">
+        <Link to="/login" className="inline-flex items-center gap-2 mb-6 text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors"><ArrowLeft size={18} /> Volver al login</Link>
+        <div className="glass-panel rounded-3xl p-7 sm:p-10">
           {validating ? (
-            <div className="py-20 text-center"><Loader2 size={38} className="text-[#0A84FF] animate-spin mx-auto mb-4" /><p className="text-zinc-400">Validando invitación...</p></div>
+            <div className="py-20 text-center"><Loader2 size={38} className="text-[var(--accent)] animate-spin mx-auto mb-4" /><p className="text-[var(--text-secondary)]">Validando invitación...</p></div>
           ) : error ? (
             <div role="alert" className="text-center py-8">
-              <h1 className="text-2xl text-white mb-3">Invitación no disponible</h1>
-              <p className="text-zinc-400 mb-6">{error.message}</p>
+              <h1 className="text-2xl text-[var(--text-primary)] mb-3">Invitación no disponible</h1>
+              <p className="text-[var(--text-secondary)] mb-6">{error.message}</p>
               {(error.type === 'timeout' || error.type === 'network' || error.type === 'server') && (
-                <button type="button" onClick={retryValidation} className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-[#0A84FF] hover:bg-[#0071E3] px-5 text-white font-medium transition-colors"><RefreshCw size={17} />Reintentar</button>
+                <button type="button" onClick={retryValidation} className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-[var(--accent)] hover:bg-[var(--accent-hover)] px-5 text-white font-medium transition-colors"><RefreshCw size={17} />Reintentar</button>
               )}
             </div>
           ) : (
             <>
-              <div className="w-14 h-14 rounded-2xl bg-purple-500/20 flex items-center justify-center mb-5"><UserPlus className="text-purple-400" /></div>
-              <h1 className="text-3xl font-light text-white mb-2">Únete a {invitation?.organization_name || 'Nexus by CS2'}</h1>
-              <p className="text-zinc-400 text-sm mb-7">Completa tus datos para activar <strong className="text-white">{invitation?.email}</strong> como {invitation?.role}.</p>
+              <div className="w-14 h-14 rounded-2xl bg-[var(--accent-glow)] flex items-center justify-center mb-5"><UserPlus className="text-[var(--accent)]" /></div>
+              <h1 className="text-3xl font-light text-[var(--text-primary)] mb-2">Únete a {invitation?.organization_name || 'Nexus by CS2'}</h1>
+              <p className="text-[var(--text-secondary)] text-sm mb-7">Completa tus datos para activar <strong className="text-[var(--text-primary)]">{invitation?.email}</strong> como {invitation?.role}.</p>
               <form onSubmit={handleSubmit} className="space-y-5">
                 <div className="grid sm:grid-cols-2 gap-4">
-                  <div><label htmlFor="invite-first" className="block text-sm text-zinc-400 mb-2">Nombre</label><input id="invite-first" type="text" autoComplete="given-name" required value={formData.firstName} onChange={(event) => updateField('firstName', event.target.value)} className={fieldClass} /></div>
-                  <div><label htmlFor="invite-last" className="block text-sm text-zinc-400 mb-2">Apellido</label><input id="invite-last" type="text" autoComplete="family-name" required value={formData.lastName} onChange={(event) => updateField('lastName', event.target.value)} className={fieldClass} /></div>
+                  <div><label htmlFor="invite-first" className="block text-sm text-[var(--text-secondary)] mb-2">Nombre</label><input id="invite-first" type="text" autoComplete="given-name" required value={formData.firstName} onChange={(event) => updateField('firstName', event.target.value)} className={fieldClass} /></div>
+                  <div><label htmlFor="invite-last" className="block text-sm text-[var(--text-secondary)] mb-2">Apellido</label><input id="invite-last" type="text" autoComplete="family-name" required value={formData.lastName} onChange={(event) => updateField('lastName', event.target.value)} className={fieldClass} /></div>
                 </div>
-                <div><label htmlFor="invite-phone" className="block text-sm text-zinc-400 mb-2">Teléfono</label><input id="invite-phone" type="tel" autoComplete="tel" required value={formData.phone} onChange={(event) => updateField('phone', event.target.value)} className={fieldClass} placeholder="+57 300 000 0000" /></div>
-                <div><label htmlFor="invite-address" className="block text-sm text-zinc-400 mb-2">Dirección <span className="text-zinc-600">(opcional)</span></label><input id="invite-address" type="text" autoComplete="street-address" value={formData.address} onChange={(event) => updateField('address', event.target.value)} className={fieldClass} /></div>
-                <div><label htmlFor="invite-password" className="block text-sm text-zinc-400 mb-2">Contraseña</label><input id="invite-password" type="password" autoComplete="new-password" required value={formData.password} onChange={(event) => updateField('password', event.target.value)} className={fieldClass} /><p className="text-xs text-zinc-500 mt-2">Mínimo 8 caracteres, una mayúscula y un número.</p></div>
-                <div><label htmlFor="invite-confirm" className="block text-sm text-zinc-400 mb-2">Confirmar contraseña</label><input id="invite-confirm" type="password" autoComplete="new-password" required value={formData.confirmPassword} onChange={(event) => updateField('confirmPassword', event.target.value)} className={fieldClass} /></div>
-                <button type="submit" disabled={loading || !validPassword || formData.password !== formData.confirmPassword} className="w-full h-12 bg-[#0A84FF] hover:bg-[#0071E3] text-white rounded-xl font-medium flex items-center justify-center gap-2 disabled:opacity-50">{loading && <Loader2 size={18} className="animate-spin" />}{loading ? 'Creando cuenta...' : 'Aceptar invitación y crear cuenta'}</button>
+                <div><label htmlFor="invite-phone" className="block text-sm text-[var(--text-secondary)] mb-2">Teléfono</label><input id="invite-phone" type="tel" autoComplete="tel" required value={formData.phone} onChange={(event) => updateField('phone', event.target.value)} className={fieldClass} placeholder="+57 300 000 0000" /></div>
+                <div><label htmlFor="invite-address" className="block text-sm text-[var(--text-secondary)] mb-2">Dirección <span className="text-[var(--text-tertiary)]">(opcional)</span></label><input id="invite-address" type="text" autoComplete="street-address" value={formData.address} onChange={(event) => updateField('address', event.target.value)} className={fieldClass} /></div>
+                <div><label htmlFor="invite-password" className="block text-sm text-[var(--text-secondary)] mb-2">Contraseña</label><input id="invite-password" type="password" autoComplete="new-password" required value={formData.password} onChange={(event) => updateField('password', event.target.value)} className={fieldClass} /><p className="text-xs text-[var(--text-tertiary)] mt-2">Mínimo 8 caracteres, una mayúscula y un número.</p></div>
+                <div><label htmlFor="invite-confirm" className="block text-sm text-[var(--text-secondary)] mb-2">Confirmar contraseña</label><input id="invite-confirm" type="password" autoComplete="new-password" required value={formData.confirmPassword} onChange={(event) => updateField('confirmPassword', event.target.value)} className={fieldClass} /></div>
+                <button type="submit" disabled={loading || !validPassword || formData.password !== formData.confirmPassword} className="w-full h-12 bg-[var(--accent)] hover:bg-[var(--accent-hover)] text-white rounded-xl font-medium flex items-center justify-center gap-2 disabled:opacity-50 transition-all">{loading && <Loader2 size={18} className="animate-spin" />}{loading ? 'Creando cuenta...' : 'Aceptar invitación y crear cuenta'}</button>
               </form>
             </>
           )}
