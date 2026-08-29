@@ -38,8 +38,8 @@ export default function PortalThemeSelector({ organizationId, currentTheme = 'cl
   return (
     <div className="space-y-4">
       <div className="flex items-center gap-3 mb-6">
-        <div className="w-10 h-10 rounded-xl bg-[var(--app-bg-secondary)] border border-[var(--app-border)] flex items-center justify-center">
-          <Palette size={20} className="text-[var(--app-accent)]" />
+        <div className="w-10 h-10 rounded-xl bg-[var(--app-surface-solid)] border border-[var(--app-border)] flex items-center justify-center">
+          <Palette size={20} className="text-[var(--app-primary)]" />
         </div>
         <div>
           <h3 className="text-lg font-semibold text-[var(--app-text-primary)]">
@@ -63,8 +63,8 @@ export default function PortalThemeSelector({ organizationId, currentTheme = 'cl
               className={`
                 relative p-4 rounded-xl border-2 transition-all text-left
                 ${isSelected 
-                  ? 'border-[var(--app-accent)] bg-[var(--app-accent)]/10' 
-                  : 'border-[var(--app-border)] bg-[var(--app-bg-secondary)] hover:border-[var(--app-accent)]/50'
+                  ? 'border-[var(--app-primary)] bg-[var(--app-primary)]/10' 
+                  : 'border-[var(--app-border)] bg-[var(--app-surface-solid)] hover:border-[var(--app-primary)]/50'
                 }
                 ${saving ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}
               `}
@@ -93,7 +93,7 @@ export default function PortalThemeSelector({ organizationId, currentTheme = 'cl
                     {theme.name}
                   </span>
                   {isSelected && (
-                    <Check size={18} className="text-[var(--app-accent)]" />
+                    <Check size={18} className="text-[var(--app-primary)]" />
                   )}
                 </div>
                 <p className="text-xs text-[var(--app-text-secondary)]">

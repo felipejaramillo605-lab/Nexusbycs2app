@@ -9,7 +9,6 @@ import {publicAPI} from '../api';
 import {useOrganization} from '../context/OrganizationContext';
 import {BOOKING} from '../constants/testIds';
 import {ActionButton} from '../components/design';
-import {useClientPortalTheme} from '../hooks/useClientPortalTheme';
 import ClientPortalNav from '../components/ClientPortalNav';
 import {useCart} from '../lib/cart';
 
@@ -24,7 +23,11 @@ const localDateInZone=timezoneName=>{try{const parts=new Intl.DateTimeFormat('en
 
 export default function BookingFlow(){
  const {orgId}=useParams();const {organization,loadOrganization}=useOrganization();
- useClientPortalTheme(organization);
+ // NEXUS_CLIENT_THEME_DEDUPE_V1: theming is handled by the parent
+ // <ClientPortalThemeWrapper> (App.js) alone now -- this used to also call
+ // useClientPortalTheme(organization) here, a second, older mechanism that
+ // wrote theme vars straight onto <html> and reset them to 'classic' on
+ // unmount, which could race with the wrapper's own (more complete) vars.
  const cart=useCart(orgId); // NEXUS_PRODUCT_CATALOG_V11
  const [step,setStep]=useState(1),[services,setServices]=useState([]),[barbers,setBarbers]=useState([]),[selectedService,setSelectedService]=useState(null),[selectedBarber,setSelectedBarber]=useState(null),[selectedDate,setSelectedDate]=useState(''),[selectedTime,setSelectedTime]=useState(''),[slots,setSlots]=useState([]),[availabilityMeta,setAvailabilityMeta]=useState({timezone:'America/Bogota',local_date:''}),[loadingSlots,setLoadingSlots]=useState(false),[submitting,setSubmitting]=useState(false),[success,setSuccess]=useState(null),[remember,setRemember]=useState(false),[marketingConsent,setMarketingConsent]=useState(false),[error,setError]=useState(''),[client,setClient]=useState({name:'',phone:'',email:''});
  const eligible=useMemo(()=>selectedService?barbers.filter(item=>{const ids=item.service_ids||[];return !ids.length||ids.includes(selectedService.service_id)}):barbers,[barbers,selectedService]);

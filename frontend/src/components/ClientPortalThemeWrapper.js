@@ -16,9 +16,21 @@ export const ClientPortalThemeWrapper = ({ children }) => {
   const { organization, loadOrganization } = useOrganization();
   const wrapperRef = useRef(null);
 
+  // NEXUS_CLIENT_THEME_STALE_CACHE_FIX_V1: OrganizationContext is a single
+  // provider mounted once for the whole app (see App.js), so its state
+  // survives client-side route navigation within the same tab. The old
+  // guard here ("only reload if the id looks different") meant that if an
+  // owner/manager visited /manager/settings for org X (loading X into the
+  // shared context) and then opened /book/X in the same tab, this wrapper
+  // saw organization.organization_id already equal to orgId and skipped
+  // the fetch entirely -- showing whatever org snapshot was in memory from
+  // before, even if client_portal_theme had just been changed and saved.
+  // These are public, always-should-be-fresh pages, so always refetch on
+  // mount instead of trusting a cache that another part of the app owns.
   useEffect(() => {
-    if (orgId && organization?.organization_id !== orgId) loadOrganization(orgId);
-  }, [orgId, organization?.organization_id, loadOrganization]);
+    if (orgId) loadOrganization(orgId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [orgId]);
 
   const themeKey = CLIENT_PORTAL_THEMES[organization?.client_portal_theme]
     ? organization.client_portal_theme

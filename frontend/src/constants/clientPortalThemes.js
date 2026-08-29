@@ -76,9 +76,12 @@ export const CLIENT_PORTAL_THEMES = {
   },
   
   neutral: {
-    key: 'neutral',
-    name: 'Neutral Empresarial',
-    description: 'Cálido pero sobrio, sin identidad marcada',
+    key: 'neutral', // NOTE: internal key unchanged on purpose -- renaming it
+    // would silently break every organization that already saved
+    // client_portal_theme: 'neutral' to their DB record. Only the
+    // display name/description (what's shown in the theme picker) changes.
+    name: 'Verde Natural',
+    description: 'Verde salvia y dorado cálido, orgánico y sobrio',
     bgStart: '#f4f5f7',
     bgEnd: '#e9eaed',
     accentPrimary: '#5b8a72',

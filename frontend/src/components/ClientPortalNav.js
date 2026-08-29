@@ -25,11 +25,18 @@ export default function ClientPortalNav({ orgId }) {
   const logoUrl = organization?.organization_id === orgId ? organization?.logo_url : null;
   const catalogEnabled = organization?.organization_id === orgId && !!organization?.catalog_enabled;
 
+  // NEXUS_CLIENT_NAV_THEME_AWARE_V1: this bar used to be hardcoded to
+  // bg-black/95 + text-white regardless of the organization's selected
+  // client-portal theme, so a light theme (e.g. a light bgEnd) still got
+  // a black nav bar. ClientPortalThemeWrapper (the parent) already scopes
+  // --app-* vars to match the active theme, so use those here too, same
+  // as the rest of the client-facing pages.
   return (
     <div
-      className="fixed bottom-0 left-0 right-0 z-50 bg-black/95 backdrop-blur-lg border-t border-white/10 md:top-0 md:bottom-auto md:border-t-0 md:border-b"
+      className="fixed bottom-0 left-0 right-0 z-50 backdrop-blur-lg border-t border-[var(--app-border)] md:top-0 md:bottom-auto md:border-t-0 md:border-b"
       style={{
-        boxShadow: '0 -4px 6px -1px rgba(0, 0, 0, 0.3), 0 2px 4px -1px rgba(0, 0, 0, 0.2)'
+        background: 'var(--app-surface-elevated)',
+        boxShadow: 'var(--app-shadow-md)'
       }}
     >
       <div className="max-w-7xl mx-auto px-4 py-3">
@@ -38,13 +45,13 @@ export default function ClientPortalNav({ orgId }) {
             {logoUrl && (
               <img src={logoUrl} alt={brandName} className="h-7 w-7 rounded-md object-contain" onError={e => { e.currentTarget.style.display = 'none'; }} />
             )}
-            <span className="text-sm font-medium text-white truncate">{brandName}</span>
+            <span className="text-sm font-medium text-[var(--app-text-primary)] truncate">{brandName}</span>
           </div>
           <div className="flex items-center justify-center gap-3 flex-1 md:flex-none">
             {catalogEnabled && (
               <button
                 onClick={() => navigate(`/portal/${orgId}/catalog`)}
-                className="flex items-center gap-2 px-4 py-2 bg-white/10 hover:bg-white/20 border border-white/20 text-white rounded-lg transition-all text-sm font-medium"
+                className="flex items-center gap-2 px-4 py-2 bg-[var(--app-surface-hover)] hover:bg-[var(--app-surface-muted)] border border-[var(--app-border)] text-[var(--app-text-primary)] rounded-lg transition-all text-sm font-medium"
               >
                 <ShoppingBag size={16} />
                 <span className="hidden sm:inline">Catálogo</span>
@@ -55,17 +62,17 @@ export default function ClientPortalNav({ orgId }) {
             {catalogEnabled && count > 0 && (
               <button
                 onClick={() => navigate(`/portal/${orgId}/cart`)}
-                className="relative flex items-center gap-2 px-3 py-2 bg-white/10 hover:bg-white/20 border border-white/20 text-white rounded-lg transition-all text-sm font-medium"
+                className="relative flex items-center gap-2 px-3 py-2 bg-[var(--app-surface-hover)] hover:bg-[var(--app-surface-muted)] border border-[var(--app-border)] text-[var(--app-text-primary)] rounded-lg transition-all text-sm font-medium"
                 title="Ver carrito"
               >
                 <ShoppingCart size={16} />
-                <span className="absolute -top-1.5 -right-1.5 bg-[var(--client-accent-primary,#7c3aed)] text-white text-[10px] font-bold rounded-full min-w-[18px] h-[18px] flex items-center justify-center px-1">{count}</span>
+                <span className="absolute -top-1.5 -right-1.5 bg-[var(--app-primary)] text-[var(--app-on-primary)] text-[10px] font-bold rounded-full min-w-[18px] h-[18px] flex items-center justify-center px-1">{count}</span>
               </button>
             )}
 
             <button
               onClick={() => navigate(`/book/${orgId}`)}
-              className="flex items-center gap-2 px-4 py-2 bg-[var(--client-accent-primary,#7c3aed)] hover:opacity-90 text-white rounded-lg transition-all text-sm font-medium"
+              className="flex items-center gap-2 px-4 py-2 bg-[var(--app-primary)] hover:bg-[var(--app-primary-hover)] text-[var(--app-on-primary)] rounded-lg transition-all text-sm font-medium"
             >
               <Calendar size={16} />
               <span className="hidden sm:inline">Agendar cita</span>
@@ -74,7 +81,7 @@ export default function ClientPortalNav({ orgId }) {
 
             <button
               onClick={() => navigate(`/portal/${orgId}/auth`)}
-              className="flex items-center gap-2 px-4 py-2 bg-white/10 hover:bg-white/20 border border-white/20 text-white rounded-lg transition-all text-sm font-medium"
+              className="flex items-center gap-2 px-4 py-2 bg-[var(--app-surface-hover)] hover:bg-[var(--app-surface-muted)] border border-[var(--app-border)] text-[var(--app-text-primary)] rounded-lg transition-all text-sm font-medium"
             >
               <User size={16} />
               <span className="hidden sm:inline">

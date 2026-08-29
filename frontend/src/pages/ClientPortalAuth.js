@@ -1,14 +1,17 @@
 // NEXUS_AUTH_BRAND_UNIFY_V15: already wrapped by <ClientPortalThemeWrapper>
-// (App.js) and already calls useClientPortalTheme(organization), but the
-// JSX itself hardcoded bg-black + Tailwind blue instead of the --app-* vars
-// the wrapper sets — so the org's actual theme never showed here. Switched
-// to --app-* + .nexus-glass, same fix as ForgotPin.js / ResetPin.js.
+// (App.js), but the JSX itself hardcoded bg-black + Tailwind blue instead
+// of the --app-* vars the wrapper sets — so the org's actual theme never
+// showed here. Switched to --app-* + .nexus-glass, same fix as
+// ForgotPin.js / ResetPin.js.
+// NEXUS_CLIENT_THEME_DEDUPE_V1: also dropped the useClientPortalTheme(organization)
+// call that used to live here -- it wrote straight to <html> and could
+// race with the wrapper's own (more complete) theme vars. The wrapper
+// alone is now the single source of truth for client-portal theming.
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { Lock, LogIn, UserPlus, ArrowLeft, Loader2, Eye, EyeOff } from 'lucide-react';
 import { toast } from 'sonner';
 import { api } from '../api';
-import { useClientPortalTheme } from '../hooks/useClientPortalTheme';
 
 export default function ClientPortalAuth() {
   const { orgId } = useParams();
@@ -22,9 +25,6 @@ export default function ClientPortalAuth() {
   const [loading, setLoading] = useState(false);
   const [organizationName, setOrganizationName] = useState('');
   const [organization, setOrganization] = useState(null);
-
-  // Apply theme
-  useClientPortalTheme(organization);
 
   useEffect(() => {
     // Load organization info
