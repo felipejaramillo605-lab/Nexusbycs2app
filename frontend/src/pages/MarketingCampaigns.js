@@ -206,8 +206,8 @@ const MarketingCampaigns = () => {
           <div className="backdrop-blur-xl bg-white/3 border border-[var(--app-border)] rounded-2xl p-6">
             <div className="flex items-center justify-between mb-6">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-[#0A84FF]/20 flex items-center justify-center">
-                  <Users size={20} strokeWidth={1.5} className="text-[#0A84FF]" />
+                <div className="w-10 h-10 rounded-xl bg-[var(--app-primary)]/20 flex items-center justify-center">
+                  <Users size={20} strokeWidth={1.5} className="text-[var(--app-primary)]" />
                 </div>
                 <div>
                   <h2 className="text-lg font-medium text-[var(--app-text-primary)]">Seleccionar Clientes</h2>
@@ -242,7 +242,7 @@ const MarketingCampaigns = () => {
                       type="checkbox"
                       checked={selectedClients.includes(client.client_id)}
                       onChange={() => handleToggleClient(client.client_id)}
-                      className="w-5 h-5 rounded border-[var(--app-border)] bg-white/5 text-[#0A84FF] focus:ring-2 focus:ring-[#0A84FF]/20"
+                      className="w-5 h-5 rounded border-[var(--app-border)] bg-white/5 text-[var(--app-primary)] focus:ring-2 focus:ring-[var(--app-primary)]/20"
                     />
                     <div className="flex-1">
                       <div className="text-[var(--app-text-primary)] font-medium">{client.name}</div>
@@ -280,7 +280,7 @@ const MarketingCampaigns = () => {
                   onClick={() => setSelectedTemplate(MESSAGE_TEMPLATES.APPOINTMENT_REMINDER)}
                   className={`p-4 rounded-xl border transition-all text-left ${
                     selectedTemplate === MESSAGE_TEMPLATES.APPOINTMENT_REMINDER
-                      ? 'bg-[#0A84FF]/20 border-[#0A84FF] text-[var(--app-text-primary)]'
+                      ? 'bg-[var(--app-primary)]/20 border-[var(--app-primary)] text-[var(--app-text-primary)]'
                       : 'bg-white/5 border-[var(--app-border)] text-zinc-400 hover:bg-white/10'
                   }`}
                 >
@@ -292,7 +292,7 @@ const MarketingCampaigns = () => {
                   onClick={() => setSelectedTemplate(MESSAGE_TEMPLATES.REACTIVATION)}
                   className={`p-4 rounded-xl border transition-all text-left ${
                     selectedTemplate === MESSAGE_TEMPLATES.REACTIVATION
-                      ? 'bg-[#0A84FF]/20 border-[#0A84FF] text-[var(--app-text-primary)]'
+                      ? 'bg-[var(--app-primary)]/20 border-[var(--app-primary)] text-[var(--app-text-primary)]'
                       : 'bg-white/5 border-[var(--app-border)] text-zinc-400 hover:bg-white/10'
                   }`}
                 >
@@ -304,7 +304,7 @@ const MarketingCampaigns = () => {
                   onClick={() => setSelectedTemplate(MESSAGE_TEMPLATES.PROMOTION)}
                   className={`p-4 rounded-xl border transition-all text-left ${
                     selectedTemplate === MESSAGE_TEMPLATES.PROMOTION
-                      ? 'bg-[#0A84FF]/20 border-[#0A84FF] text-[var(--app-text-primary)]'
+                      ? 'bg-[var(--app-primary)]/20 border-[var(--app-primary)] text-[var(--app-text-primary)]'
                       : 'bg-white/5 border-[var(--app-border)] text-zinc-400 hover:bg-white/10'
                   }`}
                 >
@@ -341,7 +341,7 @@ const MarketingCampaigns = () => {
                 value={customMessage}
                 onChange={(e) => setCustomMessage(e.target.value)}
                 placeholder="Escribe un mensaje personalizado o usa la plantilla..."
-                className="w-full px-4 py-3 bg-white/5 border border-[var(--app-border)] rounded-xl text-[var(--app-text-primary)] placeholder-zinc-500 focus:border-[#0A84FF] focus:ring-2 focus:ring-[#0A84FF]/20 outline-none transition-all resize-none"
+                className="w-full px-4 py-3 bg-white/5 border border-[var(--app-border)] rounded-xl text-[var(--app-text-primary)] placeholder-zinc-500 focus:border-[var(--app-primary)] focus:ring-2 focus:ring-[var(--app-primary)]/20 outline-none transition-all resize-none"
                 rows={6}
               />
             </div>
@@ -350,7 +350,7 @@ const MarketingCampaigns = () => {
             <button
               onClick={handleSendCampaign}
               disabled={sending || selectedClients.length === 0}
-              className="w-full py-3 rounded-xl bg-[#0A84FF] hover:bg-[#0071E3] text-[var(--app-text-primary)] font-medium transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+              className="w-full py-3 rounded-xl bg-[var(--app-primary)] hover:bg-[var(--app-primary-hover)] text-[var(--app-text-primary)] font-medium transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
             >
               {sending ? (
                 <>

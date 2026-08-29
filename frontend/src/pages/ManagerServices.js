@@ -189,7 +189,7 @@ const ManagerServices = () => {
               <ArrowLeft size={20} strokeWidth={1.5} />
             </button>
             <div className="flex items-center gap-4">
-              <div className="w-12 h-12 rounded-xl bg-[#0A84FF] flex items-center justify-center">
+              <div className="w-12 h-12 rounded-xl bg-[var(--app-primary)] flex items-center justify-center">
                 <Scissors size={24} strokeWidth={1.5} />
               </div>
               <div>
@@ -209,7 +209,7 @@ const ManagerServices = () => {
             <DialogTrigger asChild>
               <button
                 data-testid={MANAGER.addServiceBtn}
-                className="flex items-center gap-2 px-6 py-3 bg-[#0A84FF] hover:bg-[#0071E3] text-[var(--app-text-primary)] rounded-xl font-medium transition-all hover:-translate-y-1 active:scale-95"
+                className="flex items-center gap-2 px-6 py-3 bg-[var(--app-primary)] hover:bg-[var(--app-primary-hover)] text-[var(--app-text-primary)] rounded-xl font-medium transition-all hover:-translate-y-1 active:scale-95"
               >
                 <Plus size={20} strokeWidth={1.5} />
                 Nuevo Servicio
@@ -226,7 +226,7 @@ const ManagerServices = () => {
                     type="text"
                     value={newService.name}
                     onChange={(e) => setNewService({ ...newService, name: e.target.value })}
-                    className="w-full px-4 py-3 bg-transparent border border-[var(--app-border)] rounded-xl text-[var(--app-text-primary)] focus:border-[#0A84FF] focus:ring-1 focus:ring-[#0A84FF] outline-none"
+                    className="w-full px-4 py-3 bg-transparent border border-[var(--app-border)] rounded-xl text-[var(--app-text-primary)] focus:border-[var(--app-primary)] focus:ring-1 focus:ring-[var(--app-primary)] outline-none"
                     placeholder="Ej: Consulta inicial"
                   />
                 </div>
@@ -236,7 +236,7 @@ const ManagerServices = () => {
                     type="number"
                     value={newService.duration}
                     onChange={(e) => setNewService({ ...newService, duration: parseInt(e.target.value) })}
-                    className="w-full px-4 py-3 bg-transparent border border-[var(--app-border)] rounded-xl text-[var(--app-text-primary)] focus:border-[#0A84FF] focus:ring-1 focus:ring-[#0A84FF] outline-none"
+                    className="w-full px-4 py-3 bg-transparent border border-[var(--app-border)] rounded-xl text-[var(--app-text-primary)] focus:border-[var(--app-primary)] focus:ring-1 focus:ring-[var(--app-primary)] outline-none"
                   />
                 </div>
                 <div>
@@ -246,12 +246,12 @@ const ManagerServices = () => {
                     step="0.01"
                     value={newService.price}
                     onChange={(e) => setNewService({ ...newService, price: parseFloat(e.target.value) })}
-                    className="w-full px-4 py-3 bg-transparent border border-[var(--app-border)] rounded-xl text-[var(--app-text-primary)] focus:border-[#0A84FF] focus:ring-1 focus:ring-[#0A84FF] outline-none"
+                    className="w-full px-4 py-3 bg-transparent border border-[var(--app-border)] rounded-xl text-[var(--app-text-primary)] focus:border-[var(--app-primary)] focus:ring-1 focus:ring-[var(--app-primary)] outline-none"
                   />
                 </div>
                 <button
                   onClick={handleCreate}
-                  className="w-full px-6 py-3 bg-[#0A84FF] hover:bg-[#0071E3] text-[var(--app-text-primary)] rounded-xl font-medium transition-all"
+                  className="w-full px-6 py-3 bg-[var(--app-primary)] hover:bg-[var(--app-primary-hover)] text-[var(--app-text-primary)] rounded-xl font-medium transition-all"
                 >
                   Crear Servicio
                 </button>
@@ -274,7 +274,7 @@ const ManagerServices = () => {
                     type="text"
                     value={editingService.name}
                     onChange={(e) => setEditingService({ ...editingService, name: e.target.value })}
-                    className="w-full px-4 py-3 bg-transparent border border-[var(--app-border)] rounded-xl text-[var(--app-text-primary)] focus:border-[#0A84FF] focus:ring-1 focus:ring-[#0A84FF] outline-none"
+                    className="w-full px-4 py-3 bg-transparent border border-[var(--app-border)] rounded-xl text-[var(--app-text-primary)] focus:border-[var(--app-primary)] focus:ring-1 focus:ring-[var(--app-primary)] outline-none"
                   />
                 </div>
                 <div>
@@ -283,7 +283,7 @@ const ManagerServices = () => {
                     type="number"
                     value={editingService.duration}
                     onChange={(e) => setEditingService({ ...editingService, duration: parseInt(e.target.value) })}
-                    className="w-full px-4 py-3 bg-transparent border border-[var(--app-border)] rounded-xl text-[var(--app-text-primary)] focus:border-[#0A84FF] focus:ring-1 focus:ring-[#0A84FF] outline-none"
+                    className="w-full px-4 py-3 bg-transparent border border-[var(--app-border)] rounded-xl text-[var(--app-text-primary)] focus:border-[var(--app-primary)] focus:ring-1 focus:ring-[var(--app-primary)] outline-none"
                   />
                 </div>
                 <div>
@@ -293,12 +293,12 @@ const ManagerServices = () => {
                     step="0.01"
                     value={editingService.price}
                     onChange={(e) => setEditingService({ ...editingService, price: parseFloat(e.target.value) })}
-                    className="w-full px-4 py-3 bg-transparent border border-[var(--app-border)] rounded-xl text-[var(--app-text-primary)] focus:border-[#0A84FF] focus:ring-1 focus:ring-[#0A84FF] outline-none"
+                    className="w-full px-4 py-3 bg-transparent border border-[var(--app-border)] rounded-xl text-[var(--app-text-primary)] focus:border-[var(--app-primary)] focus:ring-1 focus:ring-[var(--app-primary)] outline-none"
                   />
                 </div>
                 <button
                   onClick={handleUpdate}
-                  className="w-full px-6 py-3 bg-[#0A84FF] hover:bg-[#0071E3] text-[var(--app-text-primary)] rounded-xl font-medium transition-all"
+                  className="w-full px-6 py-3 bg-[var(--app-primary)] hover:bg-[var(--app-primary-hover)] text-[var(--app-text-primary)] rounded-xl font-medium transition-all"
                 >
                   Guardar Cambios
                 </button>
@@ -315,8 +315,8 @@ const ManagerServices = () => {
               className="backdrop-blur-xl bg-white/3 border border-[var(--app-border)] rounded-2xl p-6 hover:bg-white/6 transition-all group"
             >
               <div className="flex items-start justify-between mb-4">
-                <div className="w-12 h-12 rounded-xl bg-[#0A84FF]/20 flex items-center justify-center">
-                  <Scissors size={24} strokeWidth={1.5} className="text-[#0A84FF]" />
+                <div className="w-12 h-12 rounded-xl bg-[var(--app-primary)]/20 flex items-center justify-center">
+                  <Scissors size={24} strokeWidth={1.5} className="text-[var(--app-primary)]" />
                 </div>
                 <div className="flex items-center gap-2">
                   <button
@@ -328,7 +328,7 @@ const ManagerServices = () => {
                   </button>
                   <button
                     onClick={() => handleEdit(service)}
-                    className="p-2 rounded-lg bg-white/5 hover:bg-[#0A84FF]/20 text-zinc-400 hover:text-[#0A84FF] transition-all opacity-0 group-hover:opacity-100"
+                    className="p-2 rounded-lg bg-white/5 hover:bg-[var(--app-primary)]/20 text-zinc-400 hover:text-[var(--app-primary)] transition-all opacity-0 group-hover:opacity-100"
                     title="Editar"
                   >
                     <Edit2 size={18} strokeWidth={1.5} />
@@ -345,7 +345,7 @@ const ManagerServices = () => {
               <h3 className="text-[var(--app-text-primary)] font-medium text-lg mb-2">{service.name}</h3>
               <div className="flex items-center justify-between text-sm">
                 <span className="text-zinc-400">{service.duration} min</span>
-                <span className="text-[#0A84FF] font-medium text-lg">${service.price}</span>
+                <span className="text-[var(--app-primary)] font-medium text-lg">${service.price}</span>
               </div>
             </div>
           ))}
@@ -367,11 +367,11 @@ const ManagerServices = () => {
               <p className="text-sm text-[var(--app-text-secondary)] mt-1">{policy === 'WARNING' ? 'Flexible: nunca bloquea la prestación ni el cobro; registra advertencias y déficits.' : 'Estricto: bloqueará el checkout cuando falten insumos.'}</p>
               <div className="grid grid-cols-2 gap-2 mt-3"><button onClick={() => changePolicy('WARNING')} className={`p-2 rounded-xl border ${policy === 'WARNING' ? 'bg-emerald-500/20 border-emerald-500' : 'border-[var(--app-border)]'}`}>Flexible</button><button onClick={() => changePolicy('STRICT')} className={`p-2 rounded-xl border ${policy === 'STRICT' ? 'bg-amber-500/20 border-amber-500' : 'border-[var(--app-border)]'}`}>Estricto</button></div>
             </div>
-            <div className="flex justify-between items-end"><div><p className="text-xs text-[var(--app-text-secondary)]">Versión activa</p><p className="text-lg text-[var(--app-text-primary)]">v{recipe.version || 0}</p></div><div className="text-right"><p className="text-xs text-[var(--app-text-secondary)]">Costo estimado</p><p className="text-xl text-[#0A84FF]">${Number((recipe.lines || []).reduce((sum,line) => sum + Number(line.quantity_per_service || 0) * Number(line.unit_cost_snapshot || 0),0)).toLocaleString('es-CO')}</p></div></div>
+            <div className="flex justify-between items-end"><div><p className="text-xs text-[var(--app-text-secondary)]">Versión activa</p><p className="text-lg text-[var(--app-text-primary)]">v{recipe.version || 0}</p></div><div className="text-right"><p className="text-xs text-[var(--app-text-secondary)]">Costo estimado</p><p className="text-xl text-[var(--app-primary)]">${Number((recipe.lines || []).reduce((sum,line) => sum + Number(line.quantity_per_service || 0) * Number(line.unit_cost_snapshot || 0),0)).toLocaleString('es-CO')}</p></div></div>
             {(recipe.lines || []).length === 0 ? <EmptyState title="Sin insumos" description="Agrega referencias para calcular el costo material por servicio"/> : <div className="space-y-3">{recipe.lines.map((line,index) => <div key={`${line.inventory_item_id}-${index}`} className="rounded-2xl border border-[var(--app-border)] p-3 space-y-2"><div className="flex gap-2"><select value={line.inventory_item_id} onChange={e => updateIngredient(index,{inventory_item_id:e.target.value})} className="flex-1 p-2 rounded-xl bg-[var(--app-surface)] border border-[var(--app-border)] text-[var(--app-text-primary)]">{inventory.filter(item => item.active !== false && (item.item_id === line.inventory_item_id || !(recipe.lines || []).some((used,i) => i !== index && used.inventory_item_id === item.item_id))).map(item => <option key={item.item_id} value={item.item_id}>{item.sku} · {item.name}</option>)}</select><button onClick={() => setRecipe({...recipe,lines:recipe.lines.filter((_,i)=>i!==index)})} className="p-2 text-red-400"><X size={18}/></button></div><div className="grid grid-cols-2 gap-2"><label className="text-xs text-[var(--app-text-secondary)]">Cantidad<input type="number" min="0.0001" step="0.0001" value={line.quantity_per_service} onChange={e => updateIngredient(index,{quantity_per_service:e.target.value})} className="block w-full mt-1 p-2 rounded-xl bg-[var(--app-surface)] border border-[var(--app-border)] text-[var(--app-text-primary)]"/></label><div className="text-xs text-[var(--app-text-secondary)]">Unidad / costo<div className="mt-1 p-2">{line.unit_snapshot} · ${Number(line.estimated_line_cost || 0).toLocaleString('es-CO')}</div></div></div></div>)}</div>}
-            <button onClick={addIngredient} className="w-full p-3 rounded-xl border border-dashed border-[#0A84FF] text-[#0A84FF] flex justify-center gap-2"><Plus size={18}/>Agregar insumo</button>
+            <button onClick={addIngredient} className="w-full p-3 rounded-xl border border-dashed border-[var(--app-primary)] text-[var(--app-primary)] flex justify-center gap-2"><Plus size={18}/>Agregar insumo</button>
             <textarea value={recipe.notes || ''} onChange={e => setRecipe({...recipe,notes:e.target.value})} placeholder="Notas de la receta" className="w-full p-3 rounded-xl bg-[var(--app-surface)] border border-[var(--app-border)] text-[var(--app-text-primary)]"/>
-            <button disabled={recipeSaving} onClick={saveRecipe} className="w-full p-3 rounded-xl bg-[#0A84FF] text-white disabled:opacity-50">{recipeSaving ? 'Guardando...' : 'Guardar nueva versión'}</button>
+            <button disabled={recipeSaving} onClick={saveRecipe} className="w-full p-3 rounded-xl bg-[var(--app-primary)] text-white disabled:opacity-50">{recipeSaving ? 'Guardando...' : 'Guardar nueva versión'}</button>
           </div>}
         </DetailDrawer>
 

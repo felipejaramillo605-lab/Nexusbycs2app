@@ -142,7 +142,7 @@ const WeeklyCalendar = ({ organizationId }) => {
       <div className="glass-panel p-6 rounded-2xl">
         <div className="flex items-center justify-between flex-wrap gap-4">
           <div className="flex items-center gap-4">
-            <Calendar size={24} strokeWidth={1.5} className="text-[#0A84FF]" />
+            <Calendar size={24} strokeWidth={1.5} className="text-[var(--app-primary)]" />
             <div>
               <h3 className="text-xl font-medium text-primary">Calendario Semanal</h3>
               <p className="text-sm text-secondary">
@@ -156,7 +156,7 @@ const WeeklyCalendar = ({ organizationId }) => {
             <select
               value={selectedBarber}
               onChange={(e) => setSelectedBarber(e.target.value)}
-              className="min-h-[44px] px-4 py-2 bg-secondary/30 border border-primary/20 rounded-xl text-primary text-sm focus:border-[#0A84FF] focus:ring-1 focus:ring-[#0A84FF] outline-none"
+              className="min-h-[44px] px-4 py-2 bg-secondary/30 border border-primary/20 rounded-xl text-primary text-sm focus:border-[var(--app-primary)] focus:ring-1 focus:ring-[var(--app-primary)] outline-none"
             >
               <option value="all">Todos los profesionales</option>
               {barbers.map((barber) => (
@@ -177,7 +177,7 @@ const WeeklyCalendar = ({ organizationId }) => {
             
             <button
               onClick={goToToday}
-              className="min-h-[44px] px-4 py-2 bg-[#0A84FF] hover:bg-[#0071E3] text-white rounded-xl font-medium transition-all text-sm"
+              className="min-h-[44px] px-4 py-2 bg-[var(--app-primary)] hover:bg-[var(--app-primary-hover)] text-white rounded-xl font-medium transition-all text-sm"
             >
               Hoy
             </button>
@@ -203,12 +203,12 @@ const WeeklyCalendar = ({ organizationId }) => {
               {weekDates.map((date) => (
                 <div
                   key={`day-${date.toISOString()}`}
-                  className={`p-4 text-center ${isToday(date) ? 'bg-[#0A84FF]/20' : ''}`}
+                  className={`p-4 text-center ${isToday(date) ? 'bg-[var(--app-primary)]/20' : ''}`}
                 >
-                  <div className={`text-sm font-medium ${isToday(date) ? 'text-[#0A84FF]' : 'text-primary'}`}>
+                  <div className={`text-sm font-medium ${isToday(date) ? 'text-[var(--app-primary)]' : 'text-primary'}`}>
                     {['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'][date.getDay() === 0 ? 6 : date.getDay() - 1]}
                   </div>
-                  <div className={`text-xs ${isToday(date) ? 'text-[#0A84FF]' : 'text-secondary'}`}>
+                  <div className={`text-xs ${isToday(date) ? 'text-[var(--app-primary)]' : 'text-secondary'}`}>
                     {date.getDate()}/{date.getMonth() + 1}
                   </div>
                 </div>
@@ -236,7 +236,7 @@ const WeeklyCalendar = ({ organizationId }) => {
                         key={cellKey}
                         className={`p-2 min-h-[80px] border-r border-primary/5 ${
                           isSlotPast ? 'bg-secondary/10' : ''
-                        } ${isToday(date) ? 'bg-[#0A84FF]/5' : ''}`}
+                        } ${isToday(date) ? 'bg-[var(--app-primary)]/5' : ''}`}
                       >
                         {/* Show appointments */}
                         {aptsInSlot.length > 0 && (
@@ -244,11 +244,11 @@ const WeeklyCalendar = ({ organizationId }) => {
                             {aptsInSlot.map((apt) => (
                               <div
                                 key={apt.appointment_id}
-                                className="p-2 rounded-lg bg-[#0A84FF]/20 border border-[#0A84FF]/30 hover:bg-[#0A84FF]/30 transition-all cursor-pointer group"
+                                className="p-2 rounded-lg bg-[var(--app-primary)]/20 border border-[var(--app-primary)]/30 hover:bg-[var(--app-primary)]/30 transition-all cursor-pointer group"
                                 title={`${apt.client_name} - ${apt.service_name}`}
                               >
                                 <div className="flex items-start gap-2">
-                                  <User size={12} strokeWidth={1.5} className="text-[#0A84FF] mt-0.5 flex-shrink-0" />
+                                  <User size={12} strokeWidth={1.5} className="text-[var(--app-primary)] mt-0.5 flex-shrink-0" />
                                   <div className="min-w-0 flex-1">
                                     <p className="text-xs font-medium text-primary truncate">
                                       {apt.client_name}
@@ -261,7 +261,7 @@ const WeeklyCalendar = ({ organizationId }) => {
                                         <User size={10} strokeWidth={1.5} />
                                         {apt.barber_name}
                                       </p>
-                                      <p className="text-xs font-medium text-[#0A84FF]">
+                                      <p className="text-xs font-medium text-[var(--app-primary)]">
                                         ${apt.service_price}
                                       </p>
                                     </div>
@@ -320,7 +320,7 @@ const WeeklyCalendar = ({ organizationId }) => {
       <div className="glass-panel p-4 rounded-2xl">
         <div className="flex items-center gap-6 flex-wrap text-sm">
           <div className="flex items-center gap-2">
-            <div className="w-4 h-4 rounded bg-[#0A84FF]/20 border border-[#0A84FF]/30"></div>
+            <div className="w-4 h-4 rounded bg-[var(--app-primary)]/20 border border-[var(--app-primary)]/30"></div>
             <span className="text-secondary">Cita reservada</span>
           </div>
           <div className="flex items-center gap-2">
@@ -328,7 +328,7 @@ const WeeklyCalendar = ({ organizationId }) => {
             <span className="text-secondary">Horario bloqueado</span>
           </div>
           <div className="flex items-center gap-2">
-            <div className="w-4 h-4 rounded bg-[#0A84FF]/5"></div>
+            <div className="w-4 h-4 rounded bg-[var(--app-primary)]/5"></div>
             <span className="text-secondary">Hoy</span>
           </div>
           <div className="flex items-center gap-2">

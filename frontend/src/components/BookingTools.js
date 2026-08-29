@@ -56,7 +56,7 @@ const BookingTools = ({ organizationId }) => {
             {copied ? (
               <Check size={20} strokeWidth={1.5} className="text-[#32D74B]" />
             ) : (
-              <Link2 size={20} strokeWidth={1.5} className="text-[#0A84FF]" />
+              <Link2 size={20} strokeWidth={1.5} className="text-[var(--app-primary)]" />
             )}
             <div className="text-left">
               <p className="text-sm font-medium text-primary">Link de Reservas</p>
@@ -105,7 +105,7 @@ const BookingTools = ({ organizationId }) => {
           className="w-full flex items-center justify-between min-h-[44px] px-4 py-3 bg-secondary/30 hover:bg-secondary/50 rounded-xl transition-all group"
         >
           <div className="flex items-center gap-3">
-            <QrCode size={20} strokeWidth={1.5} className="text-[#0A84FF]" />
+            <QrCode size={20} strokeWidth={1.5} className="text-[var(--app-primary)]" />
             <div className="text-left">
               <p className="text-sm font-medium text-primary">QR Reservas</p>
               <p className="text-xs text-secondary">Para nuevas reservas</p>
@@ -139,7 +139,7 @@ const BookingTools = ({ organizationId }) => {
         <DialogContent className="bg-primary border-primary/20 max-w-md">
           <DialogHeader>
             <DialogTitle className="text-primary flex items-center gap-2">
-              <QrCode size={24} strokeWidth={1.5} className={qrType === 'booking' ? 'text-[#0A84FF]' : 'text-purple-400'} />
+              <QrCode size={24} strokeWidth={1.5} className={qrType === 'booking' ? 'text-[var(--app-primary)]' : 'text-purple-400'} />
               Código QR de {currentLabel}
             </DialogTitle>
           </DialogHeader>
@@ -164,7 +164,7 @@ const BookingTools = ({ organizationId }) => {
                 onClick={downloadQR}
                 className={`flex-1 min-h-[44px] px-4 py-3 ${
                   qrType === 'booking' 
-                    ? 'bg-[#0A84FF] hover:bg-[#0071E3]' 
+                    ? 'bg-[var(--app-primary)] hover:bg-[var(--app-primary-hover)]' 
                     : 'bg-purple-500 hover:bg-purple-600'
                 } text-white rounded-xl font-medium transition-all`}
               >

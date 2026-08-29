@@ -33,7 +33,7 @@ class ErrorBoundary extends React.Component {
             <p className="text-zinc-400 mb-6">Recarga la página. Si el problema continúa, comparte únicamente el código de diagnóstico con soporte.</p>
             <div className="rounded-xl border border-white/10 bg-black/30 px-4 py-3 text-sm text-zinc-400 mb-6">Código: {this.state.diagnosticCode}</div>
             <div className="flex flex-col sm:flex-row gap-3 justify-center">
-              <button type="button" onClick={this.handleRetry} className="h-12 px-5 rounded-xl bg-[#0A84FF] hover:bg-[#0071E3] font-medium transition-colors">Reintentar</button>
+              <button type="button" onClick={this.handleRetry} className="h-12 px-5 rounded-xl bg-[var(--app-primary)] hover:bg-[var(--app-primary-hover)] font-medium transition-colors">Reintentar</button>
               <a href="/login" className="h-12 px-5 rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 flex items-center justify-center font-medium transition-colors">Volver al inicio</a>
             </div>
           </div>

@@ -60,7 +60,7 @@ const ProfileForm = ({ value, onChange, services, saving, actionLabel, onSubmit,
     schedule: value.end_time > value.start_time ? '' : 'La hora de fin debe ser posterior a la hora de inicio.'
   };
   const hasErrors = Object.values(validation).some(Boolean);
-  const inputClass = 'w-full px-4 py-3 bg-transparent border border-[var(--app-border)] rounded-xl text-[var(--app-text-primary)] placeholder-zinc-600 focus:border-[#0A84FF] focus:ring-1 focus:ring-[#0A84FF] outline-none';
+  const inputClass = 'w-full px-4 py-3 bg-transparent border border-[var(--app-border)] rounded-xl text-[var(--app-text-primary)] placeholder-zinc-600 focus:border-[var(--app-primary)] focus:ring-1 focus:ring-[var(--app-primary)] outline-none';
   const submit = () => {
     if (hasErrors) return toast.error('Revisa los campos señalados antes de continuar');
     onSubmit();
@@ -87,7 +87,7 @@ const ProfileForm = ({ value, onChange, services, saving, actionLabel, onSubmit,
         <div className="flex flex-wrap gap-2 mb-2" role="group" aria-label="Días disponibles">
           {DAYS.map((day) => {
             const selected = (value.available_days || []).includes(day.value);
-            return <button key={day.value} type="button" aria-pressed={selected} onClick={() => toggleDay(day.value)} className={`px-3 py-2 rounded-lg border text-sm transition-all ${selected ? 'bg-[#0A84FF]/20 border-[#0A84FF]/50 text-[#5EB1FF]' : 'bg-white/5 border-[var(--app-border)] text-zinc-400 hover:bg-white/10'}`}>{day.label}</button>;
+            return <button key={day.value} type="button" aria-pressed={selected} onClick={() => toggleDay(day.value)} className={`px-3 py-2 rounded-lg border text-sm transition-all ${selected ? 'bg-[var(--app-primary)]/20 border-[var(--app-primary)]/50 text-[var(--app-primary)]' : 'bg-white/5 border-[var(--app-border)] text-zinc-400 hover:bg-white/10'}`}>{day.label}</button>;
           })}
         </div>
         {validation.available_days&&<small className="text-amber-400" role="alert">{validation.available_days}</small>}
@@ -107,11 +107,11 @@ const ProfileForm = ({ value, onChange, services, saving, actionLabel, onSubmit,
 
       <section>
         <h3 className="text-sm font-medium text-[var(--app-text-primary)] mb-3">Servicios asignados</h3>
-        {services.length === 0 ? <p className="text-sm text-zinc-500 rounded-xl border border-[var(--app-border)] bg-white/3 p-4">No hay servicios creados en esta organización.</p> : <div className="grid sm:grid-cols-2 gap-2">{services.map((service) => <label key={service.service_id} className="flex items-center gap-3 rounded-xl border border-[var(--app-border)] bg-white/3 p-3 text-sm text-zinc-300 cursor-pointer hover:bg-white/5"><input type="checkbox" checked={(value.service_ids || []).includes(service.service_id)} onChange={() => toggleService(service.service_id)} className="accent-[#0A84FF]"/><span>{service.name}</span></label>)}</div>}
+        {services.length === 0 ? <p className="text-sm text-zinc-500 rounded-xl border border-[var(--app-border)] bg-white/3 p-4">No hay servicios creados en esta organización.</p> : <div className="grid sm:grid-cols-2 gap-2">{services.map((service) => <label key={service.service_id} className="flex items-center gap-3 rounded-xl border border-[var(--app-border)] bg-white/3 p-3 text-sm text-zinc-300 cursor-pointer hover:bg-white/5"><input type="checkbox" checked={(value.service_ids || []).includes(service.service_id)} onChange={() => toggleService(service.service_id)} className="accent-[var(--app-primary)]"/><span>{service.name}</span></label>)}</div>}
       </section>
 
-      <label className="flex items-center justify-between rounded-xl border border-[var(--app-border)] bg-white/3 p-4"><span><span className="block text-sm text-[var(--app-text-primary)]">Perfil activo</span><span className="block text-xs text-zinc-500 mt-1">Los perfiles inactivos no aparecen para nuevas reservas.</span></span><input type="checkbox" checked={value.active !== false} onChange={(event) => setField('active', event.target.checked)} className="h-5 w-5 accent-[#0A84FF]"/></label>
-      <button type="button" onClick={submit} disabled={saving || hasErrors} className="w-full px-6 py-3 bg-[#0A84FF] hover:bg-[#0071E3] text-[var(--app-text-primary)] rounded-xl font-medium transition-all disabled:opacity-50">{saving ? 'Guardando...' : actionLabel}</button>
+      <label className="flex items-center justify-between rounded-xl border border-[var(--app-border)] bg-white/3 p-4"><span><span className="block text-sm text-[var(--app-text-primary)]">Perfil activo</span><span className="block text-xs text-zinc-500 mt-1">Los perfiles inactivos no aparecen para nuevas reservas.</span></span><input type="checkbox" checked={value.active !== false} onChange={(event) => setField('active', event.target.checked)} className="h-5 w-5 accent-[var(--app-primary)]"/></label>
+      <button type="button" onClick={submit} disabled={saving || hasErrors} className="w-full px-6 py-3 bg-[var(--app-primary)] hover:bg-[var(--app-primary-hover)] text-[var(--app-text-primary)] rounded-xl font-medium transition-all disabled:opacity-50">{saving ? 'Guardando...' : actionLabel}</button>
     </div>
   );
 };
@@ -529,7 +529,7 @@ const ManagerBarbers = () => {
                   setLoading(true);
                   loadBarbers();
                 }}
-                className="px-4 py-2 bg-[#0A84FF] hover:bg-[#0071E3] rounded-lg text-white transition-all"
+                className="px-4 py-2 bg-[var(--app-primary)] hover:bg-[var(--app-primary-hover)] rounded-lg text-white transition-all"
               >
                 Reintentar
               </button>
@@ -552,7 +552,7 @@ const ManagerBarbers = () => {
               <ArrowLeft size={20} strokeWidth={1.5} />
             </button>
             <div className="flex items-center gap-4">
-              <div className="w-12 h-12 rounded-xl bg-[#0A84FF] flex items-center justify-center">
+              <div className="w-12 h-12 rounded-xl bg-[var(--app-primary)] flex items-center justify-center">
                 <Users size={24} strokeWidth={1.5} />
               </div>
               <div>
@@ -581,7 +581,7 @@ const ManagerBarbers = () => {
           {/* Create Dialog */}
           <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
             <DialogTrigger asChild>
-              <button data-testid={MANAGER.addBarberBtn} className="flex items-center gap-2 px-6 py-3 bg-[#0A84FF] hover:bg-[#0071E3] text-[var(--app-text-primary)] rounded-xl font-medium transition-all hover:-translate-y-1 active:scale-95">
+              <button data-testid={MANAGER.addBarberBtn} className="flex items-center gap-2 px-6 py-3 bg-[var(--app-primary)] hover:bg-[var(--app-primary-hover)] text-[var(--app-text-primary)] rounded-xl font-medium transition-all hover:-translate-y-1 active:scale-95">
                 <Plus size={20} strokeWidth={1.5} />
                 Crear manualmente
               </button>
@@ -606,7 +606,7 @@ const ManagerBarbers = () => {
           <DialogContent className="bg-[var(--app-surface-elevated)] border-[var(--app-border)] max-w-2xl max-h-[80vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle className="text-[var(--app-text-primary)] flex items-center gap-2">
-                <Clock size={24} strokeWidth={1.5} className="text-[#0A84FF]" />
+                <Clock size={24} strokeWidth={1.5} className="text-[var(--app-primary)]" />
                 Gestionar Horarios - {selectedBarberForBlock?.name}
               </DialogTitle>
             </DialogHeader>
@@ -623,7 +623,7 @@ const ManagerBarbers = () => {
                       min={getMinDate()}
                       value={newBlock.date}
                       onChange={(e) => setNewBlock({ ...newBlock, date: e.target.value })}
-                      className="w-full px-4 py-3 bg-transparent border border-[var(--app-border)] rounded-xl text-[var(--app-text-primary)] focus:border-[#0A84FF] focus:ring-1 focus:ring-[#0A84FF] outline-none"
+                      className="w-full px-4 py-3 bg-transparent border border-[var(--app-border)] rounded-xl text-[var(--app-text-primary)] focus:border-[var(--app-primary)] focus:ring-1 focus:ring-[var(--app-primary)] outline-none"
                     />
                   </div>
                   <div className="grid grid-cols-2 gap-3">
@@ -633,7 +633,7 @@ const ManagerBarbers = () => {
                         type="time"
                         value={newBlock.start_time}
                         onChange={(e) => setNewBlock({ ...newBlock, start_time: e.target.value })}
-                        className="w-full px-4 py-3 bg-transparent border border-[var(--app-border)] rounded-xl text-[var(--app-text-primary)] focus:border-[#0A84FF] focus:ring-1 focus:ring-[#0A84FF] outline-none"
+                        className="w-full px-4 py-3 bg-transparent border border-[var(--app-border)] rounded-xl text-[var(--app-text-primary)] focus:border-[var(--app-primary)] focus:ring-1 focus:ring-[var(--app-primary)] outline-none"
                       />
                     </div>
                     <div>
@@ -642,7 +642,7 @@ const ManagerBarbers = () => {
                         type="time"
                         value={newBlock.end_time}
                         onChange={(e) => setNewBlock({ ...newBlock, end_time: e.target.value })}
-                        className="w-full px-4 py-3 bg-transparent border border-[var(--app-border)] rounded-xl text-[var(--app-text-primary)] focus:border-[#0A84FF] focus:ring-1 focus:ring-[#0A84FF] outline-none"
+                        className="w-full px-4 py-3 bg-transparent border border-[var(--app-border)] rounded-xl text-[var(--app-text-primary)] focus:border-[var(--app-primary)] focus:ring-1 focus:ring-[var(--app-primary)] outline-none"
                       />
                     </div>
                   </div>
@@ -652,13 +652,13 @@ const ManagerBarbers = () => {
                       type="text"
                       value={newBlock.reason}
                       onChange={(e) => setNewBlock({ ...newBlock, reason: e.target.value })}
-                      className="w-full px-4 py-3 bg-transparent border border-[var(--app-border)] rounded-xl text-[var(--app-text-primary)] focus:border-[#0A84FF] focus:ring-1 focus:ring-[#0A84FF] outline-none"
+                      className="w-full px-4 py-3 bg-transparent border border-[var(--app-border)] rounded-xl text-[var(--app-text-primary)] focus:border-[var(--app-primary)] focus:ring-1 focus:ring-[var(--app-primary)] outline-none"
                       placeholder="Ej: Almuerzo, Cita personal"
                     />
                   </div>
                   <button
                     onClick={handleCreateBlock}
-                    className="w-full px-4 py-3 bg-[#0A84FF] hover:bg-[#0071E3] text-[var(--app-text-primary)] rounded-xl font-medium transition-all"
+                    className="w-full px-4 py-3 bg-[var(--app-primary)] hover:bg-[var(--app-primary-hover)] text-[var(--app-text-primary)] rounded-xl font-medium transition-all"
                   >
                     Bloquear Horario
                   </button>
@@ -682,7 +682,7 @@ const ManagerBarbers = () => {
                       >
                         <div className="flex-1">
                           <div className="flex items-center gap-3 mb-2">
-                            <Calendar size={16} strokeWidth={1.5} className="text-[#0A84FF]" />
+                            <Calendar size={16} strokeWidth={1.5} className="text-[var(--app-primary)]" />
                             <span className="text-[var(--app-text-primary)] font-medium">{block.date}</span>
                           </div>
                           <div className="flex items-center gap-3 text-sm text-zinc-400">
@@ -717,7 +717,7 @@ const ManagerBarbers = () => {
               onClick={() => setActiveTab(tab.id)}
               className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors ${
                 activeTab === tab.id
-                  ? 'border-[#0A84FF] text-[var(--app-text-primary)]'
+                  ? 'border-[var(--app-primary)] text-[var(--app-text-primary)]'
                   : 'border-transparent text-zinc-500 hover:text-zinc-300'
               }`}
             >
@@ -740,10 +740,10 @@ const ManagerBarbers = () => {
                   {barber.avatar ? (
                     <img src={barber.avatar} alt="" className="w-16 h-16 rounded-full object-cover border border-[var(--app-border)]" />
                   ) : (
-                    <div className="w-16 h-16 rounded-full bg-[#0A84FF] flex items-center justify-center text-[var(--app-text-primary)] text-xl font-medium">{displayName.charAt(0).toUpperCase()}</div>
+                    <div className="w-16 h-16 rounded-full bg-[var(--app-primary)] flex items-center justify-center text-[var(--app-text-primary)] text-xl font-medium">{displayName.charAt(0).toUpperCase()}</div>
                   )}
                   <div className="flex items-center gap-2">
-                    <button onClick={() => handleEdit(barber)} className="p-2 rounded-lg bg-white/5 hover:bg-[#0A84FF]/20 text-zinc-400 hover:text-[#0A84FF] transition-all" title="Editar perfil"><Edit2 size={18} strokeWidth={1.5} /></button>
+                    <button onClick={() => handleEdit(barber)} className="p-2 rounded-lg bg-white/5 hover:bg-[var(--app-primary)]/20 text-zinc-400 hover:text-[var(--app-primary)] transition-all" title="Editar perfil"><Edit2 size={18} strokeWidth={1.5} /></button>
                     {barber.active !== false && <button onClick={() => handleDelete(barber.barber_id)} className="p-2 rounded-lg bg-white/5 hover:bg-red-500/20 text-zinc-400 hover:text-red-300 transition-all" title="Desactivar"><Trash2 size={18} strokeWidth={1.5} /></button>}
                   </div>
                 </div>

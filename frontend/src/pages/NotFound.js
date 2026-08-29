@@ -8,7 +8,7 @@ const NotFound = () => (
       <p className="text-sm uppercase tracking-[0.2em] text-zinc-500 mb-3">Error 404</p>
       <h1 className="text-3xl font-light mb-3">Página no encontrada</h1>
       <p className="text-zinc-400 mb-7">El enlace no existe, está incompleto o corresponde a una versión anterior de la aplicación.</p>
-      <Link to="/login" className="inline-flex h-12 items-center justify-center gap-2 rounded-xl bg-[#0A84FF] hover:bg-[#0071E3] px-5 font-medium transition-colors"><ArrowLeft size={18} />Volver al inicio</Link>
+      <Link to="/login" className="inline-flex h-12 items-center justify-center gap-2 rounded-xl bg-[var(--app-primary)] hover:bg-[var(--app-primary-hover)] px-5 font-medium transition-colors"><ArrowLeft size={18} />Volver al inicio</Link>
     </div>
   </div>
 );

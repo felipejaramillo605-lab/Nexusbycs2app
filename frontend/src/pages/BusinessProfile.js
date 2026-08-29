@@ -94,7 +94,7 @@ const BusinessProfile = () => {
   if (loading) {
     return (
       <div className="min-h-screen nexus-screen flex items-center justify-center">
-        <Loader2 size={48} className="text-[#0A84FF] animate-spin" />
+        <Loader2 size={48} className="text-[var(--app-primary)] animate-spin" />
       </div>
     );
   }
@@ -125,7 +125,7 @@ const BusinessProfile = () => {
         {/* Info Card */}
         <div className="backdrop-blur-xl bg-white/3 border border-[var(--app-border)] rounded-2xl p-6 mb-6">
           <div className="flex items-center gap-3 mb-2">
-            <Building size={24} className="text-[#0A84FF]" />
+            <Building size={24} className="text-[var(--app-primary)]" />
             <h2 className="text-lg font-medium text-[var(--app-text-primary)]">Información del Negocio</h2>
           </div>
           <p className="text-zinc-400 text-sm">
@@ -146,7 +146,7 @@ const BusinessProfile = () => {
               required
               value={formData.name}
               onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-              className="w-full px-4 py-3 bg-white/5 border border-[var(--app-border)] rounded-xl text-[var(--app-text-primary)] placeholder-zinc-500 focus:border-[#0A84FF] focus:ring-2 focus:ring-[#0A84FF]/20 outline-none transition-all"
+              className="w-full px-4 py-3 bg-white/5 border border-[var(--app-border)] rounded-xl text-[var(--app-text-primary)] placeholder-zinc-500 focus:border-[var(--app-primary)] focus:ring-2 focus:ring-[var(--app-primary)]/20 outline-none transition-all"
               placeholder="Ej: Centro de Bienestar Integral"
             />
           </div>
@@ -161,7 +161,7 @@ const BusinessProfile = () => {
               type="text"
               value={formData.address}
               onChange={(e) => setFormData({ ...formData, address: e.target.value })}
-              className="w-full px-4 py-3 bg-white/5 border border-[var(--app-border)] rounded-xl text-[var(--app-text-primary)] placeholder-zinc-500 focus:border-[#0A84FF] focus:ring-2 focus:ring-[#0A84FF]/20 outline-none transition-all"
+              className="w-full px-4 py-3 bg-white/5 border border-[var(--app-border)] rounded-xl text-[var(--app-text-primary)] placeholder-zinc-500 focus:border-[var(--app-primary)] focus:ring-2 focus:ring-[var(--app-primary)]/20 outline-none transition-all"
               placeholder="Ej: Calle 123 #45-67, Bogotá"
             />
           </div>
@@ -175,7 +175,7 @@ const BusinessProfile = () => {
             <textarea
               value={formData.business_hours}
               onChange={(e) => setFormData({ ...formData, business_hours: e.target.value })}
-              className="w-full px-4 py-3 bg-white/5 border border-[var(--app-border)] rounded-xl text-[var(--app-text-primary)] placeholder-zinc-500 focus:border-[#0A84FF] focus:ring-2 focus:ring-[#0A84FF]/20 outline-none transition-all resize-none"
+              className="w-full px-4 py-3 bg-white/5 border border-[var(--app-border)] rounded-xl text-[var(--app-text-primary)] placeholder-zinc-500 focus:border-[var(--app-primary)] focus:ring-2 focus:ring-[var(--app-primary)]/20 outline-none transition-all resize-none"
               rows={3}
               placeholder="Ej: Lunes a Viernes: 9:00 AM - 7:00 PM&#10;Sábados: 9:00 AM - 5:00 PM&#10;Domingos: Cerrado"
             />
@@ -194,7 +194,7 @@ const BusinessProfile = () => {
               type="tel"
               value={formData.phone}
               onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-              className="w-full px-4 py-3 bg-white/5 border border-[var(--app-border)] rounded-xl text-[var(--app-text-primary)] placeholder-zinc-500 focus:border-[#0A84FF] focus:ring-2 focus:ring-[#0A84FF]/20 outline-none transition-all"
+              className="w-full px-4 py-3 bg-white/5 border border-[var(--app-border)] rounded-xl text-[var(--app-text-primary)] placeholder-zinc-500 focus:border-[var(--app-primary)] focus:ring-2 focus:ring-[var(--app-primary)]/20 outline-none transition-all"
               placeholder="Ej: +57 300 123 4567"
             />
           </div>
@@ -209,7 +209,7 @@ const BusinessProfile = () => {
               type="url"
               value={formData.whatsapp_link}
               onChange={(e) => setFormData({ ...formData, whatsapp_link: e.target.value })}
-              className="w-full px-4 py-3 bg-white/5 border border-[var(--app-border)] rounded-xl text-[var(--app-text-primary)] placeholder-zinc-500 focus:border-[#0A84FF] focus:ring-2 focus:ring-[#0A84FF]/20 outline-none transition-all"
+              className="w-full px-4 py-3 bg-white/5 border border-[var(--app-border)] rounded-xl text-[var(--app-text-primary)] placeholder-zinc-500 focus:border-[var(--app-primary)] focus:ring-2 focus:ring-[var(--app-primary)]/20 outline-none transition-all"
               placeholder="https://wa.me/573001234567"
             />
             <p className="text-xs text-zinc-500 mt-2">
@@ -230,7 +230,7 @@ const BusinessProfile = () => {
                   ...formData,
                   review_request_settings: { ...formData.review_request_settings, enabled: !formData.review_request_settings.enabled },
                 })}
-                className={`relative w-11 h-6 rounded-full transition-colors ${formData.review_request_settings.enabled ? 'bg-[#0A84FF]' : 'bg-white/10'}`}
+                className={`relative w-11 h-6 rounded-full transition-colors ${formData.review_request_settings.enabled ? 'bg-[var(--app-primary)]' : 'bg-white/10'}`}
               >
                 <span className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white transition-transform ${formData.review_request_settings.enabled ? 'translate-x-5' : ''}`} />
               </button>
@@ -247,7 +247,7 @@ const BusinessProfile = () => {
                 type="url"
                 value={formData.review_link}
                 onChange={(e) => setFormData({ ...formData, review_link: e.target.value })}
-                className="w-full px-4 py-3 bg-white/5 border border-[var(--app-border)] rounded-xl text-[var(--app-text-primary)] placeholder-zinc-500 focus:border-[#0A84FF] focus:ring-2 focus:ring-[#0A84FF]/20 outline-none transition-all"
+                className="w-full px-4 py-3 bg-white/5 border border-[var(--app-border)] rounded-xl text-[var(--app-text-primary)] placeholder-zinc-500 focus:border-[var(--app-primary)] focus:ring-2 focus:ring-[var(--app-primary)]/20 outline-none transition-all"
                 placeholder="https://instagram.com/tu_negocio"
               />
             </div>
@@ -266,7 +266,7 @@ const BusinessProfile = () => {
                         channels: { ...formData.review_request_settings.channels, email: e.target.checked },
                       },
                     })}
-                    className="accent-[#0A84FF]"
+                    className="accent-[var(--app-primary)]"
                   />
                   Correo electrónico
                 </label>
@@ -281,7 +281,7 @@ const BusinessProfile = () => {
                         channels: { ...formData.review_request_settings.channels, whatsapp: e.target.checked },
                       },
                     })}
-                    className="accent-[#0A84FF]"
+                    className="accent-[var(--app-primary)]"
                   />
                   WhatsApp <span className="text-zinc-500">(modo de prueba — sin API de WhatsApp Business todavía)</span>
                 </label>
@@ -304,7 +304,7 @@ const BusinessProfile = () => {
             <button
               type="submit"
               disabled={saving}
-              className="flex-1 px-4 py-3 rounded-xl bg-[#0A84FF] hover:bg-[#0071E3] text-[var(--app-text-primary)] font-medium transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+              className="flex-1 px-4 py-3 rounded-xl bg-[var(--app-primary)] hover:bg-[var(--app-primary-hover)] text-[var(--app-text-primary)] font-medium transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
             >
               {saving ? (
                 <>

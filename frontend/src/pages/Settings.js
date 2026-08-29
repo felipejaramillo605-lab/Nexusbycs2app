@@ -496,7 +496,7 @@ const Settings = () => {
   if (loading) {
     return (
       <div className="min-h-screen nexus-screen flex items-center justify-center">
-        <Loader2 size={48} className="text-[#0A84FF] animate-spin" />
+        <Loader2 size={48} className="text-[var(--app-primary)] animate-spin" />
       </div>
     );
   }
@@ -563,8 +563,8 @@ const Settings = () => {
           {/* CARD 1 - Perfil del Local */}
           <div className="backdrop-blur-xl bg-white/3 border border-[var(--app-border)] rounded-2xl p-6">
             <div className="flex items-center gap-3 mb-6">
-              <div className="w-10 h-10 rounded-xl bg-[#0A84FF]/20 flex items-center justify-center">
-                <Building size={20} strokeWidth={1.5} className="text-[#0A84FF]" />
+              <div className="w-10 h-10 rounded-xl bg-[var(--app-primary)]/20 flex items-center justify-center">
+                <Building size={20} strokeWidth={1.5} className="text-[var(--app-primary)]" />
               </div>
               <div>
                 <h2 className="text-lg font-medium text-[var(--app-text-primary)]">Perfil del Local</h2>
@@ -582,7 +582,7 @@ const Settings = () => {
                   value={profileData.name}
                   onChange={(e) => setProfileData({ ...profileData, name: e.target.value })}
                   placeholder="Centro de Servicios Integral"
-                  className="w-full px-4 py-3 bg-white/5 border border-[var(--app-border)] rounded-xl text-[var(--app-text-primary)] placeholder-zinc-500 focus:border-[#0A84FF] focus:ring-2 focus:ring-[#0A84FF]/20 outline-none transition-all"
+                  className="w-full px-4 py-3 bg-white/5 border border-[var(--app-border)] rounded-xl text-[var(--app-text-primary)] placeholder-zinc-500 focus:border-[var(--app-primary)] focus:ring-2 focus:ring-[var(--app-primary)]/20 outline-none transition-all"
                   minLength={1}
                   maxLength={200}
                 />
@@ -600,7 +600,7 @@ const Settings = () => {
                   value={profileData.phone}
                   onChange={(e) => setProfileData({ ...profileData, phone: e.target.value })}
                   placeholder="+57 300 123 4567"
-                  className="w-full px-4 py-3 bg-white/5 border border-[var(--app-border)] rounded-xl text-[var(--app-text-primary)] placeholder-zinc-500 focus:border-[#0A84FF] focus:ring-2 focus:ring-[#0A84FF]/20 outline-none transition-all"
+                  className="w-full px-4 py-3 bg-white/5 border border-[var(--app-border)] rounded-xl text-[var(--app-text-primary)] placeholder-zinc-500 focus:border-[var(--app-primary)] focus:ring-2 focus:ring-[var(--app-primary)]/20 outline-none transition-all"
                 />
                 <p className="text-xs text-zinc-500 mt-1">
                   Acepta cualquier formato: +57 300 123 4567, (300) 123-4567, etc.
@@ -616,14 +616,14 @@ const Settings = () => {
                   onChange={(e) => setProfileData({ ...profileData, address: e.target.value })}
                   placeholder="Calle 123 #45-67, Bogotá"
                   rows={3}
-                  className="w-full px-4 py-3 bg-white/5 border border-[var(--app-border)] rounded-xl text-[var(--app-text-primary)] placeholder-zinc-500 focus:border-[#0A84FF] focus:ring-2 focus:ring-[#0A84FF]/20 outline-none transition-all resize-none"
+                  className="w-full px-4 py-3 bg-white/5 border border-[var(--app-border)] rounded-xl text-[var(--app-text-primary)] placeholder-zinc-500 focus:border-[var(--app-primary)] focus:ring-2 focus:ring-[var(--app-primary)]/20 outline-none transition-all resize-none"
                 />
               </div>
 
               <button
                 type="submit"
                 disabled={saving}
-                className="w-full py-3 rounded-xl bg-[#0A84FF] hover:bg-[#0071E3] text-[var(--app-text-primary)] font-medium transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                className="w-full py-3 rounded-xl bg-[var(--app-primary)] hover:bg-[var(--app-primary-hover)] text-[var(--app-text-primary)] font-medium transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
               >
                 {saving ? (
                   <>
@@ -798,7 +798,7 @@ const Settings = () => {
                     value={inviteEmail}
                     onChange={(e) => setInviteEmail(e.target.value)}
                     placeholder="correo@ejemplo.com"
-                    className="w-full px-4 py-2 bg-white/5 border border-[var(--app-border)] rounded-lg text-[var(--app-text-primary)] placeholder-zinc-500 focus:border-[#0A84FF] focus:ring-2 focus:ring-[#0A84FF]/20 outline-none transition-all text-sm"
+                    className="w-full px-4 py-2 bg-white/5 border border-[var(--app-border)] rounded-lg text-[var(--app-text-primary)] placeholder-zinc-500 focus:border-[var(--app-primary)] focus:ring-2 focus:ring-[var(--app-primary)]/20 outline-none transition-all text-sm"
                   />
                 </div>
 
@@ -806,7 +806,7 @@ const Settings = () => {
                   <select
                     value={inviteRole}
                     onChange={(e) => setInviteRole(e.target.value)}
-                    className="flex-1 px-4 py-2 bg-white/5 border border-[var(--app-border)] rounded-lg text-[var(--app-text-primary)] focus:border-[#0A84FF] focus:ring-2 focus:ring-[#0A84FF]/20 outline-none transition-all text-sm"
+                    className="flex-1 px-4 py-2 bg-white/5 border border-[var(--app-border)] rounded-lg text-[var(--app-text-primary)] focus:border-[var(--app-primary)] focus:ring-2 focus:ring-[var(--app-primary)]/20 outline-none transition-all text-sm"
                   >
                     {user?.role === 'owner' && <option value="manager">Manager</option>}
                     {user?.role === 'owner' && <option value="admin">Admin (Acceso completo)</option>}
@@ -816,7 +816,7 @@ const Settings = () => {
                   <button
                     onClick={handleInviteMember}
                     disabled={inviting}
-                    className="px-4 py-2 rounded-lg bg-[#0A84FF] hover:bg-[#0071E3] text-[var(--app-text-primary)] font-medium transition-all text-sm flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="px-4 py-2 rounded-lg bg-[var(--app-primary)] hover:bg-[var(--app-primary-hover)] text-[var(--app-text-primary)] font-medium transition-all text-sm flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     {inviting ? <Loader2 size={16} className="animate-spin" /> : <Mail size={16} strokeWidth={1.5} />}
                     {inviting ? 'Procesando...' : 'Invitar profesional'}
@@ -874,7 +874,7 @@ const Settings = () => {
                               type="button"
                               disabled={actionLoading}
                               onClick={() => handleResendInvitation(invitation)}
-                              className="px-3 py-1.5 text-xs rounded-lg bg-[#0A84FF]/15 text-[#0A84FF] hover:bg-[#0A84FF]/25 disabled:opacity-50"
+                              className="px-3 py-1.5 text-xs rounded-lg bg-[var(--app-primary)]/15 text-[var(--app-primary)] hover:bg-[var(--app-primary)]/25 disabled:opacity-50"
                             >
                               {actionLoading ? 'Procesando...' : 'Reenviar'}
                             </button>
@@ -911,7 +911,7 @@ const Settings = () => {
                       className="flex items-center justify-between p-3 bg-white/5 border border-[var(--app-border)] rounded-lg hover:bg-white/10 transition-all"
                     >
                       <div className="flex items-center gap-3 flex-1 min-w-0">
-                        <div className="w-8 h-8 rounded-full bg-[#0A84FF] flex items-center justify-center text-[var(--app-text-primary)] text-sm font-medium flex-shrink-0">
+                        <div className="w-8 h-8 rounded-full bg-[var(--app-primary)] flex items-center justify-center text-[var(--app-text-primary)] text-sm font-medium flex-shrink-0">
                           {member.name.charAt(0).toUpperCase()}
                         </div>
                         <div className="flex-1 min-w-0">
@@ -933,7 +933,7 @@ const Settings = () => {
                               <select
                                 value={member.role}
                                 onChange={(e) => handleChangeRole(member.user_id, e.target.value)}
-                                className="px-3 py-1 bg-white/5 border border-[var(--app-border)] rounded-lg text-[var(--app-text-primary)] text-xs focus:border-[#0A84FF] outline-none"
+                                className="px-3 py-1 bg-white/5 border border-[var(--app-border)] rounded-lg text-[var(--app-text-primary)] text-xs focus:border-[var(--app-primary)] outline-none"
                               >
                                 {user?.role === 'owner' && <option value="admin">Admin</option>}
                                 {user?.role === 'owner' && <option value="manager">Manager</option>}
@@ -963,16 +963,16 @@ const Settings = () => {
           {/* NEXUS_COMMISSION_FOUNDATION_V1 */}
           <div className="lg:col-span-2 backdrop-blur-xl bg-white/3 border border-[var(--app-border)] rounded-2xl p-6">
             <div className="flex items-center gap-3 mb-6"><Percent className="text-emerald-400" /><div><h2 className="text-lg font-medium text-[var(--app-text-primary)]">Comisiones del equipo</h2><p className="text-sm text-zinc-400">Regla general y excepciones por profesional</p></div></div>
-            {commissionLoading ? <div className="py-10 flex justify-center"><Loader2 className="animate-spin text-[#0A84FF]" /></div> : <div className="space-y-5">
+            {commissionLoading ? <div className="py-10 flex justify-center"><Loader2 className="animate-spin text-[var(--app-primary)]" /></div> : <div className="space-y-5">
               <div className="grid md:grid-cols-2 gap-4 rounded-xl border border-[var(--app-border)] bg-white/5 p-4">
                 <label className="text-sm text-zinc-400">Porcentaje Staff<input type="number" min="0" max="100" step="0.01" value={commissionSettings.default_staff_percent} onChange={(e) => changeDefaultStaff(e.target.value)} className="mt-2 w-full px-4 py-3 bg-black/30 border border-[var(--app-border)] rounded-xl text-[var(--app-text-primary)]" /></label>
                 <label className="text-sm text-zinc-400">Porcentaje negocio<input readOnly value={commissionSettings.default_business_percent} className="mt-2 w-full px-4 py-3 bg-black/20 border border-[var(--app-border)] rounded-xl text-zinc-300" /></label>
-                <div className="md:col-span-2 flex flex-wrap justify-between gap-3"><p className="text-xs text-zinc-500">Base neta después de descuentos. Propina completa para el profesional.</p><button type="button" onClick={saveCommissionSettings} disabled={commissionSaving} className="px-5 py-2.5 rounded-xl bg-[#0A84FF] text-[var(--app-text-primary)] disabled:opacity-50">Guardar regla general</button></div>
+                <div className="md:col-span-2 flex flex-wrap justify-between gap-3"><p className="text-xs text-zinc-500">Base neta después de descuentos. Propina completa para el profesional.</p><button type="button" onClick={saveCommissionSettings} disabled={commissionSaving} className="px-5 py-2.5 rounded-xl bg-[var(--app-primary)] text-[var(--app-text-primary)] disabled:opacity-50">Guardar regla general</button></div>
               </div>
               <div className="space-y-3">{staffCommissions.map((item) => <div key={item.barber_id} className="rounded-xl border border-[var(--app-border)] bg-white/5 p-4 flex flex-col md:flex-row md:items-center justify-between gap-4"><div><p className="text-[var(--app-text-primary)] font-medium">{item.name} <span className="text-xs text-zinc-400">{item.source === 'override' ? 'Personalizada' : 'Predeterminada'}</span></p><p className="text-sm text-zinc-400">Staff {item.staff_percent}% · Negocio {item.business_percent}%</p>{item.reason && <p className="text-xs text-zinc-500">Motivo: {item.reason}</p>}</div><div className="flex gap-2"><button type="button" onClick={() => editStaffCommission(item)} className="px-3 py-2 rounded-lg bg-white/5 border border-[var(--app-border)] text-zinc-300"><Pencil size={15} className="inline mr-1" />Personalizar</button>{item.source === 'override' && <button type="button" onClick={() => resetStaffCommission(item)} disabled={commissionAction === item.barber_id} className="px-3 py-2 rounded-lg bg-amber-500/10 text-amber-300"><RotateCcw size={15} className="inline mr-1" />Restablecer</button>}</div></div>)}</div>
             </div>}
           </div>
-          {editingCommission && <AccessibleModal open={!!editingCommission} onClose={()=>!commissionAction&&setEditingCommission(null)} labelledBy="commission-editor-title" panelClassName="w-full max-w-lg rounded-2xl border border-[var(--app-border)] bg-[var(--app-surface-elevated)] p-6"><h3 id="commission-editor-title" className="text-xl text-[var(--app-text-primary)]">Comisión de {editingCommission.name}</h3><div className="grid sm:grid-cols-2 gap-4 mt-5"><label className="text-sm text-zinc-400">Staff<input type="number" min="0" max="100" step="0.01" value={editingCommission.staff_percent} onChange={(e) => changeOverrideStaff(e.target.value)} className="mt-2 w-full px-4 py-3 bg-white/5 border border-[var(--app-border)] rounded-xl text-[var(--app-text-primary)]" /></label><label className="text-sm text-zinc-400">Negocio<input readOnly value={editingCommission.business_percent} className="mt-2 w-full px-4 py-3 bg-white/5 border border-[var(--app-border)] rounded-xl text-zinc-300" /></label></div><label className="block text-sm text-zinc-400 mt-4">Motivo<textarea rows={3} value={editingCommission.reason} onChange={(e) => setEditingCommission({ ...editingCommission, reason: e.target.value })} className="mt-2 w-full px-4 py-3 bg-white/5 border border-[var(--app-border)] rounded-xl text-[var(--app-text-primary)]" /></label><div className="flex justify-end gap-3 mt-5"><button type="button" onClick={() => setEditingCommission(null)} className="px-4 py-2 text-zinc-300">Cancelar</button><button type="button" onClick={saveStaffCommission} className="px-4 py-2 rounded-xl bg-[#0A84FF] text-[var(--app-text-primary)]">Guardar</button></div></AccessibleModal>}
+          {editingCommission && <AccessibleModal open={!!editingCommission} onClose={()=>!commissionAction&&setEditingCommission(null)} labelledBy="commission-editor-title" panelClassName="w-full max-w-lg rounded-2xl border border-[var(--app-border)] bg-[var(--app-surface-elevated)] p-6"><h3 id="commission-editor-title" className="text-xl text-[var(--app-text-primary)]">Comisión de {editingCommission.name}</h3><div className="grid sm:grid-cols-2 gap-4 mt-5"><label className="text-sm text-zinc-400">Staff<input type="number" min="0" max="100" step="0.01" value={editingCommission.staff_percent} onChange={(e) => changeOverrideStaff(e.target.value)} className="mt-2 w-full px-4 py-3 bg-white/5 border border-[var(--app-border)] rounded-xl text-[var(--app-text-primary)]" /></label><label className="text-sm text-zinc-400">Negocio<input readOnly value={editingCommission.business_percent} className="mt-2 w-full px-4 py-3 bg-white/5 border border-[var(--app-border)] rounded-xl text-zinc-300" /></label></div><label className="block text-sm text-zinc-400 mt-4">Motivo<textarea rows={3} value={editingCommission.reason} onChange={(e) => setEditingCommission({ ...editingCommission, reason: e.target.value })} className="mt-2 w-full px-4 py-3 bg-white/5 border border-[var(--app-border)] rounded-xl text-[var(--app-text-primary)]" /></label><div className="flex justify-end gap-3 mt-5"><button type="button" onClick={() => setEditingCommission(null)} className="px-4 py-2 text-zinc-300">Cancelar</button><button type="button" onClick={saveStaffCommission} className="px-4 py-2 rounded-xl bg-[var(--app-primary)] text-[var(--app-text-primary)]">Guardar</button></div></AccessibleModal>}
         </div>
         )}
 
@@ -1022,7 +1022,7 @@ const Settings = () => {
         <h2 id="simulated-invitation-title" className="text-xl text-[var(--app-text-primary)]">Invitación simulada</h2>
         <p id="simulated-invitation-description" className="text-sm text-zinc-400 mt-2">No se envió correo a {simulatedInvitation?.email}. Usa este enlace sólo en una prueba controlada.</p>
         <input readOnly value={simulatedInvitation?.url || ''} className="w-full mt-4 px-3 py-2 bg-white/5 border border-[var(--app-border)] rounded-lg text-sm"/>
-        <div className="flex flex-wrap gap-2 mt-4"><button type="button" onClick={copyInvitationLink} className="px-4 py-2 rounded-lg bg-[#0A84FF] text-white inline-flex gap-2"><Copy size={16}/>Copiar enlace</button><a href={simulatedInvitation?.url} target="_blank" rel="noopener noreferrer" className="px-4 py-2 rounded-lg bg-white/10 inline-flex gap-2"><ExternalLink size={16}/>Abrir enlace</a></div>
+        <div className="flex flex-wrap gap-2 mt-4"><button type="button" onClick={copyInvitationLink} className="px-4 py-2 rounded-lg bg-[var(--app-primary)] text-white inline-flex gap-2"><Copy size={16}/>Copiar enlace</button><a href={simulatedInvitation?.url} target="_blank" rel="noopener noreferrer" className="px-4 py-2 rounded-lg bg-white/10 inline-flex gap-2"><ExternalLink size={16}/>Abrir enlace</a></div>
       </AccessibleModal>
       <AccessibleModal open={!!revokeTarget} onClose={() => !invitationAction && setRevokeTarget(null)} labelledBy="revoke-invitation-title" describedBy="revoke-invitation-description" role="alertdialog">
         <h2 id="revoke-invitation-title" className="text-xl text-[var(--app-text-primary)]">Revocar invitación</h2>

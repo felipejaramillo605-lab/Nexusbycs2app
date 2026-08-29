@@ -242,8 +242,8 @@ const ManagerClients = () => {
         {/* Header Stats */}
         <div className="mb-8 backdrop-blur-xl bg-white/3 border border-[var(--app-border)] rounded-2xl p-6">
           <div className="flex items-center gap-4">
-            <div className="w-12 h-12 rounded-xl bg-[#0A84FF]/20 flex items-center justify-center">
-              <Users size={24} strokeWidth={1.5} className="text-[#0A84FF]" />
+            <div className="w-12 h-12 rounded-xl bg-[var(--app-primary)]/20 flex items-center justify-center">
+              <Users size={24} strokeWidth={1.5} className="text-[var(--app-primary)]" />
             </div>
             <div>
               <div className="text-3xl font-light text-[var(--app-text-primary)]">{pagination.total}</div>
@@ -254,8 +254,8 @@ const ManagerClients = () => {
 
         <form onSubmit={submitSearch} className="mb-6 flex flex-col sm:flex-row gap-3" role="search">
           <label className="sr-only" htmlFor="client-search">Buscar clientes</label>
-          <div className="relative flex-1"><Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500" aria-hidden="true" /><input id="client-search" value={searchInput} onChange={(event) => setSearchInput(event.target.value)} placeholder="Buscar por nombre, teléfono o correo" className="w-full pl-10 pr-4 py-3 bg-white/5 border border-[var(--app-border)] rounded-xl text-[var(--app-text-primary)] outline-none focus:border-[#0A84FF] focus:ring-2 focus:ring-[#0A84FF]/20" /></div>
-          <button type="submit" className="px-5 py-3 rounded-xl bg-[#0A84FF] text-white font-medium">Buscar</button>
+          <div className="relative flex-1"><Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500" aria-hidden="true" /><input id="client-search" value={searchInput} onChange={(event) => setSearchInput(event.target.value)} placeholder="Buscar por nombre, teléfono o correo" className="w-full pl-10 pr-4 py-3 bg-white/5 border border-[var(--app-border)] rounded-xl text-[var(--app-text-primary)] outline-none focus:border-[var(--app-primary)] focus:ring-2 focus:ring-[var(--app-primary)]/20" /></div>
+          <button type="submit" className="px-5 py-3 rounded-xl bg-[var(--app-primary)] text-white font-medium">Buscar</button>
           {searchTerm && <button type="button" onClick={() => { setSearchInput(''); setSearchTerm(''); setCurrentPage(1); }} className="px-5 py-3 rounded-xl border border-[var(--app-border)] text-[var(--app-text-primary)]">Limpiar</button>}
         </form>
 
@@ -286,7 +286,7 @@ const ManagerClients = () => {
                     <tr key={client.client_id} className="hover:bg-white/5 transition-colors">
                       <td className="px-6 py-4">
                         <div className="flex items-center gap-3">
-                          <div className="w-10 h-10 rounded-full bg-[#0A84FF] flex items-center justify-center text-[var(--app-text-primary)] font-medium">
+                          <div className="w-10 h-10 rounded-full bg-[var(--app-primary)] flex items-center justify-center text-[var(--app-text-primary)] font-medium">
                             {client.name.charAt(0).toUpperCase()}
                           </div>
                           <div className="flex items-center gap-2">
@@ -316,7 +316,7 @@ const ManagerClients = () => {
                         </div>
                       </td>
                       <td className="px-6 py-4 text-center">
-                        <span className="px-3 py-1 rounded-full bg-[#0A84FF]/20 text-[#0A84FF] text-sm font-medium">
+                        <span className="px-3 py-1 rounded-full bg-[var(--app-primary)]/20 text-[var(--app-primary)] text-sm font-medium">
                           {client.total_visits}
                         </span>
                       </td>
@@ -336,7 +336,7 @@ const ManagerClients = () => {
                           <button
                             onClick={() => handleToggleMarketing(client)}
                             disabled={togglingMarketing === client.client_id}
-                            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-[#0A84FF] focus:ring-offset-2 focus:ring-offset-[#0A0A0A] disabled:opacity-50 ${
+                            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-[var(--app-primary)] focus:ring-offset-2 focus:ring-offset-[#0A0A0A] disabled:opacity-50 ${
                               client.accepts_marketing ? 'bg-green-500' : 'bg-zinc-700'
                             }`}
                             title={client.accepts_marketing ? 'Notificaciones activadas' : 'Notificaciones desactivadas'}
@@ -405,7 +405,7 @@ const ManagerClients = () => {
                                           <div className="text-sm text-zinc-400">{apt.barber_name}</div>
                                         </div>
                                         <div className="text-right">
-                                          <div className="text-[#0A84FF] font-medium">${apt.service_price}</div>
+                                          <div className="text-[var(--app-primary)] font-medium">${apt.service_price}</div>
                                           <div className={`text-xs mt-1 px-2 py-1 rounded ${
                                             apt.status === 'confirmed' 
                                               ? 'bg-green-500/20 text-green-400'
@@ -452,7 +452,7 @@ const ManagerClients = () => {
               {clients.map((client) => (
                 <div key={client.client_id} className="p-4">
                   <div className="flex items-start gap-3 mb-3">
-                    <div className="w-12 h-12 rounded-full bg-[#0A84FF] flex items-center justify-center text-[var(--app-text-primary)] font-medium flex-shrink-0">
+                    <div className="w-12 h-12 rounded-full bg-[var(--app-primary)] flex items-center justify-center text-[var(--app-text-primary)] font-medium flex-shrink-0">
                       {client.name.charAt(0).toUpperCase()}
                     </div>
                     <div className="flex-1 min-w-0">
@@ -480,7 +480,7 @@ const ManagerClients = () => {
                       )}
                     </div>
                     <div className="text-right flex flex-col items-end gap-2">
-                      <div className="px-2 py-1 rounded-full bg-[#0A84FF]/20 text-[#0A84FF] text-xs font-medium">
+                      <div className="px-2 py-1 rounded-full bg-[var(--app-primary)]/20 text-[var(--app-primary)] text-xs font-medium">
                         {client.total_visits} visitas
                       </div>
                       <button
@@ -540,7 +540,7 @@ const ManagerClients = () => {
                                     <div className="text-sm text-zinc-400">{apt.barber_name}</div>
                                   </div>
                                   <div className="text-right">
-                                    <div className="text-[#0A84FF] font-medium">${apt.service_price}</div>
+                                    <div className="text-[var(--app-primary)] font-medium">${apt.service_price}</div>
                                   </div>
                                 </div>
                                 <div className="flex items-center gap-4 text-sm text-zinc-400">
@@ -596,7 +596,7 @@ const ManagerClients = () => {
                     onClick={() => setSelectedTemplate(MESSAGE_TEMPLATES.APPOINTMENT_REMINDER)}
                     className={`p-4 rounded-xl border transition-all text-left ${
                       selectedTemplate === MESSAGE_TEMPLATES.APPOINTMENT_REMINDER
-                        ? 'bg-[#0A84FF]/20 border-[#0A84FF] text-[var(--app-text-primary)]'
+                        ? 'bg-[var(--app-primary)]/20 border-[var(--app-primary)] text-[var(--app-text-primary)]'
                         : 'bg-white/5 border-[var(--app-border)] text-zinc-400 hover:bg-white/10'
                     }`}
                   >
@@ -608,7 +608,7 @@ const ManagerClients = () => {
                     onClick={() => setSelectedTemplate(MESSAGE_TEMPLATES.REACTIVATION)}
                     className={`p-4 rounded-xl border transition-all text-left ${
                       selectedTemplate === MESSAGE_TEMPLATES.REACTIVATION
-                        ? 'bg-[#0A84FF]/20 border-[#0A84FF] text-[var(--app-text-primary)]'
+                        ? 'bg-[var(--app-primary)]/20 border-[var(--app-primary)] text-[var(--app-text-primary)]'
                         : 'bg-white/5 border-[var(--app-border)] text-zinc-400 hover:bg-white/10'
                     }`}
                   >
@@ -620,7 +620,7 @@ const ManagerClients = () => {
                     onClick={() => setSelectedTemplate(MESSAGE_TEMPLATES.PROMOTION)}
                     className={`p-4 rounded-xl border transition-all text-left ${
                       selectedTemplate === MESSAGE_TEMPLATES.PROMOTION
-                        ? 'bg-[#0A84FF]/20 border-[#0A84FF] text-[var(--app-text-primary)]'
+                        ? 'bg-[var(--app-primary)]/20 border-[var(--app-primary)] text-[var(--app-text-primary)]'
                         : 'bg-white/5 border-[var(--app-border)] text-zinc-400 hover:bg-white/10'
                     }`}
                   >
@@ -657,7 +657,7 @@ const ManagerClients = () => {
                   value={customMessage}
                   onChange={(e) => setCustomMessage(e.target.value)}
                   placeholder="Escribe un mensaje personalizado o usa la plantilla..."
-                  className="w-full px-4 py-3 bg-white/5 border border-[var(--app-border)] rounded-xl text-[var(--app-text-primary)] placeholder-zinc-500 focus:border-[#0A84FF] focus:ring-2 focus:ring-[#0A84FF]/20 outline-none transition-all resize-none"
+                  className="w-full px-4 py-3 bg-white/5 border border-[var(--app-border)] rounded-xl text-[var(--app-text-primary)] placeholder-zinc-500 focus:border-[var(--app-primary)] focus:ring-2 focus:ring-[var(--app-primary)]/20 outline-none transition-all resize-none"
                   rows={4}
                 />
               </div>

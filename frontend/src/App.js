@@ -71,7 +71,7 @@ const GuideModule = lazy(() => import('./guide').then((m) => ({ default: m.Guide
 // Loading fallback
 const PageLoader = () => (
   <div className="min-h-screen nexus-screen flex items-center justify-center">
-    <Loader2 size={48} className="text-[#0A84FF] animate-spin" />
+    <Loader2 size={48} className="text-[var(--app-primary)] animate-spin" />
   </div>
 );
 

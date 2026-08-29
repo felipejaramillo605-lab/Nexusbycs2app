@@ -77,7 +77,7 @@ export default function MarketingConsentCheckbox({
           margin-top: 0.125rem;
           cursor: pointer;
           flex-shrink: 0;
-          accent-color: #0A84FF;
+          accent-color: var(--app-primary);
         }
 
         .marketing-consent-text {
@@ -92,14 +92,14 @@ export default function MarketingConsentCheckbox({
         }
 
         .marketing-consent-link {
-          color: #0A84FF;
+          color: var(--app-primary);
           text-decoration: none;
           border-bottom: 1px solid transparent;
           transition: border-color 0.2s;
         }
 
         .marketing-consent-link:hover {
-          border-bottom-color: #0A84FF;
+          border-bottom-color: var(--app-primary);
         }
 
         .marketing-consent-info {
@@ -114,7 +114,7 @@ export default function MarketingConsentCheckbox({
         }
 
         .marketing-consent-info-icon {
-          color: #0A84FF;
+          color: var(--app-primary);
           flex-shrink: 0;
           margin-top: 0.125rem;
         }
