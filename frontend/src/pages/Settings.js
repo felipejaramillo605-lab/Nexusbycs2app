@@ -13,6 +13,7 @@ import AccountPrivacy from './AccountPrivacy';
 import ManagerBilling from './ManagerBilling';
 import PortalThemeSelector from '../components/PortalThemeSelector';
 import PortalCustomizationPanel from '../components/PortalCustomizationPanel';
+import OrganizationLogoUpload from '../components/OrganizationLogoUpload';
 
 const TABS = {
   general: { key: 'general', label: 'General', icon: SettingsIcon },
@@ -639,6 +640,20 @@ const Settings = () => {
                   </>
                 )}
               </button>
+
+              {/* NEXUS_ORGANIZATION_LOGO_UPLOAD_V1: uploads immediately on file
+                  selection (its own endpoint) -- a type="button" upload
+                  control inside <form> doesn't trigger this form's submit,
+                  it just lives here so it's part of the same visual card. */}
+              {organizationId && (
+                <div className="mt-6 pt-6 border-t border-[var(--app-border)]">
+                  <OrganizationLogoUpload
+                    organizationId={organizationId}
+                    value={profileData.logo_url}
+                    onChange={(logoUrl) => setProfileData({ ...profileData, logo_url: logoUrl })}
+                  />
+                </div>
+              )}
             </form>
           </div>
 

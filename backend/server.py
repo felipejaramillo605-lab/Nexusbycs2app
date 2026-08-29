@@ -5672,6 +5672,10 @@ api_router.include_router(build_professional_media_router(db, get_current_user, 
 from professional_media_lifecycle import build_professional_media_lifecycle_router, ensure_professional_media_lifecycle_indexes
 api_router.include_router(build_professional_media_lifecycle_router(db, get_current_user), tags=["professional-media"])
 
+# NEXUS_ORGANIZATION_LOGO_UPLOAD_V1
+from organization_media import build_organization_media_router
+api_router.include_router(build_organization_media_router(db, get_current_user, require_management_role, resolve_team_organization), tags=["organizations"])
+
 api_router.include_router(build_internal_reviews_router(db, get_current_client, get_current_user, require_management_role, resolve_team_organization), tags=["internal-reviews"])
 api_router.include_router(build_professional_metrics_router(db, get_current_user, require_management_role, resolve_team_organization), tags=["professional-metrics"])
 

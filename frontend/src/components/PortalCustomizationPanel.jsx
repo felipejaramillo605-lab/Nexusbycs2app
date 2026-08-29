@@ -75,28 +75,33 @@ export default function PortalCustomizationPanel({ organizationId, initial, onSa
       </div>
 
       <form className="space-y-5" onSubmit={save}>
-        <label className="block">
-          <span className="text-sm font-medium text-[var(--app-text-primary)]">Logo del negocio (URL)</span>
-          <span className="block text-xs text-[var(--app-text-secondary)] mb-2">Pega el enlace de una imagen ya subida (ej. desde tu almacenamiento de archivos). Recomendado: fondo transparente, cuadrado.</span>
-          <input
-            type="url"
-            value={form.logo_url}
-            onChange={e => setForm({ ...form, logo_url: e.target.value })}
-            placeholder="https://..."
-            className="w-full rounded-xl border border-[var(--app-border)] bg-transparent px-3 py-2 text-sm text-[var(--app-text-primary)] focus:border-[var(--app-primary)] focus:ring-1 focus:ring-[var(--app-primary)] outline-none"
-          />
-          {form.logo_url && (
-            <div className="mt-3 flex items-center gap-3">
+        {/* NEXUS_ORGANIZATION_LOGO_UPLOAD_V1: this used to be a raw "paste any
+            URL" text field for logo_url. Replaced with a read-only preview
+            that points to the real upload flow (Configuración > General) --
+            having two independent ways to set the same field (a validated
+            file upload vs. an arbitrary external URL) meant either one could
+            silently overwrite the other's value on save. */}
+        <div className="block">
+          <span className="text-sm font-medium text-[var(--app-text-primary)]">Logo del negocio</span>
+          <span className="block text-xs text-[var(--app-text-secondary)] mb-2">
+            Se administra desde <strong className="text-[var(--app-text-primary)]">Configuración → General</strong>.
+          </span>
+          <div className="flex items-center gap-3">
+            {form.logo_url ? (
               <img
                 src={form.logo_url}
                 alt="Vista previa del logo"
-                className="h-12 w-12 rounded-lg object-contain border border-[var(--app-border)] bg-white/5"
+                className="h-12 w-12 rounded-lg object-contain border border-[var(--app-border)] bg-[var(--app-surface-solid)] p-1"
                 onError={e => { e.currentTarget.style.opacity = 0.2; }}
               />
-              <span className="text-xs text-[var(--app-text-secondary)]">Vista previa</span>
-            </div>
-          )}
-        </label>
+            ) : (
+              <span className="h-12 w-12 rounded-lg border border-dashed border-[var(--app-border)] grid place-items-center text-xs text-[var(--app-text-muted)]">
+                Sin logo
+              </span>
+            )}
+            <span className="text-xs text-[var(--app-text-secondary)]">{form.logo_url ? 'Logo actual' : 'Aún no has subido un logo'}</span>
+          </div>
+        </div>
 
         <label className="block">
           <span className="text-sm font-medium text-[var(--app-text-primary)] flex items-center gap-2">

@@ -91,6 +91,9 @@ export const organizationAPI = {
   getAll: () => api.get('/organizations'),
   create: (data) => api.post('/organizations', data),
   update: (organizationId, data) => api.put(`/organizations/${organizationId}`, data),
+  // NEXUS_ORGANIZATION_LOGO_UPLOAD_V1
+  uploadLogo: (organizationId, file, onUploadProgress) => { const data = new FormData(); data.append('file', file); return api.post(`/organizations/${organizationId}/logo`, data, { onUploadProgress }); },
+  deleteLogo: (organizationId) => api.delete(`/organizations/${organizationId}/logo`),
 };
 
 export const serviceAPI = {
