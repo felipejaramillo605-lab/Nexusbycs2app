@@ -111,13 +111,13 @@ class TestLoyaltyAccrual:
         })
         return client_id
 
-    # NEXUS_LOYALTY_FLAKE_FIX_V1: verify the write is visible before returning.
-    # The test writes via a sync pymongo client while the app reads via an
-    # async motor client -- both different connections to the same single-node
-    # mongod. Reads should be immediately consistent, but CI has shown rare
-    # flakes where checkout observes the previous loyalty_settings. Polling
-    # here removes that race without masking a genuine failure to persist.
+    # NEXUS_LOYALTY_FLAKE_FIX_V3: verify write visibility through BOTH pymongo
+    # (sync test client) AND the server's public API (async motor client).
+    # V1/V2 only polled pymongo, which shares the writer's connection — motor
+    # uses a separate async connection and can lag behind on CI, causing the
+    # checkout endpoint to see stale loyalty_settings (run #18: assert 15==0).
     def _set_loyalty(self, db, enabled: bool, ppv: int = 15):
+        import requests as _req
         db.organizations.update_one(
             {"organization_id": ORG_ID},
             {"$set": {"loyalty_settings": {
@@ -128,7 +128,14 @@ class TestLoyaltyAccrual:
             doc = db.organizations.find_one({"organization_id": ORG_ID}, {"loyalty_settings": 1})
             settings = (doc or {}).get("loyalty_settings") or {}
             if settings.get("enabled") == enabled and settings.get("points_per_visit") == ppv:
-                return
+                break
+            time.sleep(0.05)
+        for _ in range(40):
+            r = _req.get(f"{BASE_URL}/api/public/{ORG_ID}/organization", timeout=15)
+            if r.status_code == 200:
+                ls = r.json().get("loyalty_settings", {})
+                if ls.get("enabled") == enabled and ls.get("points_per_visit") == ppv:
+                    return
             time.sleep(0.05)
 
     def test_checkout_increments_loyalty_when_enabled(self, manager_client, db):
@@ -220,7 +227,7 @@ class TestClientsListLoyalty:
 @pytest.mark.xdist_group(name="org_demo001_loyalty_settings")
 class TestClientPortalMe:
     def test_client_me_includes_loyalty(self, db):
-        import requests, bcrypt
+        import requests
         phone = f"+57300{uuid.uuid4().hex[:7]}"
         # Register a fresh client via public endpoint
         s = requests.Session()
@@ -240,19 +247,19 @@ class TestClientPortalMe:
         # Seed loyalty points directly
         db.clients.update_one({"phone": phone, "organization_id": ORG_ID},
                               {"$set": {"loyalty_points": 60}})
-        # NEXUS_LOYALTY_FLAKE_FIX_V2: use the same poll-after-write pattern as
-        # TestLoyaltyAccrual._set_loyalty to avoid sync-pymongo / async-motor
-        # read-your-writes race on CI (see NEXUS_LOYALTY_FLAKE_FIX_V1).
+        # NEXUS_LOYALTY_FLAKE_FIX_V3: verify via public API (motor) not just pymongo.
         db.organizations.update_one(
             {"organization_id": ORG_ID},
             {"$set": {"loyalty_settings": {"enabled": True, "points_per_visit": 15,
                                             "reward_threshold": 100,
                                             "reward_description": "Corte gratis"}}},
         )
-        for _ in range(20):
-            doc = db.organizations.find_one({"organization_id": ORG_ID}, {"loyalty_settings": 1})
-            if (doc or {}).get("loyalty_settings", {}).get("enabled") is True:
-                break
+        for _ in range(40):
+            r2 = requests.get(f"{BASE_URL}/api/public/{ORG_ID}/organization", timeout=15)
+            if r2.status_code == 200:
+                ls = r2.json().get("loyalty_settings", {})
+                if ls.get("enabled") is True:
+                    break
             time.sleep(0.05)
         r = s.get(f"{BASE_URL}/api/public/clients/me", timeout=15)
         assert r.status_code == 200, r.text
