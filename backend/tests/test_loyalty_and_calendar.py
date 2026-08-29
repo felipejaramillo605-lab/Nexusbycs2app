@@ -240,13 +240,20 @@ class TestClientPortalMe:
         # Seed loyalty points directly
         db.clients.update_one({"phone": phone, "organization_id": ORG_ID},
                               {"$set": {"loyalty_points": 60}})
-        # Ensure loyalty enabled in org
+        # NEXUS_LOYALTY_FLAKE_FIX_V2: use the same poll-after-write pattern as
+        # TestLoyaltyAccrual._set_loyalty to avoid sync-pymongo / async-motor
+        # read-your-writes race on CI (see NEXUS_LOYALTY_FLAKE_FIX_V1).
         db.organizations.update_one(
             {"organization_id": ORG_ID},
             {"$set": {"loyalty_settings": {"enabled": True, "points_per_visit": 15,
                                             "reward_threshold": 100,
                                             "reward_description": "Corte gratis"}}},
         )
+        for _ in range(20):
+            doc = db.organizations.find_one({"organization_id": ORG_ID}, {"loyalty_settings": 1})
+            if (doc or {}).get("loyalty_settings", {}).get("enabled") is True:
+                break
+            time.sleep(0.05)
         r = s.get(f"{BASE_URL}/api/public/clients/me", timeout=15)
         assert r.status_code == 200, r.text
         body = r.json()
