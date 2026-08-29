@@ -13,11 +13,25 @@ from fastapi import APIRouter, Cookie, File, Header, HTTPException, Query, Uploa
 from fastapi.responses import FileResponse
 from PIL import Image, ImageOps, UnidentifiedImageError
 
+# NEXUS_PROFESSIONAL_MEDIA_HEIC_V1: iPhones store camera photos as HEIC/HEIF by
+# default, and depending on iOS version/browser the file picked via <input
+# type="file"> can arrive at the backend still in that format instead of
+# being auto-converted to JPEG. Pillow has no built-in HEIC decoder, so
+# without this registration every HEIC upload from an iPhone failed with
+# "Only JPEG, PNG and WebP images are allowed" -- a mobile-only failure
+# that never reproduced from a PC/Android upload using a JPEG/PNG file.
+try:
+    import pillow_heif
+    pillow_heif.register_heif_opener()
+    _HEIC_SUPPORTED = True
+except ImportError:
+    _HEIC_SUPPORTED = False
+
 MAX_UPLOAD_BYTES = 5 * 1024 * 1024
 MAX_SIDE = 4096
 MAX_PIXELS = 16_000_000
 OUTPUT_SIDE = 1200
-ALLOWED_FORMATS = {"JPEG", "PNG", "WEBP"}
+ALLOWED_FORMATS = {"JPEG", "PNG", "WEBP"} | ({"HEIF"} if _HEIC_SUPPORTED else set())
 SAFE_ORG = re.compile(r"^[A-Za-z0-9_-]{1,128}$")
 SAFE_FILE = re.compile(r"^[a-f0-9]{32}\.webp$")
 PUBLIC_PREFIX = "/api/media/professionals"
