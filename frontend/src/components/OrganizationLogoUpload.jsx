@@ -1,6 +1,6 @@
-// NEXUS_ORGANIZATION_LOGO_UPLOAD_V1
+// NEXUS_ORGANIZATION_LOGO_UPLOAD_V2
 import React, { useEffect, useRef, useState } from 'react';
-import { ImagePlus, Trash2, UploadCloud, Info } from 'lucide-react';
+import { ImagePlus, Trash2, UploadCloud, Info, CheckCircle2, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { organizationAPI } from '../api';
 
@@ -15,7 +15,15 @@ const LIMIT = 5 * 1024 * 1024;
 export default function OrganizationLogoUpload({ organizationId, value, onChange, disabled = false }) {
   const inputRef = useRef(null);
   const objectUrlRef = useRef('');
-  const [preview, setPreview] = useState('');
+  // NEXUS_ORGANIZATION_LOGO_UPLOAD_V2: selecting a file only stages it
+  // locally (with an instant browser preview) -- it is NOT uploaded yet.
+  // The owner reviews the preview and explicitly confirms before it's sent
+  // to the server, same "select -> preview -> confirm/cancel" flow already
+  // used by ManagerCatalog's product photos and ProfessionalImageUpload's
+  // avatar cropper. V1 uploaded immediately on selection, which meant a
+  // wrong file (or a bad crop) only became visible mid-upload with no way
+  // to back out.
+  const [pending, setPending] = useState(null); // { file, previewUrl }
   const [busy, setBusy] = useState(false);
   const [progress, setProgress] = useState(0);
   const [error, setError] = useState('');
@@ -23,7 +31,7 @@ export default function OrganizationLogoUpload({ organizationId, value, onChange
 
   useEffect(() => () => { if (objectUrlRef.current) URL.revokeObjectURL(objectUrlRef.current); }, []);
 
-  const choose = async (file) => {
+  const choose = (file) => {
     setError('');
     if (!file) return;
     if (!TYPES.includes(file.type)) {
@@ -35,21 +43,35 @@ export default function OrganizationLogoUpload({ organizationId, value, onChange
       return;
     }
     if (objectUrlRef.current) URL.revokeObjectURL(objectUrlRef.current);
-    objectUrlRef.current = URL.createObjectURL(file);
-    setPreview(objectUrlRef.current);
+    const previewUrl = URL.createObjectURL(file);
+    objectUrlRef.current = previewUrl;
+    setPending({ file, previewUrl });
+  };
+
+  const cancelPending = () => {
+    if (busy) return;
+    if (objectUrlRef.current) URL.revokeObjectURL(objectUrlRef.current);
+    objectUrlRef.current = '';
+    setPending(null);
+    setError('');
+  };
+
+  const confirmUpload = async () => {
+    if (!pending) return;
     setBusy(true);
     setProgress(0);
     try {
-      const response = await organizationAPI.uploadLogo(organizationId, file, (event) => {
+      const response = await organizationAPI.uploadLogo(organizationId, pending.file, (event) => {
         setProgress(event.total ? Math.round((event.loaded * 100) / event.total) : 0);
       });
       const logoUrl = response?.data?.logo_url;
       if (!logoUrl) throw new Error('missing logo_url');
       onChange(logoUrl);
       toast.success('Logo actualizado correctamente');
-      setPreview('');
+      URL.revokeObjectURL(pending.previewUrl);
+      objectUrlRef.current = '';
+      setPending(null);
     } catch (e) {
-      setPreview('');
       const detail = e?.response?.data?.detail;
       const message = typeof detail === 'string' ? detail : detail?.message;
       setError(message || 'No fue posible cargar el logo.');
@@ -81,10 +103,10 @@ export default function OrganizationLogoUpload({ organizationId, value, onChange
   const drop = (e) => {
     e.preventDefault();
     setDragging(false);
-    if (!disabled) choose(e.dataTransfer.files?.[0]);
+    if (!disabled && !busy) choose(e.dataTransfer.files?.[0]);
   };
 
-  const image = preview || value;
+  const image = pending?.previewUrl || value;
 
   return (
     <div className="space-y-3">
@@ -109,7 +131,7 @@ export default function OrganizationLogoUpload({ organizationId, value, onChange
 
       <div
         className={`rounded-2xl border-2 border-dashed p-4 transition-colors ${dragging ? 'border-[var(--app-primary)] bg-[var(--app-primary-soft)]' : 'border-[var(--app-border)] bg-[var(--app-surface)]'}`}
-        onDragOver={(e) => { e.preventDefault(); if (!disabled) setDragging(true); }}
+        onDragOver={(e) => { e.preventDefault(); if (!disabled && !busy) setDragging(true); }}
         onDragLeave={() => setDragging(false)}
         onDrop={drop}
         aria-busy={busy}
@@ -123,36 +145,66 @@ export default function OrganizationLogoUpload({ organizationId, value, onChange
             </span>
           )}
           <div className="flex-1 text-center sm:text-left">
-            <div className="flex flex-wrap justify-center sm:justify-start gap-2">
-              <input
-                ref={inputRef}
-                type="file"
-                accept="image/jpeg,image/png,image/webp,image/heic,image/heif"
-                className="sr-only"
-                onChange={(e) => choose(e.target.files?.[0])}
-                disabled={disabled || busy}
-              />
-              <button
-                type="button"
-                onClick={() => inputRef.current?.click()}
-                disabled={disabled || busy}
-                className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-[var(--app-primary)] hover:bg-[var(--app-primary-hover)] text-[var(--app-on-primary,#fff)] text-sm font-medium transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                <UploadCloud size={16} />
-                {value ? 'Reemplazar logo' : 'Subir logo'}
-              </button>
-              {value && (
+            {pending ? (
+              // Staged, not yet uploaded: reviewing the preview above and
+              // deciding to confirm or back out.
+              <div className="space-y-2">
+                <p className="text-xs text-[var(--app-text-secondary)]">
+                  Vista previa de <strong className="text-[var(--app-text-primary)]">{pending.file.name}</strong>. Aún no se ha subido.
+                </p>
+                <div className="flex flex-wrap justify-center sm:justify-start gap-2">
+                  <button
+                    type="button"
+                    onClick={confirmUpload}
+                    disabled={busy}
+                    className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-[var(--app-primary)] hover:bg-[var(--app-primary-hover)] text-[var(--app-on-primary,#fff)] text-sm font-medium transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    <CheckCircle2 size={16} />
+                    {busy ? 'Subiendo…' : 'Confirmar y usar este logo'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={cancelPending}
+                    disabled={busy}
+                    className="inline-flex items-center gap-2 px-4 py-2 rounded-xl border border-[var(--app-border)] text-[var(--app-text-secondary)] hover:text-[var(--app-text-primary)] text-sm font-medium transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    <X size={16} />
+                    Cancelar
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="flex flex-wrap justify-center sm:justify-start gap-2">
+                <input
+                  ref={inputRef}
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp,image/heic,image/heif"
+                  className="sr-only"
+                  onChange={(e) => { choose(e.target.files?.[0]); e.target.value = ''; }}
+                  disabled={disabled || busy}
+                />
                 <button
                   type="button"
-                  onClick={remove}
+                  onClick={() => inputRef.current?.click()}
                   disabled={disabled || busy}
-                  className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-[var(--app-danger-soft)] hover:opacity-90 text-[var(--app-danger)] text-sm font-medium transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-[var(--app-primary)] hover:bg-[var(--app-primary-hover)] text-[var(--app-on-primary,#fff)] text-sm font-medium transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  <Trash2 size={16} />
-                  Eliminar
+                  <UploadCloud size={16} />
+                  {value ? 'Reemplazar logo' : 'Subir logo'}
                 </button>
-              )}
-            </div>
+                {value && (
+                  <button
+                    type="button"
+                    onClick={remove}
+                    disabled={disabled || busy}
+                    className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-[var(--app-danger-soft)] hover:opacity-90 text-[var(--app-danger)] text-sm font-medium transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    <Trash2 size={16} />
+                    Eliminar
+                  </button>
+                )}
+              </div>
+            )}
           </div>
         </div>
         {busy && (
