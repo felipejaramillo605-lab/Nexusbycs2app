@@ -111,37 +111,30 @@ class TestLoyaltyAccrual:
         })
         return client_id
 
-    # NEXUS_LOYALTY_FLAKE_FIX_V3: verify write visibility through BOTH pymongo
-    # (sync test client) AND the server's public API (async motor client).
-    # V1/V2 only polled pymongo, which shares the writer's connection — motor
-    # uses a separate async connection and can lag behind on CI, causing the
-    # checkout endpoint to see stale loyalty_settings (run #18: assert 15==0).
-    def _set_loyalty(self, db, enabled: bool, ppv: int = 15):
-        import requests as _req
-        db.organizations.update_one(
-            {"organization_id": ORG_ID},
-            {"$set": {"loyalty_settings": {
-                "enabled": enabled, "points_per_visit": ppv,
-                "reward_threshold": 100, "reward_description": "Corte gratis"}}},
-        )
-        for _ in range(20):
-            doc = db.organizations.find_one({"organization_id": ORG_ID}, {"loyalty_settings": 1})
-            settings = (doc or {}).get("loyalty_settings") or {}
-            if settings.get("enabled") == enabled and settings.get("points_per_visit") == ppv:
-                break
-            time.sleep(0.05)
-        for _ in range(40):
-            r = _req.get(f"{BASE_URL}/api/public/{ORG_ID}/organization", timeout=15)
-            if r.status_code == 200:
-                ls = r.json().get("loyalty_settings", {})
-                if ls.get("enabled") == enabled and ls.get("points_per_visit") == ppv:
-                    return
-            time.sleep(0.05)
+    # NEXUS_LOYALTY_FLAKE_FIX_V4: write loyalty_settings through the HTTP API
+    # (motor) instead of pymongo. V1-V3 wrote via pymongo and polled, but the
+    # checkout endpoint reads via motor (a separate async connection). Even with
+    # API polling, the checkout could still see stale data. Writing through the
+    # API ensures motor itself committed the value — the HTTP 200 response is
+    # the consistency barrier.
+    def _set_loyalty(self, manager_client, enabled: bool, ppv: int = 15):
+        payload = {
+            "loyalty_settings": {
+                "enabled": enabled,
+                "points_per_visit": ppv,
+                "reward_threshold": 100,
+                "reward_description": "Corte gratis",
+            }
+        }
+        r = manager_client.put(f"{BASE_URL}/api/organizations/{ORG_ID}", json=payload, timeout=15)
+        assert r.status_code == 200, f"Failed to set loyalty: {r.text}"
+        body = r.json()
+        assert body.get("loyalty_settings", {}).get("enabled") == enabled
 
     def test_checkout_increments_loyalty_when_enabled(self, manager_client, db):
         phone = f"+57300{uuid.uuid4().hex[:7]}"
         cid = self._ensure_client(db, phone)
-        self._set_loyalty(db, True, 15)
+        self._set_loyalty(manager_client, True, 15)
         apt_id, _s, _b = self._make_appointment(db, phone)
         r = manager_client.post(
             f"{BASE_URL}/api/appointments/{apt_id}/checkout",
@@ -160,7 +153,7 @@ class TestLoyaltyAccrual:
     def test_checkout_does_not_increment_loyalty_when_disabled(self, manager_client, db):
         phone = f"+57300{uuid.uuid4().hex[:7]}"
         cid = self._ensure_client(db, phone)
-        self._set_loyalty(db, False, 15)
+        self._set_loyalty(manager_client, False, 15)
         apt_id, _s, _b = self._make_appointment(db, phone)
         r = manager_client.post(
             f"{BASE_URL}/api/appointments/{apt_id}/checkout",
@@ -175,14 +168,14 @@ class TestLoyaltyAccrual:
         db.transactions.delete_many({"appointment_id": apt_id})
         db.clients.delete_one({"client_id": cid})
         # Restore loyalty enabled=true (baseline seed)
-        self._set_loyalty(db, True, 15)
+        self._set_loyalty(manager_client, True, 15)
 
     def test_manual_status_completed_rejected_or_accrues(self, manager_client, db):
         """The endpoint currently rejects manual 'completed' (must use checkout).
         We assert current behavior and flag the review request expectation as N/A."""
         phone = f"+57300{uuid.uuid4().hex[:7]}"
         cid = self._ensure_client(db, phone)
-        self._set_loyalty(db, True, 15)
+        self._set_loyalty(manager_client, True, 15)
         apt_id, _s, _b = self._make_appointment(db, phone)
         r = manager_client.put(
             f"{BASE_URL}/api/appointments/{apt_id}/status",
@@ -226,7 +219,7 @@ class TestClientsListLoyalty:
 
 @pytest.mark.xdist_group(name="org_demo001_loyalty_settings")
 class TestClientPortalMe:
-    def test_client_me_includes_loyalty(self, db):
+    def test_client_me_includes_loyalty(self, db, manager_client):
         import requests
         phone = f"+57300{uuid.uuid4().hex[:7]}"
         # Register a fresh client via public endpoint
@@ -247,20 +240,15 @@ class TestClientPortalMe:
         # Seed loyalty points directly
         db.clients.update_one({"phone": phone, "organization_id": ORG_ID},
                               {"$set": {"loyalty_points": 60}})
-        # NEXUS_LOYALTY_FLAKE_FIX_V3: verify via public API (motor) not just pymongo.
-        db.organizations.update_one(
-            {"organization_id": ORG_ID},
-            {"$set": {"loyalty_settings": {"enabled": True, "points_per_visit": 15,
-                                            "reward_threshold": 100,
-                                            "reward_description": "Corte gratis"}}},
-        )
-        for _ in range(40):
-            r2 = requests.get(f"{BASE_URL}/api/public/{ORG_ID}/organization", timeout=15)
-            if r2.status_code == 200:
-                ls = r2.json().get("loyalty_settings", {})
-                if ls.get("enabled") is True:
-                    break
-            time.sleep(0.05)
+        # NEXUS_LOYALTY_FLAKE_FIX_V4: set loyalty via API (motor) for consistency.
+        payload = {
+            "loyalty_settings": {
+                "enabled": True, "points_per_visit": 15,
+                "reward_threshold": 100, "reward_description": "Corte gratis",
+            }
+        }
+        r_org = manager_client.put(f"{BASE_URL}/api/organizations/{ORG_ID}", json=payload, timeout=15)
+        assert r_org.status_code == 200, r_org.text
         r = s.get(f"{BASE_URL}/api/public/clients/me", timeout=15)
         assert r.status_code == 200, r.text
         body = r.json()
