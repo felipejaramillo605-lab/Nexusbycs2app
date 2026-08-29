@@ -276,6 +276,25 @@ export const billingAPI = {
 
 export const thirdPartyMatrixAPI = {list:(params={})=>api.get('/owner/third-party-matrix',{params}),detail:id=>api.get(`/owner/third-party-matrix/${id}`)};
 
+// NEXUS_PRODUCT_CATALOG_V10
+export const catalogAPI = {
+  list: (params={}) => api.get('/catalog/products', { params }),
+  get: (id, params={}) => api.get(`/catalog/products/${id}`, { params }),
+  create: (data, params={}) => api.post('/catalog/products', data, { params }),
+  update: (id, data, params={}) => api.put(`/catalog/products/${id}`, data, { params }),
+  archive: (id, params={}) => api.delete(`/catalog/products/${id}`, { params }),
+  reactivate: (id, params={}) => api.post(`/catalog/products/${id}/reactivate`, null, { params }),
+  uploadPhoto: (id, file, params={}) => { const fd = new FormData(); fd.append('file', file); return api.post(`/catalog/products/${id}/photos`, fd, { params, headers: { 'Content-Type': 'multipart/form-data' } }); },
+  addPhotoUrl: (id, url, params={}) => api.post(`/catalog/products/${id}/photos/url`, null, { params: { ...params, url } }),
+  deletePhoto: (id, index, params={}) => api.delete(`/catalog/products/${id}/photos/${index}`, { params }),
+  adjustStock: (id, quantity, reason='manual_adjustment', params={}) => api.put(`/catalog/products/${id}/stock`, null, { params: { ...params, quantity, reason } }),
+};
+export const publicCatalogAPI = {
+  list: (orgId) => axios.get(`${API}/public/${orgId}/catalog`),
+  get: (orgId, productId) => axios.get(`${API}/public/${orgId}/catalog/${productId}`),
+  checkout: (orgId, data) => axios.post(`${API}/public/${orgId}/catalog/checkout`, data),
+};
+
 export const deliveryOperationsAPI = {backfill:(data)=>api.post('/owner/delivery-operations/backfill',data),getDeliveries:(params={})=>api.get('/owner/delivery-operations/deliveries',{params}),testDelivery:(data)=>api.post('/owner/delivery-operations/deliveries/test',data),retry:(id,data={})=>api.post(`/owner/delivery-operations/deliveries/${id}/retry`,data),runScheduler:(data={})=>api.post('/owner/delivery-operations/scheduler/run',data)};
 
 // NEXUS_7J_B_BILLING_OPERATIONS

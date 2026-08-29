@@ -38,6 +38,7 @@ const ManagerFiscalProfile = lazy(() => import('./pages/ManagerFiscalProfile'));
 const ManagerServices = lazy(() => import('./pages/ManagerServices'));
 const ManagerBarbers = lazy(() => import('./pages/ManagerBarbers'));
 const ManagerInventory = lazy(() => import('./pages/ManagerInventory'));
+const ManagerCatalog = lazy(() => import('./pages/ManagerCatalog'));
 const SuppliersDashboard = lazy(() => import('./pages/SuppliersDashboard'));
 const PurchaseOrdersDashboard = lazy(() => import('./pages/PurchaseOrdersDashboard'));
 const ManagerClients = lazy(() => import('./pages/ManagerClients'));
@@ -47,6 +48,9 @@ const AppointmentsHistory = lazy(() => import('./pages/AppointmentsHistory'));
 const BusinessProfile = lazy(() => import('./pages/BusinessProfile'));
 const BookingFlow = lazy(() => import('./pages/BookingFlow'));
 const CustomerPortal = lazy(() => import('./pages/CustomerPortal'));
+const ClientCatalog = lazy(() => import('./pages/ClientCatalog'));
+const ClientCart = lazy(() => import('./pages/ClientCart'));
+const ClientCatalogCheckout = lazy(() => import('./pages/ClientCatalogCheckout'));
 const MarketingCampaigns = lazy(() => import('./pages/MarketingCampaigns'));
 const Settings = lazy(() => import('./pages/Settings'));
 const AcceptInvitation = lazy(() => import('./pages/AcceptInvitation'));
@@ -106,7 +110,12 @@ function AppRouter() {
         <Route path="/auth/callback" element={<AuthCallback />} />
         <Route path="/book/:orgId" element={<ClientPortalThemeWrapper><BookingFlow /></ClientPortalThemeWrapper>} />
         <Route path="/portal/:orgId" element={<ClientPortalThemeWrapper><CustomerPortal /></ClientPortalThemeWrapper>} />
-        
+
+        {/* NEXUS_PRODUCT_CATALOG_V11 */}
+        <Route path="/portal/:orgId/catalog" element={<ClientPortalThemeWrapper><Suspense fallback={<PageLoader />}><ClientCatalog /></Suspense></ClientPortalThemeWrapper>} />
+        <Route path="/portal/:orgId/cart" element={<ClientPortalThemeWrapper><Suspense fallback={<PageLoader />}><ClientCart /></Suspense></ClientPortalThemeWrapper>} />
+        <Route path="/portal/:orgId/catalog/checkout" element={<ClientPortalThemeWrapper><Suspense fallback={<PageLoader />}><ClientCatalogCheckout /></Suspense></ClientPortalThemeWrapper>} />
+
         {/* Client Portal with PIN */}
         <Route path="/portal/:orgId/auth" element={<ClientPortalThemeWrapper><ClientPortalAuth /></ClientPortalThemeWrapper>} />
         <Route path="/portal/:orgId/dashboard" element={<ClientPortalThemeWrapper><ClientPortalDashboard /></ClientPortalThemeWrapper>} />
@@ -181,6 +190,14 @@ function AppRouter() {
           element={
             <ProtectedRoute allowedRoles={['owner', 'manager', 'admin']}>
               <ManagerInventory />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/manager/catalog"
+          element={
+            <ProtectedRoute allowedRoles={['owner', 'manager', 'admin']}>
+              <Suspense fallback={<PageLoader />}><ManagerCatalog /></Suspense>
             </ProtectedRoute>
           }
         />

@@ -1,6 +1,6 @@
 // NEXUS_PORTAL_PERSONALIZATION_V1
 import React, { useEffect, useState } from 'react';
-import { Image, MessageSquare, Save, Users, Tag, Clock, MapPin } from 'lucide-react';
+import { Image, MessageSquare, Save, Users, Tag, Clock, MapPin, ShoppingBag } from 'lucide-react';
 import { toast } from 'sonner';
 import { organizationAPI } from '../api';
 
@@ -9,6 +9,7 @@ const TOGGLES = [
   { key: 'portal_show_prices', label: 'Mostrar precios', hint: 'Precio de cada servicio visible antes de agendar', icon: Tag },
   { key: 'portal_show_hours', label: 'Mostrar horario', hint: 'Horario de atención en la pantalla de bienvenida', icon: Clock },
   { key: 'portal_show_map', label: 'Mostrar ubicación', hint: 'Dirección y enlace a mapa en el portal', icon: MapPin },
+  { key: 'catalog_enabled', label: 'Catálogo de productos', hint: 'Permite vender productos desde el portal del cliente (ropa, cosméticos, etc.)', icon: ShoppingBag },
 ];
 
 export default function PortalCustomizationPanel({ organizationId, initial, onSaved }) {
@@ -19,6 +20,7 @@ export default function PortalCustomizationPanel({ organizationId, initial, onSa
     portal_show_prices: true,
     portal_show_hours: true,
     portal_show_map: false,
+    catalog_enabled: false,
   });
   const [saving, setSaving] = useState(false);
 
@@ -32,6 +34,7 @@ export default function PortalCustomizationPanel({ organizationId, initial, onSa
       portal_show_prices: initial.portal_show_prices ?? true,
       portal_show_hours: initial.portal_show_hours ?? true,
       portal_show_map: initial.portal_show_map ?? false,
+      catalog_enabled: initial.catalog_enabled ?? false,
     }));
   }, [initial]);
 
@@ -47,6 +50,7 @@ export default function PortalCustomizationPanel({ organizationId, initial, onSa
         portal_show_prices: form.portal_show_prices,
         portal_show_hours: form.portal_show_hours,
         portal_show_map: form.portal_show_map,
+        catalog_enabled: form.catalog_enabled,
       };
       const response = await organizationAPI.update(organizationId, payload);
       toast.success('Portal personalizado guardado');

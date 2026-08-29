@@ -29,6 +29,7 @@ from html import escape as html_escape
 from email_service import email_service
 from email_service import recipient_fingerprint
 from checkout_inventory import prepare_checkout_inventory, reserve_checkout_inventory, finalize_checkout_inventory, rollback_checkout_inventory, ensure_checkout_inventory_indexes
+from product_catalog import reserve_cart_items, release_cart_stock
 from transaction_voids import build_transaction_void_router, ensure_transaction_void_indexes
 from procurement_suppliers import build_supplier_router, ensure_supplier_indexes
 from procurement_purchase_orders import build_purchase_order_router, ensure_purchase_order_indexes
@@ -96,6 +97,7 @@ tags_metadata = [
     {"name": "public-auth", "description": "Public passwordless authentication."},
     {"name": "public-invitations", "description": "Public team invitation validation/acceptance."},
     {"name": "public-client-portal", "description": "Public client-facing portal: registration, PIN login, profile, history, loyalty, ARCO data rights."},
+    {"name": "catalog", "description": "Product catalog for client portal sales (manager CRUD + public browsing)."},
 ]
 
 app = FastAPI(
@@ -273,6 +275,11 @@ class Appointment(BaseModel):
     time: str
     status: str = "confirmed"
     created_at: datetime
+    # NEXUS_PRODUCT_CATALOG_V11: products purchased alongside this appointment.
+    # Stored as a snapshot (name/unit_price at time of purchase) so later edits
+    # to the catalog product don't rewrite history.
+    cart_items: Optional[List[dict]] = None
+    cart_total: Optional[float] = None
 
 class Client(BaseModel):
     model_config = ConfigDict(extra="ignore")
@@ -370,6 +377,8 @@ class AppointmentCreate(BaseModel):
     date: str
     time: str
     marketing_consent: bool = False  # TCPA/Ley 1581 compliance
+    # NEXUS_PRODUCT_CATALOG_V11: optional cart carried over from the client portal.
+    cart_items: Optional[List[dict]] = None
 
 class AppointmentRescheduleRequest(BaseModel):
     date: str = Field(..., min_length=10, max_length=10)
@@ -469,6 +478,7 @@ class OrganizationUpdate(BaseModel):
     portal_show_prices: Optional[bool] = None
     portal_show_hours: Optional[bool] = None
     portal_show_map: Optional[bool] = None
+    catalog_enabled: Optional[bool] = None
 
 # Helper function to sanitize phone numbers
 def sanitize_phone(phone: str) -> str:
@@ -2675,6 +2685,9 @@ async def update_appointment_status(
             print(f"⚠️ Completed email failed: {email_error}")
 
     if status == "cancelled" and previous_status != "cancelled":
+        # NEXUS_PRODUCT_CATALOG_V11: return any reserved product stock
+        if appointment.get("cart_items"):
+            await release_cart_stock(db, appointment["organization_id"], appointment["cart_items"])
         await _trace_appointment_cancellation(
             appointment,
             worker_id="management_appointment_cancellation",
@@ -4479,6 +4492,10 @@ async def cancel_appointment_from_portal(
         }}
     )
 
+    # NEXUS_PRODUCT_CATALOG_V11: return any reserved product stock
+    if appointment.get("cart_items"):
+        await release_cart_stock(db, appointment["organization_id"], appointment["cart_items"])
+
     # Send cancellation email if client has email
     if current_client.email:
         email_service.send_appointment_cancelled(
@@ -5341,6 +5358,18 @@ async def create_public_appointment(org_id: str, data: AppointmentCreate, reques
     # Sanitize phone number for consistency
     sanitized_phone = sanitize_phone(data.client_phone)
 
+    # NEXUS_PRODUCT_CATALOG_V11: reserve any cart items BEFORE creating the
+    # appointment. reserve_cart_items validates each product is still
+    # published/active with enough stock and atomically decrements it,
+    # rolling back on its own if any single line fails.
+    cart_snapshot, cart_total = [], 0.0
+    if data.cart_items:
+        for entry in data.cart_items:
+            if not isinstance(entry, dict) or not entry.get("product_id") or not isinstance(entry.get("quantity"), (int, float)) or entry["quantity"] <= 0:
+                await db.booking_locks.delete_one({"_id": booking_lock_id})
+                raise HTTPException(status_code=400, detail="Invalid cart item")
+        cart_snapshot, cart_total = await reserve_cart_items(db, org_id, data.cart_items)
+
     appointment_id = f"apt_{uuid.uuid4().hex[:12]}"
     management_token = secrets.token_urlsafe(32)
     management_token_hash = hashlib.sha256(management_token.encode("utf-8")).hexdigest()
@@ -5356,6 +5385,8 @@ async def create_public_appointment(org_id: str, data: AppointmentCreate, reques
         "time": data.time,
         "status": "confirmed",
         "management_token_hash": management_token_hash,
+        "cart_items": cart_snapshot or None,
+        "cart_total": cart_total or None,
         "created_at": datetime.now(timezone.utc).isoformat()
     }
 
@@ -5428,6 +5459,8 @@ async def create_public_appointment(org_id: str, data: AppointmentCreate, reques
     except Exception as e:
         if booking_lock_id:
             await db.booking_locks.delete_one({"_id": booking_lock_id})
+        if cart_snapshot:
+            await release_cart_stock(db, org_id, cart_snapshot)
         # Handle duplicate key error from unique index
         if "E11000" in str(e) or "duplicate key" in str(e).lower():
             raise HTTPException(status_code=409, detail="This time slot is no longer available")
@@ -5557,6 +5590,10 @@ async def cancel_public_appointment(appointment_id: str, token: str):
     if result.modified_count != 1:
         raise HTTPException(status_code=409, detail="Appointment status changed; refresh the page")
 
+    # NEXUS_PRODUCT_CATALOG_V11: return any reserved product stock
+    if appointment.get("cart_items"):
+        await release_cart_stock(db, appointment["organization_id"], appointment["cart_items"])
+
     await _trace_appointment_cancellation(
         appointment,
         worker_id="public_appointment_cancellation",
@@ -5637,6 +5674,12 @@ api_router.include_router(build_professional_media_lifecycle_router(db, get_curr
 
 api_router.include_router(build_internal_reviews_router(db, get_current_client, get_current_user, require_management_role, resolve_team_organization), tags=["internal-reviews"])
 api_router.include_router(build_professional_metrics_router(db, get_current_user, require_management_role, resolve_team_organization), tags=["professional-metrics"])
+
+# NEXUS_PRODUCT_CATALOG_V10_REGISTRATION
+from product_catalog import build_product_catalog_router, ensure_catalog_indexes, build_catalog_checkout_router
+api_router.include_router(build_product_catalog_router(db, get_current_user, require_management_role, resolve_team_organization), tags=["catalog"])
+# NEXUS_PRODUCT_CATALOG_V11_CHECKOUT_REGISTRATION
+api_router.include_router(build_catalog_checkout_router(db, get_current_user), tags=["catalog"])
 
 app.include_router(api_router)
 
@@ -5800,6 +5843,7 @@ async def create_application_indexes():
     await ensure_professional_media_lifecycle_indexes(db)
     # NEXUS_8A7S1A_SUPPORT_FOUNDATION_INDEXES_V1
     await ensure_support_center_indexes(db)
+    await ensure_catalog_indexes(db)
     if os.getenv("SUBSCRIPTION_SCHEDULER_ENABLED","false").lower() in {"1","true","yes","on"}:
         asyncio.create_task(scheduler_loop(db, invoice_pdf))
     # NEXUS_PERSISTENT_QUERY_INDEXES_4E3_V1

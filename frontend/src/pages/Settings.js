@@ -55,6 +55,7 @@ const Settings = () => {
     portal_show_prices: true,
     portal_show_hours: true,
     portal_show_map: false,
+    catalog_enabled: false,
   });
   // NEXUS_LOYALTY_PROGRAM_V1
   const [loyaltyData, setLoyaltyData] = useState({
@@ -113,6 +114,7 @@ const Settings = () => {
           portal_show_prices: data.portal_show_prices ?? true,
           portal_show_hours: data.portal_show_hours ?? true,
           portal_show_map: data.portal_show_map ?? false,
+          catalog_enabled: data.catalog_enabled ?? false,
         });
         // NEXUS_LOYALTY_PROGRAM_V1
         const ls = data.loyalty_settings || {};

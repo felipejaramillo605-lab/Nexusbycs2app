@@ -1,7 +1,8 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Calendar, User } from 'lucide-react';
+import { Calendar, User, ShoppingBag, ShoppingCart } from 'lucide-react';
 import { useOrganization } from '../context/OrganizationContext';
+import { useCart } from '../lib/cart';
 
 /**
  * Persistent navigation bar for public client pages
@@ -11,6 +12,9 @@ import { useOrganization } from '../context/OrganizationContext';
 export default function ClientPortalNav({ orgId }) {
   const navigate = useNavigate();
   const { organization } = useOrganization();
+  // NEXUS_PRODUCT_CATALOG_V11: cart badge, only meaningful once the org record for
+  // this orgId has loaded — until then we don't know if catalog_enabled is true.
+  const { count } = useCart(orgId);
 
   if (!orgId) return null;
 
@@ -19,6 +23,7 @@ export default function ClientPortalNav({ orgId }) {
   // NEXUS_PORTAL_PERSONALIZATION_V1: show the manager's own branding instead of a generic label
   const brandName = organization?.organization_id === orgId ? (organization?.name || 'Nexus') : 'Nexus';
   const logoUrl = organization?.organization_id === orgId ? organization?.logo_url : null;
+  const catalogEnabled = organization?.organization_id === orgId && !!organization?.catalog_enabled;
 
   return (
     <div
@@ -36,6 +41,28 @@ export default function ClientPortalNav({ orgId }) {
             <span className="text-sm font-medium text-white truncate">{brandName}</span>
           </div>
           <div className="flex items-center justify-center gap-3 flex-1 md:flex-none">
+            {catalogEnabled && (
+              <button
+                onClick={() => navigate(`/portal/${orgId}/catalog`)}
+                className="flex items-center gap-2 px-4 py-2 bg-white/10 hover:bg-white/20 border border-white/20 text-white rounded-lg transition-all text-sm font-medium"
+              >
+                <ShoppingBag size={16} />
+                <span className="hidden sm:inline">Catálogo</span>
+                <span className="sm:hidden">Tienda</span>
+              </button>
+            )}
+
+            {catalogEnabled && count > 0 && (
+              <button
+                onClick={() => navigate(`/portal/${orgId}/cart`)}
+                className="relative flex items-center gap-2 px-3 py-2 bg-white/10 hover:bg-white/20 border border-white/20 text-white rounded-lg transition-all text-sm font-medium"
+                title="Ver carrito"
+              >
+                <ShoppingCart size={16} />
+                <span className="absolute -top-1.5 -right-1.5 bg-[var(--client-accent-primary,#7c3aed)] text-white text-[10px] font-bold rounded-full min-w-[18px] h-[18px] flex items-center justify-center px-1">{count}</span>
+              </button>
+            )}
+
             <button
               onClick={() => navigate(`/book/${orgId}`)}
               className="flex items-center gap-2 px-4 py-2 bg-[var(--client-accent-primary,#7c3aed)] hover:opacity-90 text-white rounded-lg transition-all text-sm font-medium"
