@@ -37,6 +37,25 @@ export const ClientPortalThemeWrapper = ({ children }) => {
     : 'classic';
   const theme = getThemeColors(themeKey);
 
+  // NEXUS_ORG_BRANDING_EVERYWHERE_V1: swap the browser tab icon to this
+  // org's own logo while a visitor is on their booking/portal pages, and
+  // restore the platform's default favicon on unmount (navigating to
+  // another org, or leaving the client-facing pages entirely). This only
+  // affects the live browser tab -- it can't change what Google shows for
+  // nexusbycs2.com in search results, since that's a single static
+  // favicon.ico crawled for the bare domain, not something a client-side
+  // script can influence per organization.
+  useEffect(() => {
+    const matches = organization?.organization_id === orgId;
+    const logoUrl = matches ? organization?.logo_url : null;
+    if (!logoUrl) return undefined;
+    const link = document.querySelector('link[rel="icon"][type="image/x-icon"]') || document.querySelector('link[rel="icon"]');
+    if (!link) return undefined;
+    const previousHref = link.getAttribute('href');
+    link.setAttribute('href', logoUrl);
+    return () => { link.setAttribute('href', previousHref); };
+  }, [organization?.organization_id, organization?.logo_url, orgId]);
+
   // Override body/html/root backgrounds so the manager-dashboard dark
   // gradient never bleeds through behind the themed portal wrapper.
   useEffect(() => {
