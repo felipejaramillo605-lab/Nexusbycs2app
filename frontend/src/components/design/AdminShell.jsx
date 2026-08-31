@@ -20,11 +20,23 @@ export function AdminShell({children,organizationName='Nexus',organizationId,act
  // already do, and fetch it through the shared OrganizationContext (same
  // public endpoint Settings.js and ClientPortalThemeWrapper use).
  const org=user?.role==='owner'?(organizationId||sp.get('org_id')||user?.organization_id):user?.organization_id;
+ // NEXUS_OWNER_BRAND_SCOPE_FIX_V1: an "owner" account supervises every
+ // tenant organization -- it isn't itself one. `org` above falls back to
+ // user.organization_id (a bookkeeping field on the owner's own user
+ // record, not a real tenant) so nav-link hrefs still have *something* to
+ // append as ?org_id= even with nothing selected. Using that same
+ // fallback for BRANDING meant the sidebar showed that placeholder
+ // record's own name/logo ("Owner") on every generic /owner/* screen,
+ // as if the owner account were a tenant. Branding should only reflect a
+ // real organization once the owner has actually navigated into managing
+ // one (organizationId prop or ?org_id= present) -- otherwise it's the
+ // platform's own "Nexus" identity, same as before this feature existed.
+ const brandOrgId=user?.role==='owner'?(organizationId||sp.get('org_id')||null):org;
  const {organization,loadOrganization}=useOrganization();
- useEffect(()=>{if(org)loadOrganization(org)
+ useEffect(()=>{if(brandOrgId)loadOrganization(brandOrgId)
  // eslint-disable-next-line react-hooks/exhaustive-deps
- },[org]);
- const orgMatches=organization?.organization_id===org;
+ },[brandOrgId]);
+ const orgMatches=!!brandOrgId&&organization?.organization_id===brandOrgId;
  const sidebarLogoUrl=orgMatches?organization?.logo_url:null;
  const sidebarBrandName=orgMatches?(organization?.name||'Nexus'):'Nexus';
  // NEXUS_ADMIN_GLASS_MOUSE_GLOW_V1: same mouse-tracking-glow technique
