@@ -8,39 +8,53 @@
 }
 
 /* ===== GLASSMORPHISM PREMIUM ===== */
+/* NEXUS_LIQUID_GLASS_V25: real specular highlight (bright top edge + faint
+   bottom rim via inset shadows) plus a top-to-transparent sheen layered
+   under the tinted background, so light appears to catch the top of the
+   panel the way it does on real glass/acrylic, instead of a flat blurred
+   tint. Bumped blur+saturate+brightness to match. */
 .glass-panel {
-  backdrop-filter: blur(20px) saturate(180%);
-  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  position: relative;
+  backdrop-filter: blur(28px) saturate(200%) brightness(1.05);
+  -webkit-backdrop-filter: blur(28px) saturate(200%) brightness(1.05);
   background: var(--glass-bg);
+  background-image: var(--glass-sheen);
+  background-blend-mode: overlay;
   border: 1px solid var(--glass-border);
-  box-shadow: var(--glass-shadow), 
-              0 1px 2px rgba(0, 0, 0, 0.05);
+  box-shadow: var(--glass-shadow),
+              0 1px 2px rgba(0, 0, 0, 0.05),
+              var(--glass-specular);
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .glass-panel:hover {
   background: var(--glass-bg);
   border-color: var(--border-accent);
-  box-shadow: var(--glass-shadow), 
+  box-shadow: var(--glass-shadow),
               0 0 0 1px var(--border-accent),
-              0 4px 16px var(--accent-glow);
+              0 4px 16px var(--accent-glow),
+              var(--glass-specular);
   transform: translateY(-2px);
 }
 
 /* Enhanced Glass for elevated elements */
 .glass-elevated {
-  backdrop-filter: blur(24px) saturate(200%);
-  -webkit-backdrop-filter: blur(24px) saturate(200%);
+  position: relative;
+  backdrop-filter: blur(28px) saturate(210%) brightness(1.05);
+  -webkit-backdrop-filter: blur(28px) saturate(210%) brightness(1.05);
   background: var(--bg-elevated);
+  background-image: var(--glass-sheen);
+  background-blend-mode: overlay;
   border: 1px solid var(--glass-border);
   box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1),
-              0 1px 3px rgba(0, 0, 0, 0.05);
+              0 1px 3px rgba(0, 0, 0, 0.05),
+              var(--glass-specular);
 }
 
 .dark .glass-elevated {
   box-shadow: 0 20px 40px rgba(0, 0, 0, 0.5),
               0 1px 3px rgba(0, 0, 0, 0.2),
-              inset 0 1px 0 rgba(255, 255, 255, 0.05);
+              var(--glass-specular);
 }
 
 /* ===== BUTTONS PREMIUM ===== */
