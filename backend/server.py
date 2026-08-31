@@ -5676,6 +5676,11 @@ api_router.include_router(build_professional_media_lifecycle_router(db, get_curr
 from organization_media import build_organization_media_router
 api_router.include_router(build_organization_media_router(db, get_current_user, require_management_role, resolve_team_organization), tags=["organizations"])
 
+# NEXUS_PLATFORM_BRANDING_V1: the Nexus platform's own logo (owner-only,
+# global, distinct from any tenant organization's own logo above)
+from platform_branding import build_platform_branding_router
+api_router.include_router(build_platform_branding_router(db, get_current_user), tags=["platform-branding"])
+
 api_router.include_router(build_internal_reviews_router(db, get_current_client, get_current_user, require_management_role, resolve_team_organization), tags=["internal-reviews"])
 api_router.include_router(build_professional_metrics_router(db, get_current_user, require_management_role, resolve_team_organization), tags=["professional-metrics"])
 

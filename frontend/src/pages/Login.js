@@ -9,10 +9,12 @@ import { AUTH } from '../constants/testIds';
 import { authAPI } from '../api';
 import { toast } from 'sonner';
 import { useAuth } from '../context/AuthContext';
+import { usePlatformBranding } from '../context/PlatformBrandingContext'; // NEXUS_PLATFORM_BRANDING_V1
 import { getHomeForRole } from '../lib/roleNavigation';
 
 const Login = () => {
   const navigate = useNavigate();
+  const { platformLogoUrl } = usePlatformBranding(); // NEXUS_PLATFORM_BRANDING_V1
   const { completeLogin } = useAuth();
   const [activeTab, setActiveTab] = useState('email');
   const [formData, setFormData] = useState({
@@ -93,6 +95,15 @@ const Login = () => {
 
       <div className="relative z-10 glass-panel rounded-3xl p-8 sm:p-12 max-w-md w-full mx-4">
         <div className="text-center mb-8">
+          {/* NEXUS_PLATFORM_BRANDING_V1: owner-configurable, see PlatformLogoUpload.jsx */}
+          {platformLogoUrl && (
+            <img
+              src={platformLogoUrl}
+              alt="Nexus"
+              className="h-16 w-16 mx-auto mb-4 rounded-2xl object-contain bg-[var(--bg-secondary)] border border-[var(--border-primary)] p-2"
+              onError={e => { e.currentTarget.style.display = 'none'; }}
+            />
+          )}
           <h1
             className="text-4xl sm:text-5xl font-light tracking-tight text-[var(--text-primary)] mb-4"
             style={{ fontFamily: 'Outfit, sans-serif' }}

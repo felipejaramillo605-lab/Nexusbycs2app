@@ -20,9 +20,6 @@ export default function ClientPortalNav({ orgId }) {
 
   // Check if there's an active client session
   const hasSession = !!sessionStorage.getItem(`nexus_customer_phone_${orgId}`);
-  // NEXUS_PORTAL_PERSONALIZATION_V1: show the manager's own branding instead of a generic label
-  const brandName = organization?.organization_id === orgId ? (organization?.name || 'Nexus') : 'Nexus';
-  const logoUrl = organization?.organization_id === orgId ? organization?.logo_url : null;
   const catalogEnabled = organization?.organization_id === orgId && !!organization?.catalog_enabled;
 
   // NEXUS_CLIENT_NAV_THEME_AWARE_V1: this bar used to be hardcoded to
@@ -40,14 +37,14 @@ export default function ClientPortalNav({ orgId }) {
       }}
     >
       <div className="max-w-7xl mx-auto px-4 py-3">
-        <div className="flex items-center justify-between gap-3">
-          <div className="hidden md:flex items-center gap-2 min-w-0">
-            {logoUrl && (
-              <img src={logoUrl} alt={brandName} className="h-7 w-7 rounded-md object-contain" onError={e => { e.currentTarget.style.display = 'none'; }} />
-            )}
-            <span className="text-sm font-medium text-[var(--app-text-primary)] truncate">{brandName}</span>
-          </div>
-          <div className="flex items-center justify-center gap-3 flex-1 md:flex-none">
+        {/* NEXUS_PLATFORM_BRANDING_V1: this bar used to repeat the org's
+            logo+name in a `hidden md:flex` slot here -- redundant with (and,
+            at some viewport widths, visually overlapping) the same brand
+            already shown prominently in RouteExperienceFrame's public
+            header above. That header is now the single place both the
+            tenant's and Nexus's brand are shown, so this bar goes back to
+            being purely an actions bar. */}
+        <div className="flex items-center justify-center md:justify-end gap-3">
             {catalogEnabled && (
               <button
                 onClick={() => navigate(`/portal/${orgId}/catalog`)}
@@ -91,7 +88,6 @@ export default function ClientPortalNav({ orgId }) {
                 {hasSession ? 'Cuenta' : 'Entrar'}
               </span>
             </button>
-          </div>
         </div>
       </div>
     </div>

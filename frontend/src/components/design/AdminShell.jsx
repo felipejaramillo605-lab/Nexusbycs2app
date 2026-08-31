@@ -1,15 +1,16 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
-import { BriefcaseBusiness, Building2, BadgeInfo, BookOpen /* NEXUS_GUIDE_V9 */, ContactRound, CalendarDays, ChartNoAxesCombined, ChevronRight, CreditCard, FileText, LayoutDashboard, LogOut, Megaphone, Menu, Package, Scissors, Settings, ShieldCheck, ShoppingBag, ShoppingCart, Store, Trash2, Users, X } from 'lucide-react';
+import { BriefcaseBusiness, Building2, BadgeInfo, BookOpen /* NEXUS_GUIDE_V9 */, ContactRound, CalendarDays, ChartNoAxesCombined, ChevronRight, CreditCard, FileText, LayoutDashboard, LogOut, Megaphone, Menu, Package, Scissors, Settings, ShieldCheck, ShoppingBag, ShoppingCart, Sparkles, Store, Trash2, Users, X } from 'lucide-react';
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import { NavLink, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { useOrganization } from '../../context/OrganizationContext';
+import { usePlatformBranding } from '../../context/PlatformBrandingContext';
 import ThemeToggle from '../ThemeToggle';
 import NotificationBellEnhanced from '../NotificationBellEnhanced';
 import { useAccessibleDialog } from './useAccessibleDialog';
 import OnboardingTour from '../onboarding/OnboardingTour';
 const ShellContext=createContext(false);
-const sections=[{label:'Operación',items:[['/manager/dashboard','Inicio',LayoutDashboard],['/manager/appointments','Agenda',CalendarDays],['/manager/clients','Clientes',Users],['/manager/services','Servicios',Scissors],['/manager/barbers','Equipo',BriefcaseBusiness],['/manager/catalog','Catálogo',ShoppingBag]]},{label:'Finanzas',items:[['/manager/revenue','Ingresos',ChartNoAxesCombined],['/manager/billing','Mis facturas',FileText],['/manager/settlements','Liquidaciones',CreditCard],['/manager/inventory','Inventario',Package]]},{label:'Abastecimiento',items:[['/manager/suppliers','Proveedores',Store],['/manager/purchase-orders','Órdenes de compra',ShoppingCart]]},{label:'Crecimiento',items:[['/manager/marketing','Marketing',Megaphone],['/manager/business-profile','Perfil del negocio',Building2]]},{label:'Administración',items:[['/owner/access-control','Control de accesos',ShieldCheck,'owner'],['/owner/subscriptions','Suscripciones',CreditCard,'owner'],['/owner/third-party-matrix','Matriz de terceros',ContactRound,'owner'],
+const sections=[{label:'Operación',items:[['/manager/dashboard','Inicio',LayoutDashboard],['/manager/appointments','Agenda',CalendarDays],['/manager/clients','Clientes',Users],['/manager/services','Servicios',Scissors],['/manager/barbers','Equipo',BriefcaseBusiness],['/manager/catalog','Catálogo',ShoppingBag]]},{label:'Finanzas',items:[['/manager/revenue','Ingresos',ChartNoAxesCombined],['/manager/billing','Mis facturas',FileText],['/manager/settlements','Liquidaciones',CreditCard],['/manager/inventory','Inventario',Package]]},{label:'Abastecimiento',items:[['/manager/suppliers','Proveedores',Store],['/manager/purchase-orders','Órdenes de compra',ShoppingCart]]},{label:'Crecimiento',items:[['/manager/marketing','Marketing',Megaphone],['/manager/business-profile','Perfil del negocio',Building2]]},{label:'Administración',items:[['/owner/access-control','Control de accesos',ShieldCheck,'owner'],['/owner/subscriptions','Suscripciones',CreditCard,'owner'],['/owner/platform-branding','Marca de Nexus',Sparkles,'owner']/* NEXUS_PLATFORM_BRANDING_V1 */,['/owner/third-party-matrix','Matriz de terceros',ContactRound,'owner'],
             ['/owner/announcements','Comunicados',Megaphone,'owner'],['/manager/fiscal-profile','Información fiscal',BadgeInfo],['/manager/settings','Configuración',Settings],['/account/privacy','Cuenta y privacidad',ShieldCheck]]},/* NEXUS_GUIDE_V9 */{label:'Ayuda',items:[['/manager/guia','Guía',BookOpen]]}/* NEXUS_GUIDE_V9 end */];
 const mobilePrimary=[['/manager/dashboard','Inicio',LayoutDashboard],['/manager/appointments','Agenda',CalendarDays],['/manager/clients','Clientes',Users],['/manager/revenue','Ingresos',ChartNoAxesCombined]];
 export function AdminShell({children,organizationName='Nexus',organizationId,actions}){const nested=useContext(ShellContext);const {user,logout}=useAuth();const navigate=useNavigate();const location=useLocation();const [sp]=useSearchParams();const [open,setOpen]=useState(false);const reduced=useReducedMotion();const closeModules=React.useCallback(()=>setOpen(false),[]);const {dialogRef:modulesDialogRef,triggerRef:modulesTriggerRef,titleId:modulesTitleId}=useAccessibleDialog({open,onClose:closeModules,titlePrefix:'nexus-modules'});const allowed=useMemo(()=>sections.map(section=>({...section,items:section.items.filter(item=>!item[3]||item[3]===user?.role)})),[user?.role]);
@@ -37,7 +38,13 @@ export function AdminShell({children,organizationName='Nexus',organizationId,act
  // eslint-disable-next-line react-hooks/exhaustive-deps
  },[brandOrgId]);
  const orgMatches=!!brandOrgId&&organization?.organization_id===brandOrgId;
- const sidebarLogoUrl=orgMatches?organization?.logo_url:null;
+ // NEXUS_PLATFORM_BRANDING_V1: when the owner isn't inside a specific
+ // tenant's management view, the sidebar should show the Nexus PLATFORM's
+ // own logo (owner-controlled, see PlatformBrandingContext) instead of the
+ // static "N" bubble -- the tenant's own store logo only applies while
+ // actually managing that tenant.
+ const {platformLogoUrl}=usePlatformBranding();
+ const sidebarLogoUrl=orgMatches?organization?.logo_url:platformLogoUrl;
  const sidebarBrandName=orgMatches?(organization?.name||'Nexus'):'Nexus';
  // NEXUS_ADMIN_GLASS_MOUSE_GLOW_V1: same mouse-tracking-glow technique
  // ClientPortalThemeWrapper uses for the client portal (v13.1), applied here

@@ -4,6 +4,7 @@ import { QueryClientProvider } from '@tanstack/react-query';
 import { queryClient } from './lib/queryClient';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { OrganizationProvider } from './context/OrganizationContext';
+import { PlatformBrandingProvider } from './context/PlatformBrandingContext';
 import { ThemeProvider } from './context/ThemeContext';
 import { Toaster } from './components/ui/sonner';
 import AuthCallback from './components/AuthCallback';
@@ -29,6 +30,7 @@ const OwnerAccessControl = lazy(() => import('./pages/OwnerAccessControl'));
 const OwnerSubscriptions = lazy(() => import('./pages/OwnerSubscriptions'));
 const OwnerThirdPartyMatrix = lazy(() => import('./pages/OwnerThirdPartyMatrix'));
 const OwnerAnnouncements = lazy(() => import('./pages/OwnerAnnouncements'));
+const OwnerPlatformBranding = lazy(() => import('./pages/OwnerPlatformBranding')); // NEXUS_PLATFORM_BRANDING_V1
 const ProfessionalMetrics = lazy(() => import('./pages/ProfessionalMetrics'));
 const StaffReviews = lazy(() => import('./pages/StaffReviews'));
 const OwnerOrganizationOnboarding = lazy(() => import('./pages/OwnerOrganizationOnboarding'));
@@ -135,6 +137,7 @@ function AppRouter() {
         <Route path="/owner/subscriptions" element={<ProtectedRoute requiredRole="owner"><OwnerSubscriptions /></ProtectedRoute>} />
         <Route path="/owner/third-party-matrix" element={<ProtectedRoute requiredRole="owner"><OwnerThirdPartyMatrix /></ProtectedRoute>} />
               <Route path="/owner/announcements" element={<ProtectedRoute requiredRole="owner"><Suspense fallback={<PageLoader />}><OwnerAnnouncements /></Suspense></ProtectedRoute>} />
+              <Route path="/owner/platform-branding" element={<ProtectedRoute requiredRole="owner"><Suspense fallback={<PageLoader />}><OwnerPlatformBranding /></Suspense></ProtectedRoute>} />
               <Route path="/manager/barbers/:barberId/metrics" element={<ProtectedRoute requiredRole="manager"><Suspense fallback={<PageLoader />}><ProfessionalMetrics /></Suspense></ProtectedRoute>} />
               <Route path="/staff/reviews" element={<ProtectedRoute requiredRole="staff"><Suspense fallback={<PageLoader />}><StaffReviews /></Suspense></ProtectedRoute>} />
         <Route path="/owner/organizations/new" element={<ProtectedRoute requiredRole="owner"><OwnerOrganizationOnboarding /></ProtectedRoute>} />
@@ -307,16 +310,18 @@ function App() {
     <QueryClientProvider client={queryClient}>
       <BrowserRouter>
         <ThemeProvider>
-          <AuthProvider>
-            <OrganizationProvider>
-              <ErrorBoundary>
-                <div className="App">
-                  <AppRouter />
-                  <Toaster position="top-right" />
-                </div>
-              </ErrorBoundary>
-            </OrganizationProvider>
-          </AuthProvider>
+          <PlatformBrandingProvider>
+            <AuthProvider>
+              <OrganizationProvider>
+                <ErrorBoundary>
+                  <div className="App">
+                    <AppRouter />
+                    <Toaster position="top-right" />
+                  </div>
+                </ErrorBoundary>
+              </OrganizationProvider>
+            </AuthProvider>
+          </PlatformBrandingProvider>
         </ThemeProvider>
       </BrowserRouter>
       {ReactQueryDevtools && (

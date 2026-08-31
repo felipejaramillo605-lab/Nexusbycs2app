@@ -96,6 +96,17 @@ export const organizationAPI = {
   deleteLogo: (organizationId) => api.delete(`/organizations/${organizationId}/logo`),
 };
 
+// NEXUS_PLATFORM_BRANDING_V1: the Nexus PLATFORM's own logo (owner-only,
+// global) -- distinct from organizationAPI above, which is each tenant's
+// own store logo. getBranding is public/unauthenticated on purpose: every
+// page (including the login screen, before anyone is signed in) needs it
+// to render the Nexus mark.
+export const platformAPI = {
+  getBranding: () => axios.get(`${API}/platform/branding`),
+  uploadLogo: (file, onUploadProgress) => { const data = new FormData(); data.append('file', file); return api.post('/owner/platform-logo', data, { onUploadProgress }); },
+  deleteLogo: () => api.delete('/owner/platform-logo'),
+};
+
 export const serviceAPI = {
   getAll: (params = {}) => api.get('/services', { params }),
   create: (data) => api.post('/services', data),
