@@ -41,7 +41,7 @@ export default function PrivacyPolicy() {
               </div>
               <div className="text-sm text-zinc-300 space-y-1 ml-8">
                 <p><strong className="text-white">Razon social:</strong> Felipe Jaramillo Parra (persona natural, actividad comercial bajo el nombre "Nexus by CS2")</p>
-                <p><strong className="text-white">NIT / C.C.:</strong> [Pendiente de inclusion por el titular]</p>
+                <p><strong className="text-white">NIT / C.C.:</strong> 1152468561</p>
                 <p><strong className="text-white">Domicilio:</strong> Cr 51 #96 sur 50, La Estrella, Antioquia, Colombia</p>
                 <p><strong className="text-white">Correo de contacto:</strong> nexusbycs2@gmail.com</p>
                 <p><strong className="text-white">Telefono:</strong> +57 310 370 5753</p>

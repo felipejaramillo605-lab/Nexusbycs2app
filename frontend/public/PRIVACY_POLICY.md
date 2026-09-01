@@ -7,7 +7,7 @@
 ## Identificacion del Responsable del Tratamiento
 
 - **Razon social:** Felipe Jaramillo Parra (persona natural, actividad comercial bajo el nombre "Nexus by CS2")
-- **NIT / C.C.:** [Pendiente de inclusion por el titular]
+- **NIT / C.C.:** 1152468561
 - **Domicilio:** Cr 51 #96 sur 50, La Estrella, Antioquia, Colombia
 - **Correo electronico:** nexusbycs2@gmail.com
 - **Telefono:** +57 310 370 5753
