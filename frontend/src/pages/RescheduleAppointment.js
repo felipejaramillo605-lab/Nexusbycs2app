@@ -1,4 +1,4 @@
-import React,{useEffect,useMemo,useState} from 'react';
+import React,{useCallback,useEffect,useMemo,useState} from 'react';
 import {useNavigate,useParams} from 'react-router-dom';
 import {ArrowLeft,CalendarDays,Check,Clock,Copy,RefreshCw} from 'lucide-react';
 import {toast} from 'sonner';
@@ -11,10 +11,15 @@ const formatDate=value=>new Intl.DateTimeFormat('es-CO',{weekday:'long',day:'num
 export default function RescheduleAppointment(){
  const {orgId,appointmentId}=useParams();const navigate=useNavigate();
  const [loading,setLoading]=useState(true),[saving,setSaving]=useState(false),[appointment,setAppointment]=useState(null),[date,setDate]=useState(''),[time,setTime]=useState(''),[slots,setSlots]=useState([]),[preferredTime,setPreferredTime]=useState(''),[searching,setSearching]=useState(false),[suggestions,setSuggestions]=useState([]);
- const load=async()=>{setLoading(true);try{const me=await clientPortalAPI.getMe();const item=(me.data?.appointments||[]).find(value=>value.appointment_id===appointmentId);if(!item)throw new Error('Cita no encontrada');setAppointment(item);setDate(item.date);setTime(item.time);setPreferredTime(item.time)}catch(error){const detail=error.response?.data?.detail;toast.error(typeof detail==='string'?detail:(detail?.message||error.message||'No fue posible cargar la cita'))}finally{setLoading(false)}};
- useEffect(()=>{load()},[appointmentId,orgId]);
- const loadSlots=async value=>{if(!appointment||!value)return;try{const response=await publicAPI.getAvailability(orgId,appointment.barber_id,value,appointment.service_id);setSlots(response.data.available_slots||[]);setTime(current=>(response.data.available_slots||[]).includes(current)?current:'')}catch(error){setSlots([]);setTime('');toast.error(error.response?.data?.detail?.message||'No hay disponibilidad para ese día')}};
- useEffect(()=>{if(appointment&&date)loadSlots(date)},[appointment,date]);
+ // NEXUS_RESCHEDULE_EXHAUSTIVE_DEPS_V1: load/loadSlots were re-created on
+ // every render and left out of their own useEffect deps (flagged by
+ // react-hooks/exhaustive-deps). Wrapping them in useCallback with their
+ // real dependencies lets the effects list them honestly instead of
+ // suppressing the lint rule.
+ const load=useCallback(async()=>{setLoading(true);try{const me=await clientPortalAPI.getMe();const item=(me.data?.appointments||[]).find(value=>value.appointment_id===appointmentId);if(!item)throw new Error('Cita no encontrada');setAppointment(item);setDate(item.date);setTime(item.time);setPreferredTime(item.time)}catch(error){const detail=error.response?.data?.detail;toast.error(typeof detail==='string'?detail:(detail?.message||error.message||'No fue posible cargar la cita'))}finally{setLoading(false)}},[appointmentId]);
+ useEffect(()=>{load()},[load]);
+ const loadSlots=useCallback(async value=>{if(!appointment||!value)return;try{const response=await publicAPI.getAvailability(orgId,appointment.barber_id,value,appointment.service_id);setSlots(response.data.available_slots||[]);setTime(current=>(response.data.available_slots||[]).includes(current)?current:'')}catch(error){setSlots([]);setTime('');toast.error(error.response?.data?.detail?.message||'No hay disponibilidad para ese día')}},[orgId,appointment]);
+ useEffect(()=>{if(appointment&&date)loadSlots(date)},[appointment,date,loadSlots]);
  const search=async()=>{if(!appointment||!preferredTime)return toast.error('Indica una hora preferida');setSearching(true);try{const response=await publicAPI.searchAvailability(orgId,appointment.barber_id,appointment.service_id,preferredTime,today(),30);setSuggestions(response.data?.available_dates||[]);if(!response.data?.available_dates?.length)toast.info('No encontramos esa hora en los próximos 30 días')}catch(error){toast.error(error.response?.data?.detail?.message||'No fue posible buscar disponibilidad')}finally{setSearching(false)}};
  const copy=value=>{navigator.clipboard?.writeText(value);toast.success('Hora '+value+' copiada')};
  const reschedule=async()=>{if(!date||!time)return toast.error('Selecciona una fecha y una hora');setSaving(true);try{const response=await clientPortalAPI.rescheduleAppointment(appointmentId,{date,time});toast.success('Cita reprogramada correctamente');navigate('/portal/'+orgId+'/dashboard',{state:{rescheduled:response.data}})}catch(error){const detail=error.response?.data?.detail;setSuggestions(detail?.alternatives||[]);toast.error(detail?.message||'El horario ya no está disponible')}finally{setSaving(false)}};
