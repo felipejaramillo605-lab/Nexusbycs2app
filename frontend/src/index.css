@@ -268,7 +268,20 @@ button,[role="button"]{-webkit-tap-highlight-color:transparent}button:focus-visi
    brand (who's actually rendering the service) large and prominent below.
    Intentionally two separate flex rows in a column, never sharing one
    badge slot, so they can never visually merge. */
-.nexus-public-brand{position:relative;z-index:5;max-width:1180px;margin:auto;display:flex;flex-direction:column;gap:.5rem;padding:.9rem clamp(1rem,4vw,2rem) .35rem}
+/* NEXUS_PUBLIC_NAV_CLICK_THROUGH_FIX_V1: this header has no interactive
+   elements of its own (just the Nexus/tenant marks, text only) but its box
+   spans the FULL row width (its content is left-aligned, the box itself
+   isn't). Because it sits in a higher stacking position than
+   .nexus-public-content (z-index:5 vs 2, both children of the isolated
+   .nexus-public-experience context), that empty right-hand portion of the
+   box was invisibly sitting on top of ClientPortalNav's actual buttons
+   (Catálogo/Agendar cita/Iniciar sesión), which live several stacking
+   contexts deeper inside .nexus-public-content -- so a click there hit
+   this empty div instead of the button underneath, even though the button
+   was what the user visually saw. pointer-events:none lets clicks pass
+   straight through to whatever's actually there; the header stays fully
+   visible since this doesn't affect painting, only hit-testing. */
+.nexus-public-brand{position:relative;z-index:5;max-width:1180px;margin:auto;display:flex;flex-direction:column;gap:.5rem;padding:.9rem clamp(1rem,4vw,2rem) .35rem;pointer-events:none}
 .nexus-public-brand-provider{display:flex;align-items:center;gap:.4rem;opacity:.6}
 .nexus-public-brand-provider-logo{width:16px;height:16px;border-radius:5px;object-fit:contain;flex:0 0 auto}
 .nexus-public-brand-provider-badge{width:16px;height:16px;display:grid;place-items:center;border-radius:5px;background:var(--app-text-primary);color:var(--app-background);font-size:.55rem;font-weight:800;flex:0 0 auto}
