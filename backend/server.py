@@ -1,6 +1,7 @@
 # NEXUS_8A7D1B_REMAINING_NEUTRAL_COPY_V1
 from fastapi import FastAPI, APIRouter, HTTPException, Cookie, Response, Header, Request, Depends, Query
 from fastapi.responses import StreamingResponse, JSONResponse
+from contextlib import asynccontextmanager  # NEXUS_LIFESPAN_MIGRATION_V1
 from dotenv import load_dotenv
 from starlette.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
@@ -100,6 +101,18 @@ tags_metadata = [
     {"name": "catalog", "description": "Product catalog for client portal sales (manager CRUD + public browsing)."},
 ]
 
+# NEXUS_LIFESPAN_MIGRATION_V1: starlette 1.0 removes the @app.on_event()
+# decorator entirely (it was only ever a deprecated shim over `lifespan`).
+# create_application_indexes/shutdown_db_client are defined further down
+# in this file exactly as before (same bodies, just no longer decorated) --
+# referencing them here by name is fine since this wrapper only actually
+# runs once, at real app startup, long after the whole module has loaded.
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    await create_application_indexes()
+    yield
+    await shutdown_db_client()
+
 app = FastAPI(
     title="Nexus by CS2 API",
     description="Backend API for Nexus, a barbershop/salon management SaaS.",
@@ -108,6 +121,7 @@ app = FastAPI(
     docs_url="/docs" if ENABLE_API_DOCS else None,
     redoc_url="/redoc" if ENABLE_API_DOCS else None,
     openapi_url="/openapi.json" if ENABLE_API_DOCS else None,
+    lifespan=lifespan,
 )
 api_router = APIRouter(prefix="/api")
 
@@ -5756,7 +5770,6 @@ async def _migrate_user_session_dates_and_indexes():
     await db.user_sessions.create_index("expires_at", expireAfterSeconds=0, name="user_sessions_ttl")
 
 
-@app.on_event("startup")
 async def create_application_indexes():
     await _migrate_user_session_dates_and_indexes()
     await ensure_security_observability_indexes(db)
@@ -5886,6 +5899,5 @@ async def create_application_indexes():
     )
 
 
-@app.on_event("shutdown")
 async def shutdown_db_client():
     client.close()
