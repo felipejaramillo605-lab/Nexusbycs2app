@@ -9,7 +9,7 @@
     {
       "area": "backend/security",
       "issue": "POST /api/barbers returns 403 'Request origin is not allowed' from curl even with Origin/Referer set to public preview URL",
-      "evidence": "curl -X POST .../api/barbers -H 'Origin: https://clipper-manage-1.preview.emergentagent.com' -> 403 {\"detail\":\"Request origin is not allowed\"}",
+      "evidence": "curl -X POST .../api/barbers -H 'Origin: https://listos-manager-reg.preview.emergentagent.com' -> 403 {\"detail\":\"Request origin is not allowed\"}",
       "priority": "MEDIUM"
     }
   ],

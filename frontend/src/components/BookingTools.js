@@ -43,95 +43,63 @@ const BookingTools = ({ organizationId }) => {
     <div className="glass-panel p-6 rounded-2xl">
       <h3 className="text-lg font-medium text-primary mb-4">Herramientas para Clientes</h3>
       <p className="text-sm text-secondary mb-6">
-        Comparte enlaces con tus clientes o genera códigos QR para imprimir
+        Comparte el enlace o el código QR según lo que necesite tu cliente
       </p>
 
       <div className="space-y-3">
-        {/* Booking Link */}
-        <button
-          onClick={() => copyLink(bookingUrl, 'Reservas')}
-          className="w-full flex items-center justify-between min-h-[44px] px-4 py-3 bg-secondary/30 hover:bg-secondary/50 rounded-xl transition-all group"
-        >
-          <div className="flex items-center gap-3">
-            {copied ? (
-              <Check size={20} strokeWidth={1.5} className="text-[#32D74B]" />
-            ) : (
-              <Link2 size={20} strokeWidth={1.5} className="text-[var(--app-primary)]" />
-            )}
-            <div className="text-left">
-              <p className="text-sm font-medium text-primary">Link de Reservas</p>
+        {/* Reservas: link + QR together, one clear group */}
+        <div className="p-4 bg-secondary/30 rounded-xl">
+          <div className="flex items-center gap-3 mb-3">
+            <Link2 size={20} strokeWidth={1.5} className="text-[var(--app-primary)]" />
+            <div>
+              <p className="text-sm font-medium text-primary">Reservas</p>
               <p className="text-xs text-secondary">Para clientes nuevos (primera cita)</p>
             </div>
           </div>
-          <div className="text-xs text-secondary group-hover:text-primary transition-colors">
-            Copiar
-          </div>
-        </button>
-
-        {/* Portal Link */}
-        <button
-          onClick={() => copyLink(portalUrl, 'Portal del Cliente')}
-          className="w-full flex items-center justify-between min-h-[44px] px-4 py-3 bg-secondary/30 hover:bg-secondary/50 rounded-xl transition-all group"
-        >
-          <div className="flex items-center gap-3">
-            {copied ? (
-              <Check size={20} strokeWidth={1.5} className="text-[#32D74B]" />
-            ) : (
-              <User size={20} strokeWidth={1.5} className="text-purple-400" />
-            )}
-            <div className="text-left">
-              <p className="text-sm font-medium text-primary">Link Portal del Cliente</p>
-              <p className="text-xs text-secondary">Ver historial y reservar (clientes registrados)</p>
-            </div>
-          </div>
-          <div className="text-xs text-secondary group-hover:text-primary transition-colors">
-            Copiar
-          </div>
-        </button>
-
-        {/* Divider */}
-        <div className="relative py-2">
-          <div className="absolute inset-0 flex items-center">
-            <div className="w-full border-t border-white/10"></div>
-          </div>
-          <div className="relative flex justify-center text-xs">
-            <span className="bg-[#0A0A0A] px-2 text-zinc-500">Códigos QR</span>
+          <div className="flex gap-2">
+            <button
+              data-testid="booking-tools-copy-booking-link"
+              onClick={() => copyLink(bookingUrl, 'Reservas')}
+              className="flex-1 min-h-[40px] px-3 rounded-lg bg-white/5 hover:bg-white/10 text-sm text-primary transition-all flex items-center justify-center gap-2"
+            >
+              {copied ? <Check size={16} className="text-[#32D74B]" /> : <Link2 size={16} />} Copiar link
+            </button>
+            <button
+              data-testid="booking-tools-qr-booking"
+              onClick={() => openQRModal('booking')}
+              className="min-h-[40px] px-3 rounded-lg bg-white/5 hover:bg-white/10 text-sm text-primary transition-all flex items-center justify-center gap-2"
+            >
+              <QrCode size={16} /> QR
+            </button>
           </div>
         </div>
 
-        {/* Generate QR for Booking */}
-        <button
-          onClick={() => openQRModal('booking')}
-          className="w-full flex items-center justify-between min-h-[44px] px-4 py-3 bg-secondary/30 hover:bg-secondary/50 rounded-xl transition-all group"
-        >
-          <div className="flex items-center gap-3">
-            <QrCode size={20} strokeWidth={1.5} className="text-[var(--app-primary)]" />
-            <div className="text-left">
-              <p className="text-sm font-medium text-primary">QR Reservas</p>
-              <p className="text-xs text-secondary">Para nuevas reservas</p>
+        {/* Portal del Cliente: link + QR together */}
+        <div className="p-4 bg-secondary/30 rounded-xl">
+          <div className="flex items-center gap-3 mb-3">
+            <User size={20} strokeWidth={1.5} className="text-purple-400" />
+            <div>
+              <p className="text-sm font-medium text-primary">Portal del Cliente</p>
+              <p className="text-xs text-secondary">Ver historial y reservar (clientes registrados)</p>
             </div>
           </div>
-          <div className="text-xs text-secondary group-hover:text-primary transition-colors">
-            Generar
+          <div className="flex gap-2">
+            <button
+              data-testid="booking-tools-copy-portal-link"
+              onClick={() => copyLink(portalUrl, 'Portal del Cliente')}
+              className="flex-1 min-h-[40px] px-3 rounded-lg bg-white/5 hover:bg-white/10 text-sm text-primary transition-all flex items-center justify-center gap-2"
+            >
+              {copied ? <Check size={16} className="text-[#32D74B]" /> : <Link2 size={16} />} Copiar link
+            </button>
+            <button
+              data-testid="booking-tools-qr-portal"
+              onClick={() => openQRModal('portal')}
+              className="min-h-[40px] px-3 rounded-lg bg-white/5 hover:bg-white/10 text-sm text-primary transition-all flex items-center justify-center gap-2"
+            >
+              <QrCode size={16} /> QR
+            </button>
           </div>
-        </button>
-
-        {/* Generate QR for Portal */}
-        <button
-          onClick={() => openQRModal('portal')}
-          className="w-full flex items-center justify-between min-h-[44px] px-4 py-3 bg-secondary/30 hover:bg-secondary/50 rounded-xl transition-all group"
-        >
-          <div className="flex items-center gap-3">
-            <QrCode size={20} strokeWidth={1.5} className="text-purple-400" />
-            <div className="text-left">
-              <p className="text-sm font-medium text-primary">QR Portal Cliente</p>
-              <p className="text-xs text-secondary">Para historial y reservas</p>
-            </div>
-          </div>
-          <div className="text-xs text-secondary group-hover:text-primary transition-colors">
-            Generar
-          </div>
-        </button>
+        </div>
       </div>
 
       {/* QR Modal */}

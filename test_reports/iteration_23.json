@@ -1,0 +1,32 @@
+{
+  "summary": "Phase 2 features validated end-to-end. Backend pytest 7/7 passing (birthday PUT + upcoming-birthdays ordering + business_type on org + service photos: upload 2 / reject 3rd / delete + regression logins). UI E2E validated: (1) BookingTools renders 2 grouped blocks with 4 testids in both Manager dashboard and Staff profile; Copy link writes URL to clipboard and QR modal renders canvas. (2) StaffProfile shows Herramientas para Clientes with no admin controls added. (3) Client birthday input (client-birthday-input-desktop) inside 'Ver Historial' Sheet saves via PUT and shows 'Cumpleaños actualizado' toast. (4) MarketingCampaigns audience toggle all/birthdays works, switching to birthdays shows day-remaining badges, birthday template selectable with 🎂 preview. (5) BusinessProfile business-type-select present with value 'barbershop'. (6) ManagerServices Editar dialog shows 'Imágenes del servicio (máx. 2)' section: upload 1 -> delete-0 appears; upload 2 -> delete-1 appears and upload input disappears; deleting frees a slot and toast 'Imagen eliminada' shows. (7) Sidebar categories operación/finanzas/abastecimiento/crecimiento/administración/ayuda all have sidebar-section-<label> toggle buttons with aria-expanded; collapsing 'Crecimiento' persists to localStorage nexus-sidebar-collapsed and survives page reload (aria-expanded=false after reload). Owner/Manager/Staff regressions pass.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "Manager first-login onboarding tour", "issues": ["OnboardingTour dialog (role=dialog, aria-labelledby=nexus-onboarding-title) intercepts pointer events on the whole page (including sidebar/dashboard) on first login. Users must close the X before any interaction. Consider auto-dismissing on outside click or lowering the modal z-index/overlay for the sidebar. This blocks first-run testing but does not break real usage."]}
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_phase2_features.py",
+    "/app/test_reports/pytest/phase2.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "service_media.py correctly reuses product_catalog + professional_media pipelines and enforces MAX_SERVICE_PHOTOS=2 on the backend; verified 3rd upload returns 400 via pytest, and the frontend hides the 'Agregar' input once len(photos)>=2 (defense-in-depth OK).",
+    "server.py update_client accepts birthday via query param with regex validation r'\\d{4}-\\d{2}-\\d{2}'; empty string clears the field (verified). GET /api/clients/upcoming-birthdays orders ascending by days_until and handles year rollover (verified via pytest with target=today+3).",
+    "AdminShell.jsx collapsedSections keyed by section.label — labels are the display strings ('Crecimiento', etc.). localStorage key 'nexus-sidebar-collapsed' persists correctly across reloads (verified).",
+    "OnboardingTour continues to intercept sidebar clicks on first login (dialog with z-100 overlay). Fase 1 iteration_22 flagged this and it is unchanged. autoStart gate for owner/manager-with-org still opens the tour on first login; consider suppressing when user already dismissed on any prior session or persisting the 'seen' flag server-side.",
+    "MarketingCampaigns preview correctly personalizes with business name and business_type-sensitive templates from whatsappService (VERTICAL_LABELS)."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_phase2_features.py"
+  ],
+  "success_rate": {"backend": "100% (7/7)", "frontend": "100% (7/7 flows: bookingtools-manager, bookingtools-staff, sidebar-collapse-persist, business-type, marketing-audience+birthday-template, client-birthday, service-photos)"},
+  "test_credentials": "Owner admin@nexus.com/admin123; Manager manager@nexus.com/manager123; Staff staff@test.com/Nexus2026 (from backend/seed_test_accounts.py, PASSWORD='Nexus2026'). No barber1@nexus.com exists; test_credentials.md should be updated to include staff@test.com/Nexus2026.",
+  "seed_data_creation": "Tests toggle birthday on seeded client_001 and client_002 (cleared after run). Service photo test creates and deletes an ephemeral TEST_SvcPhotos_* service. UI test modified 'Corte Clásico' service by uploading and then deleting 2 photos (cleaned up).",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Fase 2 fully validated. Backend regression /app/backend/tests/test_phase2_features.py (run with `pytest -o addopts='' backend/tests/test_phase2_features.py`). To bypass first-login OnboardingTour interception in Playwright, either click the X (svg.lucide-x inside div[role=dialog]) before touching sidebar, or remove the dialog with page.evaluate(...). For staff testing use staff@test.com/Nexus2026. Fase 3 (Nexus AI) is not implemented yet."
+}

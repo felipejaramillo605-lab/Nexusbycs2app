@@ -3,7 +3,7 @@ import React, { useEffect, useState, useCallback } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { serviceAPI, organizationAPI, inventoryAPI } from '../api';
-import { Plus, Trash2, ArrowLeft, Scissors, Edit2, FlaskConical, AlertTriangle, ShieldCheck, X } from 'lucide-react';
+import { Plus, Trash2, ArrowLeft, Scissors, Edit2, FlaskConical, AlertTriangle, ShieldCheck, X, ImagePlus } from 'lucide-react';
 import { MANAGER } from '../constants/testIds';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '../components/ui/dialog';
 import { toast } from 'sonner';
@@ -25,6 +25,7 @@ const ManagerServices = () => {
   const [inventory, setInventory] = useState([]);
   const [policy, setPolicy] = useState('WARNING');
   const [recipeSaving, setRecipeSaving] = useState(false);
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
 
   // Get org_id from query param (for owner) or user.organization_id (for manager)
   const organizationId = (user?.role === 'owner' ? searchParams.get('org_id') : user?.organization_id) || user?.organization_id;
@@ -78,7 +79,8 @@ const ManagerServices = () => {
       service_id: service.service_id,
       name: service.name,
       duration: service.duration,
-      price: service.price
+      price: service.price,
+      photos: service.photos || []
     });
     setIsEditDialogOpen(true);
   };
@@ -166,6 +168,35 @@ const ManagerServices = () => {
     } catch (error) {
       console.error('Error deleting service:', error);
       toast.error('Error al eliminar servicio');
+    }
+  };
+
+  // NEXUS_SERVICE_PHOTOS_V1 — reuses the catalog's own uploader (max 2 photos)
+  const handleUploadServicePhoto = async (e) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file || !editingService) return;
+    setUploadingPhoto(true);
+    try {
+      const response = await serviceAPI.uploadPhoto(editingService.service_id, file, { organization_id: organizationId });
+      setEditingService({ ...editingService, photos: response.data.photos });
+      loadServices();
+      toast.success('Imagen subida');
+    } catch (error) {
+      toast.error(error.response?.data?.detail || 'No fue posible subir la imagen');
+    } finally {
+      setUploadingPhoto(false);
+    }
+  };
+
+  const handleDeleteServicePhoto = async (index) => {
+    try {
+      const response = await serviceAPI.deletePhoto(editingService.service_id, index, { organization_id: organizationId });
+      setEditingService({ ...editingService, photos: response.data.photos });
+      loadServices();
+      toast.success('Imagen eliminada');
+    } catch (error) {
+      toast.error(error.response?.data?.detail || 'No fue posible eliminar la imagen');
     }
   };
 
@@ -302,6 +333,34 @@ const ManagerServices = () => {
                 >
                   Guardar Cambios
                 </button>
+                {/* NEXUS_SERVICE_PHOTOS_V1 */}
+                <div>
+                  <label className="text-sm text-zinc-400 mb-2 block">Imágenes del servicio (máx. 2)</label>
+                  <div className="grid grid-cols-2 gap-3">
+                    {(editingService.photos || []).map((url, i) => (
+                      <div key={url} className="relative group aspect-square">
+                        <img src={url} alt="" className="w-full h-full object-cover rounded-xl border border-[var(--app-border)]" />
+                        <button
+                          type="button"
+                          data-testid={`service-photo-delete-${i}`}
+                          onClick={() => handleDeleteServicePhoto(i)}
+                          className="absolute top-1 right-1 p-1.5 bg-red-500 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+                        >
+                          <X size={14} className="text-white" />
+                        </button>
+                      </div>
+                    ))}
+                    {(editingService.photos || []).length < 2 && (
+                      <label
+                        data-testid="service-photo-upload-input"
+                        className="aspect-square rounded-xl border border-dashed border-[var(--app-border)] flex flex-col items-center justify-center gap-1 text-zinc-500 cursor-pointer hover:border-[var(--app-primary)] hover:text-[var(--app-primary)] transition-all"
+                      >
+                        {uploadingPhoto ? <span className="text-xs">Subiendo...</span> : <><ImagePlus size={22} strokeWidth={1.5} /><span className="text-xs">Agregar</span></>}
+                        <input type="file" accept="image/*" className="hidden" disabled={uploadingPhoto} onChange={handleUploadServicePhoto} />
+                      </label>
+                    )}
+                  </div>
+                </div>
               </div>
             )}
           </DialogContent>
@@ -315,8 +374,8 @@ const ManagerServices = () => {
               className="backdrop-blur-xl bg-white/3 border border-[var(--app-border)] rounded-2xl p-6 hover:bg-white/6 transition-all group"
             >
               <div className="flex items-start justify-between mb-4">
-                <div className="w-12 h-12 rounded-xl bg-[var(--app-primary)]/20 flex items-center justify-center">
-                  <Scissors size={24} strokeWidth={1.5} className="text-[var(--app-primary)]" />
+                <div className="w-12 h-12 rounded-xl bg-[var(--app-primary)]/20 flex items-center justify-center overflow-hidden">
+                  {service.photos?.[0] ? <img src={service.photos[0]} alt="" className="w-full h-full object-cover" /> : <Scissors size={24} strokeWidth={1.5} className="text-[var(--app-primary)]" />}
                 </div>
                 <div className="flex items-center gap-2">
                   <button

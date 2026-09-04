@@ -122,3 +122,4 @@ frontend/node_modules/.cache/default-development/1.pack
 .checkpoints/
 /patch_*/
 backend/seed_test_accounts.py
+frontend/node_modules/.cache/default-development/14.pack

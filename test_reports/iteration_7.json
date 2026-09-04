@@ -24,6 +24,6 @@
   "notes": {
     "auth_limitation": "Google OAuth (Emergent-managed) cannot be automated in Playwright; ManagerDashboard-scoped components (ThemeToggle, DashboardStats, BookingTools) confirmed to import/compile cleanly but their in-app rendering requires manual/authenticated verification.",
     "mocked_apis": ["WhatsApp confirmations"],
-    "public_url_used": "https://clipper-manage-1.preview.emergentagent.com"
+    "public_url_used": "https://listos-manager-reg.preview.emergentagent.com"
   }
 }

@@ -291,6 +291,13 @@ class Organization(BaseModel):
     phone: Optional[str] = None
     whatsapp_link: Optional[str] = None
     created_at: datetime
+    # NEXUS_MARKETING_VERTICALS_V1: drives which campaign template wording
+    # (barbershop/hair_salon/nail_spa/lash_spa/beauty_salon) Marketing suggests.
+    business_type: str = "barbershop"
+    # NEXUS_AI_V1: platform-controlled addon entitlement. `enabled` can only be
+    # True when `contracted` is True (enforced server-side in nexus_ai.py).
+    nexus_ai_contracted: bool = False
+    nexus_ai_enabled: bool = False
     # Notification settings (personalizable por admin)
     notification_settings: Optional[dict] = Field(
         default_factory=lambda: {
@@ -314,6 +321,8 @@ class Service(BaseModel):
     name: str
     duration: int
     price: float
+    # NEXUS_SERVICE_PHOTOS_V1: max 2, enforced in service_media.py
+    photos: List[str] = Field(default_factory=list)
     created_at: datetime
 
 
@@ -383,6 +392,9 @@ class Client(BaseModel):
     total_visits: int = 0
     loyalty_points: int = 0
     last_visit: Optional[str] = None
+    # NEXUS_CLIENT_BIRTHDAY_V1: "YYYY-MM-DD", optional. Only month/day are used
+    # (birthday campaigns compare day-of-year, ignoring the year on purpose).
+    birthday: Optional[str] = None
     created_at: datetime
     updated_at: datetime
 
@@ -574,6 +586,10 @@ class OrganizationUpdate(BaseModel):
     portal_show_hours: Optional[bool] = None
     portal_show_map: Optional[bool] = None
     catalog_enabled: Optional[bool] = None
+    # NEXUS_LOW_STOCK_ALERT_DAEMON_V1
+    notification_settings: Optional[dict] = None
+    # NEXUS_MARKETING_VERTICALS_V1
+    business_type: Optional[str] = None
 
 
 # Helper function to sanitize phone numbers
@@ -2515,17 +2531,31 @@ async def create_organization(
     data: OrganizationCreate, authorization: Optional[str] = Header(None), session_token: Optional[str] = Cookie(None)
 ):
     current_user = await get_current_user(authorization, session_token)
-    if current_user.role != "owner" or current_user.access_status != "approved":
-        raise HTTPException(status_code=403, detail="Approved Owner access required")
+    is_owner_flow = current_user.role == "owner" and current_user.access_status == "approved"
+    # NEXUS_SELF_SERVICE_MANAGER_ONBOARDING_V1: an approved manager/admin without an
+    # organization yet may create their own (never someone else's) organization.
+    # manager_user_id is always forced to the caller's own id below; the client
+    # value is ignored on this path so a manager can never onboard another user.
+    is_self_service = (
+        current_user.role in {"manager", "admin"}
+        and current_user.access_status == "approved"
+        and not current_user.organization_id
+    )
+    if not is_owner_flow and not is_self_service:
+        raise HTTPException(
+            status_code=403,
+            detail="Approved Owner access required, or an approved Manager without an organization",
+        )
     owner_before = await db.users.find_one(
         {"user_id": current_user.user_id}, {"_id": 0, "user_id": 1, "organization_id": 1, "role": 1, "access_status": 1}
     )
     if not owner_before:
         raise HTTPException(
             status_code=409,
-            detail={"code": "owner_record_missing", "message": "Owner account could not be revalidated"},
+            detail={"code": "owner_record_missing", "message": "Account could not be revalidated"},
         )
-    manager_before = await db.users.find_one({"user_id": data.manager_user_id}, {"_id": 0})
+    effective_manager_id = current_user.user_id if is_self_service else data.manager_user_id
+    manager_before = await db.users.find_one({"user_id": effective_manager_id}, {"_id": 0})
     await _eligible_onboarding_manager(manager_before)
     manager_had_organization = "organization_id" in manager_before
     manager_original_organization = manager_before.get("organization_id")
@@ -2561,7 +2591,7 @@ async def create_organization(
         "name": name,
         "owner_id": current_user.user_id,
         "created_by_owner_id": current_user.user_id,
-        "primary_manager_user_id": data.manager_user_id,
+        "primary_manager_user_id": effective_manager_id,
         "address": data.address,
         "business_hours": data.business_hours,
         "phone": sanitize_phone(data.phone) if data.phone else None,
@@ -2585,7 +2615,7 @@ async def create_organization(
         "entity_id": org_id,
         "actor_user_id": current_user.user_id,
         "previous_value": None,
-        "new_value": {"organization": org_doc, "manager_user_id": data.manager_user_id, "fiscal_profile_version": 1},
+        "new_value": {"organization": org_doc, "manager_user_id": effective_manager_id, "fiscal_profile_version": 1},
         "reason": data.reason.strip(),
         "created_at": now,
     }
@@ -2595,7 +2625,7 @@ async def create_organization(
         inserted_org = True
         result = await db.users.update_one(
             {
-                "user_id": data.manager_user_id,
+                "user_id": effective_manager_id,
                 "role": {"$in": ["manager", "admin"]},
                 "access_status": "approved",
                 "active": {"$ne": False},
@@ -2616,7 +2646,7 @@ async def create_organization(
                 detail={
                     "code": "manager_assignment_conflict",
                     "message": "Manager changed before organization assignment",
-                    "manager_user_id": data.manager_user_id,
+                    "manager_user_id": effective_manager_id,
                 },
             )
         linked_manager = True
@@ -2628,7 +2658,10 @@ async def create_organization(
             {"user_id": current_user.user_id},
             {"_id": 0, "user_id": 1, "organization_id": 1, "role": 1, "access_status": 1},
         )
-        if owner_after != owner_before:
+        # Only enforced for the Owner flow: in self-service, the caller IS the
+        # manager being linked, so their own organization_id changing is the
+        # expected success outcome, not a race condition.
+        if is_owner_flow and owner_after != owner_before:
             raise RuntimeError("OWNER_ORGANIZATION_INVARIANT_VIOLATION")
     except Exception:
         if inserted_audit:
@@ -2650,7 +2683,7 @@ async def create_organization(
                 rollback_update["$unset"]["organization_id"] = ""
             await db.users.update_one(
                 {
-                    "user_id": data.manager_user_id,
+                    "user_id": effective_manager_id,
                     "organization_id": org_id,
                     "organization_joined_by": current_user.user_id,
                 },
@@ -4810,6 +4843,7 @@ async def update_client(
     accepts_marketing: Optional[bool] = None,
     name: Optional[str] = None,
     email: Optional[str] = None,
+    birthday: Optional[str] = None,
     authorization: Optional[str] = Header(None),
     session_token: Optional[str] = Cookie(None),
 ):
@@ -4832,6 +4866,10 @@ async def update_client(
         update_data["name"] = name
     if email:
         update_data["email"] = email
+    if birthday is not None:
+        if birthday and not re.fullmatch(r"\d{4}-\d{2}-\d{2}", birthday):
+            raise HTTPException(status_code=400, detail="birthday must be in YYYY-MM-DD format")
+        update_data["birthday"] = birthday or None
 
     if update_data:
         update_data["updated_at"] = datetime.now(timezone.utc).isoformat()
@@ -4839,6 +4877,41 @@ async def update_client(
 
     updated_client = await db.clients.find_one({"client_id": client_id}, {"_id": 0})
     return updated_client
+
+
+# NEXUS_CLIENT_BIRTHDAY_V1
+@api_router.get("/clients/upcoming-birthdays", tags=["clients"])
+async def get_upcoming_birthdays(
+    organization_id: Optional[str] = None,
+    days: int = Query(default=30, ge=1, le=365),
+    authorization: Optional[str] = Header(None),
+    session_token: Optional[str] = Cookie(None),
+):
+    """Clients whose birthday (day-of-year, ignoring birth year) falls within the next N days."""
+    current_user = await get_current_user(authorization, session_token)
+    require_management_role(current_user)
+    org_filter = await get_organization_filter(current_user, organization_id)
+    org_filter["birthday"] = {"$type": "string", "$ne": None}
+    clients = await db.clients.find(
+        org_filter, {"_id": 0, "client_id": 1, "name": 1, "phone": 1, "email": 1, "birthday": 1}
+    ).to_list(10000)
+
+    today = datetime.now(timezone.utc).date()
+    upcoming = []
+    for client in clients:
+        try:
+            month, day = (int(part) for part in client["birthday"].split("-")[1:])
+            next_birthday = datetime(today.year, month, day).date()
+            if next_birthday < today:
+                next_birthday = datetime(today.year + 1, month, day).date()
+        except (ValueError, KeyError):
+            continue
+        days_until = (next_birthday - today).days
+        if days_until <= days:
+            upcoming.append({**client, "days_until": days_until, "next_birthday": next_birthday.isoformat()})
+
+    upcoming.sort(key=lambda c: c["days_until"])
+    return upcoming
 
 
 @api_router.get("/clients/{client_id}/history", tags=["clients"])
@@ -6849,6 +6922,7 @@ api_router.include_router(
 
 # NEXUS_INVENTORY_REORDER_ALERTS_V1
 from inventory_reorder import build_inventory_reorder_router, ensure_inventory_reorder_indexes
+from low_stock_alerts import ensure_low_stock_alert_indexes
 
 api_router.include_router(
     build_inventory_reorder_router(db, get_current_user, require_management_role, resolve_team_organization),
@@ -6924,6 +6998,22 @@ from organization_media import build_organization_media_router
 api_router.include_router(
     build_organization_media_router(db, get_current_user, require_management_role, resolve_team_organization),
     tags=["organizations"],
+)
+
+# NEXUS_SERVICE_PHOTOS_V1
+from service_media import build_service_media_router
+
+api_router.include_router(
+    build_service_media_router(db, get_current_user, require_management_role, resolve_team_organization),
+    tags=["services"],
+)
+
+# NEXUS_AI_V1
+from nexus_ai import build_nexus_ai_router
+
+api_router.include_router(
+    build_nexus_ai_router(db, get_current_user, require_management_role, resolve_team_organization),
+    tags=["nexus-ai"],
 )
 
 # NEXUS_PLATFORM_BRANDING_V1: the Nexus platform's own logo (owner-only,
@@ -7144,6 +7234,12 @@ async def create_application_indexes():
     # NEXUS_8A7S1A_SUPPORT_FOUNDATION_INDEXES_V1
     await ensure_support_center_indexes(db)
     await ensure_catalog_indexes(db)
+    # NEXUS_LOW_STOCK_ALERT_DAEMON_V1
+    await ensure_low_stock_alert_indexes(db)
+    # NEXUS_AI_V1
+    await db.nexus_ai_conversations.create_index("conversation_id", unique=True)
+    await db.nexus_ai_conversations.create_index([("organization_id", 1), ("user_id", 1), ("updated_at", -1)])
+    await db.nexus_ai_messages.create_index([("conversation_id", 1), ("created_at", 1)])
     if os.getenv("SUBSCRIPTION_SCHEDULER_ENABLED", "false").lower() in {"1", "true", "yes", "on"}:
         asyncio.create_task(scheduler_loop(db, invoice_pdf))
     # NEXUS_PERSISTENT_QUERY_INDEXES_4E3_V1

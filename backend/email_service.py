@@ -695,6 +695,62 @@ class EmailService:
         
         return self._send_email(admin_email, subject, html_body)
 
+    # NEXUS_LOW_STOCK_ALERT_DAEMON_V1
+    def send_low_stock_alert_email(self, to_email: str, organization_name: str, items: list) -> bool:
+        """Monthly low-stock digest for a manager/owner."""
+        organization_name = escape(organization_name)
+        top_items = items[:15]
+        rows = "".join(
+            f"""<tr>
+                <td style="padding:8px 12px;border-bottom:1px solid rgba(255,255,255,0.08);">{escape(str(item.get('name') or 'Producto'))}</td>
+                <td style="padding:8px 12px;border-bottom:1px solid rgba(255,255,255,0.08);text-align:center;">{escape(str(item.get('quantity', 0)))} {escape(str(item.get('unit') or ''))}</td>
+                <td style="padding:8px 12px;border-bottom:1px solid rgba(255,255,255,0.08);text-align:center;color:{'#ff453a' if item.get('severity') == 'critical' else '#ff9f0a'};">
+                    {'Crítico' if item.get('severity') == 'critical' else 'Bajo'}
+                </td>
+            </tr>"""
+            for item in top_items
+        )
+        more_note = (
+            f"<p style='color:#aaa;font-size:13px;'>Y {len(items) - 15} producto(s) más con bajo stock.</p>"
+            if len(items) > 15
+            else ""
+        )
+        subject = f"⚠️ Alerta mensual de inventario - {organization_name}"
+        html_body = f"""
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <meta charset="UTF-8">
+            <style>
+                body {{ font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; margin: 0; padding: 0; background-color: #000000; }}
+                .container {{ max-width: 600px; margin: 40px auto; background: linear-gradient(135deg, #1a1a1a 0%, #0a0a0a 100%); border-radius: 16px; overflow: hidden; border: 1px solid rgba(255,255,255,0.1); }}
+                .header {{ background: linear-gradient(135deg, #ff9f0a 0%, #ff453a 100%); padding: 30px 20px; text-align: center; }}
+                .header h1 {{ color: white; margin: 0; font-size: 22px; font-weight: 300; }}
+                .content {{ padding: 30px; color: #ffffff; }}
+                table {{ width: 100%; border-collapse: collapse; margin-top: 12px; font-size: 14px; }}
+                th {{ text-align: left; padding: 8px 12px; color: #999; font-size: 12px; text-transform: uppercase; }}
+                .footer {{ padding: 20px; text-align: center; color: #666; font-size: 12px; border-top: 1px solid rgba(255,255,255,0.1); }}
+            </style>
+        </head>
+        <body>
+            <div class="container">
+                <div class="header"><h1>⚠️ Alerta Mensual de Inventario</h1></div>
+                <div class="content">
+                    <p>Estos productos necesitan reabastecimiento en <strong>{organization_name}</strong>:</p>
+                    <table>
+                        <tr><th>Producto</th><th style="text-align:center;">Stock</th><th style="text-align:center;">Estado</th></tr>
+                        {rows}
+                    </table>
+                    {more_note}
+                    <p style="color: #aaa; margin-top: 20px; font-size: 14px;">Genera órdenes de compra desde el módulo de Inventario en Nexus.</p>
+                </div>
+                <div class="footer"><p><strong>{organization_name}</strong> · Alerta enviada automáticamente una vez al mes.</p></div>
+            </div>
+        </body>
+        </html>
+        """
+        return self._send_email(to_email, subject, html_body)
+
     def send_team_invitation(
         self,
         to_email: str,

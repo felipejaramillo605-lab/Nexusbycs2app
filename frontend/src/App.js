@@ -34,6 +34,8 @@ const OwnerPlatformBranding = lazy(() => import('./pages/OwnerPlatformBranding')
 const ProfessionalMetrics = lazy(() => import('./pages/ProfessionalMetrics'));
 const StaffReviews = lazy(() => import('./pages/StaffReviews'));
 const OwnerOrganizationOnboarding = lazy(() => import('./pages/OwnerOrganizationOnboarding'));
+const ManagerOrganizationOnboarding = lazy(() => import('./pages/ManagerOrganizationOnboarding'));
+const NexusAI = lazy(() => import('./pages/NexusAI'));
 const ManagerDashboard = lazy(() => import('./pages/ManagerDashboard'));
 const ManagerBilling = lazy(() => import('./pages/ManagerBilling'));
 const ManagerFiscalProfile = lazy(() => import('./pages/ManagerFiscalProfile'));
@@ -141,6 +143,10 @@ function AppRouter() {
               <Route path="/manager/barbers/:barberId/metrics" element={<ProtectedRoute requiredRole="manager"><Suspense fallback={<PageLoader />}><ProfessionalMetrics /></Suspense></ProtectedRoute>} />
               <Route path="/staff/reviews" element={<ProtectedRoute requiredRole="staff"><Suspense fallback={<PageLoader />}><StaffReviews /></Suspense></ProtectedRoute>} />
         <Route path="/owner/organizations/new" element={<ProtectedRoute requiredRole="owner"><OwnerOrganizationOnboarding /></ProtectedRoute>} />
+        {/* NEXUS_SELF_SERVICE_MANAGER_ONBOARDING_V1 */}
+        <Route path="/manager/organizations/new" element={<ProtectedRoute allowedRoles={['manager', 'admin']}><Suspense fallback={<PageLoader />}><ManagerOrganizationOnboarding /></Suspense></ProtectedRoute>} />
+        {/* NEXUS_AI_V1 */}
+        <Route path="/manager/nexus-ai" element={<ProtectedRoute allowedRoles={['owner', 'manager', 'admin']}><Suspense fallback={<PageLoader />}><NexusAI /></Suspense></ProtectedRoute>} />
 
         {/* Settings and related redirects */}
         <Route path="/manager/settings" element={<ProtectedRoute allowedRoles={['owner', 'manager', 'admin']}><Settings /></ProtectedRoute>} />

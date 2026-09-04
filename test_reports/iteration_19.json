@@ -2,8 +2,8 @@
   "summary": "CRITICAL PRODUCTION BLOCKER CONFIRMED: All state-changing POST requests coming through the public preview URL (proxied from 10.81.21.x) are rejected by request_security.enforce_request_security with 403 'Request origin is not allowed'. Manager login itself fails from a real browser (Playwright), which means the reported bug 'No fue posible crear el profesional' is a symptom — users cannot even authenticate reliably, let alone POST /api/barbers. Backend logic is otherwise correct: creating a barber via localhost:8001 with same Origin header succeeds, and the previous UI flow at 23:24 succeeded once. Frontend copy is now 'Profesionales' (no residual 'Barberos' strings in src).",
   "tested_scope": ["backend", "frontend", "auth", "integration"],
   "passed": [
-    "POST http://localhost:8001/api/auth/login with Origin=https://clipper-manage-1.preview.emergentagent.com -> 200 (TRUSTED_ORIGINS is loaded correctly in-process)",
-    "TRUSTED_ORIGINS resolved at runtime = ['https://clipper-manage-1.preview.emergentagent.com', 'https://clipper-manage-1.emergent.host']",
+    "POST http://localhost:8001/api/auth/login with Origin=https://listos-manager-reg.preview.emergentagent.com -> 200 (TRUSTED_ORIGINS is loaded correctly in-process)",
+    "TRUSTED_ORIGINS resolved at runtime = ['https://listos-manager-reg.preview.emergentagent.com', 'https://clipper-manage-1.emergent.host']",
     "Frontend source no longer contains user-facing 'Barbero(s)' strings (only 'Profesional(es)')",
     "One successful create_barber for manager was observed in backend logs (23:24:36) with structured logs and no PII (phone/address/bio)",
     "Frontend ManagerBarbers.js correctly omits organization_id in manager payload and includes extractErrorMessage handling 401/402/403/404/422"
@@ -11,8 +11,8 @@
   "failed": [
     {
       "area": "backend/security (preview gateway integration)",
-      "issue": "POST /api/auth/login through https://clipper-manage-1.preview.emergentagent.com returns 403 'Request origin is not allowed' from BOTH a real browser (Playwright) AND curl, even with Origin/Referer/Sec-Fetch-Site headers set to the preview URL. Backend access log shows repeated '10.81.21.x - POST /api/auth/login 403 Forbidden'. Same call to localhost:8001 with the same Origin succeeds. This means the internal preview proxy is either overwriting the client Origin header with an internal value or dropping the browser Sec-Fetch metadata in a way that triggers request_security.py line 122-124 rejection.",
-      "evidence": "curl -X POST https://clipper-manage-1.preview.emergentagent.com/api/auth/login -H 'Origin: https://clipper-manage-1.preview.emergentagent.com' -> 403 {\"detail\":\"Request origin is not allowed\"}. Same body via curl to http://localhost:8001 -> 200 OK. Playwright browser also gets 403 on login. Backend restarted; issue persists.",
+      "issue": "POST /api/auth/login through https://listos-manager-reg.preview.emergentagent.com returns 403 'Request origin is not allowed' from BOTH a real browser (Playwright) AND curl, even with Origin/Referer/Sec-Fetch-Site headers set to the preview URL. Backend access log shows repeated '10.81.21.x - POST /api/auth/login 403 Forbidden'. Same call to localhost:8001 with the same Origin succeeds. This means the internal preview proxy is either overwriting the client Origin header with an internal value or dropping the browser Sec-Fetch metadata in a way that triggers request_security.py line 122-124 rejection.",
+      "evidence": "curl -X POST https://listos-manager-reg.preview.emergentagent.com/api/auth/login -H 'Origin: https://listos-manager-reg.preview.emergentagent.com' -> 403 {\"detail\":\"Request origin is not allowed\"}. Same body via curl to http://localhost:8001 -> 200 OK. Playwright browser also gets 403 on login. Backend restarted; issue persists.",
       "priority": "HIGH"
     },
     {

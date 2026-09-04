@@ -21,7 +21,35 @@ export const MESSAGE_TEMPLATES = {
   APPOINTMENT_REMINDER: 'appointment_reminder',
   REACTIVATION: 'reactivation',
   PROMOTION: 'promotion',
+  BIRTHDAY: 'birthday',
   OPERATIONAL_NOTICE: 'operational_notice'
+};
+
+// NEXUS_MARKETING_VERTICALS_V1: per-vertical wording so campaigns don't read
+// as barbershop-only copy when the tenant is a nail/lash/beauty salon.
+export const VERTICAL_LABELS = {
+  barbershop: 'Barbería',
+  hair_salon: 'Peluquería',
+  nail_spa: 'Spa de uñas',
+  lash_spa: 'Spa de pestañas',
+  beauty_salon: 'Salón de belleza',
+};
+
+const VERTICAL_SERVICE_NOUN = {
+  barbershop: 'un nuevo corte',
+  hair_salon: 'un nuevo look',
+  nail_spa: 'tu manicure',
+  lash_spa: 'tu lash lift',
+  beauty_salon: 'tu próximo servicio',
+};
+
+export const generateReactivationMessageFor = (clientName, businessType = 'barbershop') => {
+  const noun = VERTICAL_SERVICE_NOUN[businessType] || VERTICAL_SERVICE_NOUN.barbershop;
+  return `👋 *¡Te extrañamos!*\n\nHola ${clientName},\n\nHace mucho que no te vemos. ¿Qué tal ${noun}?\n\nAgenda tu cita aquí:\n[BOOKING_LINK]\n\n¡Te esperamos! ✨`;
+};
+
+export const generateBirthdayMessage = (clientName, businessName = 'Nexus') => {
+  return `🎂 *¡Feliz cumpleaños, ${clientName}!*\n\nTodo el equipo de ${businessName} te desea un día increíble.\n\nComo regalo, te esperamos con algo especial en tu próxima visita:\n[BOOKING_LINK]\n\n¡Que lo disfrutes! 🎉`;
 };
 
 /**
@@ -256,5 +284,8 @@ export default {
   sendOperationalNotice,
   sendBatchMessages,
   MESSAGE_TEMPLATES,
+  VERTICAL_LABELS,
+  generateReactivationMessageFor,
+  generateBirthdayMessage,
   IS_MOCK_MODE
 };

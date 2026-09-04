@@ -1,0 +1,150 @@
+<analysis>**original_problem_statement**: 
+The user wants to implement several features and fixes for Nexus by CS2, a multi-tenant ERP PWA for barbershops. Key requirements include:
+1. Implementing features from a competitive audit (Block 1: Quick Wins like Reorder Alerts, Loyalty Program Phase 1, Auto-Review Requests).
+2. Fixing a deployment blocker related to MongoDB index conflicts.
+3. Executing a highly specific set of optimizations provided in .
+4. Removing the terms Barbero and Barbería from all outgoing emails, replacing them with Profesional.
+5. Adding Emergent-managed Google Auth integration.
+
+**PRODUCT REQUIREMENTS**:
+- Strict adherence to security (CORS, RLS, auth). 
+- Do not refactor minified forms blindly. 
+- Prefix all backend routes with . 
+- Multi-tenant architecture implies managers can only affect their organization's data.
+
+**User's preferred language**: SPANISH (The user communicates exclusively in Spanish. INSTRUCT THE NEXT AGENT TO RESPOND IN SPANISH ONLY).
+
+**what currently exists?**: 
+A full-stack React + FastAPI + MongoDB multi-tenant application. It currently has features for Appointments, Client Portal, Inventory, Loyalty Program (accumulation phase), Email Notifications (SMTP), automated 1hr post-visit feedback loops, and Emergent Google Sign-in.
+
+**Last working item**:
+- **Last item agent was working**: Integrating Emergent-managed Google Sign-in. The agent discovered the codebase already had frontend UI ( tab, ) and a backend endpoint (). The agent fortified the backend endpoint by adding  for new users, rate limiting, and  cookies to comply with the integration playbook.
+- **Status**: USER VERIFICATION PENDING
+- **Agent Testing Done**: Y
+- **Which testing method agent to use?**: NA (Testing was completed via backend curl commands).
+- **User Testing Done**: N
+
+**All Pending/In progress Issue list**:
+No active bugs are currently pending. All reported P0 and P1 issues in the session were resolved.
+
+**In progress Task List**:
+Task 1: Self-Service Manager Registration (PROMPT 5 from user artifacts)
+  - **Where to resume**: Review  for PROMPT 5. It requires creating models for , building approval endpoints, creating a 3-step frontend wizard (), and adding email templates.
+  - **What will be achieved with this?**: Allows new managers to sign up autonomously and await admin approval, replacing manual DB seeding.
+  - **Status**: NOT STARTED
+  - **Should Test frontend/backend/both after fix?**: Both (Use )
+  - **Blocked on something**: NA
+
+**Upcoming and Future Tasks**:
+Upcoming Tasks:
+- Add a daily daemon email for Reorder Alerts (currently alerts are only visible in the manager UI). Priority: P1.
+- Loyalty Program Phase 2: Add automatic point redemption during the checkout flow. Priority: P2.
+- Staff Gamification: Add monthly goals (monthly_goal_amount) configurable by managers in . Priority: P2.
+
+Future Tasks:
+- Integrate real WhatsApp Business API via Twilio (replacing the static link). Priority: P2.
+- Waitlist management and automatic next-in-line offers. Priority: P2.
+- Deposit/No-show fee captures via Stripe. Priority: P1.
+- Self-checkout via QR codes. Priority: P2.
+
+**Completed work in this session**:
+- Resolved MongoDB deployment crash (IndexKeySpecsConflict on ) by making index creation idempotent with  (DONE)
+- Inventory Reorder Alerts:  and UI banner/modal in  (DONE)
+- Fixed Google Calendar URL parsing in  (supported 24h format) and added Outlook Calendar button (DONE)
+- Loyalty Program Phase 1: Added  increments and  accumulation during checkout, with UI in , , and  (DONE)
+- Fixed CSS legibility for Payment Select in  (Prompt 2) (DONE)
+- Auto Feedback/Google Reviews: Re-styled the 1hr post-checkout email template to match Google Reviews branding and added settings UI (Prompt 3 & 4) (DONE)
+- Replaced all instances of Barbero/Barbería with Profesional in HTML and plaintext emails in  (DONE)
+- Integrated Emergent Google Auth (DONE)
+- Fixed  which was improperly excluding  files from production deployment (DONE)
+
+**Earlier issues found/mentioned but not fixed**:
+None.
+
+**Known issue recurrence from previous fork**:
+- Issue recurrence in previous fork: MongoDB  on  preventing backend startup in production.
+- Recurrence count: 1
+- Status: RESOLVED (The index is now safely dropped and recreated with ).
+
+**Code Architecture**:
+- Backend: FastAPI, motor (async MongoDB).  is the massive main file containing models and routes. Services like , ,  handle specific domains.
+- Frontend: React (CRA). Contexts for Auth.  holds axios instances. Pages are in .
+
+**Key Technical Concepts**:
+- Multi-tenancy: Every request requires  validation.
+- RLS (Row Level Security): Handled explicitly in endpoints to ensure users cannot touch other orgs' data.
+- Daemon pattern: Uses  to run background tasks like .
+
+**key DB schema**:
+- : {organization_id, name, review_link, loyalty_settings, notification_settings}
+- : {user_id, role, organization_id, auth_method}
+- : {barber_id, user_id, organization_id} (These are Professionals)
+- : {item_id, quantity, min_stock, sku}
+- : {client_id, organization_id, total_visits, loyalty_points}
+
+**changes in tech stack**:
+- Added Emergent Google Auth integration via .
+
+**All files of reference**:
+-  (Core logic, heavily updated for loyalty, inventory, auth)
+-  (Updated to fix calendar links, rename barbero, add Google Reviews style)
+-  (Updated with UI for Loyalty and Reviews)
+-  (Added reorder alerts)
+-  (Added Loyalty Progress UI)
+-  &  (Google Auth flow)
+-  (Created playbook notes for auth testing)
+
+**Areas that need refactoring**:
+-  is over 5700 lines long and handles everything from models to auth to appointments. It severely needs breakdown into  and  folders to improve maintainability.
+
+**key api endpoints**:
+-  (Google Auth handoff)
+-  (Update org settings, protected by RLS)
+- 
+- 
+
+**Critical Info for New Agent**:
+- **LANGUAGE**: You must reply in SPANISH to the user.
+- **TERMINOLOGY**: NEVER use the words Barbero or Barbería in user-facing texts or emails. Always use Profesional or Local.
+- **AUTH**: Google Auth is active. The backend relies on . Test accounts are in .
+- **PROMPTS**: The user provided a file  as an artifact. You are currently pending PROMPT 5 from that file. When implementing, read it carefully but adapt it to the existing  structure (the user's prompts assume a broken-down  folder structure which doesn't exist yet).
+
+**documents and test reports created in this job**:
+- 
+- 
+- 
+- 
+
+**Last 10 User Messages and any pending HUMAN messages**:
+- User requested adding Emergent managed Google sign-in. (Completed)
+- User requested fixing emails to ensure Barbero/Barbería is never mentioned. (Completed)
+- User acknowledged completion of 4 out of 5 prompts and instructed deploying to prod. (Completed)
+- User provided specific artifacts with highly detailed prompts () and instructed the agent to act strictly as a blind executor. (In progress - Prompt 5 remaining).
+
+**Project Health Check**:
+- Broken: None
+- Mocked: WhatsApp integration (currently just a static ).
+
+**3rd Party Integrations**:
+- Emergent Auth (Google OAuth) - Platform managed
+- SMTP (Gmail) - User Credentials
+- Google/Outlook Calendar - Generated URL links
+
+**Testing status**:
+- Testing agent used after significant changes: YES (iteration_21.json used to catch loyalty auth bug).
+- Troubleshoot agent used after agent stuck in loop: NO
+- Test files created: None
+- Known regressions: None
+
+**Credentials to test flow**:
+Stored in .
+Owner: admin@nexus.com / admin123
+Manager: manager@nexus.com / manager123
+
+**What agent forgot to execute**:
+The agent strategically postponed PROMPT 5 (Self-service registration wizard) due to its size (~19 hours estimated by the user) to prioritize fixing critical UI issues and integrations first. This must be picked up next.
+
+**Debugging checklist for current issue**
+    Issue: Prompt 5 (Self Service Registration) implementation.
+    Frontend files to check:  (to add registration link), create new .
+    Backend files to check:  (add models and endpoints for registration and approval).</analysis>
