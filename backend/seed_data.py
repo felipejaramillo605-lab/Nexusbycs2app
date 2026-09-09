@@ -31,12 +31,20 @@ async def seed_database():
             "address": "Calle 123 #45-67, Bogotá",
             "phone": "+573001234567",
             "email": "info@demobarbershop.com",
+            "nexus_ai_contracted": True,
+            "nexus_ai_enabled": True,
             "created_at": now,
             "updated_at": now
         }
         await db.organizations.insert_one(org_doc)
         print(f"✓ Created organization: {org_id}")
     else:
+        if not (existing_org.get("nexus_ai_contracted") and existing_org.get("nexus_ai_enabled")):
+            await db.organizations.update_one(
+                {"organization_id": org_id},
+                {"$set": {"nexus_ai_contracted": True, "nexus_ai_enabled": True, "updated_at": now}},
+            )
+            print(f"✓ Backfilled nexus_ai entitlement for existing org: {org_id}")
         print(f"⊙ Organization already exists: {org_id}")
     
     # 2. Create Owner User

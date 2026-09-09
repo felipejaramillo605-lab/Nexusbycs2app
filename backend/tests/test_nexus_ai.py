@@ -1,32 +1,29 @@
 """Nexus AI Phase 3 backend tests: entitlement, RBAC, multi-tenant isolation."""
 import os
 import pytest
-import requests
 
 BASE_URL = os.environ.get("REACT_APP_BACKEND_URL", "https://listos-manager-reg.preview.emergentagent.com").rstrip("/")
 
-
-def _login(email, password):
-    s = requests.Session()
-    s.headers.update({"Origin": BASE_URL, "Sec-Fetch-Site": "same-origin"})
-    r = s.post(f"{BASE_URL}/api/auth/login", json={"email": email, "password": password}, timeout=15)
-    assert r.status_code == 200, f"Login failed for {email}: {r.status_code} {r.text}"
-    return s
+# owner/manager/staff reuse conftest.py's session-scoped owner_client/manager_client/staff_client
+# fixtures (one real login per role per pytest-xdist worker for the whole run) instead of this
+# module logging in again on its own -- that extra per-module login, multiplied across every test
+# file that did the same thing, blew past the /auth/login rate limit (5/minute/IP) once everything
+# ran together under -n 2 --dist loadscope in CI.
 
 
 @pytest.fixture(scope="module")
-def owner():
-    return _login("admin@nexus.com", "admin123")
+def owner(owner_client):
+    return owner_client
 
 
 @pytest.fixture(scope="module")
-def manager():
-    return _login("manager@nexus.com", "manager123")
+def manager(manager_client):
+    return manager_client
 
 
 @pytest.fixture(scope="module")
-def staff():
-    return _login("staff@test.com", "Nexus2026")
+def staff(staff_client):
+    return staff_client[0]
 
 
 ORG = "org_demo001"
@@ -102,3 +99,60 @@ class TestNexusAIConversations:
         rm = manager.get(f"{BASE_URL}/api/nexus-ai/conversations/{conv_id}/messages", timeout=15)
         assert rm.status_code == 200
         assert isinstance(rm.json(), list)
+
+
+class TestNexusAISendManagerReminder:
+    """The send_manager_reminder tool is only reachable through the LLM tool-calling loop
+    (no dedicated HTTP endpoint), so this exercises the handler directly against the test DB
+    rather than through a real Gemini call -- same "import the backend module, assert DB state"
+    approach as TestLowStockDaemonSmoke in test_self_service_and_low_stock.py."""
+
+    def test_creates_notification_visible_in_bell(self, manager, db):
+        import asyncio
+        import sys
+
+        sys.path.insert(0, "/app/backend")
+        from motor.motor_asyncio import AsyncIOMotorClient
+        import nexus_ai
+
+        mongo_url = os.environ.get("MONGO_URL", "mongodb://localhost:27017")
+        db_name = os.environ.get("DB_NAME", "test_database")
+        motor_db = AsyncIOMotorClient(mongo_url)[db_name]
+
+        result = asyncio.run(
+            nexus_ai._send_manager_reminder(
+                motor_db, ORG, user_id="TEST_manager_user", title="Revisar inventario",
+                message="Recuerda revisar el stock de productos de tinte antes del viernes.",
+            )
+        )
+        assert result.get("ok") is True
+        notification_id = result["notification_id"]
+
+        row = db.subscription_notifications.find_one({"notification_id": notification_id})
+        assert row is not None
+        assert row["organization_id"] == ORG
+        assert row["event_type"] == "ai_reminder"
+        assert row["title"] == "Revisar inventario"
+        assert row["read_by"] == []
+
+        r = manager.get(f"{BASE_URL}/api/billing/notifications", timeout=15)
+        assert r.status_code == 200
+        ids = [n["notification_id"] for n in r.json()]
+        assert notification_id in ids
+
+        db.subscription_notifications.delete_one({"notification_id": notification_id})
+
+    def test_rejects_empty_title_or_message(self):
+        import asyncio
+        import sys
+
+        sys.path.insert(0, "/app/backend")
+        from motor.motor_asyncio import AsyncIOMotorClient
+        import nexus_ai
+
+        mongo_url = os.environ.get("MONGO_URL", "mongodb://localhost:27017")
+        db_name = os.environ.get("DB_NAME", "test_database")
+        motor_db = AsyncIOMotorClient(mongo_url)[db_name]
+
+        result = asyncio.run(nexus_ai._send_manager_reminder(motor_db, ORG, user_id="x", title="", message=""))
+        assert "error" in result

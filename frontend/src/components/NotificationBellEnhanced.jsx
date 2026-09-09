@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { Bell, BellOff, Volume2, VolumeX, Check, ChevronDown, X, Megaphone, AlertTriangle, Info, Clock } from 'lucide-react';
+import { Bell, BellOff, Volume2, VolumeX, Check, ChevronDown, X, Megaphone, AlertTriangle, Info, Clock, Sparkles } from 'lucide-react';
 import { billingAPI } from '../api';
 
 const SOUND_OPTIONS = [
@@ -44,6 +44,7 @@ const SEVERITY_CONFIG = {
   info: { icon: Info, color: 'text-blue-400', bg: 'bg-blue-500/10', border: 'border-blue-500/20' },
   low_rating_alert: { icon: AlertTriangle, color: 'text-orange-400', bg: 'bg-orange-500/10', border: 'border-orange-500/20' },
   owner_announcement: { icon: Megaphone, color: 'text-purple-400', bg: 'bg-purple-500/10', border: 'border-purple-500/20' },
+  ai_reminder: { icon: Sparkles, color: 'text-emerald-400', bg: 'bg-emerald-500/10', border: 'border-emerald-500/20' },
 };
 
 function getNotifStyle(n) {

@@ -65,6 +65,7 @@ TOOL_DEFINITIONS = [
     {"type": "function", "function": {"name": "get_staff_performance", "description": "Desempeño de cada profesional: reservas, ingresos generados y reseña promedio.", "parameters": {"type": "object", "properties": {"days": {"type": "integer"}, "limit": {"type": "integer"}}}}},
     {"type": "function", "function": {"name": "get_active_campaigns", "description": "Campañas de marketing activas o recientes.", "parameters": {"type": "object", "properties": {}}}},
     {"type": "function", "function": {"name": "search_guides", "description": "Busca en las guías de uso de Nexus (cómo usar una función de la app).", "parameters": {"type": "object", "properties": {"query": {"type": "string"}}, "required": ["query"]}}},
+    {"type": "function", "function": {"name": "send_manager_reminder", "description": "Crea un recordatorio para el equipo de ESTA organización, visible en la campanita de notificaciones de la app. Úsala solo cuando el usuario pida explícitamente que le recuerdes algo a su equipo/manager, nunca por iniciativa propia.", "parameters": {"type": "object", "properties": {"title": {"type": "string", "description": "Título corto del recordatorio (máx. 120 caracteres)"}, "message": {"type": "string", "description": "Detalle del recordatorio (máx. 500 caracteres)"}}, "required": ["title", "message"]}}},
 ]
 
 
@@ -221,6 +222,26 @@ async def _search_guides(db, org, query="", **_):
     return {"guides": [{"title": m["title"], "route": "/manager/guia"} for m in matches]}
 
 
+async def _send_manager_reminder(db, org, user_id=None, title="", message="", **_):
+    title = (title or "").strip()[:120]
+    message = (message or "").strip()[:500]
+    if not title or not message:
+        return {"error": "El recordatorio necesita un título y un mensaje."}
+    row = {
+        "notification_id": f"snot_{uuid.uuid4().hex[:16]}",
+        "organization_id": org,
+        "event_type": "ai_reminder",
+        "severity": "info",
+        "title": title,
+        "message": message,
+        "created_by": user_id,
+        "created_at": datetime.now(timezone.utc).isoformat(),
+        "read_by": [],
+    }
+    await db.subscription_notifications.insert_one(row)
+    return {"ok": True, "notification_id": row["notification_id"]}
+
+
 TOOL_DISPATCH = {
     "get_top_customers": _get_top_customers,
     "get_inactive_customers": _get_inactive_customers,
@@ -232,15 +253,16 @@ TOOL_DISPATCH = {
     "get_staff_performance": _get_staff_performance,
     "get_active_campaigns": _get_active_campaigns,
     "search_guides": _search_guides,
+    "send_manager_reminder": _send_manager_reminder,
 }
 
 
-async def _dispatch_tool(db, org, name, arguments):
+async def _dispatch_tool(db, org, name, arguments, user_id=None):
     fn = TOOL_DISPATCH.get(name)
     if not fn:
         return {"error": f"Herramienta desconocida: {name}"}
     try:
-        return await fn(db, org, **(arguments or {}))
+        return await fn(db, org, user_id=user_id, **(arguments or {}))
     except Exception as exc:
         print(f"nexus_ai_tool_failed tool={name} diagnostic_code={type(exc).__name__}")
         return {"error": "No fue posible consultar esa información en este momento."}
@@ -254,6 +276,7 @@ Reglas estrictas:
 - Cuando detectes clientes en riesgo de no volver, usa lenguaje prudente ("muestra señales de riesgo"), nunca una afirmación determinista.
 - Cuando sea relevante, sugiere una acción concreta dentro de Nexus: crear una campaña desde Marketing, revisar la Guía (/manager/guia), o generar una orden de compra desde Inventario.
 - También puedes explicar cómo usar Nexus (crear un profesional, un servicio, etc.) usando la herramienta search_guides.
+- Puedes crear un recordatorio en la campanita de notificaciones con send_manager_reminder, pero SOLO cuando el usuario te lo pida explícitamente (ej. "recuérdale a mi equipo que..."). Nunca la uses por iniciativa propia, y nunca la uses más de una vez para el mismo pedido. Confirma al usuario cuando el recordatorio quedó creado.
 - Responde siempre en español, con un tono cercano, profesional y conciso (evita párrafos largos innecesarios).
 - Hoy es {today}.
 """
@@ -383,7 +406,7 @@ def build_nexus_ai_router(db, get_current_user, require_management_role, resolve
                     if not pending:
                         break
                     for tc in pending:
-                        result = await _dispatch_tool(db, org_id, tc.name, tc.arguments or {})
+                        result = await _dispatch_tool(db, org_id, tc.name, tc.arguments or {}, user_id=user.user_id)
                         chat.add_tool_result(tc.id, json.dumps(result, default=str, ensure_ascii=False))
                     user_msg = None
             except Exception as exc:

@@ -66,9 +66,15 @@ def _fiscal_payload(email=None):
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
+# owner reuses conftest.py's session-scoped owner_client fixture (one real login per
+# pytest-xdist worker for the whole run) instead of this module logging in again on its own --
+# that extra per-module login, multiplied across every test file that did the same thing, blew
+# past the /auth/login rate limit (5/minute/IP) once everything ran together under
+# -n 2 --dist loadscope in CI. The self-service fresh-manager logins below stay as-is: they're
+# testing the registration flow itself, so they genuinely need their own new login each.
 @pytest.fixture(scope="module")
-def owner():
-    return _login("admin@nexus.com", "admin123")
+def owner(owner_client):
+    return owner_client
 
 
 @pytest.fixture()
@@ -147,9 +153,9 @@ class TestSelfServiceOnboarding:
         r2 = s.post(f"{BASE_URL}/api/organizations", json=payload2, timeout=20)
         assert r2.status_code == 403, f"expected 403 for already-onboarded manager, got {r2.status_code}: {r2.text}"
 
-    def test_existing_manager_forbidden(self):
+    def test_existing_manager_forbidden(self, manager_client):
         """manager@nexus.com already has org_demo001 -> must 403."""
-        s = _login("manager@nexus.com", "manager123")
+        s = manager_client
         payload = {
             "name": f"TEST_Org_{uuid.uuid4().hex[:6]}",
             "manager_user_id": "whatever",

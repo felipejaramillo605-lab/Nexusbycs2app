@@ -9,7 +9,6 @@ import time
 from datetime import date, timedelta
 
 import pytest
-import requests
 from PIL import Image
 
 def _load_frontend_env():
@@ -28,22 +27,14 @@ ORIGIN_HEADERS = {
 ORG_ID = "org_demo001"
 
 
-def _login(email, password):
-    s = requests.Session()
-    r = s.post(
-        f"{BASE_URL}/api/auth/login",
-        json={"email": email, "password": password},
-        headers={**ORIGIN_HEADERS, "Content-Type": "application/json"},
-        timeout=30,
-    )
-    assert r.status_code == 200, r.text
-    s.headers.update(ORIGIN_HEADERS)
-    return s
-
-
+# manager reuses conftest.py's session-scoped manager_client fixture (one real login per
+# pytest-xdist worker for the whole run) instead of this module logging in again on its own --
+# that extra per-module login, multiplied across every test file that did the same thing, blew
+# past the /auth/login rate limit (5/minute/IP) once everything ran together under
+# -n 2 --dist loadscope in CI.
 @pytest.fixture(scope="module")
-def manager():
-    return _login("manager@nexus.com", "manager123")
+def manager(manager_client):
+    return manager_client
 
 
 # ---------- Birthday on clients ----------
@@ -194,12 +185,11 @@ class TestRegressionSmoke:
             r = manager.get(f"{BASE_URL}{path}", params={"organization_id": ORG_ID})
             assert r.status_code == 200, f"{path} -> {r.status_code} {r.text[:200]}"
 
-    def test_owner_login(self):
-        s = _login("admin@nexus.com", "admin123")
-        r = s.get(f"{BASE_URL}/api/organizations")
+    def test_owner_login(self, owner_client):
+        r = owner_client.get(f"{BASE_URL}/api/organizations")
         assert r.status_code == 200
 
-    def test_staff_login(self):
-        s = _login("staff@test.com", "Nexus2026")
+    def test_staff_login(self, staff_client):
+        s, _uid = staff_client
         r = s.get(f"{BASE_URL}/api/auth/me")
         assert r.status_code == 200
