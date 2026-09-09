@@ -66,6 +66,12 @@ jobs:
       DB_NAME: test_database
       EMERGENT_LLM_KEY: dummy-ci-key
       CORS_ORIGINS: http://localhost:3000
+      # product_catalog.py/professional_media.py/professional_media_lifecycle.py default to
+      # /app/data/professional-media (the real Emergent container's path, already owned by
+      # the app there). The GitHub-hosted runner checks out to /home/runner/work/... instead,
+      # has no /app at all, and its user can't create one (PermissionError: /app) -- point
+      # media storage at a runner-writable directory instead.
+      NEXUS_MEDIA_ROOT: /tmp/nexus-ci-media/professional-media
       COOKIE_SECURE: "false"
     steps:
       - uses: actions/checkout@v4
