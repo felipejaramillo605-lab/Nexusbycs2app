@@ -36,22 +36,19 @@ def _session():
 
 
 def _login(email, password):
-    # Retry past a 429 the same way conftest.py's shared _login does: these tests log in a
-    # freshly-registered manager, which can't reuse the session-scoped fixtures, so on a busy
-    # CI run it can land in the same /auth/login rate-limit window (5/minute/IP) as everything
-    # else and get a 429 that has nothing to do with the registration flow being tested.
+    # Wait out a 429 the same way conftest.py's shared _login does (fixed 1-minute window that
+    # a rejected attempt still counts against, so a quick retry only makes it worse): these
+    # tests log in a freshly-registered manager, which can't reuse the session-scoped fixtures,
+    # so on a busy CI run it can land in the same /auth/login rate-limit window (5/minute/IP)
+    # as everything else and get a 429 that has nothing to do with the registration flow
+    # being tested.
     import time
 
     s = _session()
-    last = None
-    for attempt in range(3):
+    r = s.post(f"{BASE_URL}/api/auth/login", json={"email": email, "password": password}, timeout=15)
+    if r.status_code == 429:
+        time.sleep(65)
         r = s.post(f"{BASE_URL}/api/auth/login", json={"email": email, "password": password}, timeout=15)
-        if r.status_code != 429:
-            break
-        last = r
-        time.sleep(13)
-    else:
-        r = last
     assert r.status_code == 200, f"login failed for {email}: {r.status_code} {r.text}"
     return s
 
