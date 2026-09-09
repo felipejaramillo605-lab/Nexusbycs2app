@@ -1,0 +1,27 @@
+{
+  "summary": "Phase 3 Nexus AI end-to-end validation completed. Backend pytest (7/7 pass): entitlement rules (400 without contract, contract=false forces enabled=false), manager forbidden from setting entitlement (403), staff forbidden from ALL /api/nexus-ai/* endpoints (403), owner can toggle, conversations CRUD works. Frontend E2E validated: sidebar has 'Nexus AI' under Crecimiento for both manager and owner, /manager/nexus-ai shows 6 suggested questions, new-conversation btn, input/send with real streaming (text grew from 649->1133 chars progressively), real inventory alerts response (Gel para Cabello 0 units, Hojas de Afeitar 10 units), conversation history persists on reload (4 conv items) and clicking older conv restores messages. Locked state works: when contracted=false the /manager/nexus-ai renders data-testid=nexus-ai-locked-state and nexus-ai-contact-cta. Owner /owner/third-party-matrix drawer shows Nexus AI section with contracted-toggle ('Retirar addon Nexus AI') and enabled-toggle ('Deshabilitar Nexus AI') that only appears when contracted=true. Entitlement restored to contracted=true, enabled=true for org_demo001 as required.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "/manager/nexus-ai and /owner/third-party-matrix", "issues": ["OnboardingTour modal appears every time on these pages for manager and owner sessions during testing (dismissible with X). Not a blocker for real users but modal auto-shows across many pages of the app; consider persisting 'seen' state per user (already may exist but was re-triggered on fresh browser session)."]}
+    ]
+  },
+  "test_report_links": ["/app/backend/tests/test_nexus_ai.py", "/app/test_reports/pytest/nexus_ai_results.xml"],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "nexus_ai.py L294 _deny_staff uses role NOT IN (owner,manager,admin) which correctly blocks staff. Good.",
+    "resolve_team_organization is called server-side using session.user.organization_id -- client-forced organization_id is ignored. Multi-tenant isolation looks correct.",
+    "Conversations & messages are scoped by {organization_id, user_id} in Mongo queries -- correct isolation.",
+    "SSE streaming implemented with fetch+ReadableStream in the frontend; progressive text growth confirmed. 'Consultando: {tool}' indicator was not captured during the fast (~4s) response window -- likely fires very briefly. Consider extending display time (min 500ms) so users always see which tool ran.",
+    "OwnerThirdPartyMatrix.jsx is a very long single-line JSX (line 26 has the entire DetailDrawer render); hard to maintain. Consider extracting the drawer into its own component."
+  ],
+  "updated_files": ["/app/backend/tests/test_nexus_ai.py"],
+  "success_rate": {"backend": "100%", "frontend": "100%"},
+  "test_credentials": "Owner: admin@nexus.com/admin123 (org_demo001) | Manager: manager@nexus.com/manager123 (org_demo001) | Staff: staff@test.com/Nexus2026 (org_demo001). NOTE: login endpoint requires Origin + Sec-Fetch-Site: same-origin headers.",
+  "seed_data_creation": "One test conversation 'TEST_conv' created for manager@nexus.com during pytest. Multiple 'Nueva conversación' conversations were created during UI streaming tests (4 shown after reload). These are user-scoped and do not affect other users.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Nexus AI (Phase 3) is fully functional and org_demo001 has contracted=true, enabled=true. Backend regression suite lives at /app/backend/tests/test_nexus_ai.py -- run with: pytest backend/tests/test_nexus_ai.py -v -o addopts='' (the pytest.ini addopts triggers xdist which was fine but disable with -o addopts='' to avoid parallel scope confusion). Manager should have accumulated 4-5 conversations; feel free to clean if needed via Mongo delete on nexus_ai_conversations where user_id matches manager. Streaming/tool-indicator visual is fast (~4s total); use short polling (500ms) to catch the 'Consultando: {tool}' state if you need to assert it explicitly."
+}

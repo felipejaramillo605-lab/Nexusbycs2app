@@ -19,8 +19,10 @@ const PendingApproval = () => {
 
           {/* Message */}
           <p className="text-[var(--text-secondary)] mb-8 leading-relaxed">
-            Tu solicitud de registro ha sido recibida exitosamente. 
+            Tu solicitud de registro ha sido recibida exitosamente.
             El administrador del sistema debe aprobar tu cuenta antes de que puedas acceder.
+            Una vez aprobada, podrás crear tu propia organización y completar tu perfil fiscal
+            directamente desde la app, sin esperar pasos adicionales.
           </p>
 
           {/* Info Cards */}

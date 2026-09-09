@@ -3,7 +3,7 @@ import pytest
 import requests
 from pymongo import MongoClient
 
-BASE_URL = os.environ.get("REACT_APP_BACKEND_URL", "https://clipper-manage-1.preview.emergentagent.com").rstrip("/")
+BASE_URL = os.environ.get("REACT_APP_BACKEND_URL", "https://listos-manager-reg.preview.emergentagent.com").rstrip("/")
 ORIGIN = BASE_URL
 ORG_ID = "org_demo001"
 
@@ -34,8 +34,19 @@ def _new_session():
 
 
 def _login(email, password):
+    # /auth/login is rate-limited (5/minute/IP) in production for brute-force protection, on a
+    # fixed 1-minute window that a rejected attempt still counts against -- so a quick retry
+    # only makes things worse. With two pytest-xdist workers each logging in a handful of fixed
+    # test accounts at session/module start, it's easy for both workers' logins to land in the
+    # same window and get a 429; wait out the whole window once and retry, instead of failing
+    # the run on CI-only contention that has nothing to do with the code under test.
+    import time
+
     s = _new_session()
     r = s.post(f"{BASE_URL}/api/auth/login", json={"email": email, "password": password}, timeout=15)
+    if r.status_code == 429:
+        time.sleep(65)
+        r = s.post(f"{BASE_URL}/api/auth/login", json={"email": email, "password": password}, timeout=15)
     assert r.status_code == 200, f"Login failed for {email}: {r.status_code} {r.text}"
     return s
 

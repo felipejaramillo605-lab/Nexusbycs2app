@@ -2,9 +2,9 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { clientAPI, organizationAPI, marketingAPI } from '../api';
-import { Send, ArrowLeft, LogOut, Users, MessageSquare, CheckSquare, Loader2, Bell, BellOff, AlertCircle, Mail, MessageCircle } from 'lucide-react';
+import { Send, ArrowLeft, LogOut, Users, MessageSquare, CheckSquare, Loader2, Bell, BellOff, AlertCircle, Mail, MessageCircle, Cake } from 'lucide-react';
 import { toast } from 'sonner';
-import whatsappService, { MESSAGE_TEMPLATES } from '../services/whatsappService';
+import whatsappService, { MESSAGE_TEMPLATES, VERTICAL_LABELS, generateReactivationMessageFor, generateBirthdayMessage } from '../services/whatsappService';
 
 const MarketingCampaigns = () => {
   const { user, logout } = useAuth();
@@ -17,8 +17,13 @@ const MarketingCampaigns = () => {
   const [customMessage, setCustomMessage] = useState('');
   const [sending, setSending] = useState(false);
   const [organizationName, setOrganizationName] = useState('');
+  const [businessType, setBusinessType] = useState('barbershop');
   const [channel, setChannel] = useState('whatsapp'); // 'whatsapp', 'email', 'both'
   const [emailSubject, setEmailSubject] = useState('');
+  // NEXUS_CLIENT_BIRTHDAY_V1
+  const [audience, setAudience] = useState('all'); // 'all' | 'birthdays'
+  const [birthdayClients, setBirthdayClients] = useState([]);
+  const [loadingBirthdays, setLoadingBirthdays] = useState(false);
 
   // Get org_id from query param (for owner) or user.organization_id (for manager)
   const organizationId = (user?.role === 'owner' ? searchParams.get('org_id') : user?.organization_id) || user?.organization_id;
@@ -28,9 +33,23 @@ const MarketingCampaigns = () => {
     try {
       const orgsRes = await organizationAPI.getAll();
       const org = orgsRes.data.find(o => o.organization_id === organizationId);
-      if (org) setOrganizationName(org.name);
+      if (org) { setOrganizationName(org.name); setBusinessType(org.business_type || 'barbershop'); }
     } catch (error) {
       console.error('Error loading organization:', error);
+    }
+  }, [organizationId]);
+
+  // NEXUS_CLIENT_BIRTHDAY_V1
+  const loadBirthdays = useCallback(async () => {
+    if (!organizationId) return;
+    setLoadingBirthdays(true);
+    try {
+      const response = await clientAPI.getUpcomingBirthdays({ organization_id: organizationId, days: 30 });
+      setBirthdayClients(response.data || []);
+    } catch (error) {
+      toast.error('No fue posible cargar los próximos cumpleaños');
+    } finally {
+      setLoadingBirthdays(false);
     }
   }, [organizationId]);
 
@@ -56,8 +75,11 @@ const MarketingCampaigns = () => {
     if (organizationId) {
       loadClients();
       loadOrganizationName();
+      loadBirthdays();
     }
-  }, [organizationId, loadClients, loadOrganizationName]);
+  }, [organizationId, loadClients, loadOrganizationName, loadBirthdays]);
+
+  const displayedClients = audience === 'birthdays' ? birthdayClients : clients;
 
   const handleToggleClient = (clientId) => {
     setSelectedClients(prev => 
@@ -68,22 +90,24 @@ const MarketingCampaigns = () => {
   };
 
   const handleSelectAll = () => {
-    if (selectedClients.length === clients.length) {
+    if (selectedClients.length === displayedClients.length) {
       setSelectedClients([]);
     } else {
-      setSelectedClients(clients.map(c => c.client_id));
+      setSelectedClients(displayedClients.map(c => c.client_id));
     }
   };
 
   const getMessagePreview = () => {
     if (customMessage) return customMessage;
 
-    const clientName = clients[0]?.name || 'Cliente';
+    const clientName = displayedClients[0]?.name || 'Cliente';
 
     if (selectedTemplate === MESSAGE_TEMPLATES.APPOINTMENT_REMINDER) {
       return `🔔 *Recordatorio de Cita*\n\n¡Hola ${clientName}!\n\nTu cita es próximamente.\nNo faltes! 💈`;
+    } else if (selectedTemplate === MESSAGE_TEMPLATES.BIRTHDAY) {
+      return generateBirthdayMessage(clientName, organizationName || 'Nexus').replace('\n\nComo regalo, te esperamos con algo especial en tu próxima visita:\n[BOOKING_LINK]', '');
     } else if (selectedTemplate === MESSAGE_TEMPLATES.REACTIVATION) {
-      return `👋 *¡Te extrañamos!*\n\nHola ${clientName},\n\nHace mucho que no te vemos. ¿Qué tal un nuevo look? 💇‍♂️\n\n¡Te esperamos! ✨`;
+      return generateReactivationMessageFor(clientName, businessType).replace('\n\nAgenda tu cita aquí:\n[BOOKING_LINK]', '');
     } else if (selectedTemplate === MESSAGE_TEMPLATES.PROMOTION) {
       return `🎉 *¡Oferta Especial!*\n\nHola ${clientName},\n\n¡20% de descuento en tu próxima visita!\n\n¡No te lo pierdas! ⏰`;
     }
@@ -110,7 +134,7 @@ const MarketingCampaigns = () => {
 
     // Check if any selected client has email when email channel is selected
     if (channel === 'email' || channel === 'both') {
-      const clientsWithEmail = clients.filter(c => 
+      const clientsWithEmail = displayedClients.filter(c => 
         selectedClients.includes(c.client_id) && c.email
       );
       if (clientsWithEmail.length === 0) {
@@ -212,7 +236,7 @@ const MarketingCampaigns = () => {
                 <div>
                   <h2 className="text-lg font-medium text-[var(--app-text-primary)]">Seleccionar Clientes</h2>
                   <p className="text-sm text-zinc-400">
-                    {selectedClients.length} de {clients.length} seleccionados
+                    {selectedClients.length} de {displayedClients.length} seleccionados
                   </p>
                 </div>
               </div>
@@ -222,20 +246,41 @@ const MarketingCampaigns = () => {
                 className="flex items-center gap-2 px-3 py-2 rounded-lg bg-white/5 hover:bg-white/10 border border-[var(--app-border)] text-[var(--app-text-primary)] transition-all text-sm"
               >
                 <CheckSquare size={16} strokeWidth={1.5} />
-                {selectedClients.length === clients.length ? 'Desmarcar' : 'Seleccionar'} Todo
+                {selectedClients.length === displayedClients.length ? 'Desmarcar' : 'Seleccionar'} Todo
               </button>
             </div>
 
-            {clients.length === 0 ? (
+            {/* NEXUS_CLIENT_BIRTHDAY_V1 — audience toggle */}
+            <div className="flex gap-2 mb-4">
+              <button
+                data-testid="marketing-audience-all"
+                onClick={() => { setAudience('all'); setSelectedClients([]); }}
+                className={`flex-1 py-2 rounded-lg text-sm border transition-all ${audience === 'all' ? 'bg-[var(--app-primary)]/20 border-[var(--app-primary)] text-[var(--app-text-primary)]' : 'bg-white/5 border-[var(--app-border)] text-zinc-400'}`}
+              >
+                Todos los clientes
+              </button>
+              <button
+                data-testid="marketing-audience-birthdays"
+                onClick={() => { setAudience('birthdays'); setSelectedClients([]); setSelectedTemplate(MESSAGE_TEMPLATES.BIRTHDAY); }}
+                className={`flex-1 py-2 rounded-lg text-sm border transition-all flex items-center justify-center gap-1.5 ${audience === 'birthdays' ? 'bg-pink-500/20 border-pink-500 text-[var(--app-text-primary)]' : 'bg-white/5 border-[var(--app-border)] text-zinc-400'}`}
+              >
+                <Cake size={14} /> Cumpleaños próximos ({birthdayClients.length})
+              </button>
+            </div>
+
+            {loadingBirthdays && audience === 'birthdays' ? (
+              <div className="text-center py-12 text-zinc-400"><Loader2 className="animate-spin mx-auto mb-2" size={24} />Cargando cumpleaños...</div>
+            ) : displayedClients.length === 0 ? (
               <div className="text-center py-12">
                 <BellOff size={48} className="text-zinc-600 mx-auto mb-4" />
-                <p className="text-zinc-400">No hay clientes con notificaciones activadas</p>
+                <p className="text-zinc-400">{audience === 'birthdays' ? 'Sin cumpleaños en los próximos 30 días' : 'No hay clientes con notificaciones activadas'}</p>
               </div>
             ) : (
               <div className="space-y-2 max-h-[600px] overflow-y-auto">
-                {clients.map((client) => (
+                {displayedClients.map((client) => (
                   <label
                     key={client.client_id}
+                    data-testid="marketing-client-row"
                     className="flex items-center gap-3 p-3 rounded-xl bg-white/5 border border-[var(--app-border)] hover:bg-white/10 cursor-pointer transition-all"
                   >
                     <input
@@ -249,8 +294,11 @@ const MarketingCampaigns = () => {
                       <div className="text-sm text-zinc-400">{client.phone}</div>
                     </div>
                     <div className="flex items-center gap-2">
-                      <Bell size={14} className="text-green-400" />
-                      <span className="text-xs text-zinc-500">{client.total_visits} visitas</span>
+                      {audience === 'birthdays' ? (
+                        <span className="text-xs text-pink-400">{client.days_until === 0 ? 'Hoy 🎉' : `en ${client.days_until} día${client.days_until !== 1 ? 's' : ''}`}</span>
+                      ) : (
+                        <><Bell size={14} className="text-green-400" /><span className="text-xs text-zinc-500">{client.total_visits} visitas</span></>
+                      )}
                     </div>
                   </label>
                 ))}
@@ -275,7 +323,7 @@ const MarketingCampaigns = () => {
               <label className="block text-sm font-medium text-zinc-400 mb-3">
                 Plantilla de mensaje
               </label>
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                 <button
                   onClick={() => setSelectedTemplate(MESSAGE_TEMPLATES.APPOINTMENT_REMINDER)}
                   className={`p-4 rounded-xl border transition-all text-left ${
@@ -286,6 +334,19 @@ const MarketingCampaigns = () => {
                 >
                   <div className="font-medium mb-1">🔔 Recordatorio</div>
                   <div className="text-xs opacity-75">Recordatorio de cita</div>
+                </button>
+
+                <button
+                  data-testid="marketing-template-birthday"
+                  onClick={() => setSelectedTemplate(MESSAGE_TEMPLATES.BIRTHDAY)}
+                  className={`p-4 rounded-xl border transition-all text-left ${
+                    selectedTemplate === MESSAGE_TEMPLATES.BIRTHDAY
+                      ? 'bg-pink-500/20 border-pink-500 text-[var(--app-text-primary)]'
+                      : 'bg-white/5 border-[var(--app-border)] text-zinc-400 hover:bg-white/10'
+                  }`}
+                >
+                  <div className="font-medium mb-1">🎂 Cumpleaños</div>
+                  <div className="text-xs opacity-75">Felicitación de cumpleaños</div>
                 </button>
                 
                 <button

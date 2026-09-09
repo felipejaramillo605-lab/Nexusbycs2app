@@ -53,6 +53,7 @@ export default function OnboardingTour({ role, autoStart = true }) {
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
+        onClick={close}
       >
         <motion.div
           className="w-full max-w-md rounded-2xl border border-[var(--app-border)] bg-[var(--app-surface-elevated,#fff)] p-6 shadow-2xl"
@@ -60,6 +61,7 @@ export default function OnboardingTour({ role, autoStart = true }) {
           animate={{ opacity: 1, y: 0, scale: 1 }}
           exit={reduced ? undefined : { opacity: 0, y: 16, scale: 0.98 }}
           transition={{ type: 'spring', stiffness: 300, damping: 28 }}
+          onClick={(e) => e.stopPropagation()}
         >
           <div className="flex items-start justify-between mb-4">
             <span className="text-xs font-medium uppercase tracking-widest text-[var(--app-primary)]">

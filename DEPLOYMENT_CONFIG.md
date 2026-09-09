@@ -8,7 +8,7 @@
 
 ```bash
 # CORS y Orígenes de Confianza
-CORS_ORIGINS="https://clipper-manage-1.emergent.host,https://clipper-manage-1.preview.emergentagent.com"
+CORS_ORIGINS="https://clipper-manage-1.emergent.host,https://listos-manager-reg.preview.emergentagent.com"
 FRONTEND_URL="https://clipper-manage-1.emergent.host"
 
 # Base de Datos

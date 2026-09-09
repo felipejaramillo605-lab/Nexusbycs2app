@@ -117,6 +117,9 @@ export const serviceAPI = {
   getRecipeVersions: (id, params = {}) => api.get(`/service-recipes/${id}/versions`, { params }),
   getInventoryPolicy: (params = {}) => api.get('/service-recipes/policy', { params }),
   updateInventoryPolicy: (data) => api.put('/service-recipes/policy', data),
+  // NEXUS_SERVICE_PHOTOS_V1
+  uploadPhoto: (id, file, params={}) => { const fd = new FormData(); fd.append('file', file); return api.post(`/services/${id}/photos`, fd, { params, headers: { 'Content-Type': 'multipart/form-data' } }); },
+  deletePhoto: (id, index, params={}) => api.delete(`/services/${id}/photos/${index}`, { params }),
 };
 
 export const barberAPI = {
@@ -152,7 +155,9 @@ export const appointmentAPI = {
 export const clientAPI = {
   getAll: (params = {}) => api.get('/clients', { params }),
   getHistory: (clientId) => api.get(`/clients/${clientId}/history`),
-  update: (clientId, data) => api.put(`/clients/${clientId}`, data),
+  update: (clientId, data) => api.put(`/clients/${clientId}`, null, { params: data }),
+  // NEXUS_CLIENT_BIRTHDAY_V1
+  getUpcomingBirthdays: (params = {}) => api.get('/clients/upcoming-birthdays', { params }),
 };
 
 export const marketingAPI = {
@@ -313,3 +318,12 @@ export const deliveryOperationsAPI = {backfill:(data)=>api.post('/owner/delivery
 
 // NEXUS_7J_B_BILLING_OPERATIONS
 export const platformBillingAPI = {getSellerProfile:()=>api.get('/owner/platform-billing/seller-profile'),saveSellerProfile:data=>api.put('/owner/platform-billing/seller-profile',data),getOperationalHealth:()=>api.get('/owner/platform-billing/operational-health')};
+
+// NEXUS_AI_V1
+export const nexusAiAPI = {
+  getStatus: (params = {}) => api.get('/nexus-ai/status', { params }),
+  setEntitlement: (organizationId, data) => api.put(`/owner/nexus-ai/${organizationId}`, data),
+  getConversations: (params = {}) => api.get('/nexus-ai/conversations', { params }),
+  createConversation: (params = {}) => api.post('/nexus-ai/conversations', null, { params }),
+  getMessages: (conversationId, params = {}) => api.get(`/nexus-ai/conversations/${conversationId}/messages`, { params }),
+};

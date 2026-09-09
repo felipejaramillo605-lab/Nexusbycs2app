@@ -180,6 +180,19 @@ const ManagerClients = () => {
     }
   };
 
+  // NEXUS_CLIENT_BIRTHDAY_V1
+  const handleUpdateBirthday = async (clientId, birthday) => {
+    try {
+      const response = await clientAPI.update(clientId, { birthday: birthday || '' });
+      const updated = response.data;
+      setClients(current => current.map(c => c.client_id === clientId ? { ...c, birthday: updated.birthday } : c));
+      setSelectedClient(current => current && current.client_id === clientId ? { ...current, birthday: updated.birthday } : current);
+      toast.success('Cumpleaños actualizado');
+    } catch (error) {
+      toast.error(error.response?.data?.detail || 'No fue posible guardar el cumpleaños');
+    }
+  };
+
   const getMessagePreview = () => {
     if (customMessage) return customMessage;
     
@@ -387,6 +400,17 @@ const ManagerClients = () => {
                                     </div>
                                   )}
                                 </div>
+                                {/* NEXUS_CLIENT_BIRTHDAY_V1 */}
+                                <label className="flex items-center gap-2 mt-3 text-sm text-zinc-400">
+                                  <Calendar size={14} /> Cumpleaños
+                                  <input
+                                    type="date"
+                                    data-testid="client-birthday-input-desktop"
+                                    defaultValue={selectedClient?.birthday || ''}
+                                    onBlur={(e) => e.target.value !== (selectedClient?.birthday || '') && handleUpdateBirthday(selectedClient.client_id, e.target.value)}
+                                    className="px-2 py-1 bg-white/5 border border-[var(--app-border)] rounded-lg text-[var(--app-text-primary)]"
+                                  />
+                                </label>
                               </SheetHeader>
 
                               {historyLoading ? (
@@ -525,6 +549,17 @@ const ManagerClients = () => {
                           <SheetTitle className="text-[var(--app-text-primary)] text-left">
                             Historial de {selectedClient?.name}
                           </SheetTitle>
+                          {/* NEXUS_CLIENT_BIRTHDAY_V1 */}
+                          <label className="flex items-center gap-2 mt-2 text-sm text-zinc-400">
+                            <Calendar size={14} /> Cumpleaños
+                            <input
+                              type="date"
+                              data-testid="client-birthday-input-mobile"
+                              defaultValue={selectedClient?.birthday || ''}
+                              onBlur={(e) => e.target.value !== (selectedClient?.birthday || '') && handleUpdateBirthday(selectedClient.client_id, e.target.value)}
+                              className="px-2 py-1 bg-white/5 border border-[var(--app-border)] rounded-lg text-[var(--app-text-primary)]"
+                            />
+                          </label>
                         </SheetHeader>
                         {historyLoading ? (
                           <div className="text-center py-8 text-zinc-400">Cargando...</div>

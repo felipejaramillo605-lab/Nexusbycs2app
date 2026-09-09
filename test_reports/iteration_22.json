@@ -1,0 +1,36 @@
+{
+  "summary": "Fase 1 tested: NEXUS_SELF_SERVICE_MANAGER_ONBOARDING_V1 + NEXUS_LOW_STOCK_ALERT_DAEMON_V1. Backend pytest 6/6 passed. UI E2E self-service flow passed (register -> mongo approve -> login -> empty state with 'Crear mi organización' -> onboarding wizard fill 8 required fields -> Revisar y crear -> Confirmación final -> Crear organización -> redirect to /manager/dashboard con la nueva org). Settings low-stock card renders with correct data-testids, mock disclaimer visible, save/toast works, and PUT /organizations preserves other notification_settings keys (verified in DB: appointment_cancelled + appointment_completed still True after save).",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "ManagerOrganizationOnboarding (/manager/organizations/new)", "issues": ["Form fields do not have data-testid attributes. Testability was done via label:has-text but adding data-testid for each input (org-name, legal-name, doc-type, tax-id, billing-email, billing-contact, city, address, reason) would make regression tests more robust and less brittle."]},
+      {"screen": "Post-login empty-state on ManagerDashboard", "issues": ["An onboarding tour modal (MANAGER · 1/5) opens on first login and overlays the 'Crear mi organización' button, requiring the user to close it before proceeding. Consider suppressing the tour when the user has no organization yet, so the CTA is not obscured."]}
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_self_service_and_low_stock.py",
+    "/app/test_reports/pytest/selfservice.xml"
+  ],
+  "action_items": [
+    "(Optional) Add data-testid attributes to inputs in ManagerOrganizationOnboarding.jsx (name, legal_name, document_type, tax_id, billing_email, billing_contact_name, city, address, reason, submit-review, submit-create) to harden future E2E tests.",
+    "(Optional) Do not auto-open the manager onboarding tour when selectedOrg is null; the tour obscures the primary CTA 'Crear mi organización'."
+  ],
+  "critical_code_review_comments": [
+    "server.py POST /api/organizations correctly forces effective_manager_id = current_user.user_id on the self-service path (line 2543); spoofed manager_user_id in payload is ignored — verified via pytest that a fake id was not attached.",
+    "Second POST /api/organizations by a manager who already has organization_id correctly returns 403 (verified via pytest).",
+    "Settings.js handleSaveLowStock correctly spreads existing notificationSettings into the payload before overriding the two low-stock keys, so other notification keys are preserved. Confirmed both by pytest (with pre-seeded appointment_cancelled/completed keys) and by UI save (DB shows all 4 keys after save).",
+    "low_stock_alert_runs unique compound index (organization_id, period) exists and idempotency claim-insert pattern in process_low_stock_alerts is correct for preventing double-send within the same period.",
+    "low_stock_daemon supervisor process running healthy (uptime > 4min observed)."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_self_service_and_low_stock.py"
+  ],
+  "success_rate": {"backend": "100% (6/6)", "frontend": "100% (self-service E2E + Settings low-stock card)"},
+  "test_credentials": "Owner admin@nexus.com/admin123. Manager manager@nexus.com/manager123 (already has org, used for 403 regression). Self-service test creates ephemeral TEST_ui_* users and cleans them up.",
+  "seed_data_creation": "Pytest creates temp TEST_selfsvc_* users, approves them in Mongo, then cleans up (user + org + billing_profile + billing_profile_audits + sessions). UI test creates one TEST_ui_* user and cleaned up manually.",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Fase 1 (self-service onboarding + low-stock alerts) is validated end-to-end. Fases 2 (client tools/birthday/service images/collapsible sidebar) and 3 (Nexus AI) are pending and not yet implemented. When testing Settings low-stock card, use /manager/settings?tab=general (not /settings). Onboarding tour blocks first-login CTAs; close the X button first. Backend regression file /app/backend/tests/test_self_service_and_low_stock.py can be reused; run with `pytest -o addopts='' backend/tests/test_self_service_and_low_stock.py -v` because pytest.ini enables xdist which the tests do not need."
+}

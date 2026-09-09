@@ -4,7 +4,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useOrganization } from '../context/OrganizationContext';
-import { ArrowLeft, Save, Building, Users, Mail, UserCog, Trash2, Loader2, Check, Percent, RotateCcw, Pencil, Copy, ExternalLink, X, Settings as SettingsIcon, FileText, CreditCard, Shield, Palette, Star, MessageSquare } from 'lucide-react';
+import { ArrowLeft, Save, Building, Users, Mail, UserCog, Trash2, Loader2, Check, Percent, RotateCcw, Pencil, Copy, ExternalLink, X, Settings as SettingsIcon, FileText, CreditCard, Shield, Palette, Star, MessageSquare, PackageSearch } from 'lucide-react';
 import { toast } from 'sonner';
 import { AccessibleModal, confirmAction } from '../components/design';
 import { teamAPI, commissionAPI } from '../api';
@@ -73,6 +73,10 @@ const Settings = () => {
     email_channel: false,
   });
   const [savingReview, setSavingReview] = useState(false);
+  // NEXUS_LOW_STOCK_ALERT_DAEMON_V1
+  const [notificationSettings, setNotificationSettings] = useState({});
+  const [lowStockData, setLowStockData] = useState({ email_enabled: false, whatsapp_enabled: false });
+  const [savingLowStock, setSavingLowStock] = useState(false);
 
   // Team Management State
   const [teamMembers, setTeamMembers] = useState([]);
@@ -131,6 +135,13 @@ const Settings = () => {
           review_link: data.review_link || '',
           enabled: !!rrs.enabled,
           email_channel: !!((rrs.channels || {}).email),
+        });
+        // NEXUS_LOW_STOCK_ALERT_DAEMON_V1
+        const ns = data.notification_settings || {};
+        setNotificationSettings(ns);
+        setLowStockData({
+          email_enabled: !!ns.low_stock_alert_enabled,
+          whatsapp_enabled: !!ns.low_stock_alert_whatsapp_enabled,
         });
       } else {
         const errorData = await response.json();
@@ -336,6 +347,37 @@ const Settings = () => {
       toast.error(`Error: ${error.message}`);
     } finally {
       setSavingReview(false);
+    }
+  };
+
+  // NEXUS_LOW_STOCK_ALERT_DAEMON_V1
+  const handleSaveLowStock = async (e) => {
+    e.preventDefault();
+    setSavingLowStock(true);
+    try {
+      const payload = {
+        notification_settings: {
+          ...notificationSettings,
+          low_stock_alert_enabled: !!lowStockData.email_enabled,
+          low_stock_alert_whatsapp_enabled: !!lowStockData.whatsapp_enabled,
+        },
+      };
+      const response = await fetch(
+        `${process.env.REACT_APP_BACKEND_URL}/api/organizations/${organizationId}`,
+        { method: 'PUT', credentials: 'include', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) }
+      );
+      if (response.ok) {
+        toast.success('Alertas de bajo stock actualizadas');
+        setNotificationSettings(payload.notification_settings);
+        await refreshOrganization(organizationId);
+      } else {
+        const err = await response.json();
+        throw new Error(err.detail || 'No se pudo guardar');
+      }
+    } catch (error) {
+      toast.error(`Error: ${error.message}`);
+    } finally {
+      setSavingLowStock(false);
     }
   };
 
@@ -726,6 +768,58 @@ const Settings = () => {
                 className="w-full py-3 rounded-xl bg-amber-500 hover:bg-amber-600 text-white font-medium transition-all disabled:opacity-50 flex items-center justify-center gap-2"
               >
                 {savingLoyalty ? <><Loader2 size={18} className="animate-spin" />Guardando...</> : <><Save size={18} />Guardar programa</>}
+              </button>
+            </form>
+          </div>
+
+          {/* NEXUS_LOW_STOCK_ALERT_DAEMON_V1 — CARD Alertas de bajo stock */}
+          <div data-testid="low-stock-alert-settings-card" className="backdrop-blur-xl bg-white/3 border border-[var(--app-border)] rounded-2xl p-6">
+            <div className="flex items-center gap-3 mb-6">
+              <div className="w-10 h-10 rounded-xl bg-orange-500/20 flex items-center justify-center">
+                <PackageSearch size={20} strokeWidth={1.5} className="text-orange-400" />
+              </div>
+              <div>
+                <h2 className="text-lg font-medium text-[var(--app-text-primary)]">Alertas de bajo stock</h2>
+                <p className="text-sm text-zinc-400">Resumen mensual de productos por reabastecer, enviado automáticamente</p>
+              </div>
+            </div>
+            <form onSubmit={handleSaveLowStock} className="space-y-4">
+              <label className="flex items-center justify-between p-3 rounded-xl border border-[var(--app-border)] bg-white/5 cursor-pointer">
+                <div>
+                  <div className="text-sm font-medium text-[var(--app-text-primary)]">Enviar por correo</div>
+                  <div className="text-xs text-zinc-400">Una vez al mes, a tu correo registrado</div>
+                </div>
+                <input
+                  type="checkbox"
+                  data-testid="low-stock-email-toggle"
+                  checked={lowStockData.email_enabled}
+                  onChange={(e) => setLowStockData({ ...lowStockData, email_enabled: e.target.checked })}
+                  className="w-5 h-5"
+                />
+              </label>
+              <label className="flex items-center justify-between p-3 rounded-xl border border-[var(--app-border)] bg-white/5 cursor-pointer">
+                <div>
+                  <div className="text-sm font-medium text-[var(--app-text-primary)]">Enviar también por WhatsApp</div>
+                  <div className="text-xs text-zinc-400">
+                    Al número registrado en tu perfil.{' '}
+                    <span className="text-amber-400">Modo simulado (mock): falta la API key de WhatsApp — la estructura ya está lista, solo falta activarla.</span>
+                  </div>
+                </div>
+                <input
+                  type="checkbox"
+                  data-testid="low-stock-whatsapp-toggle"
+                  checked={lowStockData.whatsapp_enabled}
+                  onChange={(e) => setLowStockData({ ...lowStockData, whatsapp_enabled: e.target.checked })}
+                  className="w-5 h-5"
+                />
+              </label>
+              <button
+                type="submit"
+                data-testid="low-stock-save-btn"
+                disabled={savingLowStock}
+                className="w-full py-3 rounded-xl bg-orange-500 hover:bg-orange-600 text-white font-medium transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+              >
+                {savingLowStock ? <><Loader2 size={18} className="animate-spin" />Guardando...</> : <><Save size={18} />Guardar alertas</>}
               </button>
             </form>
           </div>

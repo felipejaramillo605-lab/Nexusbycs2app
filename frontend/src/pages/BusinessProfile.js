@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { ArrowLeft, Save, Building, MapPin, Clock, Phone, MessageSquare, Loader2, Star } from 'lucide-react';
+import { ArrowLeft, Save, Building, MapPin, Clock, Phone, MessageSquare, Loader2, Star, Sparkles } from 'lucide-react';
 import { toast } from 'sonner';
 
 const BusinessProfile = () => {
@@ -20,8 +20,18 @@ const BusinessProfile = () => {
     phone: '',
     whatsapp_link: '',
     review_link: '',
+    business_type: 'barbershop',
     review_request_settings: { enabled: false, channels: { email: false, whatsapp: false } },
   });
+
+  // NEXUS_MARKETING_VERTICALS_V1
+  const BUSINESS_TYPES = [
+    { value: 'barbershop', label: 'Barbería' },
+    { value: 'hair_salon', label: 'Peluquería' },
+    { value: 'nail_spa', label: 'Spa de uñas' },
+    { value: 'lash_spa', label: 'Spa de pestañas' },
+    { value: 'beauty_salon', label: 'Salón de belleza' },
+  ];
 
   const loadOrganization = useCallback(async () => {
     if (!organizationId) return;
@@ -40,6 +50,7 @@ const BusinessProfile = () => {
           phone: data.phone || '',
           whatsapp_link: data.whatsapp_link || '',
           review_link: data.review_link || '',
+          business_type: data.business_type || 'barbershop',
           review_request_settings: {
             enabled: data.review_request_settings?.enabled || false,
             channels: {
@@ -149,6 +160,23 @@ const BusinessProfile = () => {
               className="w-full px-4 py-3 bg-white/5 border border-[var(--app-border)] rounded-xl text-[var(--app-text-primary)] placeholder-zinc-500 focus:border-[var(--app-primary)] focus:ring-2 focus:ring-[var(--app-primary)]/20 outline-none transition-all"
               placeholder="Ej: Centro de Bienestar Integral"
             />
+          </div>
+
+          {/* NEXUS_MARKETING_VERTICALS_V1 */}
+          <div>
+            <label className="block text-sm font-medium text-zinc-400 mb-2">
+              <Sparkles size={16} className="inline mr-2" />
+              Tipo de negocio
+            </label>
+            <select
+              data-testid="business-type-select"
+              value={formData.business_type}
+              onChange={(e) => setFormData({ ...formData, business_type: e.target.value })}
+              className="w-full px-4 py-3 bg-white/5 border border-[var(--app-border)] rounded-xl text-[var(--app-text-primary)] focus:border-[var(--app-primary)] focus:ring-2 focus:ring-[var(--app-primary)]/20 outline-none transition-all"
+            >
+              {BUSINESS_TYPES.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
+            </select>
+            <p className="text-xs text-zinc-500 mt-2">Personaliza las campañas de Marketing sugeridas para tu tipo de negocio.</p>
           </div>
 
           {/* Address */}
