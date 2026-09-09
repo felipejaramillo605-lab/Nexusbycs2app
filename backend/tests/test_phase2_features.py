@@ -138,6 +138,11 @@ class TestServicePhotos:
         assert r.status_code in (200, 201), r.text
         sid = r.json()["service_id"]
 
+        # manager's session (conftest.py's shared manager_client) carries a fixed
+        # Content-Type: application/json header; passing Content-Type: None per-request
+        # drops it so requests can compute the real multipart/form-data boundary header
+        # for these file uploads instead of sending them mislabeled as JSON.
+        multipart_headers = {"Content-Type": None}
         try:
             urls = []
             for i in range(2):
@@ -146,6 +151,7 @@ class TestServicePhotos:
                     f"{BASE_URL}/api/services/{sid}/photos",
                     params={"organization_id": ORG_ID},
                     files=files,
+                    headers=multipart_headers,
                 )
                 assert r2.status_code == 200, r2.text
                 urls = r2.json()["photos"]
@@ -157,6 +163,7 @@ class TestServicePhotos:
                 f"{BASE_URL}/api/services/{sid}/photos",
                 params={"organization_id": ORG_ID},
                 files=files,
+                headers=multipart_headers,
             )
             assert r3.status_code == 400, r3.text
 

@@ -176,7 +176,37 @@ async def seed_database():
     else:
         print(f"⊙ Barber already exists: {barber_name}")
 
-    # 6. Summary
+    # 6. Create stable seeded clients (client_001, client_002). There's no POST /clients
+    # endpoint -- in the real app, clients are created implicitly from bookings -- so backend
+    # tests that need an existing client (e.g. NEXUS_CLIENT_BIRTHDAY_V1) rely on these fixed
+    # records existing rather than creating their own.
+    for client_id, client_name, client_phone in (
+        ("client_001", "Cliente Demo", "+573009998877"),
+        ("client_002", "Cliente Demo Dos", "+573009998866"),
+    ):
+        existing_client = await db.clients.find_one({"organization_id": org_id, "client_id": client_id})
+        if not existing_client:
+            client_doc = {
+                "client_id": client_id,
+                "organization_id": org_id,
+                "phone": client_phone,
+                "name": client_name,
+                "email": f"{client_id}@example.com",
+                "accepts_marketing": True,
+                "reminder_consent_given": True,
+                "is_registered": False,
+                "total_visits": 3,
+                "loyalty_points": 30,
+                "last_visit": now,
+                "created_at": now,
+                "updated_at": now,
+            }
+            await db.clients.insert_one(client_doc)
+            print(f"✓ Created client: {client_id}")
+        else:
+            print(f"⊙ Client already exists: {client_id}")
+
+    # 7. Summary
     print("\n=== Database Summary ===")
     org_count = await db.organizations.count_documents({})
     user_count = await db.users.count_documents({})

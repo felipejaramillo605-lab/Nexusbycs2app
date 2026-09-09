@@ -34,8 +34,23 @@ def _new_session():
 
 
 def _login(email, password):
+    # /auth/login is rate-limited (5/minute/IP) in production for brute-force protection.
+    # With two pytest-xdist workers each logging in a handful of fixed test accounts at
+    # session/module start, it's easy for both workers' logins to land in the same window
+    # and get a 429 -- retry past that instead of failing the whole run on CI-only
+    # contention that has nothing to do with the code under test.
+    import time
+
     s = _new_session()
-    r = s.post(f"{BASE_URL}/api/auth/login", json={"email": email, "password": password}, timeout=15)
+    last = None
+    for attempt in range(3):
+        r = s.post(f"{BASE_URL}/api/auth/login", json={"email": email, "password": password}, timeout=15)
+        if r.status_code != 429:
+            break
+        last = r
+        time.sleep(13)
+    else:
+        r = last
     assert r.status_code == 200, f"Login failed for {email}: {r.status_code} {r.text}"
     return s
 
