@@ -4,8 +4,7 @@ import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { ArrowLeft, Star, Calendar, DollarSign, TrendingUp, Clock, Users, Award, BarChart3, FileText, Briefcase, AlertTriangle, CheckCircle2, Loader2 } from 'lucide-react';
 import { api } from '../api';
 import { toast } from 'sonner';
-
-const fmt = (n) => new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(n);
+import { formatCOP as fmt } from '../lib/currency';
 const DAYS_LABELS = { 0: 'Dom', 1: 'Lun', 2: 'Mar', 3: 'Mié', 4: 'Jue', 5: 'Vie', 6: 'Sáb' };
 const PERIOD_OPTIONS = [
   { value: 7, label: '7 días' },

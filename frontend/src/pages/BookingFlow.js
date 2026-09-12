@@ -11,12 +11,12 @@ import {BOOKING} from '../constants/testIds';
 import {ActionButton} from '../components/design';
 import ClientPortalNav from '../components/ClientPortalNav';
 import {useCart} from '../lib/cart';
+import {formatCOP as money} from '../lib/currency';
 
 // NEXUS_STRICT_AVAILABILITY_V1
 // NEXUS_PUBLIC_DEEP_FINAL_V1
 const weekday=value=>{if(!value)return null;const[y,m,d]=value.split('-').map(Number);return new Date(y,m-1,d).getDay()};
 const works=(barber,value)=>(barber?.available_days||[1,2,3,4,5]).includes(weekday(value));
-const money=value=>new Intl.NumberFormat('es-CO',{style:'currency',currency:'COP',maximumFractionDigits:0}).format(Number(value)||0);
 const days={0:'Dom',1:'Lun',2:'Mar',3:'Mié',4:'Jue',5:'Vie',6:'Sáb'};
 const steps=['Servicio','Profesional','Fecha y hora','Tus datos'];
 const localDateInZone=timezoneName=>{try{const parts=new Intl.DateTimeFormat('en-US',{timeZone:timezoneName||'America/Bogota',year:'numeric',month:'2-digit',day:'2-digit'}).formatToParts(new Date());const values=Object.fromEntries(parts.map(part=>[part.type,part.value]));return `${values.year}-${values.month}-${values.day}`}catch{return new Date().toLocaleDateString('en-CA')}};

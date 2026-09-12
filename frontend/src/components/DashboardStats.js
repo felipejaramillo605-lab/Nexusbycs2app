@@ -2,11 +2,11 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { LineChart, Line, BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { Calendar, TrendingUp, Users, Scissors, DollarSign, BadgePercent, Banknote, HandCoins, ReceiptText } from 'lucide-react';
 import { api, transactionAPI } from '../api';
+import { formatCOP as money } from '../lib/currency';
 
 // NEXUS_FINANCIAL_DASHBOARD_V1
 const COLORS = ['var(--app-primary)', '#32D74B', '#FF453A', '#FF9F0A', '#BF5AF2', '#00C7BE'];
 const PAYMENT_LABELS = { cash: 'Efectivo', card: 'Tarjeta', transfer: 'Transferencia', nequi: 'Nequi', daviplata: 'Daviplata', other: 'Otro' };
-const money = (value) => new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 2 }).format(Number(value) || 0);
 
 const DashboardStats = ({ organizationId }) => {
   const [stats, setStats] = useState(null);

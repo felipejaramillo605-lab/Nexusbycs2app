@@ -7,8 +7,8 @@ import {ArrowLeft,Package,Plus,Search,AlertTriangle,WalletCards,History,Clipboar
 import {toast} from 'sonner';
 import {confirmAction,MetricCard,SurfaceCard,LoadingState,EmptyState,SegmentedControl,DetailDrawer,FieldGuide} from '../components/design';
 import {Dialog,DialogContent,DialogHeader,DialogTitle} from '../components/ui/dialog';
+import {formatCOP as money} from '../lib/currency';
 
-const money=v=>new Intl.NumberFormat('es-CO',{style:'currency',currency:'COP',maximumFractionDigits:0}).format(Number(v||0));
 const fmt=v=>new Intl.NumberFormat('es-CO',{maximumFractionDigits:2}).format(Number(v||0));
 // NEXUS_UNIT_CATALOG_FRONTEND_V1 — debe reflejar backend/unit_catalog.py.
 // Duplicado intencionalmente (constante pequeña y curada) para evitar una

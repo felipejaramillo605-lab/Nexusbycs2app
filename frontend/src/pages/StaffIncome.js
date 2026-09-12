@@ -3,7 +3,8 @@ import React,{useCallback,useEffect,useMemo,useState} from 'react';
 import {Clock,HandCoins,ReceiptText,RefreshCw,WalletCards,Trophy} from 'lucide-react';
 import {staffIncomeAPI} from '../api';
 import {ActionButton,AnimatedNumber,DetailDrawer,EmptyState,LoadingState,MetricCard,MotionPage,PageHeader,ResponsiveDataView,SegmentedControl,StatusBadge,SurfaceCard} from '../components/design';
-const money=v=>new Intl.NumberFormat('es-CO',{style:'currency',currency:'COP',maximumFractionDigits:2}).format(Number(v)||0);const d=n=>new Date(Date.now()-n*86400000).toISOString().split('T')[0];const labels={draft:'Borrador',approved:'Aprobada',paid:'Pagada',cancelled:'Cancelada'},tones={draft:'warning',approved:'info',paid:'success',cancelled:'danger'};
+import {formatCOP as money} from '../lib/currency';
+const d=n=>new Date(Date.now()-n*86400000).toISOString().split('T')[0];const labels={draft:'Borrador',approved:'Aprobada',paid:'Pagada',cancelled:'Cancelada'},tones={draft:'warning',approved:'info',paid:'success',cancelled:'danger'};
 const message=(error,fallback)=>{const detail=error?.response?.data?.detail;return typeof detail==='string'?detail:detail?.message||fallback};
 export default function StaffIncome(){
  const [period,setPeriod]=useState('month'),[summary,setSummary]=useState(null),[transactions,setTransactions]=useState([]),[settlementSummary,setSettlementSummary]=useState(null),[settlements,setSettlements]=useState([]),[selected,setSelected]=useState(null),[loading,setLoading]=useState(true),[incomeError,setIncomeError]=useState(''),[settlementError,setSettlementError]=useState(''),[detailError,setDetailError]=useState(''),[opening,setOpening]=useState(''),[reload,setReload]=useState(0),[ranking,setRanking]=useState([]),[rankingError,setRankingError]=useState('');

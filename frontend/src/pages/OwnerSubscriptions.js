@@ -5,12 +5,12 @@ import {CreditCard,FileText,History,LifeBuoy,Megaphone,RefreshCw,Save,ShieldChec
 import {toast} from 'sonner';
 import {billingAPI,deliveryOperationsAPI,nexusAiAPI,organizationAPI,ownerAPI,platformBillingAPI,subscriptionAPI,supportAPI} from '../api';
 import {ActionButton,AdminShell,EmptyState,FieldGuide,LoadingState,MetricCard,MotionPage,PageHeader,StatusBadge,SurfaceCard} from '../components/design';
+import {formatCOPMinor as money} from '../lib/currency';
 
 const statuses={trial:'Prueba',active:'Activa',grace_period:'Periodo de gracia',past_due:'Vencida',suspended:'Suspendida',cancelled:'Cancelada',indefinite_block:'Bloqueo indefinido'};
 const invoiceLabels={draft:'Borrador',issued:'Emitida',pending:'Pendiente',paid:'Pagada',overdue:'Vencida',void:'Anulada',refunded:'Reembolsada'};
 const isoDay=(offset=0)=>{const d=new Date();d.setDate(d.getDate()+offset);return d.toISOString().slice(0,10)};
 const asIso=(value)=>value?`${value}T12:00:00+00:00`:'';
-const money=(minor,currency='COP')=>new Intl.NumberFormat('es-CO',{style:'currency',currency,maximumFractionDigits:0}).format((Number(minor)||0)/100);
 const detail=(error,fallback)=>error.response?.data?.detail||fallback;
 
 export default function OwnerSubscriptions(){

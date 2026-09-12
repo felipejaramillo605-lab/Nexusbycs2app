@@ -7,9 +7,9 @@ import DashboardStats from '../components/DashboardStats';
 import BookingTools from '../components/BookingTools';
 import WeeklyCalendar from '../components/WeeklyCalendar';
 import {AdminShell,ActionButton,AnimatedNumber,EmptyState,MetricCard,MotionPage,PageHeader,SegmentedControl,SurfaceCard} from '../components/design';
+import {formatCOP as money} from '../lib/currency';
 
 // NEXUS_SHELL_INTEGRATION_V1
-const money=value=>new Intl.NumberFormat('es-CO',{style:'currency',currency:'COP',maximumFractionDigits:0}).format(Number(value)||0);
 export default function ManagerDashboard(){
  const {user,logout,checkAuth}=useAuth();const navigate=useNavigate();const [sp,setSp]=useSearchParams();
  const [appointments,setAppointments]=useState([]),[organizations,setOrganizations]=useState([]),[selectedOrg,setSelectedOrg]=useState(null),[services,setServices]=useState([]),[barbers,setBarbers]=useState([]),[todayRevenue,setTodayRevenue]=useState(0),[loading,setLoading]=useState(true),[filter,setFilter]=useState('all');

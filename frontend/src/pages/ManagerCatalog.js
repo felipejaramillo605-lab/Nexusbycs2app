@@ -7,8 +7,8 @@ import { ArrowLeft, Plus, Search, Edit3, Archive, Eye, EyeOff, Upload, Link2, Tr
 import { toast } from 'sonner';
 import { confirmAction, MetricCard, SurfaceCard, LoadingState, EmptyState, FieldGuide } from '../components/design';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../components/ui/dialog';
+import { formatCOP as money } from '../lib/currency';
 
-const money = v => new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(Number(v || 0));
 const fmt = v => new Intl.NumberFormat('es-CO', { maximumFractionDigits: 2 }).format(Number(v || 0));
 
 const blank = { name: '', description: '', sale_price: 0, unit_cost: 0, quantity: 0, min_stock: 0, supplier_id: '', photo_urls: [], published: false };
