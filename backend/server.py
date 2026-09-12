@@ -5874,6 +5874,132 @@ async def reset_client_pin(data: ClientResetPinRequest):
 # ==================== MARKETING & CAMPAIGNS ====================
 
 
+# NEXUS_MESSAGE_TEMPLATES_V1
+class MessageTemplateCreate(BaseModel):
+    channel: str = "email"
+    purpose: str = "custom"
+    name: str = Field(..., max_length=80)
+    subject: Optional[str] = Field(default=None, max_length=200)
+    body: str = Field(..., max_length=4000)
+
+
+class MessageTemplateUpdate(BaseModel):
+    name: Optional[str] = Field(default=None, max_length=80)
+    subject: Optional[str] = Field(default=None, max_length=200)
+    body: Optional[str] = Field(default=None, max_length=4000)
+
+
+@api_router.get("/organizations/{organization_id}/message-templates", tags=["marketing"])
+async def list_message_templates(
+    organization_id: str, authorization: Optional[str] = Header(None), session_token: Optional[str] = Cookie(None)
+):
+    current_user = await get_current_user(authorization, session_token)
+    require_management_role(current_user)
+    if not await validate_organization_access(current_user, organization_id):
+        raise HTTPException(403, "Access denied")
+    templates = await get_or_seed_templates(db, organization_id)
+    return {"items": templates, "variables": SUPPORTED_VARIABLES}
+
+
+@api_router.post("/organizations/{organization_id}/message-templates", tags=["marketing"])
+async def create_message_template(
+    organization_id: str,
+    data: MessageTemplateCreate,
+    authorization: Optional[str] = Header(None),
+    session_token: Optional[str] = Cookie(None),
+):
+    current_user = await get_current_user(authorization, session_token)
+    require_management_role(current_user)
+    if not await validate_organization_access(current_user, organization_id):
+        raise HTTPException(403, "Access denied")
+    if data.channel not in CHANNELS:
+        raise HTTPException(400, f"channel must be one of {sorted(CHANNELS)}")
+    if data.purpose not in PURPOSES:
+        raise HTTPException(400, f"purpose must be one of {sorted(PURPOSES)}")
+    now = datetime.now(timezone.utc).isoformat()
+    row = {
+        "template_id": f"msgtpl_{uuid.uuid4().hex[:16]}",
+        "organization_id": organization_id,
+        "channel": data.channel,
+        "purpose": data.purpose,
+        "name": data.name.strip(),
+        "subject": (data.subject or "").strip() or None,
+        "body": data.body.strip(),
+        "is_default": False,
+        "created_at": now,
+        "updated_at": now,
+    }
+    await db.message_templates.insert_one(row.copy())
+    row.pop("_id", None)
+    return row
+
+
+@api_router.put("/message-templates/{template_id}", tags=["marketing"])
+async def update_message_template(
+    template_id: str,
+    data: MessageTemplateUpdate,
+    authorization: Optional[str] = Header(None),
+    session_token: Optional[str] = Cookie(None),
+):
+    current_user = await get_current_user(authorization, session_token)
+    require_management_role(current_user)
+    tpl = await db.message_templates.find_one({"template_id": template_id}, {"_id": 0})
+    if not tpl:
+        raise HTTPException(404, "Template not found")
+    if not await validate_organization_access(current_user, tpl["organization_id"]):
+        raise HTTPException(403, "Access denied")
+    if tpl.get("is_default"):
+        raise HTTPException(400, "Default templates can't be edited -- duplicate it first")
+    update_data = {k: v.strip() for k, v in data.dict().items() if v is not None}
+    if not update_data:
+        raise HTTPException(400, "No fields to update")
+    update_data["updated_at"] = datetime.now(timezone.utc).isoformat()
+    await db.message_templates.update_one({"template_id": template_id}, {"$set": update_data})
+    return await db.message_templates.find_one({"template_id": template_id}, {"_id": 0})
+
+
+@api_router.post("/message-templates/{template_id}/duplicate", tags=["marketing"])
+async def duplicate_message_template(
+    template_id: str, authorization: Optional[str] = Header(None), session_token: Optional[str] = Cookie(None)
+):
+    current_user = await get_current_user(authorization, session_token)
+    require_management_role(current_user)
+    tpl = await db.message_templates.find_one({"template_id": template_id}, {"_id": 0})
+    if not tpl:
+        raise HTTPException(404, "Template not found")
+    if not await validate_organization_access(current_user, tpl["organization_id"]):
+        raise HTTPException(403, "Access denied")
+    now = datetime.now(timezone.utc).isoformat()
+    copy_row = {
+        **tpl,
+        "template_id": f"msgtpl_{uuid.uuid4().hex[:16]}",
+        "name": f"{tpl['name']} (copia)"[:80],
+        "is_default": False,
+        "created_at": now,
+        "updated_at": now,
+    }
+    await db.message_templates.insert_one(copy_row.copy())
+    copy_row.pop("_id", None)
+    return copy_row
+
+
+@api_router.delete("/message-templates/{template_id}", tags=["marketing"])
+async def delete_message_template(
+    template_id: str, authorization: Optional[str] = Header(None), session_token: Optional[str] = Cookie(None)
+):
+    current_user = await get_current_user(authorization, session_token)
+    require_management_role(current_user)
+    tpl = await db.message_templates.find_one({"template_id": template_id}, {"_id": 0})
+    if not tpl:
+        raise HTTPException(404, "Template not found")
+    if not await validate_organization_access(current_user, tpl["organization_id"]):
+        raise HTTPException(403, "Access denied")
+    if tpl.get("is_default"):
+        raise HTTPException(400, "Default templates can't be deleted")
+    await db.message_templates.delete_one({"template_id": template_id})
+    return {"message": "Template deleted"}
+
+
 class CampaignRequest(BaseModel):
     client_ids: List[str]  # List of client IDs to send to
     message: str
@@ -7039,6 +7165,13 @@ from inventory_reorder import build_inventory_reorder_router, ensure_inventory_r
 from low_stock_alerts import ensure_low_stock_alert_indexes
 from birthday_alerts import ensure_birthday_alert_indexes
 from birthday_rewards import ensure_birthday_reward_indexes, find_redeemable_reward, redeem_reward
+from message_templates import (
+    CHANNELS,
+    PURPOSES,
+    SUPPORTED_VARIABLES,
+    ensure_message_template_indexes,
+    get_or_seed_templates,
+)
 
 api_router.include_router(
     build_inventory_reorder_router(db, get_current_user, require_management_role, resolve_team_organization),
@@ -7356,6 +7489,8 @@ async def create_application_indexes():
     await ensure_birthday_alert_indexes(db)
     # NEXUS_BIRTHDAY_CAMPAIGN_V1
     await ensure_birthday_reward_indexes(db)
+    # NEXUS_MESSAGE_TEMPLATES_V1
+    await ensure_message_template_indexes(db)
     # NEXUS_AI_V1
     await db.nexus_ai_conversations.create_index("conversation_id", unique=True)
     await db.nexus_ai_conversations.create_index([("organization_id", 1), ("user_id", 1), ("updated_at", -1)])

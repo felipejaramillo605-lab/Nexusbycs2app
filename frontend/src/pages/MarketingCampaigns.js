@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { clientAPI, organizationAPI, marketingAPI, serviceAPI } from '../api';
-import { Send, ArrowLeft, LogOut, Users, MessageSquare, CheckSquare, Loader2, Bell, BellOff, AlertCircle, Mail, MessageCircle, Cake, Gift, Settings2 } from 'lucide-react';
+import { clientAPI, organizationAPI, marketingAPI, serviceAPI, templateAPI } from '../api';
+import { Send, ArrowLeft, LogOut, Users, MessageSquare, CheckSquare, Loader2, Bell, BellOff, AlertCircle, Mail, MessageCircle, Cake, Gift, Settings2, FileText, Plus, Pencil, Copy, Trash2, X } from 'lucide-react';
+import { AccessibleModal } from '../components/design';
 import { toast } from 'sonner';
 import whatsappService, { MESSAGE_TEMPLATES, VERTICAL_LABELS, generateReactivationMessageFor, generateBirthdayMessage } from '../services/whatsappService';
 
@@ -29,6 +30,14 @@ const MarketingCampaigns = () => {
   const [campaignDraft, setCampaignDraft] = useState(null); // copia editable
   const [savingCampaign, setSavingCampaign] = useState(false);
   const [orgServices, setOrgServices] = useState([]);
+  // NEXUS_MESSAGE_TEMPLATES_V1
+  const [templates, setTemplates] = useState([]);
+  const [templateVars, setTemplateVars] = useState([]);
+  const [loadingTemplates, setLoadingTemplates] = useState(false);
+  const [showTemplateEditor, setShowTemplateEditor] = useState(false);
+  const [editingTemplate, setEditingTemplate] = useState(null); // null = nueva
+  const [templateForm, setTemplateForm] = useState({ name: '', purpose: 'custom', subject: '', body: '' });
+  const [savingTemplate, setSavingTemplate] = useState(false);
 
   // Get org_id from query param (for owner) or user.organization_id (for manager)
   const organizationId = (user?.role === 'owner' ? searchParams.get('org_id') : user?.organization_id) || user?.organization_id;
@@ -48,6 +57,21 @@ const MarketingCampaigns = () => {
       }
     } catch (error) {
       console.error('Error loading organization:', error);
+    }
+  }, [organizationId]);
+
+  // NEXUS_MESSAGE_TEMPLATES_V1
+  const loadTemplates = useCallback(async () => {
+    if (!organizationId) return;
+    setLoadingTemplates(true);
+    try {
+      const response = await templateAPI.list(organizationId);
+      setTemplates(response.data?.items || []);
+      setTemplateVars(response.data?.variables || []);
+    } catch (error) {
+      toast.error('No fue posible cargar las plantillas');
+    } finally {
+      setLoadingTemplates(false);
     }
   }, [organizationId]);
 
@@ -100,8 +124,74 @@ const MarketingCampaigns = () => {
       loadOrganizationName();
       loadBirthdays();
       loadOrgServices();
+      loadTemplates();
     }
-  }, [organizationId, loadClients, loadOrganizationName, loadBirthdays, loadOrgServices]);
+  }, [organizationId, loadClients, loadOrganizationName, loadBirthdays, loadOrgServices, loadTemplates]);
+
+  // NEXUS_MESSAGE_TEMPLATES_V1
+  const PURPOSE_LABELS = { birthday: 'Cumpleaños', reactivation: 'Reactivación', promotion: 'Promoción', welcome: 'Bienvenida', custom: 'Personalizada' };
+  const renderTemplateText = (text) => {
+    const clientName = displayedClients[0]?.name || 'Cliente';
+    const context = { nombre_cliente: clientName, nombre_negocio: organizationName || 'Nexus', codigo_descuento: 'CUMPLE-XXXXXX', fecha_expiracion: '--', link_reserva: '[BOOKING_LINK]' };
+    return (text || '').replace(/\{\{\s*([a-zA-Z_]+)\s*\}\}/g, (match, key) => (key in context ? context[key] : match));
+  };
+
+  const openNewTemplate = () => { setEditingTemplate(null); setTemplateForm({ name: '', purpose: 'custom', subject: '', body: '' }); setShowTemplateEditor(true); };
+  const openEditTemplate = (tpl) => { setEditingTemplate(tpl); setTemplateForm({ name: tpl.name, purpose: tpl.purpose, subject: tpl.subject || '', body: tpl.body }); setShowTemplateEditor(true); };
+
+  const handleSaveTemplate = async () => {
+    if (!templateForm.name.trim() || !templateForm.body.trim()) {
+      toast.error('Nombre y contenido son obligatorios');
+      return;
+    }
+    setSavingTemplate(true);
+    try {
+      if (editingTemplate) {
+        await templateAPI.update(editingTemplate.template_id, { name: templateForm.name.trim(), subject: templateForm.subject.trim(), body: templateForm.body.trim() });
+        toast.success('Plantilla actualizada');
+      } else {
+        await templateAPI.create(organizationId, { channel: 'email', purpose: templateForm.purpose, name: templateForm.name.trim(), subject: templateForm.subject.trim(), body: templateForm.body.trim() });
+        toast.success('Plantilla creada');
+      }
+      setShowTemplateEditor(false);
+      await loadTemplates();
+    } catch (error) {
+      toast.error(error.response?.data?.detail || 'No fue posible guardar la plantilla');
+    } finally {
+      setSavingTemplate(false);
+    }
+  };
+
+  const handleDuplicateTemplate = async (tpl) => {
+    try {
+      await templateAPI.duplicate(tpl.template_id);
+      toast.success('Plantilla duplicada');
+      await loadTemplates();
+    } catch (error) {
+      toast.error('No fue posible duplicar la plantilla');
+    }
+  };
+
+  const handleDeleteTemplate = async (tpl) => {
+    if (!window.confirm(`¿Eliminar la plantilla "${tpl.name}"?`)) return;
+    try {
+      await templateAPI.delete(tpl.template_id);
+      toast.success('Plantilla eliminada');
+      await loadTemplates();
+    } catch (error) {
+      toast.error('No fue posible eliminar la plantilla');
+    }
+  };
+
+  const handleUseTemplate = (tpl) => {
+    setCustomMessage(renderTemplateText(tpl.body));
+    if (tpl.subject) setEmailSubject(renderTemplateText(tpl.subject));
+    toast.success(`Plantilla "${tpl.name}" cargada en el mensaje`);
+  };
+
+  const insertVariable = (variable) => {
+    setTemplateForm(prev => ({ ...prev, body: `${prev.body}{{${variable}}}` }));
+  };
 
   // NEXUS_BIRTHDAY_CAMPAIGN_V1
   const campaignDirty = campaign && campaignDraft && JSON.stringify(campaign) !== JSON.stringify(campaignDraft);
@@ -613,6 +703,134 @@ const MarketingCampaigns = () => {
               </button>
             </div>
           </div>
+        )}
+
+        {/* NEXUS_MESSAGE_TEMPLATES_V1 — plantillas de correo, editables por el manager */}
+        <div className="mt-6 backdrop-blur-xl bg-white/3 border border-[var(--app-border)] rounded-2xl p-6">
+          <div className="flex items-center justify-between mb-6 flex-wrap gap-3">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-[var(--app-primary)]/20 flex items-center justify-center">
+                <FileText size={20} strokeWidth={1.5} className="text-[var(--app-primary)]" />
+              </div>
+              <div>
+                <h2 className="text-lg font-medium text-[var(--app-text-primary)]">Plantillas de correo</h2>
+                <p className="text-sm text-zinc-400">Personaliza los mensajes que se envían, o crea los tuyos con variables</p>
+              </div>
+            </div>
+            <button
+              data-testid="template-new-button"
+              onClick={openNewTemplate}
+              className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-[var(--app-primary)] hover:bg-[var(--app-primary-hover)] text-[var(--app-text-primary)] text-sm font-medium transition-all"
+            >
+              <Plus size={16} strokeWidth={1.5} /> Nueva plantilla
+            </button>
+          </div>
+
+          {loadingTemplates ? (
+            <p className="text-sm text-zinc-400">Cargando plantillas...</p>
+          ) : templates.length === 0 ? (
+            <p className="text-sm text-zinc-500">Sin plantillas todavía.</p>
+          ) : (
+            <div className="grid sm:grid-cols-2 gap-3">
+              {templates.map(tpl => (
+                <div key={tpl.template_id} className="p-4 rounded-xl bg-white/5 border border-[var(--app-border)] flex flex-col gap-3">
+                  <div className="flex items-start justify-between gap-2">
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-[var(--app-text-primary)] font-medium">{tpl.name}</span>
+                        {tpl.is_default && <span className="px-2 py-0.5 rounded-full text-[10px] bg-zinc-500/15 text-zinc-400 border border-zinc-500/30">De fábrica</span>}
+                      </div>
+                      <span className="text-xs text-zinc-500">{PURPOSE_LABELS[tpl.purpose] || tpl.purpose}</span>
+                    </div>
+                  </div>
+                  <p className="text-xs text-zinc-400 line-clamp-3 whitespace-pre-line">{renderTemplateText(tpl.body)}</p>
+                  <div className="flex items-center gap-2 mt-auto pt-2 border-t border-[var(--app-border)]">
+                    <button onClick={() => handleUseTemplate(tpl)} className="flex-1 text-xs px-3 py-2 rounded-lg bg-[var(--app-primary)]/20 hover:bg-[var(--app-primary)]/30 border border-[var(--app-primary)]/30 text-[var(--app-primary)] font-medium">
+                      Usar en campaña
+                    </button>
+                    {!tpl.is_default && (
+                      <button onClick={() => openEditTemplate(tpl)} title="Editar" className="p-2 rounded-lg bg-white/5 hover:bg-white/10 border border-[var(--app-border)] text-zinc-400">
+                        <Pencil size={14} />
+                      </button>
+                    )}
+                    <button onClick={() => handleDuplicateTemplate(tpl)} title="Duplicar" className="p-2 rounded-lg bg-white/5 hover:bg-white/10 border border-[var(--app-border)] text-zinc-400">
+                      <Copy size={14} />
+                    </button>
+                    {!tpl.is_default && (
+                      <button onClick={() => handleDeleteTemplate(tpl)} title="Eliminar" className="p-2 rounded-lg bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 text-red-400">
+                        <Trash2 size={14} />
+                      </button>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* NEXUS_MESSAGE_TEMPLATES_V1 — editor */}
+        {showTemplateEditor && (
+          <AccessibleModal
+            open={showTemplateEditor}
+            onClose={() => !savingTemplate && setShowTemplateEditor(false)}
+            labelledBy="template-editor-title"
+            describedBy="template-editor-description"
+            panelClassName="w-full max-w-2xl rounded-2xl border border-[var(--app-border)] bg-[var(--app-surface-elevated)] p-6 max-h-[95vh] overflow-y-auto"
+          >
+            <div className="flex justify-between mb-5">
+              <div>
+                <h2 id="template-editor-title" className="text-xl text-[var(--app-text-primary)]">{editingTemplate ? 'Editar plantilla' : 'Nueva plantilla'}</h2>
+                <p id="template-editor-description" className="text-sm text-zinc-400">Usa variables como {'{{nombre_cliente}}'} y se reemplazan automáticamente al enviar</p>
+              </div>
+              <button onClick={() => setShowTemplateEditor(false)} disabled={savingTemplate}><X className="text-zinc-400" size={20} /></button>
+            </div>
+            <div className="space-y-4">
+              <div className="grid sm:grid-cols-2 gap-4">
+                <label className="block text-sm text-zinc-400">Nombre
+                  <input value={templateForm.name} onChange={(e) => setTemplateForm({ ...templateForm, name: e.target.value })} maxLength={80} className="mt-2 w-full p-3 bg-white/5 border border-[var(--app-border)] rounded-xl text-[var(--app-text-primary)]" />
+                </label>
+                {!editingTemplate && (
+                  <label className="block text-sm text-zinc-400">Tipo
+                    <select value={templateForm.purpose} onChange={(e) => setTemplateForm({ ...templateForm, purpose: e.target.value })} className="mt-2 w-full p-3 bg-[#18181b] border border-[var(--app-border)] rounded-xl text-[var(--app-text-primary)]">
+                      <option value="custom" style={{ background: '#18181b' }}>Personalizada</option>
+                      <option value="birthday" style={{ background: '#18181b' }}>Cumpleaños</option>
+                      <option value="reactivation" style={{ background: '#18181b' }}>Reactivación</option>
+                      <option value="promotion" style={{ background: '#18181b' }}>Promoción</option>
+                      <option value="welcome" style={{ background: '#18181b' }}>Bienvenida</option>
+                    </select>
+                  </label>
+                )}
+              </div>
+              <label className="block text-sm text-zinc-400">Asunto del correo
+                <input value={templateForm.subject} onChange={(e) => setTemplateForm({ ...templateForm, subject: e.target.value })} maxLength={200} className="mt-2 w-full p-3 bg-white/5 border border-[var(--app-border)] rounded-xl text-[var(--app-text-primary)]" />
+              </label>
+              <div>
+                <span className="text-sm text-zinc-400 mb-2 block">Variables disponibles (clic para insertar)</span>
+                <div className="flex flex-wrap gap-2 mb-3">
+                  {templateVars.map(v => (
+                    <button key={v} type="button" onClick={() => insertVariable(v)} className="px-2.5 py-1 rounded-lg bg-white/5 hover:bg-white/10 border border-[var(--app-border)] text-xs text-zinc-300 font-mono">
+                      {'{{' + v + '}}'}
+                    </button>
+                  ))}
+                </div>
+                <label className="block text-sm text-zinc-400">Contenido
+                  <textarea value={templateForm.body} onChange={(e) => setTemplateForm({ ...templateForm, body: e.target.value })} rows={8} maxLength={4000} className="mt-2 w-full p-3 bg-white/5 border border-[var(--app-border)] rounded-xl text-[var(--app-text-primary)] resize-none font-mono text-sm" />
+                </label>
+              </div>
+              {templateForm.body && (
+                <div className="p-3 rounded-xl bg-white/5 border border-[var(--app-border)]">
+                  <span className="text-xs text-zinc-500 block mb-1">Vista previa</span>
+                  <p className="text-sm text-zinc-300 whitespace-pre-line">{renderTemplateText(templateForm.body)}</p>
+                </div>
+              )}
+              <div className="flex justify-end gap-3">
+                <button onClick={() => setShowTemplateEditor(false)} disabled={savingTemplate} className="px-4 py-2 text-zinc-300">Cancelar</button>
+                <button onClick={handleSaveTemplate} disabled={savingTemplate} className="px-4 py-2 rounded-xl bg-[var(--app-primary)] text-[var(--app-text-primary)] disabled:opacity-50 flex items-center gap-2">
+                  {savingTemplate && <Loader2 size={16} className="animate-spin" />} Guardar plantilla
+                </button>
+              </div>
+            </div>
+          </AccessibleModal>
         )}
       </div>
     </div>
