@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { clientAPI, organizationAPI, marketingAPI } from '../api';
-import { Send, ArrowLeft, LogOut, Users, MessageSquare, CheckSquare, Loader2, Bell, BellOff, AlertCircle, Mail, MessageCircle, Cake } from 'lucide-react';
+import { clientAPI, organizationAPI, marketingAPI, serviceAPI } from '../api';
+import { Send, ArrowLeft, LogOut, Users, MessageSquare, CheckSquare, Loader2, Bell, BellOff, AlertCircle, Mail, MessageCircle, Cake, Gift, Settings2 } from 'lucide-react';
 import { toast } from 'sonner';
 import whatsappService, { MESSAGE_TEMPLATES, VERTICAL_LABELS, generateReactivationMessageFor, generateBirthdayMessage } from '../services/whatsappService';
 
@@ -24,6 +24,11 @@ const MarketingCampaigns = () => {
   const [audience, setAudience] = useState('all'); // 'all' | 'birthdays'
   const [birthdayClients, setBirthdayClients] = useState([]);
   const [loadingBirthdays, setLoadingBirthdays] = useState(false);
+  // NEXUS_BIRTHDAY_CAMPAIGN_V1
+  const [campaign, setCampaign] = useState(null); // organization.birthday_campaign, cargado del backend
+  const [campaignDraft, setCampaignDraft] = useState(null); // copia editable
+  const [savingCampaign, setSavingCampaign] = useState(false);
+  const [orgServices, setOrgServices] = useState([]);
 
   // Get org_id from query param (for owner) or user.organization_id (for manager)
   const organizationId = (user?.role === 'owner' ? searchParams.get('org_id') : user?.organization_id) || user?.organization_id;
@@ -33,9 +38,27 @@ const MarketingCampaigns = () => {
     try {
       const orgsRes = await organizationAPI.getAll();
       const org = orgsRes.data.find(o => o.organization_id === organizationId);
-      if (org) { setOrganizationName(org.name); setBusinessType(org.business_type || 'barbershop'); }
+      if (org) {
+        setOrganizationName(org.name);
+        setBusinessType(org.business_type || 'barbershop');
+        // NEXUS_BIRTHDAY_CAMPAIGN_V1
+        const c = org.birthday_campaign || { enabled: false, days_before: 7, reward_type: 'percentage', percentage: 10, free_service_ids: [], reward_expires_days: 30 };
+        setCampaign(c);
+        setCampaignDraft(c);
+      }
     } catch (error) {
       console.error('Error loading organization:', error);
+    }
+  }, [organizationId]);
+
+  // NEXUS_BIRTHDAY_CAMPAIGN_V1
+  const loadOrgServices = useCallback(async () => {
+    if (!organizationId) return;
+    try {
+      const response = await serviceAPI.getAll({ organization_id: organizationId });
+      setOrgServices(response.data || []);
+    } catch (error) {
+      console.error('Error loading services:', error);
     }
   }, [organizationId]);
 
@@ -76,8 +99,44 @@ const MarketingCampaigns = () => {
       loadClients();
       loadOrganizationName();
       loadBirthdays();
+      loadOrgServices();
     }
-  }, [organizationId, loadClients, loadOrganizationName, loadBirthdays]);
+  }, [organizationId, loadClients, loadOrganizationName, loadBirthdays, loadOrgServices]);
+
+  // NEXUS_BIRTHDAY_CAMPAIGN_V1
+  const campaignDirty = campaign && campaignDraft && JSON.stringify(campaign) !== JSON.stringify(campaignDraft);
+
+  const toggleFreeService = (serviceId) => {
+    setCampaignDraft(prev => ({
+      ...prev,
+      free_service_ids: (prev.free_service_ids || []).includes(serviceId)
+        ? prev.free_service_ids.filter(id => id !== serviceId)
+        : [...(prev.free_service_ids || []), serviceId],
+    }));
+  };
+
+  const handleSaveCampaign = async () => {
+    if (campaignDraft.reward_type === 'percentage' && (!campaignDraft.percentage || campaignDraft.percentage <= 0 || campaignDraft.percentage > 100)) {
+      toast.error('El porcentaje debe estar entre 1 y 100');
+      return;
+    }
+    if (campaignDraft.reward_type === 'free_services' && (campaignDraft.free_service_ids || []).length === 0) {
+      toast.error('Selecciona al menos un servicio para regalar');
+      return;
+    }
+    setSavingCampaign(true);
+    try {
+      const response = await organizationAPI.update(organizationId, { birthday_campaign: campaignDraft });
+      const saved = response.data.birthday_campaign;
+      setCampaign(saved);
+      setCampaignDraft(saved);
+      toast.success('Campaña de cumpleaños actualizada');
+    } catch (error) {
+      toast.error(error.response?.data?.detail || 'No fue posible guardar la campaña');
+    } finally {
+      setSavingCampaign(false);
+    }
+  };
 
   const displayedClients = audience === 'birthdays' ? birthdayClients : clients;
 
@@ -105,7 +164,7 @@ const MarketingCampaigns = () => {
     if (selectedTemplate === MESSAGE_TEMPLATES.APPOINTMENT_REMINDER) {
       return `🔔 *Recordatorio de Cita*\n\n¡Hola ${clientName}!\n\nTu cita es próximamente.\nNo faltes! 💈`;
     } else if (selectedTemplate === MESSAGE_TEMPLATES.BIRTHDAY) {
-      return generateBirthdayMessage(clientName, organizationName || 'Nexus').replace('\n\nComo regalo, te esperamos con algo especial en tu próxima visita:\n[BOOKING_LINK]', '');
+      return generateBirthdayMessage(clientName, organizationName || 'Nexus').replace('\n[BOOKING_LINK]', '');
     } else if (selectedTemplate === MESSAGE_TEMPLATES.REACTIVATION) {
       return generateReactivationMessageFor(clientName, businessType).replace('\n\nAgenda tu cita aquí:\n[BOOKING_LINK]', '');
     } else if (selectedTemplate === MESSAGE_TEMPLATES.PROMOTION) {
@@ -427,6 +486,134 @@ const MarketingCampaigns = () => {
             </button>
           </div>
         </div>
+
+        {/* NEXUS_BIRTHDAY_CAMPAIGN_V1 — configuración de la campaña de cumpleaños */}
+        {campaignDraft && (
+          <div className="mt-6 backdrop-blur-xl bg-white/3 border border-[var(--app-border)] rounded-2xl p-6">
+            <div className="flex items-center justify-between mb-6 flex-wrap gap-3">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-pink-500/20 flex items-center justify-center">
+                  <Gift size={20} strokeWidth={1.5} className="text-pink-400" />
+                </div>
+                <div>
+                  <h2 className="text-lg font-medium text-[var(--app-text-primary)]">Campaña de cumpleaños</h2>
+                  <p className="text-sm text-zinc-400">Pide la fecha de cumpleaños al registrarse y regala algo automáticamente</p>
+                </div>
+              </div>
+              <button
+                data-testid="birthday-campaign-toggle"
+                onClick={() => setCampaignDraft(prev => ({ ...prev, enabled: !prev.enabled }))}
+                className={`relative inline-flex h-7 w-12 items-center rounded-full transition-colors ${campaignDraft.enabled ? 'bg-pink-500' : 'bg-zinc-700'}`}
+                title={campaignDraft.enabled ? 'Campaña activa' : 'Campaña desactivada'}
+              >
+                <span className={`inline-block h-5 w-5 transform rounded-full bg-white transition-transform ${campaignDraft.enabled ? 'translate-x-6' : 'translate-x-1'}`} />
+              </button>
+            </div>
+
+            {campaignDraft.enabled && (
+              <div className="space-y-5">
+                <div className="grid sm:grid-cols-2 gap-4">
+                  <label className="block">
+                    <span className="text-sm font-medium text-zinc-400 mb-2 block">Avisar al manager con</span>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="number" min={1} max={60}
+                        value={campaignDraft.days_before}
+                        onChange={(e) => setCampaignDraft(prev => ({ ...prev, days_before: Number(e.target.value) || 1 }))}
+                        className="w-24 px-3 py-2.5 bg-white/5 border border-[var(--app-border)] rounded-xl text-[var(--app-text-primary)]"
+                      />
+                      <span className="text-sm text-zinc-400">día(s) de anticipación</span>
+                    </div>
+                  </label>
+                  <label className="block">
+                    <span className="text-sm font-medium text-zinc-400 mb-2 block">El código de regalo vence en</span>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="number" min={1} max={365}
+                        value={campaignDraft.reward_expires_days}
+                        onChange={(e) => setCampaignDraft(prev => ({ ...prev, reward_expires_days: Number(e.target.value) || 1 }))}
+                        className="w-24 px-3 py-2.5 bg-white/5 border border-[var(--app-border)] rounded-xl text-[var(--app-text-primary)]"
+                      />
+                      <span className="text-sm text-zinc-400">día(s)</span>
+                    </div>
+                  </label>
+                </div>
+
+                <div>
+                  <span className="text-sm font-medium text-zinc-400 mb-2 block">Tipo de regalo</span>
+                  <div className="flex gap-2 mb-4">
+                    <button
+                      data-testid="birthday-reward-type-percentage"
+                      onClick={() => setCampaignDraft(prev => ({ ...prev, reward_type: 'percentage' }))}
+                      className={`flex-1 py-2.5 rounded-lg text-sm border transition-all ${campaignDraft.reward_type === 'percentage' ? 'bg-pink-500/20 border-pink-500 text-[var(--app-text-primary)]' : 'bg-white/5 border-[var(--app-border)] text-zinc-400'}`}
+                    >
+                      Descuento por porcentaje
+                    </button>
+                    <button
+                      data-testid="birthday-reward-type-free-services"
+                      onClick={() => setCampaignDraft(prev => ({ ...prev, reward_type: 'free_services' }))}
+                      className={`flex-1 py-2.5 rounded-lg text-sm border transition-all ${campaignDraft.reward_type === 'free_services' ? 'bg-pink-500/20 border-pink-500 text-[var(--app-text-primary)]' : 'bg-white/5 border-[var(--app-border)] text-zinc-400'}`}
+                    >
+                      Servicio(s) de regalo
+                    </button>
+                  </div>
+
+                  {campaignDraft.reward_type === 'percentage' ? (
+                    <label className="block max-w-xs">
+                      <span className="text-sm text-zinc-400 mb-2 block">Porcentaje de descuento</span>
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="number" min={1} max={100}
+                          value={campaignDraft.percentage}
+                          onChange={(e) => setCampaignDraft(prev => ({ ...prev, percentage: Number(e.target.value) || 0 }))}
+                          className="w-24 px-3 py-2.5 bg-white/5 border border-[var(--app-border)] rounded-xl text-[var(--app-text-primary)]"
+                        />
+                        <span className="text-sm text-zinc-400">%</span>
+                      </div>
+                    </label>
+                  ) : (
+                    <div>
+                      <p className="text-sm text-zinc-400 mb-3">Elige qué servicios de tu catálogo puede regalar este código (el cliente igual paga la propina y cualquier producto extra):</p>
+                      {orgServices.length === 0 ? (
+                        <p className="text-sm text-zinc-500">No tienes servicios en el catálogo todavía.</p>
+                      ) : (
+                        <div className="grid sm:grid-cols-2 gap-2">
+                          {orgServices.map(s => (
+                            <button
+                              key={s.service_id}
+                              onClick={() => toggleFreeService(s.service_id)}
+                              className={`flex items-center justify-between gap-2 px-3 py-2.5 rounded-lg border text-sm text-left transition-all ${(campaignDraft.free_service_ids || []).includes(s.service_id) ? 'bg-pink-500/10 border-pink-500/30 text-pink-300' : 'bg-white/5 border-[var(--app-border)] text-zinc-400'}`}
+                            >
+                              <span className="truncate">{s.name}</span>
+                              {(campaignDraft.free_service_ids || []).includes(s.service_id) && <CheckSquare size={14} className="shrink-0" />}
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            <div className="flex items-center justify-end gap-3 mt-6">
+              {campaignDirty && (
+                <button onClick={() => setCampaignDraft(campaign)} className="px-4 py-2 text-sm text-zinc-400 hover:text-[var(--app-text-primary)]">
+                  Descartar cambios
+                </button>
+              )}
+              <button
+                data-testid="birthday-campaign-save"
+                onClick={handleSaveCampaign}
+                disabled={savingCampaign || !campaignDirty}
+                className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-pink-500 hover:bg-pink-400 text-white font-medium transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                {savingCampaign ? <Loader2 size={16} className="animate-spin" /> : <Settings2 size={16} />}
+                Guardar campaña
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

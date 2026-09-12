@@ -3,10 +3,10 @@ import React, { useEffect, useState, useCallback } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { clientAPI, organizationAPI } from '../api';
-import { Users, LogOut, ArrowLeft, Phone, Mail, Calendar, MessageSquare, Send, Eye, CheckCircle, Bell, BellOff, Loader2, ChevronLeft, ChevronRight, Search } from 'lucide-react';
+import { Users, LogOut, ArrowLeft, Phone, Mail, Calendar, MessageSquare, Send, Eye, CheckCircle, Bell, BellOff, Loader2, ChevronLeft, ChevronRight, Search, Gift } from 'lucide-react';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '../components/ui/sheet';
 import { toast } from 'sonner';
-import whatsappService, { MESSAGE_TEMPLATES } from '../services/whatsappService';
+import whatsappService, { MESSAGE_TEMPLATES, generateBirthdayMessage } from '../services/whatsappService';
 import { AccessibleModal } from '../components/design';
 
 const ManagerClients = () => {
@@ -30,6 +30,10 @@ const ManagerClients = () => {
   const [sendingMessage, setSendingMessage] = useState(false);
   const [organizationName, setOrganizationName] = useState('');
   const [togglingMarketing, setTogglingMarketing] = useState(null); // client_id being toggled
+  // NEXUS_BIRTHDAY_CAMPAIGN_V1: recompensa activa del cliente abierto en el drawer
+  const [clientReward, setClientReward] = useState(null);
+  const [loadingReward, setLoadingReward] = useState(false);
+  const [sendingReward, setSendingReward] = useState(false);
   // NEXUS_BIRTHDAY_REMINDER_DAEMON_V1: cumpleaños próximos, para el badge en la lista y la tira de arriba
   const [upcomingBirthdays, setUpcomingBirthdays] = useState([]);
   const BIRTHDAY_WINDOW_DAYS = 30;
@@ -115,6 +119,35 @@ const ManagerClients = () => {
   const handleViewHistory = (client) => {
     setSelectedClient(client);
     loadClientHistory(client.client_id);
+    loadClientReward(client.client_id);
+  };
+
+  // NEXUS_BIRTHDAY_CAMPAIGN_V1
+  const loadClientReward = async (clientId) => {
+    setLoadingReward(true);
+    setClientReward(null);
+    try {
+      const response = await clientAPI.getBirthdayReward(clientId);
+      setClientReward(response.data || null);
+    } catch (error) {
+      setClientReward(null);
+    } finally {
+      setLoadingReward(false);
+    }
+  };
+
+  const handleSendRewardWhatsapp = async () => {
+    if (!selectedClient || !clientReward) return;
+    setSendingReward(true);
+    try {
+      const message = generateBirthdayMessage(selectedClient.name, organizationName || 'Nexus', clientReward.code);
+      const result = await whatsappService.sendWhatsAppMessage(selectedClient.phone, message, 'birthday');
+      if (result.success) toast.success('Mensaje de cumpleaños enviado' + (result.mock ? ' (modo prueba)' : ''));
+    } catch (error) {
+      toast.error('No fue posible enviar el mensaje');
+    } finally {
+      setSendingReward(false);
+    }
   };
 
   const handleSendMessage = async () => {
@@ -463,6 +496,20 @@ const ManagerClients = () => {
                                     className="px-2 py-1 bg-white/5 border border-[var(--app-border)] rounded-lg text-[var(--app-text-primary)]"
                                   />
                                 </label>
+                                {/* NEXUS_BIRTHDAY_CAMPAIGN_V1 */}
+                                {!loadingReward && clientReward && (
+                                  <div className="mt-3 flex items-center justify-between gap-3 p-3 rounded-xl bg-pink-500/10 border border-pink-500/20">
+                                    <div>
+                                      <div className="flex items-center gap-1.5 text-sm text-pink-300 font-medium"><Gift size={14} /> Código {clientReward.code}</div>
+                                      <div className="text-xs text-zinc-400 mt-0.5">
+                                        {clientReward.reward_type === 'percentage' ? `${clientReward.percentage}% de descuento` : 'Servicio(s) de regalo'} · vence {clientReward.expires_at?.slice(0, 10)}
+                                      </div>
+                                    </div>
+                                    <button onClick={handleSendRewardWhatsapp} disabled={sendingReward} className="shrink-0 px-3 py-1.5 rounded-lg bg-pink-500/20 hover:bg-pink-500/30 border border-pink-500/30 text-pink-300 text-xs font-medium disabled:opacity-50">
+                                      {sendingReward ? <Loader2 size={14} className="animate-spin" /> : 'Enviar'}
+                                    </button>
+                                  </div>
+                                )}
                               </SheetHeader>
 
                               {historyLoading ? (
@@ -617,6 +664,20 @@ const ManagerClients = () => {
                               className="px-2 py-1 bg-white/5 border border-[var(--app-border)] rounded-lg text-[var(--app-text-primary)]"
                             />
                           </label>
+                          {/* NEXUS_BIRTHDAY_CAMPAIGN_V1 */}
+                          {!loadingReward && clientReward && (
+                            <div className="mt-3 flex items-center justify-between gap-3 p-3 rounded-xl bg-pink-500/10 border border-pink-500/20">
+                              <div>
+                                <div className="flex items-center gap-1.5 text-sm text-pink-300 font-medium"><Gift size={14} /> Código {clientReward.code}</div>
+                                <div className="text-xs text-zinc-400 mt-0.5">
+                                  {clientReward.reward_type === 'percentage' ? `${clientReward.percentage}% de descuento` : 'Servicio(s) de regalo'} · vence {clientReward.expires_at?.slice(0, 10)}
+                                </div>
+                              </div>
+                              <button onClick={handleSendRewardWhatsapp} disabled={sendingReward} className="shrink-0 px-3 py-1.5 rounded-lg bg-pink-500/20 hover:bg-pink-500/30 border border-pink-500/30 text-pink-300 text-xs font-medium disabled:opacity-50">
+                                {sendingReward ? <Loader2 size={14} className="animate-spin" /> : 'Enviar'}
+                              </button>
+                            </div>
+                          )}
                         </SheetHeader>
                         {historyLoading ? (
                           <div className="text-center py-8 text-zinc-400">Cargando...</div>

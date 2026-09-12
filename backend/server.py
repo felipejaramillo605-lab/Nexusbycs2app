@@ -312,6 +312,20 @@ class Organization(BaseModel):
             "marketing_campaigns_enabled": False,
         }
     )
+    # NEXUS_BIRTHDAY_CAMPAIGN_V1: reward_type "percentage" | "free_services".
+    # free_service_ids only applies when reward_type == "free_services" -- the
+    # manager curates specific real services from their own catalog to give
+    # away, not a monetary cap.
+    birthday_campaign: Optional[dict] = Field(
+        default_factory=lambda: {
+            "enabled": False,
+            "days_before": 7,
+            "reward_type": "percentage",
+            "percentage": 10,
+            "free_service_ids": [],
+            "reward_expires_days": 30,
+        }
+    )
 
 
 class Service(BaseModel):
@@ -489,6 +503,9 @@ class AppointmentCheckoutRequest(BaseModel):
     tip_amount: float = 0
     payment_method: str
     notes: Optional[str] = None
+    # NEXUS_BIRTHDAY_CAMPAIGN_V1: código de regalo de cumpleaños, tecleado por
+    # el staff. Se valida server-side contra birthday_rewards -- ver checkout_appointment.
+    birthday_code: Optional[str] = Field(default=None, max_length=32)
 
 
 # NEXUS_STAFF_SETTLEMENTS_FOUNDATION_V1
@@ -575,6 +592,8 @@ class OrganizationUpdate(BaseModel):
     review_request_settings: Optional[dict] = None
     # NEXUS_LOYALTY_PROGRAM_V1
     loyalty_settings: Optional[dict] = None
+    # NEXUS_BIRTHDAY_CAMPAIGN_V1
+    birthday_campaign: Optional[dict] = None
     client_portal_theme: Optional[str] = (
         None  # classic | feminine | professional | cyberpunk | underground | neutral | minimalist_purple
     )
@@ -2730,6 +2749,35 @@ async def update_organization_profile(
     if "phone" in update_data and update_data["phone"]:
         update_data["phone"] = sanitize_phone(update_data["phone"])
 
+    # NEXUS_BIRTHDAY_CAMPAIGN_V1: reward_type=="free_services" must reference
+    # services that actually exist in this organization's own catalog.
+    if "birthday_campaign" in update_data:
+        campaign = update_data["birthday_campaign"] or {}
+        campaign.setdefault("enabled", False)
+        campaign.setdefault("days_before", 7)
+        campaign.setdefault("reward_type", "percentage")
+        campaign.setdefault("percentage", 10)
+        campaign.setdefault("free_service_ids", [])
+        campaign.setdefault("reward_expires_days", 30)
+        if campaign["reward_type"] not in {"percentage", "free_services"}:
+            raise HTTPException(status_code=400, detail="reward_type must be 'percentage' or 'free_services'")
+        if campaign["reward_type"] == "percentage":
+            pct = campaign.get("percentage")
+            if not isinstance(pct, (int, float)) or not (0 < pct <= 100):
+                raise HTTPException(status_code=400, detail="percentage must be between 1 and 100")
+        elif campaign["reward_type"] == "free_services":
+            ids = campaign.get("free_service_ids") or []
+            if not ids:
+                raise HTTPException(status_code=400, detail="Select at least one service for free_service_ids")
+            existing = await db.services.find(
+                {"organization_id": organization_id, "service_id": {"$in": ids}}, {"_id": 0, "service_id": 1}
+            ).to_list(len(ids))
+            existing_ids = {s["service_id"] for s in existing}
+            missing = set(ids) - existing_ids
+            if missing:
+                raise HTTPException(status_code=400, detail=f"Unknown service_id(s) in catalog: {sorted(missing)}")
+        update_data["birthday_campaign"] = campaign
+
     if not update_data:
         raise HTTPException(status_code=400, detail="No fields to update")
 
@@ -3623,6 +3671,36 @@ async def checkout_appointment(
     tip = round(float(data.tip_amount), 2)
     if discount > price:
         raise HTTPException(400, "Discount cannot exceed service price")
+
+    # NEXUS_BIRTHDAY_CAMPAIGN_V1: validate + apply a birthday reward code,
+    # scoped strictly to this appointment's client (never auto-applied).
+    birthday_reward = None
+    if data.birthday_code:
+        reward_client = await db.clients.find_one(
+            {"organization_id": org_id, "phone": apt.get("client_phone")}, {"_id": 0, "client_id": 1}
+        )
+        if not reward_client:
+            raise HTTPException(400, "No client account found for this appointment's phone number")
+        birthday_reward, reward_error = await find_redeemable_reward(
+            db, organization_id=org_id, client_id=reward_client["client_id"], code=data.birthday_code
+        )
+        if reward_error:
+            raise HTTPException(
+                400,
+                {
+                    "code_not_found": "Birthday code not found",
+                    "code_already_used_or_expired": "Birthday code already used or expired",
+                    "code_expired": "Birthday code expired",
+                }.get(reward_error, "Invalid birthday code"),
+            )
+        if birthday_reward["reward_type"] == "percentage":
+            reward_discount = round(price * float(birthday_reward["percentage"]) / 100, 2)
+            discount = round(min(price, discount + reward_discount), 2)
+        else:  # free_services: el servicio de esta cita debe estar entre los regalados
+            if apt["service_id"] not in (birthday_reward.get("free_service_ids") or []):
+                raise HTTPException(400, "This birthday reward doesn't cover the service being charged")
+            discount = price
+
     override = await db.staff_commission_overrides.find_one(
         {"organization_id": org_id, "barber_id": apt["barber_id"], "active": True}, {"_id": 0}
     )
@@ -3649,6 +3727,7 @@ async def checkout_appointment(
         "service_name_snapshot": service.get("name"),
         "service_price_snapshot": price,
         "discount_amount": discount,
+        "birthday_reward_code_snapshot": birthday_reward["code"] if birthday_reward else None,
         "net_service_amount": net,
         "tip_amount": tip,
         "total_received": round(net + tip, 2),
@@ -3691,6 +3770,10 @@ async def checkout_appointment(
         )
         if result.modified_count != 1:
             raise HTTPException(409, "Appointment state changed during checkout")
+        # NEXUS_BIRTHDAY_CAMPAIGN_V1: solo se marca canjeado una vez que todo lo
+        # demás (transacción, inventario, cita) quedó confirmado.
+        if birthday_reward:
+            await redeem_reward(db, reward_id=birthday_reward["reward_id"], appointment_id=appointment_id)
     except Exception as exc:
         await rollback_checkout_inventory(db, reserved, org_id, item["transaction_id"])
         await db.transactions.update_one(
@@ -4914,6 +4997,25 @@ async def get_upcoming_birthdays(
 
     upcoming.sort(key=lambda c: c["days_until"])
     return upcoming
+
+
+# NEXUS_BIRTHDAY_CAMPAIGN_V1
+@api_router.get("/clients/{client_id}/birthday-reward", tags=["clients"])
+async def get_client_birthday_reward(
+    client_id: str, authorization: Optional[str] = Header(None), session_token: Optional[str] = Cookie(None)
+):
+    """Recompensa de cumpleaños activa más reciente para este cliente, si existe."""
+    current_user = await get_current_user(authorization, session_token)
+    require_management_role(current_user)
+    client = await db.clients.find_one({"client_id": client_id}, {"_id": 0, "organization_id": 1})
+    if not client:
+        raise HTTPException(404, "Client not found")
+    if not await validate_organization_access(current_user, client["organization_id"]):
+        raise HTTPException(403, "Access denied")
+    reward = await db.birthday_rewards.find_one(
+        {"client_id": client_id, "status": "active"}, {"_id": 0}, sort=[("issued_at", -1)]
+    )
+    return reward
 
 
 @api_router.get("/clients/{client_id}/history", tags=["clients"])
@@ -6936,6 +7038,7 @@ api_router.include_router(
 from inventory_reorder import build_inventory_reorder_router, ensure_inventory_reorder_indexes
 from low_stock_alerts import ensure_low_stock_alert_indexes
 from birthday_alerts import ensure_birthday_alert_indexes
+from birthday_rewards import ensure_birthday_reward_indexes, find_redeemable_reward, redeem_reward
 
 api_router.include_router(
     build_inventory_reorder_router(db, get_current_user, require_management_role, resolve_team_organization),
@@ -7251,6 +7354,8 @@ async def create_application_indexes():
     await ensure_low_stock_alert_indexes(db)
     # NEXUS_BIRTHDAY_REMINDER_DAEMON_V1
     await ensure_birthday_alert_indexes(db)
+    # NEXUS_BIRTHDAY_CAMPAIGN_V1
+    await ensure_birthday_reward_indexes(db)
     # NEXUS_AI_V1
     await db.nexus_ai_conversations.create_index("conversation_id", unique=True)
     await db.nexus_ai_conversations.create_index([("organization_id", 1), ("user_id", 1), ("updated_at", -1)])

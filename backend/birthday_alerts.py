@@ -7,12 +7,18 @@ low_stock_alerts.py -- el chequeo se distribuye a lo largo de una ventana
 horaria (offset determinístico por organization_id) para no evaluar todas
 las organizaciones en el mismo minuto.
 
-Por cada cliente cuyo cumpleaños caiga exactamente a N días (configurable,
-default 7) se escribe una notificación in-app (subscription_notifications,
+Por cada cliente cuyo cumpleaños caiga exactamente a N días (default 7,
+configurable por organización vía Organization.birthday_campaign.days_before
+-- NEXUS_BIRTHDAY_CAMPAIGN_V1 -- o globalmente vía
+NEXUS_BIRTHDAY_REMINDER_DAYS_BEFORE para orgs sin ese campo aún) se escribe
+una notificación in-app (subscription_notifications,
 event_type="birthday_upcoming"), mismo patrón que
-nexus_ai._send_manager_reminder. No hay envío de correo/WhatsApp al cliente
-todavía -- eso es Fase 2 (recompensa + plantilla), este daemon solo avisa
-al manager.
+nexus_ai._send_manager_reminder.
+
+Si además Organization.birthday_campaign.enabled es true, también se genera
+un código de recompensa canjeable (birthday_rewards.create_birthday_reward)
+y su código se incluye en la notificación para que el manager lo comparta
+manualmente -- el envío real por correo/WhatsApp con plantilla es Fase 3.
 """
 from __future__ import annotations
 
@@ -20,6 +26,8 @@ import hashlib
 import os
 import uuid
 from datetime import datetime, timezone
+
+from birthday_rewards import create_birthday_reward
 
 DEFAULT_DAYS_BEFORE = 7
 DEFAULT_WINDOW_START_HOUR = 8
@@ -50,11 +58,11 @@ def _days_until_next_birthday(birthday: str, today) -> int | None:
 
 async def process_birthday_alerts(db, *, at=None):
     now = at or datetime.now(timezone.utc)
-    days_before = int(os.environ.get("NEXUS_BIRTHDAY_REMINDER_DAYS_BEFORE", DEFAULT_DAYS_BEFORE))
+    default_days_before = int(os.environ.get("NEXUS_BIRTHDAY_REMINDER_DAYS_BEFORE", DEFAULT_DAYS_BEFORE))
     window_start_hour = int(os.environ.get("NEXUS_BIRTHDAY_ALERT_WINDOW_START_HOUR", DEFAULT_WINDOW_START_HOUR))
     window_minutes = int(os.environ.get("NEXUS_BIRTHDAY_ALERT_WINDOW_MINUTES", DEFAULT_WINDOW_MINUTES))
     period = now.strftime("%Y-%m-%d")
-    summary = {"period": period, "eligible_orgs": 0, "reminders_sent": 0, "skipped": 0, "empty": 0}
+    summary = {"period": period, "eligible_orgs": 0, "reminders_sent": 0, "rewards_issued": 0, "skipped": 0, "empty": 0}
 
     minute_of_window = (now.hour - window_start_hour) * 60 + now.minute
     if minute_of_window < 0:
@@ -62,7 +70,7 @@ async def process_birthday_alerts(db, *, at=None):
 
     orgs = await db.organizations.find(
         {"notification_settings.birthday_reminders_enabled": {"$ne": False}},
-        {"_id": 0, "organization_id": 1, "name": 1},
+        {"_id": 0, "organization_id": 1, "name": 1, "birthday_campaign": 1},
     ).to_list(10000)
 
     today = now.date()
@@ -79,6 +87,9 @@ async def process_birthday_alerts(db, *, at=None):
         except Exception:
             summary["skipped"] += 1
             continue  # ya se evaluó esta organización hoy
+
+        campaign = org.get("birthday_campaign") or {}
+        days_before = int(campaign.get("days_before") or default_days_before)
 
         clients = await db.clients.find(
             {"organization_id": org_id, "birthday": {"$type": "string", "$ne": None}},
@@ -98,13 +109,30 @@ async def process_birthday_alerts(db, *, at=None):
         for client in due_today:
             month, day = client["birthday"].split("-")[1:]
             dedupe_key = f"birthday_reminder:{client['client_id']}:{today.year}-{month}-{day}"
+
+            message = f"{client['name']} cumple años en {days_before} día(s)."
+            if campaign.get("enabled"):
+                reward = await create_birthday_reward(
+                    db,
+                    organization_id=org_id,
+                    client_id=client["client_id"],
+                    campaign=campaign,
+                    birthday_year=today.year,
+                    now=now,
+                )
+                if reward:
+                    summary["rewards_issued"] += 1
+                    message += f" Código de regalo listo para compartir: {reward['code']}."
+            else:
+                message += " Es buen momento para enviarle un saludo o una promoción."
+
             row = {
                 "notification_id": f"snot_{uuid.uuid4().hex[:16]}",
                 "organization_id": org_id,
                 "event_type": "birthday_upcoming",
                 "severity": "info",
                 "title": "Cumpleaños próximo",
-                "message": f"{client['name']} cumple años en {days_before} día(s). Es buen momento para enviarle un saludo o una promoción.",
+                "message": message,
                 "related_entity_type": "client",
                 "related_entity_id": client["client_id"],
                 "dedupe_key": dedupe_key,
@@ -122,7 +150,7 @@ async def process_birthday_alerts(db, *, at=None):
         "birthday_alert_cycle_summary "
         + " ".join(
             f"{key}={summary[key]}"
-            for key in ("period", "eligible_orgs", "reminders_sent", "skipped", "empty")
+            for key in ("period", "eligible_orgs", "reminders_sent", "rewards_issued", "skipped", "empty")
         )
     )
     return summary
