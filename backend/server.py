@@ -636,6 +636,8 @@ class ClientRegisterRequest(BaseModel):
     pin: str = Field(..., max_length=4)  # 4-digit numeric PIN
     email: Optional[EmailStr] = None  # Use EmailStr for validation
     marketing_consent: bool = False
+    # NEXUS_CLIENT_BIRTHDAY_V1: "YYYY-MM-DD", optional, same format as Client.birthday.
+    birthday: Optional[str] = Field(default=None, max_length=10)
 
 
 class ClientLoginRequest(BaseModel):
@@ -5240,6 +5242,10 @@ async def register_client_with_pin(data: ClientRegisterRequest, request: Request
     if not re.match(r"^\d{4}$", data.pin):
         raise HTTPException(status_code=400, detail="PIN must be exactly 4 digits")
 
+    # NEXUS_CLIENT_BIRTHDAY_V1: same format/validation as PUT /clients/{client_id}.
+    if data.birthday and not re.fullmatch(r"\d{4}-\d{2}-\d{2}", data.birthday):
+        raise HTTPException(status_code=400, detail="birthday must be in YYYY-MM-DD format")
+
     # Sanitize phone
     phone = sanitize_phone(data.phone)
 
@@ -5272,6 +5278,9 @@ async def register_client_with_pin(data: ClientRegisterRequest, request: Request
                     "marketing_consent_text": (
                         "Acepto recibir promociones y novedades" if data.marketing_consent else None
                     ),
+                    # NEXUS_CLIENT_BIRTHDAY_V1: don't clobber an existing birthday with an
+                    # empty value from a re-registration that left the field blank.
+                    **({"birthday": data.birthday} if data.birthday else {}),
                     "updated_at": now,
                 }
             },
@@ -5297,7 +5306,10 @@ async def register_client_with_pin(data: ClientRegisterRequest, request: Request
             "failed_pin_attempts": 0,
             "pin_locked_until": None,
             "total_visits": 0,
+            "loyalty_points": 0,
             "last_visit": None,
+            # NEXUS_CLIENT_BIRTHDAY_V1
+            "birthday": data.birthday,
             "created_at": now,
             "updated_at": now,
         }
@@ -6923,6 +6935,7 @@ api_router.include_router(
 # NEXUS_INVENTORY_REORDER_ALERTS_V1
 from inventory_reorder import build_inventory_reorder_router, ensure_inventory_reorder_indexes
 from low_stock_alerts import ensure_low_stock_alert_indexes
+from birthday_alerts import ensure_birthday_alert_indexes
 
 api_router.include_router(
     build_inventory_reorder_router(db, get_current_user, require_management_role, resolve_team_organization),
@@ -7236,6 +7249,8 @@ async def create_application_indexes():
     await ensure_catalog_indexes(db)
     # NEXUS_LOW_STOCK_ALERT_DAEMON_V1
     await ensure_low_stock_alert_indexes(db)
+    # NEXUS_BIRTHDAY_REMINDER_DAEMON_V1
+    await ensure_birthday_alert_indexes(db)
     # NEXUS_AI_V1
     await db.nexus_ai_conversations.create_index("conversation_id", unique=True)
     await db.nexus_ai_conversations.create_index([("organization_id", 1), ("user_id", 1), ("updated_at", -1)])

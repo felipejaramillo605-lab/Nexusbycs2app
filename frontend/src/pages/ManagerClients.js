@@ -30,6 +30,9 @@ const ManagerClients = () => {
   const [sendingMessage, setSendingMessage] = useState(false);
   const [organizationName, setOrganizationName] = useState('');
   const [togglingMarketing, setTogglingMarketing] = useState(null); // client_id being toggled
+  // NEXUS_BIRTHDAY_REMINDER_DAEMON_V1: cumpleaños próximos, para el badge en la lista y la tira de arriba
+  const [upcomingBirthdays, setUpcomingBirthdays] = useState([]);
+  const BIRTHDAY_WINDOW_DAYS = 30;
 
   // Get org_id from query param (for owner) or user.organization_id (for manager)
   const organizationId = (user?.role === 'owner' ? searchParams.get('org_id') : user?.organization_id) || user?.organization_id;
@@ -70,6 +73,25 @@ const ManagerClients = () => {
       loadOrganizationName();
     }
   }, [organizationId, loadClients, loadOrganizationName]);
+
+  // NEXUS_BIRTHDAY_REMINDER_DAEMON_V1
+  useEffect(() => {
+    if (!organizationId) return;
+    clientAPI.getUpcomingBirthdays({ organization_id: organizationId, days: BIRTHDAY_WINDOW_DAYS })
+      .then((response) => setUpcomingBirthdays(response.data?.upcoming_birthdays || []))
+      .catch((error) => console.error('Error loading upcoming birthdays:', error));
+  }, [organizationId]);
+
+  const birthdayDaysByClientId = React.useMemo(
+    () => new Map(upcomingBirthdays.map((b) => [b.client_id, b.days_until])),
+    [upcomingBirthdays]
+  );
+
+  const filterByBirthdayClient = (client) => {
+    setSearchInput(client.phone);
+    setSearchTerm(client.phone);
+    setCurrentPage(1);
+  };
 
   const submitSearch = (event) => {
     event.preventDefault();
@@ -265,6 +287,31 @@ const ManagerClients = () => {
           </div>
         </div>
 
+        {/* NEXUS_BIRTHDAY_REMINDER_DAEMON_V1: tira de próximos cumpleaños */}
+        {upcomingBirthdays.length > 0 && (
+          <div className="mb-6 backdrop-blur-xl bg-pink-500/5 border border-pink-500/20 rounded-2xl p-4">
+            <div className="flex items-center gap-2 mb-3 text-sm font-medium text-pink-300">
+              🎂 Próximos a cumplir años (siguientes {BIRTHDAY_WINDOW_DAYS} días)
+            </div>
+            <div className="flex flex-wrap gap-2" data-testid="upcoming-birthdays-strip">
+              {upcomingBirthdays.map((b) => (
+                <button
+                  key={b.client_id}
+                  type="button"
+                  onClick={() => filterByBirthdayClient(b)}
+                  className="flex items-center gap-2 px-3 py-2 rounded-xl bg-white/5 hover:bg-white/10 border border-pink-500/20 text-sm text-[var(--app-text-primary)] transition-all"
+                  title="Ver este cliente en la lista"
+                >
+                  <span className="font-medium">{b.name}</span>
+                  <span className="text-pink-300">
+                    {b.days_until === 0 ? '¡hoy!' : `en ${b.days_until} día${b.days_until === 1 ? '' : 's'}`}
+                  </span>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
         <form onSubmit={submitSearch} className="mb-6 flex flex-col sm:flex-row gap-3" role="search">
           <label className="sr-only" htmlFor="client-search">Buscar clientes</label>
           <div className="relative flex-1"><Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500" aria-hidden="true" /><input id="client-search" value={searchInput} onChange={(event) => setSearchInput(event.target.value)} placeholder="Buscar por nombre, teléfono o correo" className="w-full pl-10 pr-4 py-3 bg-white/5 border border-[var(--app-border)] rounded-xl text-[var(--app-text-primary)] outline-none focus:border-[var(--app-primary)] focus:ring-2 focus:ring-[var(--app-primary)]/20" /></div>
@@ -311,6 +358,11 @@ const ManagerClients = () => {
                             ) : (
                               <span className="px-2 py-0.5 rounded-full text-xs bg-zinc-500/15 text-zinc-400 border border-zinc-500/30">
                                 Invitado
+                              </span>
+                            )}
+                            {birthdayDaysByClientId.has(client.client_id) && (
+                              <span className="px-2 py-0.5 rounded-full text-xs bg-pink-500/15 text-pink-300 border border-pink-500/30">
+                                🎂 {birthdayDaysByClientId.get(client.client_id) === 0 ? 'hoy' : `en ${birthdayDaysByClientId.get(client.client_id)}d`}
                               </span>
                             )}
                           </div>
@@ -489,6 +541,11 @@ const ManagerClients = () => {
                         ) : (
                           <span className="px-2 py-0.5 rounded-full text-xs bg-zinc-500/15 text-zinc-400 border border-zinc-500/30">
                             Invitado
+                          </span>
+                        )}
+                        {birthdayDaysByClientId.has(client.client_id) && (
+                          <span className="px-2 py-0.5 rounded-full text-xs bg-pink-500/15 text-pink-300 border border-pink-500/30">
+                            🎂 {birthdayDaysByClientId.get(client.client_id) === 0 ? 'hoy' : `en ${birthdayDaysByClientId.get(client.client_id)}d`}
                           </span>
                         )}
                       </div>
