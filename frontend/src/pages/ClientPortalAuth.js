@@ -189,8 +189,8 @@ export default function ClientPortalAuth() {
             </div>
           )}
 
-          {/* Birthday (only for register) -- NEXUS_CLIENT_BIRTHDAY_V1 */}
-          {mode === 'register' && (
+          {/* Birthday (only for register, only if the org's birthday campaign is on) -- NEXUS_BIRTHDAY_CAMPAIGN_V1 */}
+          {mode === 'register' && organization?.birthday_campaign?.enabled && (
             <div>
               <label className="block text-sm font-medium text-[var(--app-text-secondary)] mb-2">
                 <Cake size={14} className="inline mr-1.5 -mt-0.5" />

@@ -29,7 +29,7 @@ const AppointmentsHistory = () => {
   });
   // NEXUS_CHECKOUT_UI_V1
   const [checkoutAppointment, setCheckoutAppointment] = useState(null);
-  const [checkoutForm, setCheckoutForm] = useState({ discount_amount: 0, tip_amount: 0, payment_method: 'cash', notes: '' });
+  const [checkoutForm, setCheckoutForm] = useState({ discount_amount: 0, tip_amount: 0, payment_method: 'cash', notes: '', birthday_code: '' });
 
   // Fetch appointments with server-side pagination
   const { data: appointmentPage, isLoading, error } = useQuery({
@@ -81,12 +81,13 @@ const AppointmentsHistory = () => {
     onSuccess: (response) => { queryClient.invalidateQueries({ queryKey: ['appointments'] }); queryClient.invalidateQueries({ queryKey: ['statistics'] }); queryClient.invalidateQueries({ queryKey: ['inventory'] }); setCheckoutAppointment(null); const data=response?.data || {}; if (data.inventory_warning) toast.warning(`Cobro completado con ${data.inventory_shortage_count} faltante(s) de inventario`); else toast.success(data.inventory_consumption_status === 'consumed' ? 'Cita cobrada e insumos descontados' : 'Cita completada y cobrada correctamente'); },
     onError: (error) => toast.error(error.response?.data?.detail || 'No fue posible completar el cobro'),
   });
-  const openCheckout = (appointment) => { setCheckoutAppointment(appointment); setCheckoutForm({ discount_amount: 0, tip_amount: 0, payment_method: 'cash', notes: '' }); };
+  const openCheckout = (appointment) => { setCheckoutAppointment(appointment); setCheckoutForm({ discount_amount: 0, tip_amount: 0, payment_method: 'cash', notes: '', birthday_code: '' }); };
   const submitCheckout = () => {
     const discount=Number(checkoutForm.discount_amount)||0, tip=Number(checkoutForm.tip_amount)||0, price=Number(checkoutAppointment?.service_price)||0;
     if (discount < 0 || tip < 0) return toast.error('Descuento y propina no pueden ser negativos');
     if (discount > price) return toast.error('El descuento no puede superar el precio del servicio');
-    checkoutMutation.mutate({ appointmentId: checkoutAppointment.appointment_id, payload: { ...checkoutForm, discount_amount: discount, tip_amount: tip, notes: checkoutForm.notes.trim() } });
+    // NEXUS_BIRTHDAY_CAMPAIGN_V1: el código se valida y aplica en el servidor
+    checkoutMutation.mutate({ appointmentId: checkoutAppointment.appointment_id, payload: { ...checkoutForm, discount_amount: discount, tip_amount: tip, notes: checkoutForm.notes.trim(), birthday_code: checkoutForm.birthday_code.trim() || undefined } });
   };
 
   const handleStatusUpdate = (appointmentId, newStatus) => {
@@ -387,6 +388,8 @@ const AppointmentsHistory = () => {
                 <div className="space-y-4">
                   <div className="grid grid-cols-2 gap-3 text-sm bg-white/5 border border-[var(--app-border)] rounded-xl p-4"><span className="text-zinc-400">Precio original</span><span className="text-right text-[var(--app-text-primary)]">{formatCurrency(price)}</span><span className="text-zinc-400">Descuento</span><span className="text-right text-[var(--app-text-primary)]">{formatCurrency(discount)}</span><span className="text-zinc-400">Valor neto</span><span className="text-right text-[var(--app-text-primary)]">{formatCurrency(net)}</span><span className="text-zinc-400">Propina</span><span className="text-right text-[var(--app-text-primary)]">{formatCurrency(tip)}</span><span className="text-[var(--app-text-primary)]">Total recibido</span><span className="text-right text-[var(--app-primary)]">{formatCurrency(net+tip)}</span></div>
                   <div className="grid sm:grid-cols-2 gap-4"><label className="text-sm text-zinc-400">Descuento<input type="number" min="0" value={checkoutForm.discount_amount} onChange={(e)=>setCheckoutForm({...checkoutForm,discount_amount:e.target.value})} className="mt-2 w-full p-3 bg-white/5 border border-[var(--app-border)] rounded-xl text-[var(--app-text-primary)]" /></label><label className="text-sm text-zinc-400">Propina<input type="number" min="0" value={checkoutForm.tip_amount} onChange={(e)=>setCheckoutForm({...checkoutForm,tip_amount:e.target.value})} className="mt-2 w-full p-3 bg-white/5 border border-[var(--app-border)] rounded-xl text-[var(--app-text-primary)]" /></label></div>
+                  {/* NEXUS_BIRTHDAY_CAMPAIGN_V1 */}
+                  <label className="block text-sm text-zinc-400">Código de regalo de cumpleaños (opcional)<input type="text" placeholder="CUMPLE-XXXXXX" value={checkoutForm.birthday_code} onChange={(e)=>setCheckoutForm({...checkoutForm,birthday_code:e.target.value.toUpperCase()})} data-testid="checkout-birthday-code-input" className="mt-2 w-full p-3 bg-white/5 border border-[var(--app-border)] rounded-xl text-[var(--app-text-primary)] uppercase" /><span className="text-xs text-zinc-500">Se valida y aplica al confirmar el cobro</span></label>
                   <label className="block text-sm text-zinc-400">Medio de pago<select value={checkoutForm.payment_method} onChange={(e)=>setCheckoutForm({...checkoutForm,payment_method:e.target.value})} className="mt-2 w-full p-3 bg-[#18181b] border border-[var(--app-border)] rounded-xl text-[var(--app-text-primary)]" data-testid="checkout-payment-method-select"><option value="cash" style={{background:'#18181b',color:'#fff'}}>Efectivo</option><option value="card" style={{background:'#18181b',color:'#fff'}}>Tarjeta</option><option value="transfer" style={{background:'#18181b',color:'#fff'}}>Transferencia</option><option value="nequi" style={{background:'#18181b',color:'#fff'}}>Nequi</option><option value="daviplata" style={{background:'#18181b',color:'#fff'}}>Daviplata</option><option value="other" style={{background:'#18181b',color:'#fff'}}>Otro</option></select></label>
                   <label className="block text-sm text-zinc-400">Observaciones<textarea rows={3} maxLength={500} value={checkoutForm.notes} onChange={(e)=>setCheckoutForm({...checkoutForm,notes:e.target.value})} className="mt-2 w-full p-3 bg-white/5 border border-[var(--app-border)] rounded-xl text-[var(--app-text-primary)]" /></label>
                   <p className="text-xs text-zinc-500">La comisión se calcula en el servidor con la regla vigente.</p><div className="flex justify-end gap-3"><button onClick={()=>setCheckoutAppointment(null)} disabled={checkoutMutation.isPending} className="px-4 py-2 text-zinc-300">Cancelar</button><button onClick={submitCheckout} disabled={checkoutMutation.isPending} className="px-4 py-2 rounded-xl bg-green-600 text-[var(--app-text-primary)] disabled:opacity-50">{checkoutMutation.isPending ? 'Procesando...' : 'Confirmar cobro'}</button></div>

@@ -48,8 +48,13 @@ export const generateReactivationMessageFor = (clientName, businessType = 'barbe
   return `👋 *¡Te extrañamos!*\n\nHola ${clientName},\n\nHace mucho que no te vemos. ¿Qué tal ${noun}?\n\nAgenda tu cita aquí:\n[BOOKING_LINK]\n\n¡Te esperamos! ✨`;
 };
 
-export const generateBirthdayMessage = (clientName, businessName = 'Nexus') => {
-  return `🎂 *¡Feliz cumpleaños, ${clientName}!*\n\nTodo el equipo de ${businessName} te desea un día increíble.\n\nComo regalo, te esperamos con algo especial en tu próxima visita:\n[BOOKING_LINK]\n\n¡Que lo disfrutes! 🎉`;
+// NEXUS_BIRTHDAY_CAMPAIGN_V1: rewardCode viene de GET /clients/{id}/birthday-reward.
+// Sin código (organización sin campaña activa) cae al saludo genérico de antes.
+export const generateBirthdayMessage = (clientName, businessName = 'Nexus', rewardCode = null) => {
+  const gift = rewardCode
+    ? `Tienes un regalo esperándote: muestra el código *${rewardCode}* en tu próxima visita.`
+    : 'Te esperamos con algo especial en tu próxima visita.';
+  return `🎂 *¡Feliz cumpleaños, ${clientName}!*\n\nTodo el equipo de ${businessName} te desea un día increíble.\n\n${gift}\n[BOOKING_LINK]\n\n¡Que lo disfrutes! 🎉`;
 };
 
 /**

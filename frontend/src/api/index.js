@@ -168,6 +168,8 @@ export const clientAPI = {
   update: (clientId, data) => api.put(`/clients/${clientId}`, null, { params: data }),
   // NEXUS_CLIENT_BIRTHDAY_V1
   getUpcomingBirthdays: (params = {}) => api.get('/clients/upcoming-birthdays', { params }),
+  // NEXUS_BIRTHDAY_CAMPAIGN_V1
+  getBirthdayReward: (clientId) => api.get(`/clients/${clientId}/birthday-reward`),
 };
 
 export const marketingAPI = {
