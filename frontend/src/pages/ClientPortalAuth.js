@@ -9,7 +9,7 @@
 // alone is now the single source of truth for client-portal theming.
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { Lock, LogIn, UserPlus, ArrowLeft, Loader2, Eye, EyeOff } from 'lucide-react';
+import { Lock, LogIn, UserPlus, ArrowLeft, Loader2, Eye, EyeOff, Cake } from 'lucide-react';
 import { toast } from 'sonner';
 import { api } from '../api';
 
@@ -20,6 +20,7 @@ export default function ClientPortalAuth() {
   const [phone, setPhone] = useState('');
   const [name, setName] = useState('');
   const [pin, setPin] = useState('');
+  const [birthday, setBirthday] = useState(''); // NEXUS_CLIENT_BIRTHDAY_V1: "YYYY-MM-DD", opcional
   const [showPin, setShowPin] = useState(false);
   const [marketingConsent, setMarketingConsent] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -90,7 +91,8 @@ export default function ClientPortalAuth() {
         organization_id: orgId,
         name: name.trim(),
         pin,
-        marketing_consent: marketingConsent
+        marketing_consent: marketingConsent,
+        birthday: birthday || undefined
       });
 
       toast.success('¡Cuenta creada exitosamente!');
@@ -184,6 +186,26 @@ export default function ClientPortalAuth() {
                 maxLength={100}
                 className="w-full px-4 py-3 bg-[var(--app-surface-solid)] border border-[var(--app-border)] rounded-xl text-[var(--app-text-primary)] placeholder-[var(--app-text-muted)] focus:outline-none focus:ring-2 focus:ring-[var(--app-focus-ring)]"
               />
+            </div>
+          )}
+
+          {/* Birthday (only for register) -- NEXUS_CLIENT_BIRTHDAY_V1 */}
+          {mode === 'register' && (
+            <div>
+              <label className="block text-sm font-medium text-[var(--app-text-secondary)] mb-2">
+                <Cake size={14} className="inline mr-1.5 -mt-0.5" />
+                Fecha de cumpleaños <span className="text-[var(--app-text-muted)] font-normal">(opcional)</span>
+              </label>
+              <input
+                data-testid="portal-birthday-input"
+                type="date"
+                value={birthday}
+                onChange={(e) => setBirthday(e.target.value)}
+                className="w-full px-4 py-3 bg-[var(--app-surface-solid)] border border-[var(--app-border)] rounded-xl text-[var(--app-text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--app-focus-ring)]"
+              />
+              <p className="text-xs text-[var(--app-text-muted)] mt-1">
+                Así podemos sorprenderte con algo especial ese día
+              </p>
             </div>
           )}
 
