@@ -6079,58 +6079,37 @@ async def create_campaign(
                 safe_subject = html_escape(data.subject)
                 safe_name = html_escape(client["name"])
                 safe_message = html_escape(data.message)
-                safe_org_name = html_escape(org_name)
-                safe_org_address = html_escape(org_address)
 
-                # Create HTML email body with marketing message (CAN-SPAM compliant)
-                html_body = f"""
-                <!DOCTYPE html>
-                <html>
-                <head>
-                    <meta charset="UTF-8">
-                    <style>
-                        body {{ font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; margin: 0; padding: 0; background-color: #000000; }}
-                        .container {{ max-width: 600px; margin: 40px auto; background: linear-gradient(135deg, #1a1a1a 0%, #0a0a0a 100%); border-radius: 16px; overflow: hidden; border: 1px solid rgba(255,255,255,0.1); }}
-                        .header {{ background: linear-gradient(135deg, #FF9500 0%, #FF6B00 100%); padding: 40px 20px; text-align: center; }}
-                        .header h1 {{ color: white; margin: 0; font-size: 28px; font-weight: 300; }}
-                        .content {{ padding: 40px 30px; color: #ffffff; }}
-                        .message-box {{ background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); border-radius: 12px; padding: 24px; margin: 20px 0; white-space: pre-wrap; line-height: 1.6; }}
-                        .footer {{ padding: 30px; text-align: center; color: #666; font-size: 12px; border-top: 1px solid rgba(255,255,255,0.1); }}
-                        .footer a {{ color: #0A84FF; text-decoration: none; }}
-                        .footer a:hover {{ text-decoration: underline; }}
-                        .emoji {{ font-size: 48px; margin: 20px 0; }}
-                    </style>
-                </head>
-                <body>
-                    <div class="container">
-                        <div class="header">
-                            <div class="emoji">✨</div>
-                            <h1>{safe_subject}</h1>
-                        </div>
-                        <div class="content">
-                            <p style="font-size: 18px; color: #fff;">Hola <strong>{safe_name}</strong>,</p>
-
-                            <div class="message-box">
-                                {safe_message}
-                            </div>
-
-                            <p style="color: #aaa; margin-top: 30px;">¡Esperamos verte pronto!</p>
-                        </div>
-                        <div class="footer">
-                            <p><strong>{safe_org_name}</strong></p>
-                            <p style="margin: 10px 0;">📍 {safe_org_address}</p>
-                            <p style="margin: 15px 0;">
-                                Este es un email promocional.
-                                <a href="{unsubscribe_url}" style="color: #0A84FF;">Cancelar suscripción</a>
-                            </p>
-                            <p style="margin-top: 10px; font-size: 10px; color: #555;">
-                                Recibiste este email porque aceptaste recibir comunicaciones de marketing de {safe_org_name}.
-                            </p>
-                        </div>
-                    </div>
-                </body>
-                </html>
+                # NEXUS_EMAIL_LIQUID_GLASS_V1: mismo shell claro que el resto de
+                # los correos transaccionales, en vez del HTML oscuro propio que
+                # tenía esta campaña.
+                # NEXUS_EMAIL_LIQUID_GLASS_V1: render_email_shell escapa
+                # footer_lines por diseño (no admite HTML ahí) -- el enlace de
+                # cancelar suscripción, que sí necesita ser un <a>, va en el
+                # cuerpo en vez del footer.
+                body_html = f"""
+                    <p style="font-size:16px;line-height:24px;margin:0 0 16px;">Hola <strong>{safe_name}</strong>,</p>
+                    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0"
+                        style="background:#F8FAFC;border:1px solid #EEF1F6;border-radius:14px;">
+                        <tr><td style="padding:20px;font-family:Arial,sans-serif;font-size:14px;color:#1F2937;white-space:pre-wrap;line-height:1.6;">{safe_message}</td></tr>
+                    </table>
+                    <p style="color:#667085;margin-top:24px;font-size:14px;">¡Esperamos verte pronto!</p>
+                    <p style="color:#98A2B3;margin-top:24px;font-size:12px;text-align:center;">
+                        Este es un email promocional. <a href="{unsubscribe_url}" style="color:#1D4ED8;">Cancelar suscripción</a>
+                    </p>
                 """
+                html_body = render_email_shell(
+                    # NEXUS_EMAIL_LIQUID_GLASS_V1: render_email_shell escapa
+                    # organization_name/footer_lines internamente -- pasarle
+                    # los valores ya escapados (safe_org_name/safe_org_address)
+                    # los escaparía dos veces, así que van sin escapar aquí.
+                    organization_name=org_name, eyebrow="Promoción", title=safe_subject,
+                    body_html=body_html, accent_color=DEFAULT_ACCENT,
+                    footer_lines=(
+                        f"📍 {org_address}" if org_address else None,
+                        f"Recibiste este email porque aceptaste recibir comunicaciones de marketing de {org_name}.",
+                    ),
+                )
 
                 success = email_service._send_email(
                     to_email=client["email"], subject=data.subject, html_body=html_body, text_body=data.message
@@ -7172,6 +7151,7 @@ from message_templates import (
     ensure_message_template_indexes,
     get_or_seed_templates,
 )
+from appointment_email_templates import DEFAULT_ACCENT, render_email_shell
 
 api_router.include_router(
     build_inventory_reorder_router(db, get_current_user, require_management_role, resolve_team_organization),

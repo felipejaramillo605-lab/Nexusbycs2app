@@ -312,7 +312,9 @@ class TestCalendarLinks:
             organization_name="Demo", organization_address="Calle 1")
         assert ok is True
         html = captured["html"]
-        assert 'class="calendar-btn"' in html
-        assert 'class="outlook-btn"' in html
+        # NEXUS_EMAIL_LIQUID_GLASS_V1: los botones ahora son <a> con estilos
+        # inline (email-safe), no clases CSS -- se verifica por texto + href.
+        assert "Google Calendar" in html
+        assert "Outlook Calendar" in html
         assert 'href="https://calendar.google.com/calendar/render?' in html
         assert 'href="https://outlook.live.com/calendar/0/deeplink/compose?' in html
