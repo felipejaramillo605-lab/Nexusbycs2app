@@ -8,6 +8,7 @@ import { toast } from 'sonner';
 import { TableSkeleton } from '../components/ui/skeleton';
 import { appointmentAPI } from '../api';
 import { AccessibleModal } from '../components/design';
+import { formatCOP as formatCurrency } from '../lib/currency';
 
 const ITEMS_PER_PAGE = 10;
 // NEXUS_FRONTEND_PAGINATION_4D2_V2
@@ -110,14 +111,6 @@ const AppointmentsHistory = () => {
         {labels[status] || status}
       </span>
     );
-  };
-
-  const formatCurrency = (value) => {
-    return new Intl.NumberFormat('es-CO', {
-      style: 'currency',
-      currency: 'COP',
-      minimumFractionDigits: 0,
-    }).format(value);
   };
 
   if (error) {

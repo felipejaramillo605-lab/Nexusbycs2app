@@ -5,9 +5,9 @@ import {toast} from 'sonner';
 import {useAuth} from '../context/AuthContext';
 import {barberAPI,transactionAPI} from '../api';
 import {AccessibleModal,AdminShell,ActionButton,AnimatedNumber,DetailDrawer,EmptyState,MetricCard,MotionPage,PageHeader,ResponsiveDataView,SurfaceCard} from '../components/design';
+import {formatCOP as money} from '../lib/currency';
 // NEXUS_TRANSACTION_VOID_UI_5B4_V1
 const METHODS={cash:'Efectivo',card:'Tarjeta',transfer:'Transferencia',nequi:'Nequi',daviplata:'Daviplata',other:'Otro'};
-const money=v=>new Intl.NumberFormat('es-CO',{style:'currency',currency:'COP',maximumFractionDigits:2}).format(Number(v)||0);
 const date=d=>new Date(Date.now()-d*86400000).toISOString().split('T')[0];
 let voidSubmitLocked=false;
 const statusLabel=x=>x.status==='voided'?'Anulada':'Confirmada';

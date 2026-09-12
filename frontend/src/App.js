@@ -38,6 +38,7 @@ const ManagerOrganizationOnboarding = lazy(() => import('./pages/ManagerOrganiza
 const NexusAI = lazy(() => import('./pages/NexusAI'));
 const ManagerDashboard = lazy(() => import('./pages/ManagerDashboard'));
 const ManagerBilling = lazy(() => import('./pages/ManagerBilling'));
+const ManagerSupport = lazy(() => import('./pages/ManagerSupport'));
 const ManagerFiscalProfile = lazy(() => import('./pages/ManagerFiscalProfile'));
 const ManagerServices = lazy(() => import('./pages/ManagerServices'));
 const ManagerBarbers = lazy(() => import('./pages/ManagerBarbers'));
@@ -153,6 +154,7 @@ function AppRouter() {
         <Route path="/manager/fiscal-profile" element={<Navigate to="/manager/settings?tab=fiscal" replace />} />
         
         <Route path="/manager/billing" element={<ProtectedRoute allowedRoles={['owner', 'manager', 'admin']}><ManagerBilling /></ProtectedRoute>} />
+        <Route path="/manager/support" element={<ProtectedRoute allowedRoles={['owner', 'manager', 'admin']}><ManagerSupport /></ProtectedRoute>} />
         <Route path="/manager/fiscal-profile" element={<ProtectedRoute allowedRoles={['owner', 'manager', 'admin']}><ManagerFiscalProfile /></ProtectedRoute>} />
 
         <Route

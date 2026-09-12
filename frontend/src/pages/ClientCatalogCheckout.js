@@ -10,8 +10,7 @@ import { useOrganization } from '../context/OrganizationContext';
 import { useClientPortalTheme } from '../hooks/useClientPortalTheme';
 import { useCart } from '../lib/cart';
 import ClientPortalNav from '../components/ClientPortalNav';
-
-const money = v => new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(Number(v || 0));
+import { formatCOP as money } from '../lib/currency';
 
 export default function ClientCatalogCheckout() {
   const { orgId } = useParams();

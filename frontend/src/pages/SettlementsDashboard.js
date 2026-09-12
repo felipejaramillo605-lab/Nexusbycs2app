@@ -5,10 +5,10 @@ import { useAuth } from '../context/AuthContext';
 import { settlementAPI, settlementWorkflowAPI } from '../api';
 import { toast } from 'sonner';
 import { AccessibleModal } from '../components/design';
+import { formatCOP as money } from '../lib/currency';
 
 // NEXUS_STAFF_SETTLEMENTS_UI_V1
 // NEXUS_STAFF_FINANCE_DEEP_V1
-const money = (value) => new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 2 }).format(Number(value) || 0);
 const today = () => new Date().toISOString().split('T')[0];
 const monthAgo = () => new Date(Date.now() - 30 * 86400000).toISOString().split('T')[0];
 const STATUS = { draft: 'Borrador', approved: 'Aprobada', paid: 'Pagada', cancelled: 'Cancelada' };

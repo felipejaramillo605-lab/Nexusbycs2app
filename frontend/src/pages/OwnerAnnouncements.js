@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Megaphone, Send, Users, Building2, CheckCircle2, AlertCircle, Loader2 } from 'lucide-react';
 import { billingAPI, organizationAPI } from '../api';
+import { EmptyState } from '../components/design';
 
 const SEVERITY_OPTIONS = [
   { value: 'info', label: 'Informativo', color: 'bg-blue-500' },
@@ -10,6 +11,7 @@ const SEVERITY_OPTIONS = [
 
 export default function OwnerAnnouncements() {
   const [organizations, setOrganizations] = useState([]);
+  const [orgsLoading, setOrgsLoading] = useState(true);
   const [selectedOrgs, setSelectedOrgs] = useState([]);
   const [title, setTitle] = useState('');
   const [message, setMessage] = useState('');
@@ -28,7 +30,9 @@ export default function OwnerAnnouncements() {
           name: o.name || o.organization_id,
         }));
         setOrganizations(orgs);
-      } catch {}
+      } catch {} finally {
+        setOrgsLoading(false);
+      }
     }
     loadOrgs();
   }, []);
@@ -103,8 +107,10 @@ export default function OwnerAnnouncements() {
             </button>
           )}
         </div>
-        {organizations.length === 0 ? (
+        {orgsLoading ? (
           <p className="text-sm text-zinc-500">Cargando sucursales...</p>
+        ) : organizations.length === 0 ? (
+          <EmptyState icon={Building2} title="Sin sucursales" description="Crea una organización desde Suscripciones o Matriz de terceros antes de enviar un comunicado." />
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
             {organizations.map(org => (

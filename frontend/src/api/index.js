@@ -69,6 +69,10 @@ export const ownerAPI = {
 export const supportAPI = {
   ownerList: (params = {}) => api.get('/owner/support/conversations', { params }),
   ownerGet: (conversationId) => api.get(`/owner/support/conversations/${conversationId}`),
+  list: (params = {}) => api.get('/support/conversations', { params }),
+  create: (data, params = {}) => api.post('/support/conversations', data, { params }),
+  get: (conversationId) => api.get(`/support/conversations/${conversationId}`),
+  sendMessage: (conversationId, data) => api.post(`/support/conversations/${conversationId}/messages`, data),
 };
 
 export const subscriptionAPI = {
@@ -187,6 +191,8 @@ export const inventoryAPI = {
   applyAuditAdjustments: (id, data = {}) => api.post(`/inventory/audits/${id}/apply-adjustments`, data),
   downloadCountSheet: (id) => api.get(`/inventory/audits/${id}/count-sheet.xlsx`, { responseType: 'blob' }),
   downloadAuditCsv: (id) => api.get(`/inventory/audits/${id}/report.csv`, { responseType: 'blob' }),
+  getReorderAlerts: (params = {}) => api.get('/inventory/reorder-alerts', { params }),
+  generateReorderOrders: (data) => api.post('/inventory/reorder-alerts/generate-orders', data),
   getCatalog: (params = {}) => api.get('/inventory/catalog/items', { params }),
   createCatalogItem: (data) => api.post('/inventory/catalog/items', data),
   updateCatalogItem: (id, data) => api.put(`/inventory/catalog/items/${id}`, data),

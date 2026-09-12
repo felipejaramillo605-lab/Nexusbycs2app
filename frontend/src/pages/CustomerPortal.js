@@ -6,8 +6,9 @@ import 'react-phone-number-input/style.css';
 import {toast} from 'sonner';
 import {publicAPI} from '../api';import {useOrganization} from '../context/OrganizationContext';import {ActionButton,EmptyState,StatusBadge,confirmAction} from '../components/design';
 import ClientPortalNav from '../components/ClientPortalNav';
+import {formatCOP as money} from '../lib/currency';
 // NEXUS_PUBLIC_DEEP_FINAL_V1
-const money=v=>new Intl.NumberFormat('es-CO',{style:'currency',currency:'COP',maximumFractionDigits:0}).format(Number(v)||0);const tone={confirmed:'info',completed:'success',cancelled:'danger'};const label={confirmed:'Confirmada',completed:'Completada',cancelled:'Cancelada'};
+const tone={confirmed:'info',completed:'success',cancelled:'danger'};const label={confirmed:'Confirmada',completed:'Completada',cancelled:'Cancelada'};
 export default function CustomerPortal(){const {orgId}=useParams();const navigate=useNavigate();const {organization,loadOrganization}=useOrganization();const [view,setView]=useState('login'),[phone,setPhone]=useState(''),[name,setName]=useState(''),[loading,setLoading]=useState(false),[client,setClient]=useState(null),[appointments,setAppointments]=useState([]),[historyLoading,setHistoryLoading]=useState(false);
  const loadHistory=useCallback(async value=>{setHistoryLoading(true);try{const response=await publicAPI.getClientHistory(value,orgId);setAppointments(response.data.appointments||[])}catch{setAppointments([])}finally{setHistoryLoading(false)}},[orgId]);
  const login=useCallback(async(value=phone,skip=false)=>{if(!value||value.length<10)return toast.error('Ingresa un teléfono válido');setLoading(true);try{const response=await publicAPI.passwordlessAuth({phone:value,organization_id:orgId,name:name||undefined});if(!skip)sessionStorage.setItem(`nexus_customer_phone_${orgId}`,value);setClient(response.data.client);setView('portal');toast.success(response.data.message);await loadHistory(value)}catch(error){toast.error(error.response?.data?.detail==='name_required'?'Ingresa tu nombre para crear el perfil':error.response?.data?.detail||'No fue posible ingresar')}finally{setLoading(false)}},[phone,name,orgId,loadHistory]);

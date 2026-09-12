@@ -1,6 +1,5 @@
-import React,{useCallback,useEffect,useRef,useState} from 'react';import {useSearchParams} from 'react-router-dom';import {ClipboardList,Plus,Search,Send,CheckCircle2,PackageCheck,History,Printer,Undo2} from 'lucide-react';import {purchaseOrderAPI,supplierAPI,inventoryAPI} from '../api';import {MotionPage,PageHeader,SurfaceCard,MetricCard,ActionButton,StatusBadge,EmptyState,LoadingState,AccessibleModal,FieldGuide} from '../components/design';import {toast} from 'sonner';
+import React,{useCallback,useEffect,useRef,useState} from 'react';import {useSearchParams} from 'react-router-dom';import {ClipboardList,Plus,Search,Send,CheckCircle2,PackageCheck,History,Printer,Undo2} from 'lucide-react';import {purchaseOrderAPI,supplierAPI,inventoryAPI} from '../api';import {MotionPage,PageHeader,SurfaceCard,MetricCard,ActionButton,StatusBadge,EmptyState,LoadingState,AccessibleModal,FieldGuide} from '../components/design';import {toast} from 'sonner';import {formatCOP as money} from '../lib/currency';
 const empty={supplier_id:'',expected_delivery_date:'',external_reference:'',notes:'',lines:[{inventory_item_id:'',quantity:1,unit_cost:0,discount_percent:0,tax_percent:0,conversion_factor:1}]};
-const money=v=>new Intl.NumberFormat('es-CO',{style:'currency',currency:'COP',maximumFractionDigits:0}).format(v||0);
 // NEXUS_UNIT_CATALOG_FRONTEND_V1 — debe reflejar backend/unit_catalog.py.
 const DISCRETE_UNITS=new Set(['unidades','pares','cajas','paquetes','frascos']);
 const isDiscreteUnit=unit=>DISCRETE_UNITS.has((unit||'').trim().toLowerCase());
