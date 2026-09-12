@@ -176,6 +176,15 @@ export const marketingAPI = {
   sendCampaign: (data) => api.post('/marketing/campaigns', data),
 };
 
+// NEXUS_MESSAGE_TEMPLATES_V1
+export const templateAPI = {
+  list: (organizationId) => api.get(`/organizations/${organizationId}/message-templates`),
+  create: (organizationId, data) => api.post(`/organizations/${organizationId}/message-templates`, data),
+  update: (templateId, data) => api.put(`/message-templates/${templateId}`, data),
+  duplicate: (templateId) => api.post(`/message-templates/${templateId}/duplicate`),
+  delete: (templateId) => api.delete(`/message-templates/${templateId}`),
+};
+
 export const inventoryAPI = {
   getAll: (params = {}) => api.get('/inventory', { params }),
   create: (data) => api.post('/inventory', data),
