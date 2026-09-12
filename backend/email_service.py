@@ -15,6 +15,16 @@ from pathlib import Path
 from urllib.parse import quote
 from html import escape
 
+# NEXUS_EMAIL_LIQUID_GLASS_V1: shell claro compartido por todos los correos --
+# reemplaza el fondo negro/gradiente oscuro que tenía cada método aquí abajo.
+from appointment_email_templates import (
+    DEFAULT_ACCENT,
+    render_alert_box,
+    render_button,
+    render_email_shell,
+    resolve_accent_color,
+)
+
 # Load environment variables
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
@@ -25,22 +35,6 @@ logger = logging.getLogger(__name__)
 
 def recipient_fingerprint(value: str) -> str:
     return hashlib.sha256(str(value or "").strip().lower().encode()).hexdigest()[:16]
-
-
-def _theme_colors(theme_key: str = 'classic') -> tuple:
-    """
-    Returns gradient colors for email headers based on client portal theme
-    Returns: (start_color, end_color)
-    """
-    themes = {
-        'classic': ('#0a0a0a', '#1a1a1a'),
-        'feminine': ('#fdf2f6', '#fbe4ec'),
-        'professional': ('#0f172a', '#1e293b'),
-        'cyberpunk': ('#0d0221', '#1a0533'),
-        'underground': ('#1a1a1a', '#0a0a0a'),
-        'neutral': ('#f4f5f7', '#e9eaed'),
-    }
-    return themes.get(theme_key, themes['classic'])
 
 
 class EmailService:
@@ -265,100 +259,50 @@ class EmailService:
         maps_link = ""
         if organization_address:
             maps_url = f"https://www.google.com/maps/search/?api=1&query={quote(organization_address)}"
-            maps_link = f'<a href="{maps_url}" style="display:inline-block;margin:10px 0;padding:12px 24px;background:rgba(255,255,255,0.1);color:#fff;text-decoration:none;border-radius:10px;border:1px solid rgba(255,255,255,0.2);">📍 Cómo llegar</a>'
-        
+            maps_link = render_button("📍 Cómo llegar", maps_url, color="#475569")
+
         # Contact options
         contact_html = ""
         if whatsapp_link:
-            contact_html += f'<a href="{escape(whatsapp_link)}" style="margin-right:10px;color:#34C759;">WhatsApp</a>'
+            contact_html += f'<a href="{escape(whatsapp_link)}" style="margin-right:12px;color:#22A559;text-decoration:none;font-weight:600;">WhatsApp</a>'
         if phone:
-            contact_html += f'<a href="tel:{escape(phone)}" style="color:#0A84FF;">{escape(phone)}</a>'
+            contact_html += f'<a href="tel:{escape(phone)}" style="color:#1D4ED8;text-decoration:none;font-weight:600;">{escape(phone)}</a>'
         if contact_html:
-            contact_html = f"<p style='color:#aaa;margin-top:20px;'>¿Necesitas cambiar algo? Contáctanos: {contact_html}</p>"
-        
-        # Theme colors
-        theme_start, theme_end = _theme_colors(theme)
-        
+            contact_html = f"<p style='color:#667085;margin-top:20px;font-size:14px;'>¿Necesitas cambiar algo? Contáctanos: {contact_html}</p>"
+
+        accent = resolve_accent_color(theme)
+
         cancellation_html = (
-            f'<p style="text-align:center;margin:24px 0;"><a href="{cancellation_url}" '
-            f'style="display:inline-block;padding:12px 22px;background:#FF453A;color:#fff;'
-            f'text-decoration:none;border-radius:10px;">Ver o cancelar cita</a></p>'
+            render_button("Ver o cancelar cita", cancellation_url, color="#DC2626")
             if cancellation_url else ""
         )
-        html_body = f"""
-        <!DOCTYPE html>
-        <html>
-        <head>
-            <meta charset="UTF-8">
-            <style>
-                body {{ font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; margin: 0; padding: 0; background-color: #000000; }}
-                .container {{ max-width: 600px; margin: 40px auto; background: linear-gradient(135deg, #1a1a1a 0%, #0a0a0a 100%); border-radius: 16px; overflow: hidden; border: 1px solid rgba(255,255,255,0.1); }}
-                .header {{ background: linear-gradient(135deg, {theme_start} 0%, {theme_end} 100%); padding: 40px 20px; text-align: center; }}
-                .header h1 {{ color: white; margin: 0; font-size: 28px; font-weight: 300; }}
-                .content {{ padding: 40px 30px; color: #ffffff; }}
-                .info-card {{ background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); border-radius: 12px; padding: 24px; margin: 20px 0; }}
-                .info-row {{ display: flex; justify-content: space-between; margin: 12px 0; padding: 12px 0; border-bottom: 1px solid rgba(255,255,255,0.1); }}
-                .info-row:last-child {{ border-bottom: none; }}
-                .label {{ color: #888; font-size: 14px; }}
-                .value {{ color: #fff; font-weight: 500; }}
-                .calendar-btn {{ display: inline-block; margin: 25px 8px; padding: 14px 28px; background: linear-gradient(135deg, #34C759 0%, #30D158 100%); color: white; text-decoration: none; border-radius: 10px; font-weight: 500; font-size: 15px; text-align: center; box-shadow: 0 4px 12px rgba(52, 199, 89, 0.3); }}
-                .calendar-btn:hover {{ background: linear-gradient(135deg, #30D158 0%, #34C759 100%); }}
-                .outlook-btn {{ display: inline-block; margin: 25px 8px; padding: 14px 28px; background: linear-gradient(135deg, #0078D4 0%, #106EBE 100%); color: white; text-decoration: none; border-radius: 10px; font-weight: 500; font-size: 15px; text-align: center; box-shadow: 0 4px 12px rgba(0, 120, 212, 0.3); }}
-                .outlook-btn:hover {{ background: linear-gradient(135deg, #106EBE 0%, #0078D4 100%); }}
-                .footer {{ padding: 30px; text-align: center; color: #666; font-size: 12px; border-top: 1px solid rgba(255,255,255,0.1); }}
-                .emoji {{ font-size: 48px; margin: 20px 0; }}
-            </style>
-        </head>
-        <body>
-            <div class="container">
-                <div class="header">
-                    <div class="emoji">✨</div>
-                    <h1>¡Cita Confirmada!</h1>
-                </div>
-                <div class="content">
-                    <p style="font-size: 18px; color: #fff;">{greeting}</p>
-                    
-                    <div class="info-card">
-                        <div class="info-row">
-                            <span class="label">📅 Fecha</span>
-                            <span class="value">{date}</span>
-                        </div>
-                        <div class="info-row">
-                            <span class="label">🕐 Hora</span>
-                            <span class="value">{time}</span>
-                        </div>
-                        <div class="info-row">
-                            <span class="label">✂️ Servicio</span>
-                            <span class="value">{service_name}</span>
-                        </div>
-                        <div class="info-row">
-                            <span class="label">👤 Profesional</span>
-                            <span class="value">{barber_name}</span>
-                        </div>
-                        {f'<div class="info-row"><span class="label">📍 Dirección</span><span class="value">{escape(organization_address)}</span></div>' if organization_address else ''}
-                    </div>
-                    
-                    <div style="text-align: center;">
-                        {f'<a href="{google_calendar_link}" class="calendar-btn">📅 Google Calendar</a>' if google_calendar_link else ''}
-                        {f'<a href="{outlook_calendar_link}" class="outlook-btn">📆 Outlook Calendar</a>' if outlook_calendar_link else ''}
-                        {maps_link}
-                    </div>
-                    
-                    {cancellation_html}
-                    {contact_html}
-                    
-                    <p style="color: #aaa; margin-top: 30px; font-size: 14px;">
-                        💡 <strong>Recomendación:</strong> Te sugerimos llegar 5 minutos antes de tu cita.
-                    </p>
-                </div>
-                <div class="footer">
-                    <p>{organization_name}</p>
-                    <p style="margin-top: 8px; color: #444;">Este es un mensaje automático, por favor no respondas a este correo.</p>
-                </div>
+        rows_html = "".join(
+            f'<tr><td style="padding:10px 0;font-family:Arial,sans-serif;font-size:14px;color:#667085;border-bottom:1px solid #EEF1F6;">{label}</td>'
+            f'<td align="right" style="padding:10px 0;font-family:Arial,sans-serif;font-size:14px;font-weight:600;color:#111827;border-bottom:1px solid #EEF1F6;">{value}</td></tr>'
+            for label, value in [
+                ("📅 Fecha", date), ("🕐 Hora", time), ("✂️ Servicio", service_name), ("👤 Profesional", barber_name),
+            ] + ([("📍 Dirección", escape(organization_address))] if organization_address else [])
+        )
+        body_html = f"""
+            <p style="font-size:16px;line-height:24px;margin:0 0 16px;">{greeting}</p>
+            <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0"
+                style="background:#F8FAFC;border:1px solid #EEF1F6;border-radius:14px;padding:6px 18px;margin:16px 0;">
+                {rows_html}
+            </table>
+            <div style="text-align:center;margin:20px 0 4px;">
+                {render_button("📅 Google Calendar", google_calendar_link, color="#22A559") if google_calendar_link else ''}
+                {render_button("📆 Outlook Calendar", outlook_calendar_link, color="#1D4ED8") if outlook_calendar_link else ''}
+                {maps_link}
             </div>
-        </body>
-        </html>
+            <div style="text-align:center;">{cancellation_html}</div>
+            {contact_html}
+            <p style="color:#667085;margin-top:24px;font-size:14px;">💡 <strong>Recomendación:</strong> te sugerimos llegar 5 minutos antes de tu cita.</p>
         """
+        html_body = render_email_shell(
+            organization_name=organization_name, eyebrow="Confirmación", title="✨ ¡Cita confirmada!",
+            body_html=body_html, accent_color=accent,
+            footer_lines=("Este es un mensaje automático, por favor no respondas a este correo.",),
+        )
         
         text_body = f"""
         ¡Cita Confirmada!
@@ -399,57 +343,24 @@ class EmailService:
             organization_phone = escape(organization_phone)
         
         subject = f"🔔 Recordatorio de Cita - {organization_name}"
-        
-        html_body = f"""
-        <!DOCTYPE html>
-        <html>
-        <head>
-            <meta charset="UTF-8">
-            <style>
-                body {{ font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; margin: 0; padding: 0; background-color: #000000; }}
-                .container {{ max-width: 600px; margin: 40px auto; background: linear-gradient(135deg, #1a1a1a 0%, #0a0a0a 100%); border-radius: 16px; overflow: hidden; border: 1px solid rgba(255,255,255,0.1); }}
-                .header {{ background: linear-gradient(135deg, #FF9500 0%, #FF6B00 100%); padding: 40px 20px; text-align: center; }}
-                .header h1 {{ color: white; margin: 0; font-size: 28px; font-weight: 300; }}
-                .content {{ padding: 40px 30px; color: #ffffff; }}
-                .reminder-box {{ background: rgba(255,149,0,0.1); border-left: 4px solid #FF9500; padding: 20px; margin: 20px 0; border-radius: 8px; }}
-                .info-card {{ background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); border-radius: 12px; padding: 24px; margin: 20px 0; }}
-                .footer {{ padding: 30px; text-align: center; color: #666; font-size: 12px; border-top: 1px solid rgba(255,255,255,0.1); }}
-                .emoji {{ font-size: 48px; margin: 20px 0; }}
-            </style>
-        </head>
-        <body>
-            <div class="container">
-                <div class="header">
-                    <div class="emoji">⏰</div>
-                    <h1>Recordatorio de Cita</h1>
-                </div>
-                <div class="content">
-                    <p style="font-size: 18px; color: #fff;">Hola <strong>{customer_name}</strong>,</p>
-                    
-                    <div class="reminder-box">
-                        <p style="margin: 0; color: #FF9500; font-size: 16px; font-weight: 500;">
-                            ⚠️ Tu cita es mañana a las {time}
-                        </p>
-                    </div>
-                    
-                    <div class="info-card">
-                        <p style="margin: 0 0 10px 0; color: #aaa;">Detalles de tu cita:</p>
-                        <p style="margin: 8px 0;"><strong>📅 {date}</strong> a las <strong>🕐 {time}</strong></p>
-                        <p style="margin: 8px 0;">✂️ {service_name}</p>
-                        <p style="margin: 8px 0;">👤 {barber_name}</p>
-                        {f'<p style="margin: 8px 0;">📞 {organization_phone}</p>' if organization_phone else ''}
-                    </div>
-                    
-                    <p style="color: #aaa; margin-top: 30px;">¡Te esperamos! Si no puedes asistir, por favor avísanos con anticipación.</p>
-                </div>
-                <div class="footer">
-                    <p><strong>{organization_name}</strong></p>
-                    <p>Este es un email automático, por favor no respondas a este mensaje.</p>
-                </div>
-            </div>
-        </body>
-        </html>
+
+        body_html = f"""
+            <p style="font-size:16px;line-height:24px;margin:0 0 4px;">Hola <strong>{customer_name}</strong>,</p>
+            {render_alert_box(f"⚠️ Tu cita es mañana a las {time}", color="#D97706")}
+            <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0"
+                style="background:#F8FAFC;border:1px solid #EEF1F6;border-radius:14px;padding:16px 18px;margin:16px 0;">
+                <tr><td style="font-family:Arial,sans-serif;font-size:14px;color:#1F2937;padding:4px 0;"><strong>📅 {date}</strong> a las <strong>🕐 {time}</strong></td></tr>
+                <tr><td style="font-family:Arial,sans-serif;font-size:14px;color:#1F2937;padding:4px 0;">✂️ {service_name}</td></tr>
+                <tr><td style="font-family:Arial,sans-serif;font-size:14px;color:#1F2937;padding:4px 0;">👤 {barber_name}</td></tr>
+                {f'<tr><td style="font-family:Arial,sans-serif;font-size:14px;color:#1F2937;padding:4px 0;">📞 {organization_phone}</td></tr>' if organization_phone else ''}
+            </table>
+            <p style="color:#667085;margin-top:24px;font-size:14px;">¡Te esperamos! Si no puedes asistir, por favor avísanos con anticipación.</p>
         """
+        html_body = render_email_shell(
+            organization_name=organization_name, eyebrow="Recordatorio", title="⏰ Recordatorio de cita",
+            body_html=body_html, accent_color="#D97706",
+            footer_lines=("Este es un mensaje automático, por favor no respondas a este correo.",),
+        )
         
         text_body = f"""
         Recordatorio de Cita
@@ -484,39 +395,17 @@ class EmailService:
         organization_name = escape(organization_name)
         
         subject = f"❌ Cita Cancelada - {organization_name}"
-        
-        html_body = f"""
-        <!DOCTYPE html>
-        <html>
-        <head>
-            <meta charset="UTF-8">
-            <style>
-                body {{ font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; margin: 0; padding: 0; background-color: #000000; }}
-                .container {{ max-width: 600px; margin: 40px auto; background: linear-gradient(135deg, #1a1a1a 0%, #0a0a0a 100%); border-radius: 16px; overflow: hidden; border: 1px solid rgba(255,255,255,0.1); }}
-                .header {{ background: linear-gradient(135deg, #FF3B30 0%, #D32F2F 100%); padding: 40px 20px; text-align: center; }}
-                .header h1 {{ color: white; margin: 0; font-size: 28px; font-weight: 300; }}
-                .content {{ padding: 40px 30px; color: #ffffff; }}
-                .footer {{ padding: 30px; text-align: center; color: #666; font-size: 12px; border-top: 1px solid rgba(255,255,255,0.1); }}
-            </style>
-        </head>
-        <body>
-            <div class="container">
-                <div class="header">
-                    <h1>Cita Cancelada</h1>
-                </div>
-                <div class="content">
-                    <p style="font-size: 18px; color: #fff;">Hola <strong>{customer_name}</strong>,</p>
-                    <p style="color: #aaa;">Tu cita del <strong>{date}</strong> a las <strong>{time}</strong> ha sido cancelada.</p>
-                    <p style="color: #aaa; margin-top: 30px;">Si deseas agendar una nueva cita, estaremos encantados de atenderte.</p>
-                </div>
-                <div class="footer">
-                    <p><strong>{organization_name}</strong></p>
-                </div>
-            </div>
-        </body>
-        </html>
+
+        body_html = f"""
+            <p style="font-size:16px;line-height:24px;margin:0 0 12px;">Hola <strong>{customer_name}</strong>,</p>
+            <p style="color:#667085;font-size:14px;line-height:22px;">Tu cita del <strong style="color:#1F2937;">{date}</strong> a las <strong style="color:#1F2937;">{time}</strong> ha sido cancelada.</p>
+            <p style="color:#667085;margin-top:20px;font-size:14px;">Si deseas agendar una nueva cita, estaremos encantados de atenderte.</p>
         """
-        
+        html_body = render_email_shell(
+            organization_name=organization_name, eyebrow="Cancelación", title="Cita cancelada",
+            body_html=body_html, accent_color="#DC2626",
+        )
+
         return self._send_email(to_email, subject, html_body)
 
     def send_appointment_completed(
@@ -534,42 +423,17 @@ class EmailService:
         service_name = escape(service_name)
         
         subject = f"✨ ¡Gracias por tu visita! - {organization_name}"
-        
-        html_body = f"""
-        <!DOCTYPE html>
-        <html>
-        <head>
-            <meta charset="UTF-8">
-            <style>
-                body {{ font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; margin: 0; padding: 0; background-color: #000000; }}
-                .container {{ max-width: 600px; margin: 40px auto; background: linear-gradient(135deg, #1a1a1a 0%, #0a0a0a 100%); border-radius: 16px; overflow: hidden; border: 1px solid rgba(255,255,255,0.1); }}
-                .header {{ background: linear-gradient(135deg, #32D74B 0%, #28A745 100%); padding: 40px 20px; text-align: center; }}
-                .header h1 {{ color: white; margin: 0; font-size: 28px; font-weight: 300; }}
-                .content {{ padding: 40px 30px; color: #ffffff; }}
-                .footer {{ padding: 30px; text-align: center; color: #666; font-size: 12px; border-top: 1px solid rgba(255,255,255,0.1); }}
-                .emoji {{ font-size: 48px; margin: 20px 0; }}
-            </style>
-        </head>
-        <body>
-            <div class="container">
-                <div class="header">
-                    <div class="emoji">⭐</div>
-                    <h1>¡Gracias por tu visita!</h1>
-                </div>
-                <div class="content">
-                    <p style="font-size: 18px; color: #fff;">Hola <strong>{customer_name}</strong>,</p>
-                    <p style="color: #aaa;">Esperamos que hayas disfrutado tu experiencia del <strong>{date}</strong>.</p>
-                    <p style="color: #aaa; margin-top: 20px;">Tu satisfacción es nuestra prioridad. ¡Esperamos verte pronto!</p>
-                    <p style="color: #aaa; margin-top: 20px;">Si deseas agendar una nueva cita, estaremos encantados de atenderte.</p>
-                </div>
-                <div class="footer">
-                    <p><strong>{organization_name}</strong></p>
-                </div>
-            </div>
-        </body>
-        </html>
+
+        body_html = f"""
+            <p style="font-size:16px;line-height:24px;margin:0 0 12px;">Hola <strong>{customer_name}</strong>,</p>
+            <p style="color:#667085;font-size:14px;line-height:22px;">Esperamos que hayas disfrutado tu experiencia del <strong style="color:#1F2937;">{date}</strong> ({service_name}).</p>
+            <p style="color:#667085;margin-top:16px;font-size:14px;">Tu satisfacción es nuestra prioridad. ¡Esperamos verte pronto!</p>
         """
-        
+        html_body = render_email_shell(
+            organization_name=organization_name, eyebrow="Gracias", title="⭐ ¡Gracias por tu visita!",
+            body_html=body_html, accent_color="#22A559",
+        )
+
         return self._send_email(to_email, subject, html_body)
 
     def send_review_request(
@@ -593,43 +457,19 @@ class EmailService:
 
         subject = f"⭐ ¿Cómo estuvo tu visita a {organization_name}?"
 
-        html_body = f"""
-        <!DOCTYPE html>
-        <html>
-        <head>
-            <meta charset="UTF-8">
-            <style>
-                body {{ font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; margin: 0; padding: 0; background-color: #000000; }}
-                .container {{ max-width: 600px; margin: 40px auto; background: linear-gradient(135deg, #1a1a1a 0%, #0a0a0a 100%); border-radius: 16px; overflow: hidden; border: 1px solid rgba(255,255,255,0.1); }}
-                .header {{ background: linear-gradient(135deg, #4285F4 0%, #34A853 100%); padding: 40px 20px; text-align: center; }}
-                .header h1 {{ color: white; margin: 0; font-size: 26px; font-weight: 300; }}
-                .content {{ padding: 40px 30px; color: #ffffff; text-align: center; }}
-                .cta {{ display: inline-block; margin-top: 24px; padding: 14px 32px; background: linear-gradient(135deg, #4285F4 0%, #34A853 100%); color: white; text-decoration: none; border-radius: 999px; font-weight: 500; box-shadow: 0 4px 14px rgba(66,133,244,0.4); }}
-                .footer {{ padding: 30px; text-align: center; color: #666; font-size: 12px; border-top: 1px solid rgba(255,255,255,0.1); }}
-                .emoji {{ font-size: 48px; margin: 20px 0; }}
-                .stars {{ font-size: 32px; letter-spacing: 8px; margin: 12px 0; }}
-            </style>
-        </head>
-        <body>
-            <div class="container">
-                <div class="header">
-                    <div class="emoji">⭐</div>
-                    <h1>¿Cómo estuvo tu visita?</h1>
-                </div>
-                <div class="content">
-                    <p style="font-size: 18px; color: #fff;">Hola <strong>{customer_name}</strong>,</p>
-                    <p style="color: #aaa;">Tu opinión nos ayuda a seguir mejorando y a que más clientes nos encuentren. ¿Nos regalas un minuto para dejarnos una reseña en Google?</p>
-                    <div class="stars">⭐ ⭐ ⭐ ⭐ ⭐</div>
-                    <a href="{safe_link}" class="cta" target="_blank" rel="noopener noreferrer">Calificar en Google</a>
-                    <p style="color: #666; font-size: 12px; margin-top: 20px;">Solo te tomará 30 segundos</p>
-                </div>
-                <div class="footer">
-                    <p><strong>{organization_name}</strong></p>
-                </div>
+        body_html = f"""
+            <div style="text-align:center;">
+                <p style="font-size:16px;line-height:24px;margin:0 0 8px;">Hola <strong>{customer_name}</strong>,</p>
+                <p style="color:#667085;font-size:14px;line-height:22px;">Tu opinión nos ayuda a seguir mejorando y a que más clientes nos encuentren. ¿Nos regalas un minuto para dejarnos una reseña en Google?</p>
+                <div style="font-size:28px;letter-spacing:6px;margin:14px 0;">⭐⭐⭐⭐⭐</div>
+                {render_button("Calificar en Google", safe_link, color="#1D4ED8")}
+                <p style="color:#98A2B3;font-size:12px;margin-top:16px;">Solo te tomará 30 segundos</p>
             </div>
-        </body>
-        </html>
         """
+        html_body = render_email_shell(
+            organization_name=organization_name, eyebrow="Reseña", title="⭐ ¿Cómo estuvo tu visita?",
+            body_html=body_html, accent_color="#1D4ED8",
+        )
 
         return self._send_email(to_email, subject, html_body)
 
@@ -653,46 +493,26 @@ class EmailService:
         organization_name = escape(organization_name)
         
         subject = f"🔔 Nueva Reserva - {organization_name}"
-        
-        html_body = f"""
-        <!DOCTYPE html>
-        <html>
-        <head>
-            <meta charset="UTF-8">
-            <style>
-                body {{ font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; margin: 0; padding: 0; background-color: #000000; }}
-                .container {{ max-width: 600px; margin: 40px auto; background: linear-gradient(135deg, #1a1a1a 0%, #0a0a0a 100%); border-radius: 16px; overflow: hidden; border: 1px solid rgba(255,255,255,0.1); }}
-                .header {{ background: linear-gradient(135deg, #0A84FF 0%, #0071E3 100%); padding: 30px 20px; text-align: center; }}
-                .header h1 {{ color: white; margin: 0; font-size: 24px; font-weight: 300; }}
-                .content {{ padding: 30px; color: #ffffff; }}
-                .info-card {{ background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); border-radius: 12px; padding: 20px; margin: 20px 0; }}
-                .footer {{ padding: 20px; text-align: center; color: #666; font-size: 12px; border-top: 1px solid rgba(255,255,255,0.1); }}
-            </style>
-        </head>
-        <body>
-            <div class="container">
-                <div class="header">
-                    <h1>🔔 Nueva Reserva Recibida</h1>
-                </div>
-                <div class="content">
-                    <div class="info-card">
-                        <p style="margin: 8px 0;"><strong>Cliente:</strong> {customer_name}</p>
-                        <p style="margin: 8px 0;"><strong>Teléfono:</strong> {customer_phone}</p>
-                        <p style="margin: 8px 0;"><strong>Servicio:</strong> {service_name}</p>
-                        <p style="margin: 8px 0;"><strong>Profesional:</strong> {barber_name}</p>
-                        <p style="margin: 8px 0;"><strong>Fecha:</strong> {date}</p>
-                        <p style="margin: 8px 0;"><strong>Hora:</strong> {time}</p>
-                    </div>
-                    <p style="color: #aaa; margin-top: 20px; font-size: 14px;">Revisa tu dashboard para más detalles.</p>
-                </div>
-                <div class="footer">
-                    <p><strong>{organization_name}</strong></p>
-                </div>
-            </div>
-        </body>
-        </html>
+
+        body_html = f"""
+            <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0"
+                style="background:#F8FAFC;border:1px solid #EEF1F6;border-radius:14px;padding:6px 18px;margin:0 0 16px;">
+                {"".join(
+                    f'<tr><td style="padding:8px 0;font-family:Arial,sans-serif;font-size:13px;color:#667085;border-bottom:1px solid #EEF1F6;">{label}</td>'
+                    f'<td align="right" style="padding:8px 0;font-family:Arial,sans-serif;font-size:14px;font-weight:600;color:#111827;border-bottom:1px solid #EEF1F6;">{value}</td></tr>'
+                    for label, value in [
+                        ("Cliente", customer_name), ("Teléfono", customer_phone), ("Servicio", service_name),
+                        ("Profesional", barber_name), ("Fecha", date), ("Hora", time),
+                    ]
+                )}
+            </table>
+            <p style="color:#667085;font-size:14px;">Revisa tu dashboard para más detalles.</p>
         """
-        
+        html_body = render_email_shell(
+            organization_name=organization_name, eyebrow="Nueva reserva", title="🔔 Nueva reserva recibida",
+            body_html=body_html, accent_color=DEFAULT_ACCENT,
+        )
+
         return self._send_email(admin_email, subject, html_body)
 
     # NEXUS_LOW_STOCK_ALERT_DAEMON_V1
@@ -702,53 +522,38 @@ class EmailService:
         top_items = items[:15]
         rows = "".join(
             f"""<tr>
-                <td style="padding:8px 12px;border-bottom:1px solid rgba(255,255,255,0.08);">{escape(str(item.get('name') or 'Producto'))}</td>
-                <td style="padding:8px 12px;border-bottom:1px solid rgba(255,255,255,0.08);text-align:center;">{escape(str(item.get('quantity', 0)))} {escape(str(item.get('unit') or ''))}</td>
-                <td style="padding:8px 12px;border-bottom:1px solid rgba(255,255,255,0.08);text-align:center;color:{'#ff453a' if item.get('severity') == 'critical' else '#ff9f0a'};">
+                <td style="padding:9px 12px;border-bottom:1px solid #EEF1F6;font-family:Arial,sans-serif;font-size:13px;color:#1F2937;">{escape(str(item.get('name') or 'Producto'))}</td>
+                <td style="padding:9px 12px;border-bottom:1px solid #EEF1F6;text-align:center;font-family:Arial,sans-serif;font-size:13px;color:#1F2937;">{escape(str(item.get('quantity', 0)))} {escape(str(item.get('unit') or ''))}</td>
+                <td style="padding:9px 12px;border-bottom:1px solid #EEF1F6;text-align:center;font-family:Arial,sans-serif;font-size:13px;font-weight:600;color:{'#DC2626' if item.get('severity') == 'critical' else '#D97706'};">
                     {'Crítico' if item.get('severity') == 'critical' else 'Bajo'}
                 </td>
             </tr>"""
             for item in top_items
         )
         more_note = (
-            f"<p style='color:#aaa;font-size:13px;'>Y {len(items) - 15} producto(s) más con bajo stock.</p>"
+            f"<p style='color:#98A2B3;font-size:13px;'>Y {len(items) - 15} producto(s) más con bajo stock.</p>"
             if len(items) > 15
             else ""
         )
         subject = f"⚠️ Alerta mensual de inventario - {organization_name}"
-        html_body = f"""
-        <!DOCTYPE html>
-        <html>
-        <head>
-            <meta charset="UTF-8">
-            <style>
-                body {{ font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; margin: 0; padding: 0; background-color: #000000; }}
-                .container {{ max-width: 600px; margin: 40px auto; background: linear-gradient(135deg, #1a1a1a 0%, #0a0a0a 100%); border-radius: 16px; overflow: hidden; border: 1px solid rgba(255,255,255,0.1); }}
-                .header {{ background: linear-gradient(135deg, #ff9f0a 0%, #ff453a 100%); padding: 30px 20px; text-align: center; }}
-                .header h1 {{ color: white; margin: 0; font-size: 22px; font-weight: 300; }}
-                .content {{ padding: 30px; color: #ffffff; }}
-                table {{ width: 100%; border-collapse: collapse; margin-top: 12px; font-size: 14px; }}
-                th {{ text-align: left; padding: 8px 12px; color: #999; font-size: 12px; text-transform: uppercase; }}
-                .footer {{ padding: 20px; text-align: center; color: #666; font-size: 12px; border-top: 1px solid rgba(255,255,255,0.1); }}
-            </style>
-        </head>
-        <body>
-            <div class="container">
-                <div class="header"><h1>⚠️ Alerta Mensual de Inventario</h1></div>
-                <div class="content">
-                    <p>Estos productos necesitan reabastecimiento en <strong>{organization_name}</strong>:</p>
-                    <table>
-                        <tr><th>Producto</th><th style="text-align:center;">Stock</th><th style="text-align:center;">Estado</th></tr>
-                        {rows}
-                    </table>
-                    {more_note}
-                    <p style="color: #aaa; margin-top: 20px; font-size: 14px;">Genera órdenes de compra desde el módulo de Inventario en Nexus.</p>
-                </div>
-                <div class="footer"><p><strong>{organization_name}</strong> · Alerta enviada automáticamente una vez al mes.</p></div>
-            </div>
-        </body>
-        </html>
+        body_html = f"""
+            <p style="font-size:14px;color:#1F2937;">Estos productos necesitan reabastecimiento en <strong>{organization_name}</strong>:</p>
+            <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="border-collapse:collapse;margin-top:8px;">
+                <tr>
+                    <th style="text-align:left;padding:8px 12px;color:#98A2B3;font-size:11px;text-transform:uppercase;font-family:Arial,sans-serif;">Producto</th>
+                    <th style="text-align:center;padding:8px 12px;color:#98A2B3;font-size:11px;text-transform:uppercase;font-family:Arial,sans-serif;">Stock</th>
+                    <th style="text-align:center;padding:8px 12px;color:#98A2B3;font-size:11px;text-transform:uppercase;font-family:Arial,sans-serif;">Estado</th>
+                </tr>
+                {rows}
+            </table>
+            {more_note}
+            <p style="color:#667085;margin-top:20px;font-size:14px;">Genera órdenes de compra desde el módulo de Inventario en Nexus.</p>
         """
+        html_body = render_email_shell(
+            organization_name=organization_name, eyebrow="Inventario", title="⚠️ Alerta mensual de inventario",
+            body_html=body_html, accent_color="#D97706",
+            footer_lines=("Alerta enviada automáticamente una vez al mes.",),
+        )
         return self._send_email(to_email, subject, html_body)
 
     def send_team_invitation(
@@ -766,20 +571,16 @@ class EmailService:
         safe_role = escape(role)
         safe_url = escape(invitation_url, quote=True)
         subject = f"Invitación para unirte a {organization_name}"
-        html_body = f"""
-        <!DOCTYPE html>
-        <html>
-        <body style="margin:0;background:#080808;color:#f5f5f5;font-family:Arial,sans-serif;">
-          <div style="max-width:600px;margin:32px auto;padding:32px;background:#151515;border:1px solid #2a2a2a;border-radius:20px;">
-            <h1 style="margin:0 0 16px;font-size:28px;font-weight:500;">Únete a {safe_org}</h1>
-            <p style="color:#b7b7b7;line-height:1.6;">{safe_inviter} te invitó a Nexus by CS2 con el rol <strong style="color:#fff;">{safe_role}</strong>.</p>
-            <p style="color:#b7b7b7;line-height:1.6;">Completa tu registro, crea tu contraseña y configura tus datos personales.</p>
-            <p style="margin:28px 0;"><a href="{safe_url}" style="display:inline-block;padding:14px 22px;background:#0A84FF;color:#fff;text-decoration:none;border-radius:12px;font-weight:600;">Aceptar invitación</a></p>
-            <p style="color:#777;font-size:13px;">Este enlace vence en {expires_days} días y solo puede utilizarse una vez.</p>
-          </div>
-        </body>
-        </html>
+        body_html = f"""
+            <p style="color:#374151;line-height:1.6;font-size:15px;">{safe_inviter} te invitó a Nexus by CS2 con el rol <strong style="color:#111827;">{safe_role}</strong>.</p>
+            <p style="color:#374151;line-height:1.6;font-size:15px;">Completa tu registro, crea tu contraseña y configura tus datos personales.</p>
+            <div style="margin:24px 0;">{render_button("Aceptar invitación", safe_url)}</div>
+            <p style="color:#98A2B3;font-size:13px;">Este enlace vence en {expires_days} días y solo puede utilizarse una vez.</p>
         """
+        html_body = render_email_shell(
+            organization_name=organization_name, eyebrow="Invitación", title=f"Únete a {safe_org}",
+            body_html=body_html, accent_color=DEFAULT_ACCENT,
+        )
         text_body = f"""{inviter_name} te invitó a unirte a {organization_name} como {role}.
 
 Completa tu registro aquí: {invitation_url}
@@ -792,19 +593,15 @@ El enlace vence en {expires_days} días y solo puede utilizarse una vez."""
         safe_name = escape(user_name)
         safe_url = escape(reset_url, quote=True)
         subject = "Restablece tu contraseña de Nexus by CS2"
-        html_body = f"""
-        <!DOCTYPE html>
-        <html>
-        <body style="margin:0;background:#080808;color:#f5f5f5;font-family:Arial,sans-serif;">
-          <div style="max-width:600px;margin:32px auto;padding:32px;background:#151515;border:1px solid #2a2a2a;border-radius:20px;">
-            <h1 style="margin:0 0 16px;font-size:28px;font-weight:500;">Restablecer contraseña</h1>
-            <p style="color:#b7b7b7;line-height:1.6;">Hola {safe_name}. Recibimos una solicitud para restablecer tu contraseña.</p>
-            <p style="margin:28px 0;"><a href="{safe_url}" style="display:inline-block;padding:14px 22px;background:#0A84FF;color:#fff;text-decoration:none;border-radius:12px;font-weight:600;">Crear nueva contraseña</a></p>
-            <p style="color:#777;font-size:13px;">El enlace vence en una hora y solo puede utilizarse una vez. Si no solicitaste el cambio, ignora este correo.</p>
-          </div>
-        </body>
-        </html>
+        body_html = f"""
+            <p style="color:#374151;line-height:1.6;font-size:15px;">Hola {safe_name}. Recibimos una solicitud para restablecer tu contraseña.</p>
+            <div style="margin:24px 0;">{render_button("Crear nueva contraseña", safe_url)}</div>
+            <p style="color:#98A2B3;font-size:13px;">El enlace vence en una hora y solo puede utilizarse una vez. Si no solicitaste el cambio, ignora este correo.</p>
         """
+        html_body = render_email_shell(
+            organization_name="Nexus by CS2", eyebrow="Seguridad", title="Restablecer contraseña",
+            body_html=body_html, accent_color=DEFAULT_ACCENT,
+        )
         text_body = f"""Hola {user_name}. Usa este enlace para restablecer tu contraseña:
 
 {reset_url}
@@ -816,18 +613,14 @@ El enlace vence en una hora y solo puede utilizarse una vez."""
         """Notify a user after a successful password change."""
         safe_name = escape(user_name)
         subject = "Tu contraseña de Nexus by CS2 fue actualizada"
-        html_body = f"""
-        <!DOCTYPE html>
-        <html>
-        <body style="margin:0;background:#080808;color:#f5f5f5;font-family:Arial,sans-serif;">
-          <div style="max-width:600px;margin:32px auto;padding:32px;background:#151515;border:1px solid #2a2a2a;border-radius:20px;">
-            <h1 style="margin:0 0 16px;font-size:26px;font-weight:500;">Contraseña actualizada</h1>
-            <p style="color:#b7b7b7;line-height:1.6;">Hola {safe_name}. Tu contraseña fue actualizada correctamente y las sesiones anteriores fueron cerradas.</p>
-            <p style="color:#777;font-size:13px;">Si no realizaste este cambio, contacta al administrador de tu organización.</p>
-          </div>
-        </body>
-        </html>
+        body_html = f"""
+            <p style="color:#374151;line-height:1.6;font-size:15px;">Hola {safe_name}. Tu contraseña fue actualizada correctamente y las sesiones anteriores fueron cerradas.</p>
+            <p style="color:#98A2B3;font-size:13px;margin-top:16px;">Si no realizaste este cambio, contacta al administrador de tu organización.</p>
         """
+        html_body = render_email_shell(
+            organization_name="Nexus by CS2", eyebrow="Seguridad", title="Contraseña actualizada",
+            body_html=body_html, accent_color="#22A559",
+        )
         return self._send_email(to_email, subject, html_body)
 
     def send_pin_reset(self, to_email: str, customer_name: str, reset_url: str) -> bool:
@@ -835,47 +628,18 @@ El enlace vence en una hora y solo puede utilizarse una vez."""
         safe_name = escape(customer_name)
         safe_url = escape(reset_url, quote=True)
         subject = "Restablece tu PIN - Portal de Clientes Nexus"
-        html_body = f"""
-        <!DOCTYPE html>
-        <html>
-        <head>
-            <meta charset="UTF-8">
-            <style>
-                body {{ font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; margin: 0; padding: 0; background-color: #000000; }}
-                .container {{ max-width: 600px; margin: 40px auto; background: linear-gradient(135deg, #1a1a1a 0%, #0a0a0a 100%); border-radius: 16px; overflow: hidden; border: 1px solid rgba(255,255,255,0.1); }}
-                .header {{ background: linear-gradient(135deg, #0A84FF 0%, #0071E3 100%); padding: 40px 20px; text-align: center; }}
-                .header h1 {{ color: white; margin: 0; font-size: 28px; font-weight: 300; }}
-                .content {{ padding: 40px 30px; color: #ffffff; }}
-                .button {{ display: inline-block; padding: 14px 28px; background: linear-gradient(135deg, #0A84FF 0%, #0071E3 100%); color: white; text-decoration: none; border-radius: 10px; font-weight: 500; margin: 20px 0; }}
-                .footer {{ padding: 30px; text-align: center; color: #666; font-size: 12px; border-top: 1px solid rgba(255,255,255,0.1); }}
-                .emoji {{ font-size: 48px; margin: 20px 0; }}
-            </style>
-        </head>
-        <body>
-            <div class="container">
-                <div class="header">
-                    <div class="emoji">🔐</div>
-                    <h1>Restablecer PIN</h1>
-                </div>
-                <div class="content">
-                    <p style="font-size: 18px; color: #fff;">Hola <strong>{safe_name}</strong>,</p>
-                    <p style="color: #aaa;">Recibimos una solicitud para restablecer tu PIN del Portal de Clientes.</p>
-                    
-                    <div style="text-align: center; margin: 30px 0;">
-                        <a href="{safe_url}" class="button">Crear Nuevo PIN</a>
-                    </div>
-                    
-                    <p style="color: #aaa; font-size: 14px;">Este enlace es válido por <strong>1 hora</strong> y solo puede usarse una vez.</p>
-                    <p style="color: #777; font-size: 13px; margin-top: 30px;">Si no solicitaste este cambio, ignora este correo. Tu PIN actual sigue siendo válido.</p>
-                </div>
-                <div class="footer">
-                    <p><strong>Nexus by CS2</strong> - Portal de Clientes</p>
-                    <p>Este es un email automático, por favor no respondas a este mensaje.</p>
-                </div>
-            </div>
-        </body>
-        </html>
+        body_html = f"""
+            <p style="font-size:16px;line-height:24px;margin:0 0 12px;">Hola <strong>{safe_name}</strong>,</p>
+            <p style="color:#667085;font-size:14px;">Recibimos una solicitud para restablecer tu PIN del Portal de Clientes.</p>
+            <div style="text-align:center;margin:24px 0;">{render_button("Crear nuevo PIN", safe_url)}</div>
+            <p style="color:#667085;font-size:14px;">Este enlace es válido por <strong>1 hora</strong> y solo puede usarse una vez.</p>
+            <p style="color:#98A2B3;font-size:13px;margin-top:20px;">Si no solicitaste este cambio, ignora este correo. Tu PIN actual sigue siendo válido.</p>
         """
+        html_body = render_email_shell(
+            organization_name="Nexus by CS2", eyebrow="Portal de clientes", title="🔐 Restablecer PIN",
+            body_html=body_html, accent_color=DEFAULT_ACCENT,
+            footer_lines=("Este es un mensaje automático, por favor no respondas a este correo.",),
+        )
         text_body = f"""Hola {customer_name}.
 
 Recibimos una solicitud para restablecer tu PIN del Portal de Clientes.
