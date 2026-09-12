@@ -65,6 +65,12 @@ export const ownerAPI = {
   deleteUser: (userId) => api.delete(`/owner/users/${userId}`),
 };
 
+// NEXUS_8A7S1A_SUPPORT_FOUNDATION_V1 (owner-side read access; conversations are created by managers/admins)
+export const supportAPI = {
+  ownerList: (params = {}) => api.get('/owner/support/conversations', { params }),
+  ownerGet: (conversationId) => api.get(`/owner/support/conversations/${conversationId}`),
+};
+
 export const subscriptionAPI = {
   get: (organizationId) => api.get(`/owner/subscriptions/${organizationId}`),
   save: (organizationId, data) => api.put(`/owner/subscriptions/${organizationId}`, data),
