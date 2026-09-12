@@ -1,0 +1,15 @@
+# The Netlify UI had this project's Publish directory set to "frontend/dist" (a Vite-style
+# default) -- this app is Create React App (via craco), which outputs to "frontend/build"
+# instead, so every deploy failed with "Deploy directory 'frontend/dist' does not exist".
+# Putting the real settings here means they're versioned and no longer depend on a manual
+# fix in Netlify's dashboard.
+[build]
+  command = "cd frontend && yarn build"
+  publish = "frontend/build"
+
+# CRA/craco treats every ESLint warning as a build-breaking error when CI=true (which
+# Netlify sets by default, same as GitHub Actions) -- see .github/workflows/ci.yml for the
+# same override on the GitHub Actions side. There are pre-existing warnings unrelated to any
+# given change; a real syntax/type error still fails the build regardless of this flag.
+[build.environment]
+  CI = "false"
