@@ -22,9 +22,21 @@ SUPPORTED_VARIABLES = [
     "codigo_descuento",
     "fecha_expiracion",
     "link_reserva",
+    # NEXUS_CLASS_RECURRING_SCHEDULE_V1
+    "nombre_clase",
+    "fecha_hora_nueva",
 ]
 
-PURPOSES = {"birthday", "reactivation", "promotion", "welcome", "custom"}
+PURPOSES = {
+    "birthday",
+    "reactivation",
+    "promotion",
+    "welcome",
+    "custom",
+    # NEXUS_CLASS_RECURRING_SCHEDULE_V1
+    "class_rescheduled",
+    "class_cancelled",
+}
 CHANNELS = {"email", "whatsapp"}
 
 # NEXUS_BIRTHDAY_CAMPAIGN_V1 ya generaba este texto en whatsappService.js /
@@ -72,6 +84,27 @@ _DEFAULT_TEMPLATES = [
             "Gracias por registrarte en {{nombre_negocio}}. "
             "Ya puedes reservar tus citas desde tu portal de cliente.\n\n"
             "Reserva aquí: {{link_reserva}}\n\n¡Te esperamos pronto!"
+        ),
+    },
+    {
+        # NEXUS_CLASS_RECURRING_SCHEDULE_V1
+        "purpose": "class_rescheduled",
+        "name": "Cambio de clase",
+        "subject": "Cambio en tu clase de {{nombre_clase}}",
+        "body": (
+            "Hola {{nombre_cliente}},\n\n"
+            "Tu clase de {{nombre_clase}} en {{nombre_negocio}} cambió: ahora es el {{fecha_hora_nueva}}.\n\n"
+            "Si no puedes asistir en el nuevo horario, cancela tu cupo desde tu confirmación de reserva."
+        ),
+    },
+    {
+        "purpose": "class_cancelled",
+        "name": "Clase cancelada",
+        "subject": "Tu clase de {{nombre_clase}} fue cancelada",
+        "body": (
+            "Hola {{nombre_cliente}},\n\n"
+            "Tu clase de {{nombre_clase}} en {{nombre_negocio}} del {{fecha_hora_nueva}} fue cancelada.\n\n"
+            "Lamentamos el inconveniente -- te esperamos en una próxima clase."
         ),
     },
 ]

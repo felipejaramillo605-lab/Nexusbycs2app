@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { Bell, BellOff, Volume2, VolumeX, Check, ChevronDown, X, Megaphone, AlertTriangle, Info, Clock, Sparkles, Cake } from 'lucide-react';
+import { Bell, BellOff, Volume2, VolumeX, Check, ChevronDown, X, Megaphone, AlertTriangle, Info, Clock, Sparkles, Cake, CalendarClock } from 'lucide-react';
 import { billingAPI } from '../api';
 
 const SOUND_OPTIONS = [
@@ -47,6 +47,8 @@ const SEVERITY_CONFIG = {
   ai_reminder: { icon: Sparkles, color: 'text-emerald-400', bg: 'bg-emerald-500/10', border: 'border-emerald-500/20' },
   // NEXUS_BIRTHDAY_REMINDER_DAEMON_V1
   birthday_upcoming: { icon: Cake, color: 'text-pink-400', bg: 'bg-pink-500/10', border: 'border-pink-500/20' },
+  // NEXUS_CLASS_RECURRING_SCHEDULE_V1
+  class_schedule_conflict: { icon: CalendarClock, color: 'text-orange-400', bg: 'bg-orange-500/10', border: 'border-orange-500/20' },
 };
 
 function getNotifStyle(n) {

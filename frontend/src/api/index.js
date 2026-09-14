@@ -142,6 +142,16 @@ export const classSessionAPI = {
   checkoutBooking: (bookingId, data) => api.post(`/class-bookings/${bookingId}/checkout`, data),
 };
 
+// NEXUS_CLASS_RECURRING_SCHEDULE_V1
+export const classScheduleTemplateAPI = {
+  list: (params = {}) => api.get('/class-schedule-templates', { params }),
+  create: (data) => api.post('/class-schedule-templates', data),
+  update: (id, data) => api.put(`/class-schedule-templates/${id}`, data),
+  pause: (id) => api.post(`/class-schedule-templates/${id}/pause`),
+  resume: (id) => api.post(`/class-schedule-templates/${id}/resume`),
+  delete: (id) => api.delete(`/class-schedule-templates/${id}`),
+};
+
 export const barberAPI = {
   getMyProfile: () => api.get('/barbers/me/profile'),
   getMyReviews: () => api.get('/barbers/me/reviews'),
