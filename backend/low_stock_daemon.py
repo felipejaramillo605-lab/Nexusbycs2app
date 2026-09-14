@@ -37,13 +37,17 @@ async def run_cycle():
 
 async def run_daemon():
     global running
-    print(f"low_stock_daemon_started at={datetime.now(timezone.utc).isoformat()} interval_seconds=300")
+    # NEXUS_DAEMON_CADENCE_RELAX_V1: process_low_stock_alerts solo envía el
+    # día del mes configurado (LOW_STOCK_ALERT_DAY, default 1) -- revisar cada
+    # 5 min era puro overhead casi todos los días del mes. Una hora sigue
+    # dejando margen de sobra dentro de la ventana horaria de envío.
+    print(f"low_stock_daemon_started at={datetime.now(timezone.utc).isoformat()} interval_seconds=3600")
     while running:
         try:
             await run_cycle()
         except Exception as exc:
             print(f"low_stock_daemon_cycle_failed diagnostic_code={type(exc).__name__}")
-        for _ in range(30):
+        for _ in range(360):
             if not running:
                 break
             await asyncio.sleep(10)

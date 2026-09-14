@@ -37,13 +37,18 @@ async def run_cycle():
 
 async def run_daemon():
     global running
-    print(f"birthday_reminder_daemon_started at={datetime.now(timezone.utc).isoformat()} interval_seconds=300")
+    # NEXUS_DAEMON_CADENCE_RELAX_V1: birthday_alerts.process_birthday_alerts ya
+    # se auto-limita a una corrida por organización por día (birthday_alert_runs,
+    # period=YYYY-MM-DD) -- un cumpleaños solo cambia una vez cada 24h, así que
+    # revisar cada 5 min era puro overhead. 30 min sigue dejando margen de sobra
+    # dentro de la ventana horaria configurable sin sondear de más.
+    print(f"birthday_reminder_daemon_started at={datetime.now(timezone.utc).isoformat()} interval_seconds=1800")
     while running:
         try:
             await run_cycle()
         except Exception as exc:
             print(f"birthday_reminder_daemon_cycle_failed diagnostic_code={type(exc).__name__}")
-        for _ in range(30):
+        for _ in range(180):
             if not running:
                 break
             await asyncio.sleep(10)
