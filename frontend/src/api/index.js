@@ -132,6 +132,16 @@ export const serviceAPI = {
   deletePhoto: (id, index, params={}) => api.delete(`/services/${id}/photos/${index}`, { params }),
 };
 
+// NEXUS_GROUP_SERVICES_V1
+export const classSessionAPI = {
+  list: (params = {}) => api.get('/class-sessions', { params }),
+  create: (data) => api.post('/class-sessions', data),
+  update: (id, data) => api.put(`/class-sessions/${id}`, data),
+  cancel: (id) => api.post(`/class-sessions/${id}/cancel`),
+  getBookings: (id) => api.get(`/class-sessions/${id}/bookings`),
+  checkoutBooking: (bookingId, data) => api.post(`/class-bookings/${bookingId}/checkout`, data),
+};
+
 export const barberAPI = {
   getMyProfile: () => api.get('/barbers/me/profile'),
   getMyReviews: () => api.get('/barbers/me/reviews'),

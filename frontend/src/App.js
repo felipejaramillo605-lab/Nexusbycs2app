@@ -41,6 +41,7 @@ const ManagerBilling = lazy(() => import('./pages/ManagerBilling'));
 const ManagerSupport = lazy(() => import('./pages/ManagerSupport'));
 const ManagerFiscalProfile = lazy(() => import('./pages/ManagerFiscalProfile'));
 const ManagerServices = lazy(() => import('./pages/ManagerServices'));
+const ManagerClasses = lazy(() => import('./pages/ManagerClasses')); // NEXUS_GROUP_SERVICES_V1
 const ManagerBarbers = lazy(() => import('./pages/ManagerBarbers'));
 const ManagerInventory = lazy(() => import('./pages/ManagerInventory'));
 const ManagerCatalog = lazy(() => import('./pages/ManagerCatalog'));
@@ -171,6 +172,16 @@ function AppRouter() {
           element={
             <ProtectedRoute allowedRoles={['owner', 'manager', 'admin']}>
               <ManagerServices />
+            </ProtectedRoute>
+          }
+        />
+
+        {/* NEXUS_GROUP_SERVICES_V1 */}
+        <Route
+          path="/manager/classes"
+          element={
+            <ProtectedRoute allowedRoles={['owner', 'manager', 'admin']}>
+              <ManagerClasses />
             </ProtectedRoute>
           }
         />
