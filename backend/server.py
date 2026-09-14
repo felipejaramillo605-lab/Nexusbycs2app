@@ -3081,6 +3081,11 @@ async def create_class_session(
         "capacity": capacity,
         "booked_count": 0,
         "status": "scheduled",
+        # NEXUS_CLASS_RECURRING_SCHEDULE_V1: None = agendada a mano (esta
+        # ruta); si viene de un ClassScheduleTemplate el generador lo llena.
+        "template_id": None,
+        "substitute_applied": False,
+        "original_barber_id": None,
         "created_by": current_user.user_id,
         "created_at": datetime.now(timezone.utc).isoformat(),
     }
@@ -3110,6 +3115,66 @@ async def list_class_sessions(
             org_filter["date"] = {"$lte": date_to}
     sessions = await db.class_sessions.find(org_filter, {"_id": 0}).sort([("date", 1), ("time", 1)]).to_list(1000)
     return sessions
+
+
+# NEXUS_CLASS_RECURRING_SCHEDULE_V1: avisar a los inscritos cuando su clase
+# cambia de hora/fecha/instructor o se cancela. Usa el motor de plantillas de
+# Marketing (message_templates.render_template) si la organización ya tiene
+# una plantilla personalizada con ese propósito; si no, cae a un texto de
+# fábrica embebido aquí, para no depender de que la organización ya haya
+# sembrado sus plantillas por defecto.
+_CLASS_NOTICE_FALLBACKS = {
+    "class_rescheduled": (
+        "Cambio en tu clase",
+        "Hola {{nombre_cliente}}, tu clase de {{nombre_clase}} en {{nombre_negocio}} cambió a {{fecha_hora_nueva}}.",
+    ),
+    "class_cancelled": (
+        "Tu clase fue cancelada",
+        "Hola {{nombre_cliente}}, tu clase de {{nombre_clase}} en {{nombre_negocio}} del {{fecha_hora_nueva}} fue cancelada.",
+    ),
+}
+
+
+async def _notify_class_clients(db, session: dict, purpose: str, extra_context: Optional[dict] = None):
+    bookings = await db.class_bookings.find(
+        {"class_session_id": session["class_session_id"], "status": "confirmed"}, {"_id": 0}
+    ).to_list(1000)
+    if not bookings:
+        return
+    org = await db.organizations.find_one({"organization_id": session["organization_id"]}, {"_id": 0})
+    service = await db.services.find_one({"service_id": session["service_id"]}, {"_id": 0})
+    org_name = (org or {}).get("name") or "Nexus"
+    accent = DEFAULT_ACCENT
+    try:
+        templates = await get_or_seed_templates(db, session["organization_id"])
+        template = next((t for t in templates if t.get("purpose") == purpose), None)
+    except Exception:
+        template = None
+    fallback_subject, fallback_body = _CLASS_NOTICE_FALLBACKS[purpose]
+    subject_raw = (template or {}).get("subject") or fallback_subject
+    body_raw = (template or {}).get("body") or fallback_body
+
+    for booking in bookings:
+        if not booking.get("client_email"):
+            continue
+        context = {
+            "nombre_cliente": booking["client_name"],
+            "nombre_negocio": org_name,
+            "nombre_clase": (service or {}).get("name") or "tu clase",
+            "fecha_hora_nueva": f"{session['date']} {session['time']}",
+            **(extra_context or {}),
+        }
+        subject = render_template(subject_raw, context)
+        body = render_template(body_raw, context)
+        html_body = render_email_shell(
+            organization_name=org_name, eyebrow="Clases", title=subject,
+            body_html=f'<p style="white-space:pre-wrap;line-height:1.6;color:#1F2937;">{html_escape(body)}</p>',
+            accent_color=accent,
+        )
+        try:
+            email_service._send_email(booking["client_email"], subject, html_body, body)
+        except Exception:
+            continue
 
 
 @api_router.put("/class-sessions/{class_session_id}", tags=["group-services"])
@@ -3144,8 +3209,12 @@ async def update_class_session(
 
     if not update_data:
         raise HTTPException(status_code=400, detail="No fields to update")
+    reschedule_fields = {"date", "time", "barber_id"}
     await db.class_sessions.update_one({"class_session_id": class_session_id}, {"$set": update_data})
-    return await db.class_sessions.find_one({"class_session_id": class_session_id}, {"_id": 0})
+    updated = await db.class_sessions.find_one({"class_session_id": class_session_id}, {"_id": 0})
+    if reschedule_fields & update_data.keys():
+        await _notify_class_clients(db, updated, "class_rescheduled")
+    return updated
 
 
 @api_router.post("/class-sessions/{class_session_id}/cancel", tags=["group-services"])
@@ -3162,6 +3231,10 @@ async def cancel_class_session(
     if not await validate_organization_access(current_user, existing["organization_id"]):
         raise HTTPException(status_code=403, detail="Access denied")
 
+    # NEXUS_CLASS_RECURRING_SCHEDULE_V1: notificar antes de marcar cancelado
+    # (una vez cancelado, _notify_class_clients ya no encontraría bookings
+    # "confirmed" a quién avisar).
+    await _notify_class_clients(db, existing, "class_cancelled")
     await db.class_sessions.update_one({"class_session_id": class_session_id}, {"$set": {"status": "cancelled"}})
     result = await db.class_bookings.update_many(
         {"class_session_id": class_session_id, "status": "confirmed"}, {"$set": {"status": "cancelled"}}
@@ -3389,10 +3462,202 @@ async def checkout_class_booking(
     return {"transaction_id": item["transaction_id"], "total_received": item["total_received"]}
 
 
+# ---- Horarios recurrentes (NEXUS_CLASS_RECURRING_SCHEDULE_V1) ----
+
+
+class ClassScheduleTemplateCreate(BaseModel):
+    service_id: str
+    barber_id: str
+    substitute_barber_id: Optional[str] = None
+    days_of_week: List[int]
+    time: str
+    capacity: Optional[int] = None
+    start_date: str
+    end_date: Optional[str] = None
+
+
+class ClassScheduleTemplateUpdate(BaseModel):
+    barber_id: Optional[str] = None
+    substitute_barber_id: Optional[str] = None
+    days_of_week: Optional[List[int]] = None
+    time: Optional[str] = None
+    capacity: Optional[int] = None
+    end_date: Optional[str] = None
+
+
+def _validate_days_of_week(days: List[int]):
+    if not days or any(d not in range(1, 8) for d in days):
+        raise HTTPException(status_code=400, detail="days_of_week must contain values 1-7")
+
+
+@api_router.post("/class-schedule-templates", tags=["group-services"])
+async def create_class_schedule_template(
+    data: ClassScheduleTemplateCreate,
+    authorization: Optional[str] = Header(None),
+    session_token: Optional[str] = Cookie(None),
+):
+    current_user = await get_current_user(authorization, session_token)
+    require_management_role(current_user)
+    if not current_user.organization_id:
+        raise HTTPException(status_code=400, detail="No organization assigned")
+    org_id = current_user.organization_id
+
+    service, _barber = await _load_group_service_and_barber(org_id, data.service_id, data.barber_id)
+    if data.substitute_barber_id:
+        await _load_group_service_and_barber(org_id, data.service_id, data.substitute_barber_id)
+    _validate_days_of_week(data.days_of_week)
+    _strict_minutes(data.time, "class schedule time")
+    _strict_date(data.start_date)
+    if data.end_date:
+        _strict_date(data.end_date)
+        if data.end_date < data.start_date:
+            raise HTTPException(status_code=400, detail="end_date cannot be before start_date")
+    capacity = data.capacity or service.get("group_capacity")
+    if not capacity or capacity < 2:
+        raise HTTPException(status_code=400, detail="capacity must be at least 2")
+
+    row = {
+        "template_id": f"tpl_{uuid.uuid4().hex[:12]}",
+        "organization_id": org_id,
+        "service_id": data.service_id,
+        "barber_id": data.barber_id,
+        "substitute_barber_id": data.substitute_barber_id,
+        "days_of_week": sorted(set(data.days_of_week)),
+        "time": data.time,
+        "capacity": capacity,
+        "start_date": data.start_date,
+        "end_date": data.end_date,
+        "active": True,
+        "created_by": current_user.user_id,
+        "created_at": datetime.now(timezone.utc).isoformat(),
+    }
+    await db.class_schedule_templates.insert_one(row.copy())
+    row.pop("_id", None)
+    # Generar de inmediato -- el manager ve las clases aparecer al momento,
+    # no tiene que esperar al próximo ciclo del daemon (ver class_schedule.py).
+    created = await ensure_sessions_for_template(db, row)
+    row["sessions_created"] = created
+    return row
+
+
+@api_router.get("/class-schedule-templates", tags=["group-services"])
+async def list_class_schedule_templates(
+    organization_id: Optional[str] = None,
+    authorization: Optional[str] = Header(None),
+    session_token: Optional[str] = Cookie(None),
+):
+    current_user = await get_current_user(authorization, session_token)
+    require_management_role(current_user)
+    org_filter = await get_organization_filter(current_user, organization_id)
+    return await db.class_schedule_templates.find(org_filter, {"_id": 0}).sort("created_at", -1).to_list(1000)
+
+
+@api_router.put("/class-schedule-templates/{template_id}", tags=["group-services"])
+async def update_class_schedule_template(
+    template_id: str,
+    data: ClassScheduleTemplateUpdate,
+    authorization: Optional[str] = Header(None),
+    session_token: Optional[str] = Cookie(None),
+):
+    current_user = await get_current_user(authorization, session_token)
+    require_management_role(current_user)
+    existing = await db.class_schedule_templates.find_one({"template_id": template_id}, {"_id": 0})
+    if not existing:
+        raise HTTPException(status_code=404, detail="Schedule not found")
+    if not await validate_organization_access(current_user, existing["organization_id"]):
+        raise HTTPException(status_code=403, detail="Access denied")
+
+    update_data = {}
+    if data.barber_id is not None:
+        await _load_group_service_and_barber(existing["organization_id"], existing["service_id"], data.barber_id)
+        update_data["barber_id"] = data.barber_id
+    if data.substitute_barber_id is not None:
+        if data.substitute_barber_id:
+            await _load_group_service_and_barber(existing["organization_id"], existing["service_id"], data.substitute_barber_id)
+        update_data["substitute_barber_id"] = data.substitute_barber_id or None
+    if data.days_of_week is not None:
+        _validate_days_of_week(data.days_of_week)
+        update_data["days_of_week"] = sorted(set(data.days_of_week))
+    if data.time is not None:
+        _strict_minutes(data.time, "class schedule time")
+        update_data["time"] = data.time
+    if data.capacity is not None:
+        if data.capacity < 2:
+            raise HTTPException(status_code=400, detail="capacity must be at least 2")
+        update_data["capacity"] = data.capacity
+    if data.end_date is not None:
+        _strict_date(data.end_date)
+        update_data["end_date"] = data.end_date
+
+    if not update_data:
+        raise HTTPException(status_code=400, detail="No fields to update")
+    # NEXUS_CLASS_RECURRING_SCHEDULE_V1: solo afecta generación futura -- las
+    # ClassSession ya creadas quedan como estaban (decisión confirmada).
+    await db.class_schedule_templates.update_one({"template_id": template_id}, {"$set": update_data})
+    return await db.class_schedule_templates.find_one({"template_id": template_id}, {"_id": 0})
+
+
+@api_router.post("/class-schedule-templates/{template_id}/pause", tags=["group-services"])
+async def pause_class_schedule_template(
+    template_id: str, authorization: Optional[str] = Header(None), session_token: Optional[str] = Cookie(None)
+):
+    current_user = await get_current_user(authorization, session_token)
+    require_management_role(current_user)
+    existing = await db.class_schedule_templates.find_one({"template_id": template_id}, {"_id": 0})
+    if not existing:
+        raise HTTPException(status_code=404, detail="Schedule not found")
+    if not await validate_organization_access(current_user, existing["organization_id"]):
+        raise HTTPException(status_code=403, detail="Access denied")
+    await db.class_schedule_templates.update_one({"template_id": template_id}, {"$set": {"active": False}})
+    return {"message": "Schedule paused"}
+
+
+@api_router.post("/class-schedule-templates/{template_id}/resume", tags=["group-services"])
+async def resume_class_schedule_template(
+    template_id: str, authorization: Optional[str] = Header(None), session_token: Optional[str] = Cookie(None)
+):
+    current_user = await get_current_user(authorization, session_token)
+    require_management_role(current_user)
+    existing = await db.class_schedule_templates.find_one({"template_id": template_id}, {"_id": 0})
+    if not existing:
+        raise HTTPException(status_code=404, detail="Schedule not found")
+    if not await validate_organization_access(current_user, existing["organization_id"]):
+        raise HTTPException(status_code=403, detail="Access denied")
+    await db.class_schedule_templates.update_one({"template_id": template_id}, {"$set": {"active": True}})
+    return {"message": "Schedule resumed"}
+
+
+@api_router.delete("/class-schedule-templates/{template_id}", tags=["group-services"])
+async def delete_class_schedule_template(
+    template_id: str, authorization: Optional[str] = Header(None), session_token: Optional[str] = Cookie(None)
+):
+    current_user = await get_current_user(authorization, session_token)
+    require_management_role(current_user)
+    existing = await db.class_schedule_templates.find_one({"template_id": template_id}, {"_id": 0})
+    if not existing:
+        raise HTTPException(status_code=404, detail="Schedule not found")
+    if not await validate_organization_access(current_user, existing["organization_id"]):
+        raise HTTPException(status_code=403, detail="Access denied")
+
+    today = datetime.now(timezone.utc).date().isoformat()
+    future_sessions = await db.class_sessions.find(
+        {"template_id": template_id, "status": "scheduled", "date": {"$gte": today}}, {"_id": 0}
+    ).to_list(1000)
+    for session in future_sessions:
+        await _notify_class_clients(db, session, "class_cancelled")
+        await db.class_sessions.update_one({"class_session_id": session["class_session_id"]}, {"$set": {"status": "cancelled"}})
+        await db.class_bookings.update_many(
+            {"class_session_id": session["class_session_id"], "status": "confirmed"}, {"$set": {"status": "cancelled"}}
+        )
+    await db.class_schedule_templates.delete_one({"template_id": template_id})
+    return {"message": "Schedule deleted", "future_sessions_cancelled": len(future_sessions)}
+
+
 async def ensure_group_services_indexes(db):
     await db.class_sessions.create_index("class_session_id", unique=True)
     await db.class_sessions.create_index([("organization_id", 1), ("date", 1), ("time", 1)])
     await db.class_sessions.create_index([("barber_id", 1), ("date", 1)])
+    await db.class_sessions.create_index([("template_id", 1), ("date", 1)])
     await db.class_bookings.create_index("class_booking_id", unique=True)
     await db.class_bookings.create_index([("class_session_id", 1), ("status", 1)])
     await db.class_bookings.create_index(
@@ -3400,6 +3665,8 @@ async def ensure_group_services_indexes(db):
         unique=True,
         partialFilterExpression={"status": "confirmed"},
     )
+    await db.class_schedule_templates.create_index("template_id", unique=True)
+    await db.class_schedule_templates.create_index([("organization_id", 1), ("active", 1)])
 
 
 # ==================== END GROUP SERVICES ====================
@@ -7613,8 +7880,10 @@ from message_templates import (
     SUPPORTED_VARIABLES,
     ensure_message_template_indexes,
     get_or_seed_templates,
+    render_template,
 )
 from appointment_email_templates import DEFAULT_ACCENT, render_email_shell
+from class_schedule import ensure_sessions_for_template
 
 api_router.include_router(
     build_inventory_reorder_router(db, get_current_user, require_management_role, resolve_team_organization),
