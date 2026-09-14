@@ -3,7 +3,7 @@ import React, { useEffect, useState, useCallback } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { serviceAPI, organizationAPI, inventoryAPI } from '../api';
-import { Plus, Trash2, ArrowLeft, Scissors, Edit2, FlaskConical, AlertTriangle, ShieldCheck, X, ImagePlus } from 'lucide-react';
+import { Plus, Trash2, ArrowLeft, Scissors, Edit2, FlaskConical, AlertTriangle, ShieldCheck, X, ImagePlus, Users } from 'lucide-react';
 import { MANAGER } from '../constants/testIds';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '../components/ui/dialog';
 import { toast } from 'sonner';
@@ -18,7 +18,7 @@ const ManagerServices = () => {
   const [loading, setLoading] = useState(true);
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
-  const [newService, setNewService] = useState({ name: '', duration: 30, price: 0 });
+  const [newService, setNewService] = useState({ name: '', duration: 30, price: 0, service_type: 'individual', group_capacity: 8 });
   const [editingService, setEditingService] = useState(null);
   const [organizationName, setOrganizationName] = useState('');
   const [recipeService, setRecipeService] = useState(null);
@@ -63,10 +63,14 @@ const ManagerServices = () => {
   }, [organizationId, loadServices, loadOrganizationName]);
 
   const handleCreate = async () => {
+    if (newService.service_type === 'group' && (!newService.group_capacity || newService.group_capacity < 2)) {
+      toast.error('La capacidad de un servicio grupal debe ser de al menos 2 cupos');
+      return;
+    }
     try {
       await serviceAPI.create(newService);
       setIsCreateDialogOpen(false);
-      setNewService({ name: '', duration: 30, price: 0 });
+      setNewService({ name: '', duration: 30, price: 0, service_type: 'individual', group_capacity: 8 });
       loadServices();
       toast.success('Servicio creado exitosamente');
     } catch (error) {
@@ -81,17 +85,25 @@ const ManagerServices = () => {
       name: service.name,
       duration: service.duration,
       price: service.price,
-      photos: service.photos || []
+      photos: service.photos || [],
+      service_type: service.service_type || 'individual',
+      group_capacity: service.group_capacity || 8
     });
     setIsEditDialogOpen(true);
   };
 
   const handleUpdate = async () => {
+    if (editingService.service_type === 'group' && (!editingService.group_capacity || editingService.group_capacity < 2)) {
+      toast.error('La capacidad de un servicio grupal debe ser de al menos 2 cupos');
+      return;
+    }
     try {
       await serviceAPI.update(editingService.service_id, {
         name: editingService.name,
         duration: editingService.duration,
-        price: editingService.price
+        price: editingService.price,
+        service_type: editingService.service_type,
+        group_capacity: editingService.group_capacity
       });
       setIsEditDialogOpen(false);
       setEditingService(null);
@@ -281,6 +293,42 @@ const ManagerServices = () => {
                     className="w-full px-4 py-3 bg-transparent border border-[var(--app-border)] rounded-xl text-[var(--app-text-primary)] focus:border-[var(--app-primary)] focus:ring-1 focus:ring-[var(--app-primary)] outline-none"
                   />
                 </div>
+                {/* NEXUS_GROUP_SERVICES_V1 */}
+                <div>
+                  <label className="text-sm text-zinc-400 mb-2 block">Tipo de servicio</label>
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      type="button"
+                      data-testid="service-type-individual"
+                      onClick={() => setNewService({ ...newService, service_type: 'individual' })}
+                      className={`p-3 rounded-xl border text-sm transition-all ${newService.service_type === 'individual' ? 'bg-[var(--app-primary)]/20 border-[var(--app-primary)] text-[var(--app-text-primary)]' : 'border-[var(--app-border)] text-zinc-400'}`}
+                    >
+                      Individual
+                    </button>
+                    <button
+                      type="button"
+                      data-testid="service-type-group"
+                      onClick={() => setNewService({ ...newService, service_type: 'group' })}
+                      className={`p-3 rounded-xl border text-sm transition-all ${newService.service_type === 'group' ? 'bg-[var(--app-primary)]/20 border-[var(--app-primary)] text-[var(--app-text-primary)]' : 'border-[var(--app-border)] text-zinc-400'}`}
+                    >
+                      Grupal (clase)
+                    </button>
+                  </div>
+                  <p className="text-xs text-zinc-500 mt-1.5">Un servicio grupal permite que varios clientes reserven el mismo horario, hasta el cupo que definas (ej. clases de pilates, spinning).</p>
+                </div>
+                {newService.service_type === 'group' && (
+                  <div>
+                    <label className="text-sm text-zinc-400 mb-2 block">Cupos por clase</label>
+                    <input
+                      type="number"
+                      min="2"
+                      data-testid="service-group-capacity"
+                      value={newService.group_capacity}
+                      onChange={(e) => setNewService({ ...newService, group_capacity: parseInt(e.target.value) || 0 })}
+                      className="w-full px-4 py-3 bg-transparent border border-[var(--app-border)] rounded-xl text-[var(--app-text-primary)] focus:border-[var(--app-primary)] focus:ring-1 focus:ring-[var(--app-primary)] outline-none"
+                    />
+                  </div>
+                )}
                 <button
                   onClick={handleCreate}
                   className="w-full px-6 py-3 bg-[var(--app-primary)] hover:bg-[var(--app-primary-hover)] text-[var(--app-text-primary)] rounded-xl font-medium transition-all"
@@ -328,6 +376,38 @@ const ManagerServices = () => {
                     className="w-full px-4 py-3 bg-transparent border border-[var(--app-border)] rounded-xl text-[var(--app-text-primary)] focus:border-[var(--app-primary)] focus:ring-1 focus:ring-[var(--app-primary)] outline-none"
                   />
                 </div>
+                {/* NEXUS_GROUP_SERVICES_V1 */}
+                <div>
+                  <label className="text-sm text-zinc-400 mb-2 block">Tipo de servicio</label>
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setEditingService({ ...editingService, service_type: 'individual' })}
+                      className={`p-3 rounded-xl border text-sm transition-all ${editingService.service_type === 'individual' ? 'bg-[var(--app-primary)]/20 border-[var(--app-primary)] text-[var(--app-text-primary)]' : 'border-[var(--app-border)] text-zinc-400'}`}
+                    >
+                      Individual
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setEditingService({ ...editingService, service_type: 'group' })}
+                      className={`p-3 rounded-xl border text-sm transition-all ${editingService.service_type === 'group' ? 'bg-[var(--app-primary)]/20 border-[var(--app-primary)] text-[var(--app-text-primary)]' : 'border-[var(--app-border)] text-zinc-400'}`}
+                    >
+                      Grupal (clase)
+                    </button>
+                  </div>
+                </div>
+                {editingService.service_type === 'group' && (
+                  <div>
+                    <label className="text-sm text-zinc-400 mb-2 block">Cupos por clase</label>
+                    <input
+                      type="number"
+                      min="2"
+                      value={editingService.group_capacity}
+                      onChange={(e) => setEditingService({ ...editingService, group_capacity: parseInt(e.target.value) || 0 })}
+                      className="w-full px-4 py-3 bg-transparent border border-[var(--app-border)] rounded-xl text-[var(--app-text-primary)] focus:border-[var(--app-primary)] focus:ring-1 focus:ring-[var(--app-primary)] outline-none"
+                    />
+                  </div>
+                )}
                 <button
                   onClick={handleUpdate}
                   className="w-full px-6 py-3 bg-[var(--app-primary)] hover:bg-[var(--app-primary-hover)] text-[var(--app-text-primary)] rounded-xl font-medium transition-all"
@@ -402,7 +482,14 @@ const ManagerServices = () => {
                   </button>
                 </div>
               </div>
-              <h3 className="text-[var(--app-text-primary)] font-medium text-lg mb-2">{service.name}</h3>
+              <div className="flex items-center gap-2 mb-2">
+                <h3 className="text-[var(--app-text-primary)] font-medium text-lg">{service.name}</h3>
+                {service.service_type === 'group' && (
+                  <span className="flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] bg-[var(--app-primary)]/15 text-[var(--app-primary)] border border-[var(--app-primary)]/30">
+                    <Users size={11} /> {service.group_capacity} cupos
+                  </span>
+                )}
+              </div>
               <div className="flex items-center justify-between text-sm">
                 <span className="text-zinc-400">{service.duration} min</span>
                 <span className="text-[var(--app-primary)] font-medium text-lg">${service.price}</span>

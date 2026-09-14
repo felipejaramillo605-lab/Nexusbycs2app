@@ -337,6 +337,12 @@ class Service(BaseModel):
     price: float
     # NEXUS_SERVICE_PHOTOS_V1: max 2, enforced in service_media.py
     photos: List[str] = Field(default_factory=list)
+    # NEXUS_GROUP_SERVICES_V1: "individual" (default, comportamiento de siempre)
+    # o "group" -- una clase con cupo limitado (ClassSession/ClassBooking).
+    service_type: str = "individual"
+    group_capacity: Optional[int] = None  # solo aplica si service_type == "group"
+    booking_window_days: Optional[int] = None  # None = sin límite de anticipación
+    cancellation_cutoff_hours: Optional[int] = None  # None = sin ventana de cancelación
     created_at: datetime
 
 
@@ -447,6 +453,23 @@ class ServiceCreate(BaseModel):
     name: str
     duration: int
     price: float
+    # NEXUS_GROUP_SERVICES_V1
+    service_type: str = "individual"
+    group_capacity: Optional[int] = None
+    booking_window_days: Optional[int] = None
+    cancellation_cutoff_hours: Optional[int] = None
+
+
+def _validate_group_service_fields(data: "ServiceCreate"):
+    if data.service_type not in {"individual", "group"}:
+        raise HTTPException(status_code=400, detail="service_type must be 'individual' or 'group'")
+    if data.service_type == "group":
+        if not data.group_capacity or data.group_capacity < 2:
+            raise HTTPException(status_code=400, detail="group_capacity must be at least 2 for a group service")
+    if data.booking_window_days is not None and data.booking_window_days < 1:
+        raise HTTPException(status_code=400, detail="booking_window_days must be at least 1")
+    if data.cancellation_cutoff_hours is not None and data.cancellation_cutoff_hours < 0:
+        raise HTTPException(status_code=400, detail="cancellation_cutoff_hours cannot be negative")
 
 
 class BarberCreate(BaseModel):
@@ -2894,6 +2917,7 @@ async def create_service(
 
     # RLS: Enforce write access
     await enforce_rls_on_write(current_user, {}, current_user.organization_id)
+    _validate_group_service_fields(data)
 
     service_id = f"service_{uuid.uuid4().hex[:12]}"
     service_doc = {
@@ -2902,6 +2926,10 @@ async def create_service(
         "name": data.name,
         "duration": data.duration,
         "price": data.price,
+        "service_type": data.service_type,
+        "group_capacity": data.group_capacity if data.service_type == "group" else None,
+        "booking_window_days": data.booking_window_days,
+        "cancellation_cutoff_hours": data.cancellation_cutoff_hours,
         "created_at": datetime.now(timezone.utc).isoformat(),
     }
     await db.services.insert_one(service_doc)
@@ -2930,8 +2958,28 @@ async def update_service(
 
     # RLS: Enforce write access
     await enforce_rls_on_write(current_user, service, service["organization_id"])
+    _validate_group_service_fields(data)
 
-    update_data = {"name": data.name, "duration": data.duration, "price": data.price}
+    update_data = {
+        "name": data.name,
+        "duration": data.duration,
+        "price": data.price,
+        "service_type": data.service_type,
+        "group_capacity": data.group_capacity if data.service_type == "group" else None,
+        "booking_window_days": data.booking_window_days,
+        "cancellation_cutoff_hours": data.cancellation_cutoff_hours,
+    }
+    # NEXUS_GROUP_SERVICES_V1: no permitir bajar la capacidad por debajo de
+    # cupos ya reservados en clases futuras -- evita overbooking retroactivo.
+    if data.service_type == "group" and data.group_capacity:
+        future_sessions = await db.class_sessions.find(
+            {"service_id": service_id, "status": "scheduled"}, {"_id": 0, "booked_count": 1}
+        ).to_list(1000)
+        if any((s.get("booked_count") or 0) > data.group_capacity for s in future_sessions):
+            raise HTTPException(
+                status_code=400,
+                detail="Cannot lower capacity below the number of clients already booked in an upcoming class",
+            )
 
     result = await db.services.update_one({"service_id": service_id}, {"$set": update_data})
 
@@ -2961,6 +3009,400 @@ async def delete_service(
 
     await db.services.delete_one({"service_id": service_id})
     return {"message": "Service deleted"}
+
+
+# ==================== GROUP SERVICES (CLASES CON CUPO) ====================
+# NEXUS_GROUP_SERVICES_V1: aditivo, no toca Appointment/checkout 1:1. Un
+# ClassSession es una ocurrencia programada de un Service con
+# service_type=="group" (ej. "reformer martes 6pm con Ana"); un ClassBooking
+# es el cupo de un cliente dentro de esa sesión -- análogo a Appointment,
+# pero muchos-a-uno con la sesión en vez de uno-a-uno.
+
+
+class ClassSessionCreate(BaseModel):
+    service_id: str
+    barber_id: str
+    date: str
+    time: str
+    capacity: Optional[int] = None  # default = service.group_capacity
+
+
+class ClassSessionUpdate(BaseModel):
+    date: Optional[str] = None
+    time: Optional[str] = None
+    barber_id: Optional[str] = None
+    capacity: Optional[int] = None
+
+
+async def _load_group_service_and_barber(org_id: str, service_id: str, barber_id: str):
+    service = await db.services.find_one({"service_id": service_id, "organization_id": org_id}, {"_id": 0})
+    if not service:
+        raise HTTPException(status_code=404, detail="Service not found")
+    if service.get("service_type") != "group":
+        raise HTTPException(status_code=400, detail="This service is not configured as a group service")
+    barber = await db.barbers.find_one(
+        {"barber_id": barber_id, "organization_id": org_id, "$or": [{"active": True}, {"active": {"$exists": False}}]},
+        {"_id": 0},
+    )
+    if not barber:
+        raise HTTPException(status_code=404, detail="Professional not found")
+    service_ids = barber.get("service_ids") or []
+    if service_ids and service_id not in service_ids:
+        raise HTTPException(status_code=409, detail="The selected professional does not provide this service")
+    return service, barber
+
+
+@api_router.post("/class-sessions", tags=["group-services"])
+async def create_class_session(
+    data: ClassSessionCreate,
+    authorization: Optional[str] = Header(None),
+    session_token: Optional[str] = Cookie(None),
+):
+    current_user = await get_current_user(authorization, session_token)
+    require_management_role(current_user)
+    if not current_user.organization_id:
+        raise HTTPException(status_code=400, detail="No organization assigned")
+    org_id = current_user.organization_id
+
+    service, _barber = await _load_group_service_and_barber(org_id, data.service_id, data.barber_id)
+    _strict_date(data.date)
+    _strict_minutes(data.time, "class session time")
+    capacity = data.capacity or service.get("group_capacity")
+    if not capacity or capacity < 2:
+        raise HTTPException(status_code=400, detail="capacity must be at least 2")
+
+    row = {
+        "class_session_id": f"class_{uuid.uuid4().hex[:12]}",
+        "organization_id": org_id,
+        "service_id": data.service_id,
+        "barber_id": data.barber_id,
+        "date": data.date,
+        "time": data.time,
+        "capacity": capacity,
+        "booked_count": 0,
+        "status": "scheduled",
+        "created_by": current_user.user_id,
+        "created_at": datetime.now(timezone.utc).isoformat(),
+    }
+    await db.class_sessions.insert_one(row.copy())
+    row.pop("_id", None)
+    return row
+
+
+@api_router.get("/class-sessions", tags=["group-services"])
+async def list_class_sessions(
+    organization_id: Optional[str] = None,
+    date_from: Optional[str] = None,
+    date_to: Optional[str] = None,
+    authorization: Optional[str] = Header(None),
+    session_token: Optional[str] = Cookie(None),
+):
+    current_user = await get_current_user(authorization, session_token)
+    require_management_role(current_user)
+    org_filter = await get_organization_filter(current_user, organization_id)
+    if date_from:
+        org_filter["date"] = {"$gte": date_from}
+    if date_to:
+        org_filter.setdefault("date", {})
+        if isinstance(org_filter["date"], dict):
+            org_filter["date"]["$lte"] = date_to
+        else:
+            org_filter["date"] = {"$lte": date_to}
+    sessions = await db.class_sessions.find(org_filter, {"_id": 0}).sort([("date", 1), ("time", 1)]).to_list(1000)
+    return sessions
+
+
+@api_router.put("/class-sessions/{class_session_id}", tags=["group-services"])
+async def update_class_session(
+    class_session_id: str,
+    data: ClassSessionUpdate,
+    authorization: Optional[str] = Header(None),
+    session_token: Optional[str] = Cookie(None),
+):
+    current_user = await get_current_user(authorization, session_token)
+    require_management_role(current_user)
+    existing = await db.class_sessions.find_one({"class_session_id": class_session_id}, {"_id": 0})
+    if not existing:
+        raise HTTPException(status_code=404, detail="Class session not found")
+    if not await validate_organization_access(current_user, existing["organization_id"]):
+        raise HTTPException(status_code=403, detail="Access denied")
+
+    update_data = {}
+    if data.date is not None:
+        _strict_date(data.date)
+        update_data["date"] = data.date
+    if data.time is not None:
+        _strict_minutes(data.time, "class session time")
+        update_data["time"] = data.time
+    if data.barber_id is not None:
+        await _load_group_service_and_barber(existing["organization_id"], existing["service_id"], data.barber_id)
+        update_data["barber_id"] = data.barber_id
+    if data.capacity is not None:
+        if data.capacity < (existing.get("booked_count") or 0):
+            raise HTTPException(status_code=400, detail="capacity cannot be lower than clients already booked")
+        update_data["capacity"] = data.capacity
+
+    if not update_data:
+        raise HTTPException(status_code=400, detail="No fields to update")
+    await db.class_sessions.update_one({"class_session_id": class_session_id}, {"$set": update_data})
+    return await db.class_sessions.find_one({"class_session_id": class_session_id}, {"_id": 0})
+
+
+@api_router.post("/class-sessions/{class_session_id}/cancel", tags=["group-services"])
+async def cancel_class_session(
+    class_session_id: str,
+    authorization: Optional[str] = Header(None),
+    session_token: Optional[str] = Cookie(None),
+):
+    current_user = await get_current_user(authorization, session_token)
+    require_management_role(current_user)
+    existing = await db.class_sessions.find_one({"class_session_id": class_session_id}, {"_id": 0})
+    if not existing:
+        raise HTTPException(status_code=404, detail="Class session not found")
+    if not await validate_organization_access(current_user, existing["organization_id"]):
+        raise HTTPException(status_code=403, detail="Access denied")
+
+    await db.class_sessions.update_one({"class_session_id": class_session_id}, {"$set": {"status": "cancelled"}})
+    result = await db.class_bookings.update_many(
+        {"class_session_id": class_session_id, "status": "confirmed"}, {"$set": {"status": "cancelled"}}
+    )
+    return {"message": "Class session cancelled", "bookings_cancelled": result.modified_count}
+
+
+@api_router.get("/class-sessions/{class_session_id}/bookings", tags=["group-services"])
+async def list_class_session_bookings(
+    class_session_id: str,
+    authorization: Optional[str] = Header(None),
+    session_token: Optional[str] = Cookie(None),
+):
+    current_user = await get_current_user(authorization, session_token)
+    require_management_role(current_user)
+    session = await db.class_sessions.find_one({"class_session_id": class_session_id}, {"_id": 0})
+    if not session:
+        raise HTTPException(status_code=404, detail="Class session not found")
+    if not await validate_organization_access(current_user, session["organization_id"]):
+        raise HTTPException(status_code=403, detail="Access denied")
+    bookings = await db.class_bookings.find(
+        {"class_session_id": class_session_id, "status": {"$ne": "cancelled"}}, {"_id": 0}
+    ).sort("created_at", 1).to_list(1000)
+    return {"session": session, "bookings": bookings}
+
+
+# ---- Reserva pública (cliente) ----
+
+
+@api_router.get("/public/{org_id}/class-sessions", tags=["public-booking"])
+async def get_public_class_sessions(
+    org_id: str, service_id: Optional[str] = None, date_from: Optional[str] = None, date_to: Optional[str] = None
+):
+    today = datetime.now(timezone.utc).date().isoformat()
+    query = {"organization_id": org_id, "status": "scheduled", "date": {"$gte": date_from or today}}
+    if date_to:
+        query["date"]["$lte"] = date_to
+    if service_id:
+        query["service_id"] = service_id
+    sessions = await db.class_sessions.find(query, {"_id": 0}).sort([("date", 1), ("time", 1)]).to_list(1000)
+    return [{**s, "spots_available": max(0, s["capacity"] - s["booked_count"])} for s in sessions]
+
+
+class ClassBookingCreate(BaseModel):
+    client_name: str = Field(..., max_length=100)
+    client_phone: str = Field(..., max_length=32)
+    client_email: Optional[EmailStr] = None
+    marketing_consent: bool = False
+
+
+@api_router.post("/public/{org_id}/class-sessions/{class_session_id}/book", tags=["public-booking"])
+@limiter.limit("10/hour")
+async def book_class_session(org_id: str, class_session_id: str, data: ClassBookingCreate, request: Request):
+    session = await db.class_sessions.find_one(
+        {"class_session_id": class_session_id, "organization_id": org_id, "status": "scheduled"}, {"_id": 0}
+    )
+    if not session:
+        raise HTTPException(status_code=404, detail="Class session not found")
+
+    service = await db.services.find_one({"service_id": session["service_id"]}, {"_id": 0})
+    if service and service.get("booking_window_days"):
+        session_date = _strict_date(session["date"])
+        max_date = datetime.now(timezone.utc).date() + timedelta(days=service["booking_window_days"])
+        if session_date > max_date:
+            raise HTTPException(status_code=409, detail="This class is not open for booking yet")
+
+    phone = sanitize_phone(data.client_phone)
+
+    # NEXUS_GROUP_SERVICES_V1: incremento atómico condicionado a cupo
+    # disponible -- misma técnica que reserve_cart_items usa para inventario,
+    # evita overbooking por condición de carrera.
+    result = await db.class_sessions.update_one(
+        {"class_session_id": class_session_id, "$expr": {"$lt": ["$booked_count", "$capacity"]}},
+        {"$inc": {"booked_count": 1}},
+    )
+    if result.modified_count == 0:
+        raise HTTPException(status_code=409, detail="This class is full")
+
+    now = datetime.now(timezone.utc).isoformat()
+    existing_client = await db.clients.find_one({"phone": phone, "organization_id": org_id}, {"_id": 0})
+    client_id = existing_client["client_id"] if existing_client else f"client_{uuid.uuid4().hex[:12]}"
+    if not existing_client:
+        await db.clients.insert_one(
+            {
+                "client_id": client_id,
+                "organization_id": org_id,
+                "phone": phone,
+                "name": data.client_name,
+                "email": data.client_email,
+                "accepts_marketing": data.marketing_consent,
+                "marketing_consent_given_at": now if data.marketing_consent else None,
+                "marketing_consent_ip": request.client.host if (request.client and data.marketing_consent) else None,
+                "marketing_consent_text": "Acepto recibir promociones y novedades" if data.marketing_consent else None,
+                "reminder_consent_given": True,
+                "deletion_requested_at": None,
+                "failed_pin_attempts": 0,
+                "pin_locked_until": None,
+                "total_visits": 0,
+                "loyalty_points": 0,
+                "last_visit": None,
+                "created_at": now,
+                "updated_at": now,
+            }
+        )
+
+    booking = {
+        "class_booking_id": f"cbk_{uuid.uuid4().hex[:12]}",
+        "organization_id": org_id,
+        "class_session_id": class_session_id,
+        "client_id": client_id,
+        "client_name": data.client_name,
+        "client_phone": phone,
+        "client_email": data.client_email,
+        "status": "confirmed",
+        "transaction_id": None,
+        "created_at": now,
+    }
+    try:
+        await db.class_bookings.insert_one(booking.copy())
+    except Exception:
+        # ya reservado (índice único sesión+teléfono) -- revertir el cupo tomado
+        await db.class_sessions.update_one({"class_session_id": class_session_id}, {"$inc": {"booked_count": -1}})
+        raise HTTPException(status_code=409, detail="You already have a spot in this class")
+    booking.pop("_id", None)
+    return booking
+
+
+@api_router.post("/public/class-bookings/{class_booking_id}/cancel", tags=["public-booking"])
+async def cancel_class_booking(class_booking_id: str):
+    booking = await db.class_bookings.find_one({"class_booking_id": class_booking_id, "status": "confirmed"}, {"_id": 0})
+    if not booking:
+        raise HTTPException(status_code=404, detail="Booking not found")
+    await db.class_bookings.update_one({"class_booking_id": class_booking_id}, {"$set": {"status": "cancelled"}})
+    await db.class_sessions.update_one(
+        {"class_session_id": booking["class_session_id"], "booked_count": {"$gt": 0}}, {"$inc": {"booked_count": -1}}
+    )
+    return {"message": "Booking cancelled"}
+
+
+# ---- Checkout de clase (manager, manual por asistente) ----
+
+
+@api_router.post("/class-bookings/{class_booking_id}/checkout", tags=["group-services"])
+async def checkout_class_booking(
+    class_booking_id: str,
+    data: AppointmentCheckoutRequest,
+    authorization: Optional[str] = Header(None),
+    session_token: Optional[str] = Cookie(None),
+):
+    """Cobro manual por asistente -- copia deliberada de checkout_appointment
+    (no se generaliza el endpoint 1:1) para no arriesgar el checkout de citas
+    ya en producción."""
+    user = await get_current_user(authorization, session_token)
+    require_management_role(user)
+    booking = await db.class_bookings.find_one({"class_booking_id": class_booking_id}, {"_id": 0})
+    if not booking:
+        raise HTTPException(404, "Class booking not found")
+    if not await validate_organization_access(user, booking["organization_id"]):
+        raise HTTPException(403, "Access denied")
+    if booking.get("transaction_id"):
+        raise HTTPException(409, "This booking has already been charged")
+    if data.payment_method not in CHECKOUT_PAYMENT_METHODS:
+        raise HTTPException(400, "Unsupported payment method")
+    if data.discount_amount < 0 or data.tip_amount < 0:
+        raise HTTPException(400, "Discount and tip cannot be negative")
+
+    session = await db.class_sessions.find_one({"class_session_id": booking["class_session_id"]}, {"_id": 0})
+    if not session:
+        raise HTTPException(409, "Class session unavailable")
+    org_id = booking["organization_id"]
+    service = await db.services.find_one({"service_id": session["service_id"], "organization_id": org_id}, {"_id": 0})
+    barber = await db.barbers.find_one({"barber_id": session["barber_id"], "organization_id": org_id}, {"_id": 0})
+    if not service or not barber:
+        raise HTTPException(409, "Service or professional unavailable")
+
+    price = round(float(service.get("price", 0)), 2)
+    discount = round(float(data.discount_amount), 2)
+    tip = round(float(data.tip_amount), 2)
+    if discount > price:
+        raise HTTPException(400, "Discount cannot exceed service price")
+
+    override = await db.staff_commission_overrides.find_one(
+        {"organization_id": org_id, "barber_id": session["barber_id"], "active": True}, {"_id": 0}
+    )
+    settings = (
+        await db.commission_settings.find_one({"organization_id": org_id}, {"_id": 0}) or DEFAULT_COMMISSION_SETTINGS
+    )
+    staff_pct = float(override["staff_percent"] if override else settings["default_staff_percent"])
+    business_pct = float(override["business_percent"] if override else settings["default_business_percent"])
+    validate_commission_split(staff_pct, business_pct)
+    net = round(price - discount, 2)
+    staff_amount = round(net * staff_pct / 100, 2)
+    business_amount = round(net - staff_amount, 2)
+    now = datetime.now(timezone.utc).isoformat()
+    item = {
+        "transaction_id": f"txn_{uuid.uuid4().hex[:12]}",
+        "organization_id": org_id,
+        "class_booking_id": class_booking_id,
+        "class_session_id": session["class_session_id"],
+        "barber_id": session["barber_id"],
+        "barber_name_snapshot": barber.get("display_name") or barber.get("name"),
+        "service_id": session["service_id"],
+        "service_name_snapshot": service.get("name"),
+        "service_price_snapshot": price,
+        "discount_amount": discount,
+        "net_service_amount": net,
+        "tip_amount": tip,
+        "total_received": round(net + tip, 2),
+        "payment_method": data.payment_method,
+        "staff_percent_snapshot": staff_pct,
+        "business_percent_snapshot": business_pct,
+        "commission_source_snapshot": "override" if override else "default",
+        "staff_commission_amount": staff_amount,
+        "business_amount": business_amount,
+        "staff_total_amount": round(staff_amount + tip, 2),
+        "notes": (data.notes or "").strip()[:500] or None,
+        "status": "confirmed",
+        "created_by": user.user_id,
+        "created_at": now,
+    }
+    await db.transactions.insert_one(item.copy())
+    await db.class_bookings.update_one(
+        {"class_booking_id": class_booking_id}, {"$set": {"transaction_id": item["transaction_id"], "status": "completed"}}
+    )
+    return {"transaction_id": item["transaction_id"], "total_received": item["total_received"]}
+
+
+async def ensure_group_services_indexes(db):
+    await db.class_sessions.create_index("class_session_id", unique=True)
+    await db.class_sessions.create_index([("organization_id", 1), ("date", 1), ("time", 1)])
+    await db.class_sessions.create_index([("barber_id", 1), ("date", 1)])
+    await db.class_bookings.create_index("class_booking_id", unique=True)
+    await db.class_bookings.create_index([("class_session_id", 1), ("status", 1)])
+    await db.class_bookings.create_index(
+        [("class_session_id", 1), ("client_phone", 1)],
+        unique=True,
+        partialFilterExpression={"status": "confirmed"},
+    )
+
+
+# ==================== END GROUP SERVICES ====================
 
 
 # NEXUS_8A7C2D_STAFF_PROFILE_ACCESS_V1
@@ -6466,6 +6908,27 @@ async def _strict_booking_context(org_id: str, barber_id: str, service_id: str, 
         if block_end > block_start:
             occupied.append((block_start, block_end, "blocked"))
 
+    # NEXUS_GROUP_SERVICES_V1: una clase grupal ocupa la agenda del instructor
+    # igual que una cita -- se suma como una fuente más de "occupied" para que
+    # _strict_slot_is_available() deje de ofrecer ese rango en citas 1:1.
+    class_sessions = await db.class_sessions.find(
+        {"organization_id": org_id, "barber_id": barber_id, "date": date_value, "status": "scheduled"},
+        {"_id": 0, "time": 1, "service_id": 1},
+    ).to_list(1000)
+    if class_sessions:
+        class_service_ids = list({item.get("service_id") for item in class_sessions if item.get("service_id")})
+        class_services = await db.services.find(
+            {"organization_id": org_id, "service_id": {"$in": class_service_ids}}, {"_id": 0, "service_id": 1, "duration": 1}
+        ).to_list(1000)
+        class_duration_lookup = {item["service_id"]: int(item.get("duration") or 30) for item in class_services}
+        for item in class_sessions:
+            try:
+                item_start = _strict_minutes(item.get("time"), "class session time")
+            except HTTPException:
+                continue
+            item_duration = max(1, class_duration_lookup.get(item.get("service_id"), 30))
+            occupied.append((item_start, item_start + item_duration, "class"))
+
     return {
         "date": appointment_date,
         "organization": organization,
@@ -7471,6 +7934,8 @@ async def create_application_indexes():
     await ensure_birthday_reward_indexes(db)
     # NEXUS_MESSAGE_TEMPLATES_V1
     await ensure_message_template_indexes(db)
+    # NEXUS_GROUP_SERVICES_V1
+    await ensure_group_services_indexes(db)
     # NEXUS_AI_V1
     await db.nexus_ai_conversations.create_index("conversation_id", unique=True)
     await db.nexus_ai_conversations.create_index([("organization_id", 1), ("user_id", 1), ("updated_at", -1)])
