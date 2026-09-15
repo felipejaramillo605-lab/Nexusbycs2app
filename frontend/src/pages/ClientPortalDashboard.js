@@ -93,6 +93,30 @@ export default function ClientPortalDashboard() {
     }
   };
 
+  // NEXUS_GROUP_SERVICES_WAITLIST_V1
+  const handleJoinWaitlist = async (classSessionId) => {
+    setBookingSessionId(classSessionId);
+    try {
+      await api.post(`/public/clients/class-sessions/${classSessionId}/waitlist`, {});
+      toast.success('Te uniste a la lista de espera');
+      await loadClasses();
+    } catch (error) {
+      toast.error(error.response?.data?.detail || 'No fue posible unirte a la lista de espera');
+    } finally {
+      setBookingSessionId(null);
+    }
+  };
+
+  const handleLeaveWaitlist = async (waitlistId) => {
+    try {
+      await api.post(`/public/clients/waitlist/${waitlistId}/leave`, {});
+      toast.success('Saliste de la lista de espera');
+      await loadClasses();
+    } catch (error) {
+      toast.error(error.response?.data?.detail || 'No fue posible salir de la lista de espera');
+    }
+  };
+
   const loadDashboardData = useCallback(async () => {
     setLoading(true);
     try {
@@ -493,13 +517,28 @@ export default function ClientPortalDashboard() {
                     >
                       Cancelar cupo
                     </button>
+                  ) : session.already_waitlisted ? (
+                    <button
+                      onClick={() => handleLeaveWaitlist(session.my_waitlist_id)}
+                      className="w-full py-2 bg-white/10 hover:bg-white/15 border border-white/20 text-zinc-300 rounded-lg text-sm transition-colors"
+                    >
+                      En lista de espera · salir
+                    </button>
+                  ) : session.spots_available <= 0 ? (
+                    <button
+                      onClick={() => handleJoinWaitlist(session.class_session_id)}
+                      disabled={bookingSessionId === session.class_session_id}
+                      className="w-full py-2 bg-white/10 hover:bg-white/15 border border-white/20 text-zinc-300 rounded-lg text-sm transition-colors disabled:opacity-50"
+                    >
+                      {bookingSessionId === session.class_session_id ? 'Uniéndote...' : 'Unirme a la lista de espera'}
+                    </button>
                   ) : (
                     <button
                       onClick={() => handleBookClass(session.class_session_id)}
-                      disabled={session.spots_available <= 0 || bookingSessionId === session.class_session_id}
+                      disabled={bookingSessionId === session.class_session_id}
                       className="w-full py-2 bg-violet-500/20 hover:bg-violet-500/30 border border-violet-500/30 text-violet-300 rounded-lg text-sm transition-colors disabled:opacity-50"
                     >
-                      {bookingSessionId === session.class_session_id ? 'Reservando...' : session.spots_available <= 0 ? 'Sin cupos' : 'Reservar cupo'}
+                      {bookingSessionId === session.class_session_id ? 'Reservando...' : 'Reservar cupo'}
                     </button>
                   )}
                 </div>
