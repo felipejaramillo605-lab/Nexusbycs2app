@@ -4,9 +4,9 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { CalendarClock, CheckSquare, LogOut, Pause, Play, Plus, Repeat, Trash2, Users } from 'lucide-react';
+import { CalendarClock, CheckSquare, CreditCard, LogOut, Pause, Play, Plus, Repeat, Trash2, Users } from 'lucide-react';
 import { toast } from 'sonner';
-import { classSessionAPI, classScheduleTemplateAPI, serviceAPI, barberAPI } from '../api';
+import { classSessionAPI, classScheduleTemplateAPI, membershipPlanAPI, serviceAPI, barberAPI } from '../api';
 import { AccessibleModal, ActionButton, DetailDrawer, EmptyState, FieldGuide, LoadingState, MotionPage, PageHeader, StatusBadge, AdminShell } from '../components/design';
 
 const detail = (error, fallback) => error?.response?.data?.detail || fallback;
@@ -15,6 +15,8 @@ const blankCheckout = { discount_amount: 0, tip_amount: 0, payment_method: 'cash
 // NEXUS_CLASS_RECURRING_SCHEDULE_V1
 const WEEKDAYS = [[1, 'L'], [2, 'M'], [3, 'X'], [4, 'J'], [5, 'V'], [6, 'S'], [7, 'D']];
 const blankTemplate = { service_id: '', barber_id: '', substitute_barber_id: '', days_of_week: [], time: '', capacity: '', start_date: '', end_date: '' };
+// NEXUS_GROUP_SERVICES_MEMBERSHIPS_V1
+const blankPlan = { name: '', price: '', billing_cycle_days: 30, included_services: [], active: true };
 
 export default function ManagerClasses() {
   const { user, logout } = useAuth();
@@ -22,7 +24,7 @@ export default function ManagerClasses() {
   const [searchParams] = useSearchParams();
   const organizationId = (user?.role === 'owner' ? searchParams.get('org_id') : user?.organization_id) || user?.organization_id;
 
-  const [tab, setTab] = useState('calendar'); // 'calendar' | 'recurring'
+  const [tab, setTab] = useState('calendar'); // 'calendar' | 'recurring' | 'plans'
   const [sessions, setSessions] = useState([]), [loading, setLoading] = useState(true);
   const [groupServices, setGroupServices] = useState([]), [barbers, setBarbers] = useState([]);
   const [showNew, setShowNew] = useState(false), [form, setForm] = useState(blankForm), [creating, setCreating] = useState(false);
@@ -31,6 +33,9 @@ export default function ManagerClasses() {
   // NEXUS_CLASS_RECURRING_SCHEDULE_V1
   const [templates, setTemplates] = useState([]), [loadingTemplates, setLoadingTemplates] = useState(false);
   const [showNewTemplate, setShowNewTemplate] = useState(false), [templateForm, setTemplateForm] = useState(blankTemplate), [creatingTemplate, setCreatingTemplate] = useState(false);
+  // NEXUS_GROUP_SERVICES_MEMBERSHIPS_V1
+  const [plans, setPlans] = useState([]), [loadingPlans, setLoadingPlans] = useState(false);
+  const [showNewPlan, setShowNewPlan] = useState(false), [planForm, setPlanForm] = useState(blankPlan), [creatingPlan, setCreatingPlan] = useState(false);
 
   const load = useCallback(async () => {
     if (!organizationId) return;
@@ -118,6 +123,74 @@ export default function ManagerClasses() {
     }
   };
 
+  // NEXUS_GROUP_SERVICES_MEMBERSHIPS_V1
+  const loadPlans = useCallback(async () => {
+    if (!organizationId) return;
+    setLoadingPlans(true);
+    try {
+      const r = await membershipPlanAPI.list({ organization_id: organizationId });
+      setPlans(r.data || []);
+    } catch (error) {
+      toast.error('No fue posible cargar los planes de membresía');
+    } finally {
+      setLoadingPlans(false);
+    }
+  }, [organizationId]);
+  useEffect(() => { if (tab === 'plans') loadPlans(); }, [tab, loadPlans]);
+
+  const togglePlanService = (serviceId) => {
+    setPlanForm(prev => {
+      const exists = prev.included_services.some(b => b.service_id === serviceId);
+      return {
+        ...prev,
+        included_services: exists
+          ? prev.included_services.filter(b => b.service_id !== serviceId)
+          : [...prev.included_services, { service_id: serviceId, monthly_limit: '' }],
+      };
+    });
+  };
+  const setPlanServiceLimit = (serviceId, monthly_limit) => {
+    setPlanForm(prev => ({
+      ...prev,
+      included_services: prev.included_services.map(b => b.service_id === serviceId ? { ...b, monthly_limit } : b),
+    }));
+  };
+
+  const createPlan = async (e) => {
+    e.preventDefault();
+    if (!planForm.name || !planForm.price || !planForm.included_services.length) return;
+    setCreatingPlan(true);
+    try {
+      await membershipPlanAPI.create({
+        ...planForm,
+        price: Number(planForm.price),
+        billing_cycle_days: Number(planForm.billing_cycle_days) || 30,
+        included_services: planForm.included_services.map(b => ({
+          service_id: b.service_id,
+          monthly_limit: b.monthly_limit === '' ? null : Number(b.monthly_limit),
+        })),
+      });
+      toast.success('Plan de membresía creado');
+      setShowNewPlan(false);
+      setPlanForm(blankPlan);
+      await loadPlans();
+    } catch (error) {
+      toast.error(detail(error, 'No fue posible crear el plan'));
+    } finally {
+      setCreatingPlan(false);
+    }
+  };
+
+  const togglePlanActive = async (plan) => {
+    try {
+      await membershipPlanAPI.update(plan.plan_id, { ...plan, active: !plan.active });
+      toast.success(plan.active ? 'Plan desactivado' : 'Plan activado');
+      await loadPlans();
+    } catch (error) {
+      toast.error(detail(error, 'No fue posible actualizar el plan'));
+    }
+  };
+
   const serviceById = (id) => groupServices.find(s => s.service_id === id);
   const barberById = (id) => barbers.find(b => b.barber_id === id);
 
@@ -197,7 +270,9 @@ export default function ManagerClasses() {
           actions={groupServices.length > 0 ? (
             tab === 'calendar'
               ? <ActionButton icon={Plus} onClick={() => setShowNew(true)}>Agendar clase</ActionButton>
-              : <ActionButton icon={Plus} onClick={() => setShowNewTemplate(true)}>Nuevo horario recurrente</ActionButton>
+              : tab === 'recurring'
+              ? <ActionButton icon={Plus} onClick={() => setShowNewTemplate(true)}>Nuevo horario recurrente</ActionButton>
+              : <ActionButton icon={Plus} onClick={() => setShowNewPlan(true)}>Nuevo plan</ActionButton>
           ) : null}
         />
 
@@ -205,6 +280,7 @@ export default function ManagerClasses() {
           <div className="flex gap-2 p-1 bg-[var(--app-surface-solid)] rounded-xl border border-[var(--app-border)] w-fit">
             <button onClick={() => setTab('calendar')} className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${tab === 'calendar' ? 'bg-[var(--app-primary)] text-white' : 'text-[var(--app-text-secondary)]'}`}>Calendario</button>
             <button onClick={() => setTab('recurring')} className={`px-4 py-2 rounded-lg text-sm font-medium transition-all flex items-center gap-1.5 ${tab === 'recurring' ? 'bg-[var(--app-primary)] text-white' : 'text-[var(--app-text-secondary)]'}`}><Repeat size={14} />Horarios recurrentes</button>
+            <button onClick={() => setTab('plans')} className={`px-4 py-2 rounded-lg text-sm font-medium transition-all flex items-center gap-1.5 ${tab === 'plans' ? 'bg-[var(--app-primary)] text-white' : 'text-[var(--app-text-secondary)]'}`}><CreditCard size={14} />Planes</button>
           </div>
         )}
 
@@ -249,35 +325,61 @@ export default function ManagerClasses() {
               })}
             </div>
           )
-        ) : loadingTemplates ? (
-          <LoadingState label="Cargando horarios recurrentes" />
-        ) : templates.length === 0 ? (
-          <EmptyState icon={Repeat} title="Sin horarios recurrentes" description="Crea un patrón semanal (ej. martes y jueves 6pm) y las clases se generan solas hacia adelante." action={<ActionButton icon={Plus} onClick={() => setShowNewTemplate(true)}>Nuevo horario recurrente</ActionButton>} />
-        ) : (
-          <div className="grid sm:grid-cols-2 gap-4">
-            {templates.map(tpl => {
-              const svc = serviceById(tpl.service_id);
-              const instructor = barberById(tpl.barber_id);
-              const substitute = tpl.substitute_barber_id ? barberById(tpl.substitute_barber_id) : null;
-              return (
-                <div key={tpl.template_id} className="p-5 rounded-2xl bg-white/3 border border-[var(--app-border)]">
-                  <div className="flex items-start justify-between mb-2">
-                    <div>
-                      <p className="text-[var(--app-text-primary)] font-medium">{svc?.name || 'Servicio'}</p>
-                      <p className="text-sm text-[var(--app-text-secondary)]">{instructor?.display_name || instructor?.name || 'Instructor'}{substitute && ` · sustituto: ${substitute.display_name || substitute.name}`}</p>
+        ) : tab === 'recurring' ? (
+          loadingTemplates ? (
+            <LoadingState label="Cargando horarios recurrentes" />
+          ) : templates.length === 0 ? (
+            <EmptyState icon={Repeat} title="Sin horarios recurrentes" description="Crea un patrón semanal (ej. martes y jueves 6pm) y las clases se generan solas hacia adelante." action={<ActionButton icon={Plus} onClick={() => setShowNewTemplate(true)}>Nuevo horario recurrente</ActionButton>} />
+          ) : (
+            <div className="grid sm:grid-cols-2 gap-4">
+              {templates.map(tpl => {
+                const svc = serviceById(tpl.service_id);
+                const instructor = barberById(tpl.barber_id);
+                const substitute = tpl.substitute_barber_id ? barberById(tpl.substitute_barber_id) : null;
+                return (
+                  <div key={tpl.template_id} className="p-5 rounded-2xl bg-white/3 border border-[var(--app-border)]">
+                    <div className="flex items-start justify-between mb-2">
+                      <div>
+                        <p className="text-[var(--app-text-primary)] font-medium">{svc?.name || 'Servicio'}</p>
+                        <p className="text-sm text-[var(--app-text-secondary)]">{instructor?.display_name || instructor?.name || 'Instructor'}{substitute && ` · sustituto: ${substitute.display_name || substitute.name}`}</p>
+                      </div>
+                      <StatusBadge tone={tpl.active ? 'success' : 'neutral'}>{tpl.active ? 'Activo' : 'Pausado'}</StatusBadge>
                     </div>
-                    <StatusBadge tone={tpl.active ? 'success' : 'neutral'}>{tpl.active ? 'Activo' : 'Pausado'}</StatusBadge>
+                    <p className="text-sm text-[var(--app-text-secondary)] mb-3">
+                      {WEEKDAYS.filter(([d]) => tpl.days_of_week.includes(d)).map(([, l]) => l).join(', ')} · {tpl.time} · {tpl.capacity} cupos
+                    </p>
+                    <div className="flex items-center gap-2">
+                      <ActionButton variant="secondary" icon={tpl.active ? Pause : Play} onClick={() => togglePauseTemplate(tpl)}>{tpl.active ? 'Pausar' : 'Reanudar'}</ActionButton>
+                      <ActionButton variant="destructive" icon={Trash2} onClick={() => deleteTemplate(tpl)}>Eliminar</ActionButton>
+                    </div>
                   </div>
-                  <p className="text-sm text-[var(--app-text-secondary)] mb-3">
-                    {WEEKDAYS.filter(([d]) => tpl.days_of_week.includes(d)).map(([, l]) => l).join(', ')} · {tpl.time} · {tpl.capacity} cupos
-                  </p>
-                  <div className="flex items-center gap-2">
-                    <ActionButton variant="secondary" icon={tpl.active ? Pause : Play} onClick={() => togglePauseTemplate(tpl)}>{tpl.active ? 'Pausar' : 'Reanudar'}</ActionButton>
-                    <ActionButton variant="destructive" icon={Trash2} onClick={() => deleteTemplate(tpl)}>Eliminar</ActionButton>
+                );
+              })}
+            </div>
+          )
+        ) : loadingPlans ? (
+          <LoadingState label="Cargando planes de membresía" />
+        ) : plans.length === 0 ? (
+          <EmptyState icon={CreditCard} title="Sin planes de membresía" description="Arma un plan (ej. Standard, Plus, Premium) eligiendo qué clases grupales cubre y con qué límite mensual." action={<ActionButton icon={Plus} onClick={() => setShowNewPlan(true)}>Nuevo plan</ActionButton>} />
+        ) : (
+          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            {plans.map(plan => (
+              <div key={plan.plan_id} className="p-5 rounded-2xl bg-white/3 border border-[var(--app-border)]">
+                <div className="flex items-start justify-between mb-2">
+                  <div>
+                    <p className="text-[var(--app-text-primary)] font-medium">{plan.name}</p>
+                    <p className="text-sm text-[var(--app-text-secondary)]">${plan.price} · cada {plan.billing_cycle_days} días</p>
                   </div>
+                  <StatusBadge tone={plan.active ? 'success' : 'neutral'}>{plan.active ? 'Activo' : 'Inactivo'}</StatusBadge>
                 </div>
-              );
-            })}
+                <ul className="text-sm text-[var(--app-text-secondary)] mb-3 space-y-0.5">
+                  {plan.included_services.map(b => (
+                    <li key={b.service_id}>{serviceById(b.service_id)?.name || 'Servicio'} · {b.monthly_limit ? `${b.monthly_limit}/mes` : 'ilimitado'}</li>
+                  ))}
+                </ul>
+                <ActionButton variant="secondary" onClick={() => togglePlanActive(plan)}>{plan.active ? 'Desactivar' : 'Activar'}</ActionButton>
+              </div>
+            ))}
           </div>
         )}
 
@@ -358,6 +460,46 @@ export default function ManagerClasses() {
               <label><FieldGuide label="Desde" required /><input type="date" min={today} value={templateForm.start_date} onChange={e => setTemplateForm({ ...templateForm, start_date: e.target.value })} required /></label>
               <label><FieldGuide label="Hasta" hint="Vacío = indefinido" /><input type="date" min={templateForm.start_date || today} value={templateForm.end_date} onChange={e => setTemplateForm({ ...templateForm, end_date: e.target.value })} /></label>
               <div className="nexus-account-actions mt-2"><ActionButton type="button" variant="secondary" onClick={() => setShowNewTemplate(false)} disabled={creatingTemplate}>Cancelar</ActionButton><ActionButton type="submit" icon={Plus} loading={creatingTemplate}>Crear horario</ActionButton></div>
+            </form>
+          </AccessibleModal>
+        )}
+
+        {/* NEXUS_GROUP_SERVICES_MEMBERSHIPS_V1 */}
+        {showNewPlan && (
+          <AccessibleModal open={showNewPlan} onClose={() => !creatingPlan && setShowNewPlan(false)} labelledBy="plan-new-title" describedBy="plan-new-description" panelClassName="nexus-accessible-modal-panel">
+            <h2 id="plan-new-title">Nuevo plan de membresía</h2>
+            <p id="plan-new-description">Elige qué clases grupales cubre este plan y con qué límite mensual (vacío = ilimitado).</p>
+            <form className="nexus-guided-form mt-4" onSubmit={createPlan}>
+              <label className="nexus-field-wide"><FieldGuide label="Nombre" required /><input type="text" placeholder="Standard, Plus, Premium..." value={planForm.name} onChange={e => setPlanForm({ ...planForm, name: e.target.value })} required /></label>
+              <label><FieldGuide label="Precio" required /><input type="number" min="0" step="0.01" value={planForm.price} onChange={e => setPlanForm({ ...planForm, price: e.target.value })} required /></label>
+              <label><FieldGuide label="Ciclo de facturación (días)" required /><input type="number" min="1" value={planForm.billing_cycle_days} onChange={e => setPlanForm({ ...planForm, billing_cycle_days: e.target.value })} required /></label>
+              <div className="nexus-field-wide">
+                <FieldGuide label="Clases grupales incluidas" required />
+                <div className="space-y-2 mt-1">
+                  {groupServices.map(s => {
+                    const benefit = planForm.included_services.find(b => b.service_id === s.service_id);
+                    return (
+                      <div key={s.service_id} className="flex items-center gap-3 p-2.5 rounded-xl border border-[var(--app-border)]">
+                        <label className="flex items-center gap-2 flex-1 cursor-pointer">
+                          <input type="checkbox" checked={!!benefit} onChange={() => togglePlanService(s.service_id)} />
+                          <span className="text-sm text-[var(--app-text-primary)]">{s.name}</span>
+                        </label>
+                        {benefit && (
+                          <input
+                            type="number"
+                            min="1"
+                            placeholder="Ilimitado"
+                            value={benefit.monthly_limit}
+                            onChange={e => setPlanServiceLimit(s.service_id, e.target.value)}
+                            className="w-28 px-2 py-1.5 bg-transparent border border-[var(--app-border)] rounded-lg text-sm text-[var(--app-text-primary)]"
+                          />
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+              <div className="nexus-account-actions mt-2"><ActionButton type="button" variant="secondary" onClick={() => setShowNewPlan(false)} disabled={creatingPlan}>Cancelar</ActionButton><ActionButton type="submit" icon={Plus} loading={creatingPlan}>Crear plan</ActionButton></div>
             </form>
           </AccessibleModal>
         )}

@@ -190,6 +190,17 @@ export const clientAPI = {
   getUpcomingBirthdays: (params = {}) => api.get('/clients/upcoming-birthdays', { params }),
   // NEXUS_BIRTHDAY_CAMPAIGN_V1
   getBirthdayReward: (clientId) => api.get(`/clients/${clientId}/birthday-reward`),
+  // NEXUS_GROUP_SERVICES_MEMBERSHIPS_V1
+  getMembership: (clientId) => api.get(`/clients/${clientId}/memberships`),
+  sellMembership: (clientId, data) => api.post(`/clients/${clientId}/memberships`, data),
+  renewMembership: (clientId, membershipId, data) => api.post(`/clients/${clientId}/memberships/${membershipId}/renew`, data),
+};
+
+// NEXUS_GROUP_SERVICES_MEMBERSHIPS_V1
+export const membershipPlanAPI = {
+  list: (params = {}) => api.get('/membership-plans', { params }),
+  create: (data) => api.post('/membership-plans', data),
+  update: (id, data) => api.put(`/membership-plans/${id}`, data),
 };
 
 export const marketingAPI = {
@@ -323,6 +334,11 @@ export const clientPortalAPI = {
   deleteAccount: (orgId) => axios.delete(`${API}/public/clients/me`, { params: { organization_id: orgId }, withCredentials: true }),
   forgotPin: (data) => axios.post(`${API}/public/clients/forgot-pin`, data),
   resetPin: (data) => axios.post(`${API}/public/clients/reset-pin`, data),
+  // NEXUS_GROUP_SERVICES_MEMBERSHIPS_V1
+  getClassSessions: () => axios.get(`${API}/public/clients/class-sessions`, { withCredentials: true }),
+  getMembership: () => axios.get(`${API}/public/clients/memberships/me`, { withCredentials: true }),
+  bookClassSession: (classSessionId) => axios.post(`${API}/public/clients/class-sessions/${classSessionId}/book`, {}, { withCredentials: true }),
+  cancelClassBooking: (classBookingId) => axios.post(`${API}/public/clients/class-bookings/${classBookingId}/cancel`, {}, { withCredentials: true }),
 };
 
 export const billingAPI = {

@@ -18,7 +18,7 @@ const ManagerServices = () => {
   const [loading, setLoading] = useState(true);
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
-  const [newService, setNewService] = useState({ name: '', duration: 30, price: 0, service_type: 'individual', group_capacity: 8 });
+  const [newService, setNewService] = useState({ name: '', duration: 30, price: 0, service_type: 'individual', group_capacity: 8, drop_in_price: '' });
   const [editingService, setEditingService] = useState(null);
   const [organizationName, setOrganizationName] = useState('');
   const [recipeService, setRecipeService] = useState(null);
@@ -68,9 +68,12 @@ const ManagerServices = () => {
       return;
     }
     try {
-      await serviceAPI.create(newService);
+      await serviceAPI.create({
+        ...newService,
+        drop_in_price: newService.drop_in_price === '' ? null : parseFloat(newService.drop_in_price),
+      });
       setIsCreateDialogOpen(false);
-      setNewService({ name: '', duration: 30, price: 0, service_type: 'individual', group_capacity: 8 });
+      setNewService({ name: '', duration: 30, price: 0, service_type: 'individual', group_capacity: 8, drop_in_price: '' });
       loadServices();
       toast.success('Servicio creado exitosamente');
     } catch (error) {
@@ -87,7 +90,8 @@ const ManagerServices = () => {
       price: service.price,
       photos: service.photos || [],
       service_type: service.service_type || 'individual',
-      group_capacity: service.group_capacity || 8
+      group_capacity: service.group_capacity || 8,
+      drop_in_price: service.drop_in_price ?? ''
     });
     setIsEditDialogOpen(true);
   };
@@ -103,7 +107,8 @@ const ManagerServices = () => {
         duration: editingService.duration,
         price: editingService.price,
         service_type: editingService.service_type,
-        group_capacity: editingService.group_capacity
+        group_capacity: editingService.group_capacity,
+        drop_in_price: editingService.drop_in_price === '' ? null : parseFloat(editingService.drop_in_price)
       });
       setIsEditDialogOpen(false);
       setEditingService(null);
@@ -329,6 +334,21 @@ const ManagerServices = () => {
                     />
                   </div>
                 )}
+                {newService.service_type === 'group' && (
+                  <div>
+                    <label className="text-sm text-zinc-400 mb-2 block">Precio del día (opcional)</label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      placeholder={`Por defecto: ${newService.price || 0}`}
+                      value={newService.drop_in_price}
+                      onChange={(e) => setNewService({ ...newService, drop_in_price: e.target.value })}
+                      className="w-full px-4 py-3 bg-transparent border border-[var(--app-border)] rounded-xl text-[var(--app-text-primary)] focus:border-[var(--app-primary)] focus:ring-1 focus:ring-[var(--app-primary)] outline-none"
+                    />
+                    <p className="text-xs text-zinc-500 mt-1.5">Lo que paga un cliente sin membresía que reserva y asiste pagando el día.</p>
+                  </div>
+                )}
                 <button
                   onClick={handleCreate}
                   className="w-full px-6 py-3 bg-[var(--app-primary)] hover:bg-[var(--app-primary-hover)] text-[var(--app-text-primary)] rounded-xl font-medium transition-all"
@@ -406,6 +426,21 @@ const ManagerServices = () => {
                       onChange={(e) => setEditingService({ ...editingService, group_capacity: parseInt(e.target.value) || 0 })}
                       className="w-full px-4 py-3 bg-transparent border border-[var(--app-border)] rounded-xl text-[var(--app-text-primary)] focus:border-[var(--app-primary)] focus:ring-1 focus:ring-[var(--app-primary)] outline-none"
                     />
+                  </div>
+                )}
+                {editingService.service_type === 'group' && (
+                  <div>
+                    <label className="text-sm text-zinc-400 mb-2 block">Precio del día (opcional)</label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      placeholder={`Por defecto: ${editingService.price || 0}`}
+                      value={editingService.drop_in_price}
+                      onChange={(e) => setEditingService({ ...editingService, drop_in_price: e.target.value })}
+                      className="w-full px-4 py-3 bg-transparent border border-[var(--app-border)] rounded-xl text-[var(--app-text-primary)] focus:border-[var(--app-primary)] focus:ring-1 focus:ring-[var(--app-primary)] outline-none"
+                    />
+                    <p className="text-xs text-zinc-500 mt-1.5">Lo que paga un cliente sin membresía que reserva y asiste pagando el día.</p>
                   </div>
                 )}
                 <button
