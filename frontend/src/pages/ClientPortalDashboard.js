@@ -1,12 +1,12 @@
 import React, { useCallback, useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { 
-  Calendar, 
-  Clock, 
-  User, 
-  LogOut, 
-  Lock, 
-  Trash2, 
+import {
+  Calendar,
+  Clock,
+  User,
+  LogOut,
+  Lock,
+  Trash2,
   Plus,
   CheckCircle2,
   XCircle,
@@ -14,7 +14,9 @@ import {
   Loader2,
   ArrowLeft,
   Star,
-  Gift
+  Gift,
+  Users,
+  CreditCard
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { api } from '../api';
@@ -44,6 +46,52 @@ export default function ClientPortalDashboard() {
   const [deleteConfirmText, setDeleteConfirmText] = useState('');
   const [deletePin, setDeletePin] = useState('');
   const [deleting, setDeleting] = useState(false);
+
+  // NEXUS_GROUP_SERVICES_MEMBERSHIPS_V1
+  const [classSessions, setClassSessions] = useState([]);
+  const [membership, setMembership] = useState(null);
+  const [loadingClasses, setLoadingClasses] = useState(true);
+  const [bookingSessionId, setBookingSessionId] = useState(null);
+
+  const loadClasses = useCallback(async () => {
+    setLoadingClasses(true);
+    try {
+      const [sessionsRes, membershipRes] = await Promise.all([
+        api.get('/public/clients/class-sessions'),
+        api.get('/public/clients/memberships/me'),
+      ]);
+      setClassSessions(sessionsRes.data || []);
+      setMembership(membershipRes.data || null);
+    } catch (error) {
+      // sin membresías/clases no es un error crítico para el resto del portal
+    } finally {
+      setLoadingClasses(false);
+    }
+  }, []);
+
+  const handleBookClass = async (classSessionId) => {
+    setBookingSessionId(classSessionId);
+    try {
+      await api.post(`/public/clients/class-sessions/${classSessionId}/book`, {});
+      toast.success('Cupo reservado');
+      await loadClasses();
+    } catch (error) {
+      toast.error(error.response?.data?.detail || 'No fue posible reservar el cupo');
+    } finally {
+      setBookingSessionId(null);
+    }
+  };
+
+  const handleCancelClassBooking = async (classBookingId) => {
+    if (!window.confirm('¿Cancelar tu cupo en esta clase?')) return;
+    try {
+      await api.post(`/public/clients/class-bookings/${classBookingId}/cancel`, {});
+      toast.success('Cupo cancelado');
+      await loadClasses();
+    } catch (error) {
+      toast.error(error.response?.data?.detail || 'No fue posible cancelar el cupo');
+    }
+  };
 
   const loadDashboardData = useCallback(async () => {
     setLoading(true);
@@ -85,7 +133,8 @@ export default function ClientPortalDashboard() {
 
   useEffect(() => {
     loadDashboardData();
-  }, [loadDashboardData]);
+    loadClasses();
+  }, [loadDashboardData, loadClasses]);
 
   const handleLogout = async () => {
     try {
@@ -372,6 +421,91 @@ export default function ClientPortalDashboard() {
               <div className="text-xs text-zinc-400 group-hover:text-red-400/70">Permanente</div>
             </div>
           </button>
+        </div>
+
+        {/* NEXUS_GROUP_SERVICES_MEMBERSHIPS_V1: membresía + clases grupales */}
+        {membership?.membership && (
+          <div className="rounded-2xl border border-violet-500/30 bg-gradient-to-br from-violet-500/15 via-violet-500/5 to-transparent p-6">
+            <div className="flex items-center gap-3 mb-2">
+              <div className="w-12 h-12 rounded-2xl bg-violet-500/20 flex items-center justify-center">
+                <CreditCard size={22} className="text-violet-400" />
+              </div>
+              <div className="flex-1">
+                <h2 className="text-lg font-semibold text-white">{membership.plan?.name || 'Tu membresía'}</h2>
+                <p className="text-xs text-zinc-400">
+                  {membership.membership.status === 'active'
+                    ? `Activa · vence ${membership.membership.period_end}`
+                    : `Vencida el ${membership.membership.period_end} · puedes seguir asistiendo pagando el día, o renovar`}
+                </p>
+              </div>
+            </div>
+            {membership.benefits?.length > 0 && (
+              <ul className="mt-3 space-y-1 text-sm text-zinc-300">
+                {membership.benefits.map(b => (
+                  <li key={b.service_id} className="flex items-center justify-between">
+                    <span>{b.service_name}</span>
+                    <span className="text-zinc-400">{b.monthly_limit ? `${b.remaining}/${b.monthly_limit} restantes` : 'Ilimitado'}</span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        )}
+
+        <div>
+          <h2 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+            <Users size={20} className="text-violet-400" />
+            Clases grupales
+          </h2>
+          {loadingClasses ? (
+            <div className="p-8 bg-white/5 border border-white/10 rounded-xl text-center text-zinc-400">Cargando clases...</div>
+          ) : classSessions.length === 0 ? (
+            <div className="p-8 bg-white/5 border border-white/10 rounded-xl text-center">
+              <Users size={32} className="text-zinc-600 mx-auto mb-3" />
+              <p className="text-zinc-400">No hay clases grupales disponibles por ahora</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {classSessions.map(session => (
+                <div key={session.class_session_id} className="p-4 bg-white/5 border border-white/10 rounded-xl">
+                  <div className="flex items-start justify-between mb-2">
+                    <div>
+                      <h3 className="font-medium text-white">{session.service_name}</h3>
+                      <p className="text-sm text-zinc-400">Con {session.barber_name}</p>
+                    </div>
+                    <span className="inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-white/10 text-zinc-300 text-xs">
+                      {session.spots_available} cupos
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-4 text-sm text-zinc-400 mb-3">
+                    <span className="flex items-center gap-1"><Calendar size={14} />{session.date}</span>
+                    <span className="flex items-center gap-1"><Clock size={14} />{session.time}</span>
+                  </div>
+                  <p className="text-xs text-zinc-500 mb-3">
+                    {session.membership_covers
+                      ? (session.membership_remaining != null ? `Cubierto por tu plan · ${session.membership_remaining} restantes este mes` : 'Cubierto por tu plan')
+                      : `Sin membresía: $${session.drop_in_price} pagando el día`}
+                  </p>
+                  {session.already_booked ? (
+                    <button
+                      onClick={() => handleCancelClassBooking(session.my_class_booking_id)}
+                      className="w-full py-2 bg-red-500/10 hover:bg-red-500/20 border border-red-500/30 text-red-400 rounded-lg text-sm transition-colors"
+                    >
+                      Cancelar cupo
+                    </button>
+                  ) : (
+                    <button
+                      onClick={() => handleBookClass(session.class_session_id)}
+                      disabled={session.spots_available <= 0 || bookingSessionId === session.class_session_id}
+                      className="w-full py-2 bg-violet-500/20 hover:bg-violet-500/30 border border-violet-500/30 text-violet-300 rounded-lg text-sm transition-colors disabled:opacity-50"
+                    >
+                      {bookingSessionId === session.class_session_id ? 'Reservando...' : session.spots_available <= 0 ? 'Sin cupos' : 'Reservar cupo'}
+                    </button>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* Upcoming Appointments */}

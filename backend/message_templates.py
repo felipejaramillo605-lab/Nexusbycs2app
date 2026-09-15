@@ -25,6 +25,9 @@ SUPPORTED_VARIABLES = [
     # NEXUS_CLASS_RECURRING_SCHEDULE_V1
     "nombre_clase",
     "fecha_hora_nueva",
+    # NEXUS_GROUP_SERVICES_MEMBERSHIPS_V1
+    "nombre_plan",
+    "fecha_vencimiento",
 ]
 
 PURPOSES = {
@@ -36,6 +39,8 @@ PURPOSES = {
     # NEXUS_CLASS_RECURRING_SCHEDULE_V1
     "class_rescheduled",
     "class_cancelled",
+    # NEXUS_GROUP_SERVICES_MEMBERSHIPS_V1
+    "membership_expired",
 }
 CHANNELS = {"email", "whatsapp"}
 
@@ -105,6 +110,18 @@ _DEFAULT_TEMPLATES = [
             "Hola {{nombre_cliente}},\n\n"
             "Tu clase de {{nombre_clase}} en {{nombre_negocio}} del {{fecha_hora_nueva}} fue cancelada.\n\n"
             "Lamentamos el inconveniente -- te esperamos en una próxima clase."
+        ),
+    },
+    {
+        # NEXUS_GROUP_SERVICES_MEMBERSHIPS_V1
+        "purpose": "membership_expired",
+        "name": "Membresía vencida",
+        "subject": "Tu membresía {{nombre_plan}} venció",
+        "body": (
+            "Hola {{nombre_cliente}},\n\n"
+            "Tu membresía {{nombre_plan}} en {{nombre_negocio}} venció el {{fecha_vencimiento}}.\n\n"
+            "Puedes seguir reservando clases pagando el día, o renovar tu membresía para recuperar tus beneficios -- "
+            "contáctanos cuando quieras."
         ),
     },
 ]

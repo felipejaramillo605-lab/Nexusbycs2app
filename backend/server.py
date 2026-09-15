@@ -343,6 +343,10 @@ class Service(BaseModel):
     group_capacity: Optional[int] = None  # solo aplica si service_type == "group"
     booking_window_days: Optional[int] = None  # None = sin límite de anticipación
     cancellation_cutoff_hours: Optional[int] = None  # None = sin ventana de cancelación
+    # NEXUS_GROUP_SERVICES_MEMBERSHIPS_V1: precio "del día" para quien reserva
+    # una clase grupal sin membresía activa (o sin cupo dentro de su plan).
+    # None = usa `price` normal.
+    drop_in_price: Optional[float] = None
     created_at: datetime
 
 
@@ -458,6 +462,7 @@ class ServiceCreate(BaseModel):
     group_capacity: Optional[int] = None
     booking_window_days: Optional[int] = None
     cancellation_cutoff_hours: Optional[int] = None
+    drop_in_price: Optional[float] = None
 
 
 def _validate_group_service_fields(data: "ServiceCreate"):
@@ -470,6 +475,8 @@ def _validate_group_service_fields(data: "ServiceCreate"):
         raise HTTPException(status_code=400, detail="booking_window_days must be at least 1")
     if data.cancellation_cutoff_hours is not None and data.cancellation_cutoff_hours < 0:
         raise HTTPException(status_code=400, detail="cancellation_cutoff_hours cannot be negative")
+    if data.drop_in_price is not None and data.drop_in_price < 0:
+        raise HTTPException(status_code=400, detail="drop_in_price cannot be negative")
 
 
 class BarberCreate(BaseModel):
@@ -2930,6 +2937,7 @@ async def create_service(
         "group_capacity": data.group_capacity if data.service_type == "group" else None,
         "booking_window_days": data.booking_window_days,
         "cancellation_cutoff_hours": data.cancellation_cutoff_hours,
+        "drop_in_price": data.drop_in_price if data.service_type == "group" else None,
         "created_at": datetime.now(timezone.utc).isoformat(),
     }
     await db.services.insert_one(service_doc)
@@ -2968,6 +2976,7 @@ async def update_service(
         "group_capacity": data.group_capacity if data.service_type == "group" else None,
         "booking_window_days": data.booking_window_days,
         "cancellation_cutoff_hours": data.cancellation_cutoff_hours,
+        "drop_in_price": data.drop_in_price if data.service_type == "group" else None,
     }
     # NEXUS_GROUP_SERVICES_V1: no permitir bajar la capacidad por debajo de
     # cupos ya reservados en clases futuras -- evita overbooking retroactivo.
@@ -3410,7 +3419,13 @@ async def checkout_class_booking(
     if not service or not barber:
         raise HTTPException(409, "Service or professional unavailable")
 
-    price = round(float(service.get("price", 0)), 2)
+    # NEXUS_GROUP_SERVICES_MEMBERSHIPS_V1: una reserva que llega a este
+    # checkout manual nunca estuvo cubierta por una membresía (esas quedan
+    # "confirmed" sin transacción -- ya se pagaron al comprar el plan), así
+    # que siempre es un cobro "del día": usa drop_in_price si el manager lo
+    # definió, si no cae al precio normal del servicio.
+    drop_in_price = service.get("drop_in_price")
+    price = round(float(drop_in_price if drop_in_price is not None else service.get("price", 0)), 2)
     discount = round(float(data.discount_amount), 2)
     tip = round(float(data.tip_amount), 2)
     if discount > price:
@@ -3670,6 +3685,481 @@ async def ensure_group_services_indexes(db):
 
 
 # ==================== END GROUP SERVICES ====================
+
+
+# ==================== GROUP SERVICES MEMBERSHIPS (PAQUETES Y MENSUALIDADES) ====================
+# NEXUS_GROUP_SERVICES_MEMBERSHIPS_V1: Fase 3 de servicios grupales. Un
+# MembershipPlan es un nivel que el manager arma (Standard/Plus/Premium),
+# definiendo qué clases grupales cubre y con qué límite mensual por servicio
+# (None = ilimitado ese servicio dentro del plan). Un ClientMembership es la
+# suscripción vigente de un cliente a un plan -- solo una por cliente (se
+# reactiva/extiende con /renew en vez de crear una nueva). Vencida, no
+# bloquea al cliente: puede seguir reservando pagando el día
+# (Service.drop_in_price) o renovando.
+
+
+class PlanServiceBenefit(BaseModel):
+    service_id: str
+    monthly_limit: Optional[int] = None  # None = ilimitado dentro del plan
+
+
+class MembershipPlanCreate(BaseModel):
+    name: str = Field(..., max_length=80)
+    price: float
+    billing_cycle_days: int = 30
+    included_services: List[PlanServiceBenefit] = Field(default_factory=list)
+    active: bool = True
+
+
+class ClientMembershipCreate(BaseModel):
+    plan_id: str
+    payment_method: str = "cash"
+
+
+class ClientMembershipRenew(BaseModel):
+    plan_id: Optional[str] = None  # None = mantiene el plan actual (renovación); distinto = upgrade/downgrade
+    payment_method: str = "cash"
+
+
+async def _validate_membership_plan_fields(org_id: str, data: MembershipPlanCreate):
+    if data.price < 0:
+        raise HTTPException(status_code=400, detail="price cannot be negative")
+    if data.billing_cycle_days < 1:
+        raise HTTPException(status_code=400, detail="billing_cycle_days must be at least 1")
+    if not data.included_services:
+        raise HTTPException(status_code=400, detail="Select at least one group service for this plan")
+    group_services = await db.services.find(
+        {"organization_id": org_id, "service_type": "group"}, {"_id": 0, "service_id": 1}
+    ).to_list(500)
+    group_service_ids = {s["service_id"] for s in group_services}
+    for benefit in data.included_services:
+        if benefit.service_id not in group_service_ids:
+            raise HTTPException(status_code=400, detail="One of the selected services is not a group service of this organization")
+        if benefit.monthly_limit is not None and benefit.monthly_limit < 1:
+            raise HTTPException(status_code=400, detail="monthly_limit must be at least 1")
+
+
+@api_router.post("/membership-plans", tags=["group-services"])
+async def create_membership_plan(
+    data: MembershipPlanCreate, authorization: Optional[str] = Header(None), session_token: Optional[str] = Cookie(None)
+):
+    current_user = await get_current_user(authorization, session_token)
+    require_management_role(current_user)
+    if not current_user.organization_id:
+        raise HTTPException(status_code=400, detail="No organization assigned")
+    org_id = current_user.organization_id
+    await _validate_membership_plan_fields(org_id, data)
+
+    plan = {
+        "plan_id": f"plan_{uuid.uuid4().hex[:12]}",
+        "organization_id": org_id,
+        "name": data.name,
+        "price": round(float(data.price), 2),
+        "billing_cycle_days": data.billing_cycle_days,
+        "included_services": [b.model_dump() for b in data.included_services],
+        "active": data.active,
+        "created_at": datetime.now(timezone.utc).isoformat(),
+    }
+    await db.membership_plans.insert_one(plan.copy())
+    plan.pop("_id", None)
+    return plan
+
+
+@api_router.get("/membership-plans", tags=["group-services"])
+async def list_membership_plans(
+    organization_id: Optional[str] = None,
+    authorization: Optional[str] = Header(None),
+    session_token: Optional[str] = Cookie(None),
+):
+    current_user = await get_current_user(authorization, session_token)
+    require_management_role(current_user)
+    org_filter = await get_organization_filter(current_user, organization_id)
+    plans = await db.membership_plans.find(org_filter, {"_id": 0}).sort("created_at", 1).to_list(200)
+    return plans
+
+
+@api_router.put("/membership-plans/{plan_id}", tags=["group-services"])
+async def update_membership_plan(
+    plan_id: str,
+    data: MembershipPlanCreate,
+    authorization: Optional[str] = Header(None),
+    session_token: Optional[str] = Cookie(None),
+):
+    current_user = await get_current_user(authorization, session_token)
+    require_management_role(current_user)
+    existing = await db.membership_plans.find_one({"plan_id": plan_id}, {"_id": 0})
+    if not existing:
+        raise HTTPException(status_code=404, detail="Plan not found")
+    if not await validate_organization_access(current_user, existing["organization_id"]):
+        raise HTTPException(status_code=403, detail="Access denied")
+    await _validate_membership_plan_fields(existing["organization_id"], data)
+
+    update_data = {
+        "name": data.name,
+        "price": round(float(data.price), 2),
+        "billing_cycle_days": data.billing_cycle_days,
+        "included_services": [b.model_dump() for b in data.included_services],
+        "active": data.active,
+    }
+    await db.membership_plans.update_one({"plan_id": plan_id}, {"$set": update_data})
+    updated = await db.membership_plans.find_one({"plan_id": plan_id}, {"_id": 0})
+    return updated
+
+
+async def _get_client_membership_with_plan(db, org_id: str, client_id: str):
+    """Devuelve (membership, plan) del único ClientMembership del cliente, si
+    existe (cualquier estado). Refresca a 'expired' si ya venció el período,
+    sin bloquear nada -- el cliente puede seguir reservando pagando el día."""
+    membership = await db.client_memberships.find_one({"organization_id": org_id, "client_id": client_id}, {"_id": 0})
+    if not membership:
+        return None, None
+    today = datetime.now(timezone.utc).date().isoformat()
+    if membership["status"] == "active" and membership["period_end"] < today:
+        await db.client_memberships.update_one({"membership_id": membership["membership_id"]}, {"$set": {"status": "expired"}})
+        membership["status"] = "expired"
+    plan = await db.membership_plans.find_one({"plan_id": membership["plan_id"]}, {"_id": 0})
+    return membership, plan
+
+
+def _membership_coverage_for_service(membership: Optional[dict], plan: Optional[dict], service_id: str) -> Optional[dict]:
+    if not membership or not plan or membership.get("status") != "active":
+        return None
+    benefit = next((b for b in plan.get("included_services", []) if b["service_id"] == service_id), None)
+    if not benefit:
+        return {"covered": False, "remaining": None}
+    limit = benefit.get("monthly_limit")
+    if limit is None:
+        return {"covered": True, "remaining": None}
+    used = (membership.get("usage_counts") or {}).get(service_id, 0)
+    remaining = max(0, limit - used)
+    return {"covered": remaining > 0, "remaining": remaining}
+
+
+@api_router.post("/clients/{client_id}/memberships", tags=["group-services"])
+async def sell_client_membership(
+    client_id: str,
+    data: ClientMembershipCreate,
+    authorization: Optional[str] = Header(None),
+    session_token: Optional[str] = Cookie(None),
+):
+    current_user = await get_current_user(authorization, session_token)
+    require_management_role(current_user)
+    if not current_user.organization_id:
+        raise HTTPException(status_code=400, detail="No organization assigned")
+    org_id = current_user.organization_id
+    client = await db.clients.find_one({"client_id": client_id, "organization_id": org_id}, {"_id": 0})
+    if not client:
+        raise HTTPException(status_code=404, detail="Client not found")
+    plan = await db.membership_plans.find_one({"plan_id": data.plan_id, "organization_id": org_id, "active": True}, {"_id": 0})
+    if not plan:
+        raise HTTPException(status_code=404, detail="Plan not found")
+    if data.payment_method not in CHECKOUT_PAYMENT_METHODS:
+        raise HTTPException(status_code=400, detail="Unsupported payment method")
+    already_has = await db.client_memberships.find_one({"organization_id": org_id, "client_id": client_id}, {"_id": 0})
+    if already_has:
+        raise HTTPException(status_code=409, detail="This client already has a membership -- use the renew endpoint to extend or change plan")
+
+    now = datetime.now(timezone.utc)
+    period_end = (now + timedelta(days=plan["billing_cycle_days"])).date().isoformat()
+    txn = {
+        "transaction_id": f"txn_{uuid.uuid4().hex[:12]}",
+        "organization_id": org_id,
+        "kind": "membership_purchase",
+        "client_id": client_id,
+        "plan_id": plan["plan_id"],
+        "plan_name_snapshot": plan["name"],
+        "service_name_snapshot": f"Membresía: {plan['name']}",
+        "service_price_snapshot": round(float(plan["price"]), 2),
+        "discount_amount": 0,
+        "net_service_amount": round(float(plan["price"]), 2),
+        "tip_amount": 0,
+        "total_received": round(float(plan["price"]), 2),
+        "payment_method": data.payment_method,
+        "status": "confirmed",
+        "created_by": current_user.user_id,
+        "created_at": now.isoformat(),
+    }
+    await db.transactions.insert_one(txn.copy())
+    membership = {
+        "membership_id": f"mship_{uuid.uuid4().hex[:12]}",
+        "organization_id": org_id,
+        "client_id": client_id,
+        "plan_id": plan["plan_id"],
+        "status": "active",
+        "period_start": now.date().isoformat(),
+        "period_end": period_end,
+        "usage_counts": {b["service_id"]: 0 for b in plan.get("included_services", [])},
+        "purchased_at": now.isoformat(),
+        "transaction_id": txn["transaction_id"],
+    }
+    await db.client_memberships.insert_one(membership.copy())
+    membership.pop("_id", None)
+    return membership
+
+
+@api_router.post("/clients/{client_id}/memberships/{membership_id}/renew", tags=["group-services"])
+async def renew_client_membership(
+    client_id: str,
+    membership_id: str,
+    data: ClientMembershipRenew,
+    authorization: Optional[str] = Header(None),
+    session_token: Optional[str] = Cookie(None),
+):
+    current_user = await get_current_user(authorization, session_token)
+    require_management_role(current_user)
+    if not current_user.organization_id:
+        raise HTTPException(status_code=400, detail="No organization assigned")
+    org_id = current_user.organization_id
+    membership = await db.client_memberships.find_one(
+        {"membership_id": membership_id, "client_id": client_id, "organization_id": org_id}, {"_id": 0}
+    )
+    if not membership:
+        raise HTTPException(status_code=404, detail="Membership not found")
+    plan_id = data.plan_id or membership["plan_id"]
+    plan = await db.membership_plans.find_one({"plan_id": plan_id, "organization_id": org_id, "active": True}, {"_id": 0})
+    if not plan:
+        raise HTTPException(status_code=404, detail="Plan not found")
+    if data.payment_method not in CHECKOUT_PAYMENT_METHODS:
+        raise HTTPException(status_code=400, detail="Unsupported payment method")
+
+    now = datetime.now(timezone.utc)
+    period_end = (now + timedelta(days=plan["billing_cycle_days"])).date().isoformat()
+    txn = {
+        "transaction_id": f"txn_{uuid.uuid4().hex[:12]}",
+        "organization_id": org_id,
+        "kind": "membership_renewal",
+        "client_id": client_id,
+        "plan_id": plan["plan_id"],
+        "plan_name_snapshot": plan["name"],
+        "service_name_snapshot": f"Membresía: {plan['name']} (renovación)",
+        "service_price_snapshot": round(float(plan["price"]), 2),
+        "discount_amount": 0,
+        "net_service_amount": round(float(plan["price"]), 2),
+        "tip_amount": 0,
+        "total_received": round(float(plan["price"]), 2),
+        "payment_method": data.payment_method,
+        "status": "confirmed",
+        "created_by": current_user.user_id,
+        "created_at": now.isoformat(),
+    }
+    await db.transactions.insert_one(txn.copy())
+    await db.client_memberships.update_one(
+        {"membership_id": membership_id},
+        {
+            "$set": {
+                "plan_id": plan["plan_id"],
+                "status": "active",
+                "period_start": now.date().isoformat(),
+                "period_end": period_end,
+                "usage_counts": {b["service_id"]: 0 for b in plan.get("included_services", [])},
+                "transaction_id": txn["transaction_id"],
+            }
+        },
+    )
+    updated = await db.client_memberships.find_one({"membership_id": membership_id}, {"_id": 0})
+    return updated
+
+
+@api_router.get("/clients/{client_id}/memberships", tags=["group-services"])
+async def list_client_memberships(
+    client_id: str, authorization: Optional[str] = Header(None), session_token: Optional[str] = Cookie(None)
+):
+    current_user = await get_current_user(authorization, session_token)
+    require_management_role(current_user)
+    client = await db.clients.find_one({"client_id": client_id}, {"_id": 0})
+    if not client:
+        raise HTTPException(status_code=404, detail="Client not found")
+    if not await validate_organization_access(current_user, client["organization_id"]):
+        raise HTTPException(status_code=403, detail="Access denied")
+    membership = await db.client_memberships.find_one(
+        {"client_id": client_id, "organization_id": client["organization_id"]}, {"_id": 0}
+    )
+    return {"membership": membership}
+
+
+# ---- Portal del cliente: ver y reservar clases usando la membresía ----
+
+
+@api_router.get("/public/clients/class-sessions", tags=["public-client-portal"])
+async def list_portal_class_sessions(current_client: Client = Depends(get_current_client)):
+    org_id = current_client.organization_id
+    today = datetime.now(timezone.utc).date().isoformat()
+    sessions = (
+        await db.class_sessions.find({"organization_id": org_id, "status": "scheduled", "date": {"$gte": today}}, {"_id": 0})
+        .sort([("date", 1), ("time", 1)])
+        .to_list(500)
+    )
+    if not sessions:
+        return []
+    service_ids = list({s["service_id"] for s in sessions})
+    barber_ids = list({s["barber_id"] for s in sessions})
+    services = await db.services.find({"service_id": {"$in": service_ids}}, {"_id": 0}).to_list(500)
+    barbers = await db.barbers.find({"barber_id": {"$in": barber_ids}}, {"_id": 0}).to_list(500)
+    service_lookup = {s["service_id"]: s for s in services}
+    barber_lookup = {b["barber_id"]: b for b in barbers}
+    membership, plan = await _get_client_membership_with_plan(db, org_id, current_client.client_id)
+    my_bookings = await db.class_bookings.find(
+        {"organization_id": org_id, "client_id": current_client.client_id, "status": "confirmed"},
+        {"_id": 0, "class_session_id": 1, "class_booking_id": 1},
+    ).to_list(1000)
+    booking_by_session = {b["class_session_id"]: b["class_booking_id"] for b in my_bookings}
+
+    result = []
+    for session in sessions:
+        service = service_lookup.get(session["service_id"]) or {}
+        barber = barber_lookup.get(session["barber_id"]) or {}
+        coverage = _membership_coverage_for_service(membership, plan, session["service_id"])
+        result.append(
+            {
+                **session,
+                "service_name": service.get("name"),
+                "barber_name": barber.get("display_name") or barber.get("name"),
+                "spots_available": max(0, session["capacity"] - session["booked_count"]),
+                "already_booked": session["class_session_id"] in booking_by_session,
+                "my_class_booking_id": booking_by_session.get(session["class_session_id"]),
+                "drop_in_price": service.get("drop_in_price") if service.get("drop_in_price") is not None else service.get("price"),
+                "membership_covers": bool(coverage and coverage["covered"]),
+                "membership_remaining": coverage["remaining"] if coverage else None,
+            }
+        )
+    return result
+
+
+@api_router.get("/public/clients/memberships/me", tags=["public-client-portal"])
+async def get_my_membership(current_client: Client = Depends(get_current_client)):
+    membership, plan = await _get_client_membership_with_plan(db, current_client.organization_id, current_client.client_id)
+    if not membership:
+        return {"membership": None, "plan": None, "benefits": []}
+    service_ids = [b["service_id"] for b in (plan or {}).get("included_services", [])]
+    services = await db.services.find({"service_id": {"$in": service_ids}}, {"_id": 0}).to_list(200) if service_ids else []
+    service_lookup = {s["service_id"]: s for s in services}
+    benefits = []
+    for b in (plan or {}).get("included_services", []):
+        used = (membership.get("usage_counts") or {}).get(b["service_id"], 0)
+        limit = b.get("monthly_limit")
+        benefits.append(
+            {
+                "service_id": b["service_id"],
+                "service_name": (service_lookup.get(b["service_id"]) or {}).get("name"),
+                "monthly_limit": limit,
+                "used": used,
+                "remaining": None if limit is None else max(0, limit - used),
+            }
+        )
+    return {"membership": membership, "plan": plan, "benefits": benefits}
+
+
+@api_router.post("/public/clients/class-sessions/{class_session_id}/book", tags=["public-client-portal"])
+@limiter.limit("20/hour")
+async def book_class_session_from_portal(
+    class_session_id: str, request: Request, current_client: Client = Depends(get_current_client)
+):
+    org_id = current_client.organization_id
+    session = await db.class_sessions.find_one(
+        {"class_session_id": class_session_id, "organization_id": org_id, "status": "scheduled"}, {"_id": 0}
+    )
+    if not session:
+        raise HTTPException(status_code=404, detail="Class session not found")
+
+    service = await db.services.find_one({"service_id": session["service_id"]}, {"_id": 0})
+    if service and service.get("booking_window_days"):
+        session_date = _strict_date(session["date"])
+        max_date = datetime.now(timezone.utc).date() + timedelta(days=service["booking_window_days"])
+        if session_date > max_date:
+            raise HTTPException(status_code=409, detail="This class is not open for booking yet")
+
+    membership, plan = await _get_client_membership_with_plan(db, org_id, current_client.client_id)
+    coverage = _membership_coverage_for_service(membership, plan, session["service_id"])
+    covered = bool(coverage and coverage["covered"])
+    benefit = next((b for b in (plan or {}).get("included_services", []) if b["service_id"] == session["service_id"]), None)
+    monthly_limit = benefit.get("monthly_limit") if benefit else None
+    limited = covered and monthly_limit is not None
+
+    if limited:
+        # NEXUS_GROUP_SERVICES_MEMBERSHIPS_V1: incremento atómico condicionado
+        # a que aún queden usos del beneficio este período -- misma técnica
+        # que el cupo de la clase, evita que dos reservas simultáneas
+        # exploten el límite mensual del plan.
+        usage_field = f"usage_counts.{session['service_id']}"
+        usage_result = await db.client_memberships.update_one(
+            {
+                "membership_id": membership["membership_id"],
+                "$or": [{usage_field: {"$lt": monthly_limit}}, {usage_field: {"$exists": False}}],
+            },
+            {"$inc": {usage_field: 1}},
+        )
+        if usage_result.modified_count == 0:
+            covered = False  # otra reserva concurrente agotó el beneficio -- cae a drop-in
+
+    result = await db.class_sessions.update_one(
+        {"class_session_id": class_session_id, "$expr": {"$lt": ["$booked_count", "$capacity"]}},
+        {"$inc": {"booked_count": 1}},
+    )
+    if result.modified_count == 0:
+        if limited and covered:
+            await db.client_memberships.update_one(
+                {"membership_id": membership["membership_id"]},
+                {"$inc": {f"usage_counts.{session['service_id']}": -1}},
+            )
+        raise HTTPException(status_code=409, detail="This class is full")
+
+    now = datetime.now(timezone.utc).isoformat()
+    booking = {
+        "class_booking_id": f"cbk_{uuid.uuid4().hex[:12]}",
+        "organization_id": org_id,
+        "class_session_id": class_session_id,
+        "client_id": current_client.client_id,
+        "client_name": current_client.name,
+        "client_phone": current_client.phone,
+        "client_email": current_client.email,
+        "status": "confirmed",
+        "transaction_id": None,
+        "payment_method": "membership" if covered else "drop_in_pending",
+        "membership_id": membership["membership_id"] if (covered and membership) else None,
+        "created_at": now,
+    }
+    try:
+        await db.class_bookings.insert_one(booking.copy())
+    except Exception:
+        await db.class_sessions.update_one({"class_session_id": class_session_id}, {"$inc": {"booked_count": -1}})
+        if limited and covered:
+            await db.client_memberships.update_one(
+                {"membership_id": membership["membership_id"]},
+                {"$inc": {f"usage_counts.{session['service_id']}": -1}},
+            )
+        raise HTTPException(status_code=409, detail="You already have a spot in this class")
+
+    booking.pop("_id", None)
+    return booking
+
+
+@api_router.post("/public/clients/class-bookings/{class_booking_id}/cancel", tags=["public-client-portal"])
+async def cancel_class_booking_from_portal(class_booking_id: str, current_client: Client = Depends(get_current_client)):
+    booking = await db.class_bookings.find_one({"class_booking_id": class_booking_id, "status": "confirmed"}, {"_id": 0})
+    if not booking:
+        raise HTTPException(status_code=404, detail="Booking not found")
+    if booking.get("client_id") != current_client.client_id:
+        raise HTTPException(status_code=403, detail="Access denied")
+    # NEXUS_GROUP_SERVICES_MEMBERSHIPS_V1: no se devuelve el uso del
+    # beneficio al cancelar -- política de cancelación pendiente para la
+    # Fase 4 (lista de espera / no-show), igual que ya se decidió con
+    # créditos en el diseño original.
+    await db.class_bookings.update_one({"class_booking_id": class_booking_id}, {"$set": {"status": "cancelled"}})
+    await db.class_sessions.update_one(
+        {"class_session_id": booking["class_session_id"], "booked_count": {"$gt": 0}}, {"$inc": {"booked_count": -1}}
+    )
+    return {"message": "Booking cancelled"}
+
+
+async def ensure_membership_indexes(db):
+    await db.membership_plans.create_index("plan_id", unique=True)
+    await db.membership_plans.create_index([("organization_id", 1), ("active", 1)])
+    await db.client_memberships.create_index("membership_id", unique=True)
+    await db.client_memberships.create_index([("organization_id", 1), ("client_id", 1)], unique=True)
+    await db.client_memberships.create_index([("organization_id", 1), ("status", 1), ("period_end", 1)])
+
+
+# ==================== END GROUP SERVICES MEMBERSHIPS ====================
 
 
 # NEXUS_8A7C2D_STAFF_PROFILE_ACCESS_V1
@@ -8205,6 +8695,8 @@ async def create_application_indexes():
     await ensure_message_template_indexes(db)
     # NEXUS_GROUP_SERVICES_V1
     await ensure_group_services_indexes(db)
+    # NEXUS_GROUP_SERVICES_MEMBERSHIPS_V1
+    await ensure_membership_indexes(db)
     # NEXUS_AI_V1
     await db.nexus_ai_conversations.create_index("conversation_id", unique=True)
     await db.nexus_ai_conversations.create_index([("organization_id", 1), ("user_id", 1), ("updated_at", -1)])

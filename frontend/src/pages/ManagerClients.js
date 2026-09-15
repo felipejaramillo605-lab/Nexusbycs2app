@@ -2,8 +2,8 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { clientAPI, organizationAPI } from '../api';
-import { Users, LogOut, ArrowLeft, Phone, Mail, Calendar, MessageSquare, Send, Eye, CheckCircle, Bell, BellOff, Loader2, ChevronLeft, ChevronRight, Search, Gift } from 'lucide-react';
+import { clientAPI, organizationAPI, membershipPlanAPI } from '../api';
+import { Users, LogOut, ArrowLeft, Phone, Mail, Calendar, MessageSquare, Send, Eye, CheckCircle, Bell, BellOff, Loader2, ChevronLeft, ChevronRight, Search, Gift, CreditCard } from 'lucide-react';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '../components/ui/sheet';
 import { toast } from 'sonner';
 import whatsappService, { MESSAGE_TEMPLATES, generateBirthdayMessage } from '../services/whatsappService';
@@ -37,6 +37,13 @@ const ManagerClients = () => {
   // NEXUS_BIRTHDAY_REMINDER_DAEMON_V1: cumpleaños próximos, para el badge en la lista y la tira de arriba
   const [upcomingBirthdays, setUpcomingBirthdays] = useState([]);
   const BIRTHDAY_WINDOW_DAYS = 30;
+  // NEXUS_GROUP_SERVICES_MEMBERSHIPS_V1: membresía del cliente abierto en el drawer
+  const [membershipPlans, setMembershipPlans] = useState([]);
+  const [clientMembership, setClientMembership] = useState(null);
+  const [loadingMembership, setLoadingMembership] = useState(false);
+  const [showSellMembership, setShowSellMembership] = useState(false);
+  const [sellForm, setSellForm] = useState({ plan_id: '', payment_method: 'cash' });
+  const [sellingMembership, setSellingMembership] = useState(false);
 
   // Get org_id from query param (for owner) or user.organization_id (for manager)
   const organizationId = (user?.role === 'owner' ? searchParams.get('org_id') : user?.organization_id) || user?.organization_id;
@@ -120,6 +127,54 @@ const ManagerClients = () => {
     setSelectedClient(client);
     loadClientHistory(client.client_id);
     loadClientReward(client.client_id);
+    loadClientMembership(client.client_id);
+  };
+
+  // NEXUS_GROUP_SERVICES_MEMBERSHIPS_V1
+  useEffect(() => {
+    if (!organizationId) return;
+    membershipPlanAPI.list({ organization_id: organizationId, active_only: true })
+      .then(res => setMembershipPlans((res.data || []).filter(p => p.active)))
+      .catch(() => setMembershipPlans([]));
+  }, [organizationId]);
+
+  const loadClientMembership = async (clientId) => {
+    setLoadingMembership(true);
+    setClientMembership(null);
+    try {
+      const response = await clientAPI.getMembership(clientId);
+      setClientMembership(response.data?.membership || null);
+    } catch (error) {
+      setClientMembership(null);
+    } finally {
+      setLoadingMembership(false);
+    }
+  };
+
+  const openSellMembership = () => {
+    setSellForm({ plan_id: clientMembership?.plan_id || '', payment_method: 'cash' });
+    setShowSellMembership(true);
+  };
+
+  const submitMembership = async (e) => {
+    e.preventDefault();
+    if (!selectedClient || !sellForm.plan_id) return;
+    setSellingMembership(true);
+    try {
+      if (clientMembership) {
+        await clientAPI.renewMembership(selectedClient.client_id, clientMembership.membership_id, sellForm);
+        toast.success('Membresía renovada');
+      } else {
+        await clientAPI.sellMembership(selectedClient.client_id, sellForm);
+        toast.success('Membresía vendida');
+      }
+      setShowSellMembership(false);
+      await loadClientMembership(selectedClient.client_id);
+    } catch (error) {
+      toast.error(error?.response?.data?.detail || 'No fue posible guardar la membresía');
+    } finally {
+      setSellingMembership(false);
+    }
   };
 
   // NEXUS_BIRTHDAY_CAMPAIGN_V1
@@ -510,6 +565,18 @@ const ManagerClients = () => {
                                     </button>
                                   </div>
                                 )}
+                                {/* NEXUS_GROUP_SERVICES_MEMBERSHIPS_V1 */}
+                                {!loadingMembership && membershipPlans.length > 0 && (
+                                  <div className="mt-3 flex items-center justify-between gap-3 p-3 rounded-xl bg-violet-500/10 border border-violet-500/20">
+                                    <div className="flex items-center gap-1.5 text-sm text-violet-300 font-medium">
+                                      <CreditCard size={14} />
+                                      {clientMembership ? `${clientMembership.status === 'active' ? 'Activa' : 'Vencida'} · vence ${clientMembership.period_end}` : 'Sin membresía'}
+                                    </div>
+                                    <button onClick={openSellMembership} className="shrink-0 px-3 py-1.5 rounded-lg bg-violet-500/20 hover:bg-violet-500/30 border border-violet-500/30 text-violet-300 text-xs font-medium">
+                                      {clientMembership ? 'Renovar' : 'Vender plan'}
+                                    </button>
+                                  </div>
+                                )}
                               </SheetHeader>
 
                               {historyLoading ? (
@@ -678,6 +745,18 @@ const ManagerClients = () => {
                               </button>
                             </div>
                           )}
+                          {/* NEXUS_GROUP_SERVICES_MEMBERSHIPS_V1 */}
+                          {!loadingMembership && membershipPlans.length > 0 && (
+                            <div className="mt-3 flex items-center justify-between gap-3 p-3 rounded-xl bg-violet-500/10 border border-violet-500/20">
+                              <div className="flex items-center gap-1.5 text-sm text-violet-300 font-medium">
+                                <CreditCard size={14} />
+                                {clientMembership ? `${clientMembership.status === 'active' ? 'Activa' : 'Vencida'} · vence ${clientMembership.period_end}` : 'Sin membresía'}
+                              </div>
+                              <button onClick={openSellMembership} className="shrink-0 px-3 py-1.5 rounded-lg bg-violet-500/20 hover:bg-violet-500/30 border border-violet-500/30 text-violet-300 text-xs font-medium">
+                                {clientMembership ? 'Renovar' : 'Vender plan'}
+                              </button>
+                            </div>
+                          )}
                         </SheetHeader>
                         {historyLoading ? (
                           <div className="text-center py-8 text-zinc-400">Cargando...</div>
@@ -725,6 +804,39 @@ const ManagerClients = () => {
         )}
         {pagination.total_pages > 1 && <div className="mt-5 flex flex-col sm:flex-row items-center justify-between gap-3 rounded-2xl border border-[var(--app-border)] bg-white/3 px-4 py-3"><p className="text-sm text-zinc-400">Mostrando {(pagination.page - 1) * pagination.page_size + 1} - {Math.min(pagination.page * pagination.page_size, pagination.total)} de {pagination.total}</p><div className="flex items-center gap-3"><button type="button" aria-label="Página anterior" onClick={() => setCurrentPage(page => Math.max(1, page - 1))} disabled={!pagination.has_previous || loading} className="p-2 rounded-lg border border-[var(--app-border)] disabled:opacity-40"><ChevronLeft size={20} /></button><span className="text-sm text-zinc-400">Página {pagination.page} de {pagination.total_pages}</span><button type="button" aria-label="Página siguiente" onClick={() => setCurrentPage(page => Math.min(pagination.total_pages, page + 1))} disabled={!pagination.has_next || loading} className="p-2 rounded-lg border border-[var(--app-border)] disabled:opacity-40"><ChevronRight size={20} /></button></div></div>}
       </div>
+
+      {/* NEXUS_GROUP_SERVICES_MEMBERSHIPS_V1 */}
+      {showSellMembership && selectedClient && (
+        <AccessibleModal open={showSellMembership} onClose={() => !sellingMembership && setShowSellMembership(false)} labelledBy="membership-sell-title" panelClassName="nexus-accessible-modal-panel">
+          <h2 id="membership-sell-title">{clientMembership ? 'Renovar membresía' : 'Vender membresía'} a {selectedClient.name}</h2>
+          <form className="nexus-guided-form mt-4" onSubmit={submitMembership}>
+            <label className="nexus-field-wide">
+              <span className="text-sm text-zinc-400 mb-1 block">Plan</span>
+              <select value={sellForm.plan_id} onChange={e => setSellForm({ ...sellForm, plan_id: e.target.value })} required className="w-full px-4 py-3 bg-transparent border border-[var(--app-border)] rounded-xl text-[var(--app-text-primary)]">
+                <option value="">Selecciona un plan</option>
+                {membershipPlans.map(p => <option key={p.plan_id} value={p.plan_id}>{p.name} · ${p.price} / {p.billing_cycle_days} días</option>)}
+              </select>
+            </label>
+            <label className="nexus-field-wide">
+              <span className="text-sm text-zinc-400 mb-1 block">Medio de pago</span>
+              <select value={sellForm.payment_method} onChange={e => setSellForm({ ...sellForm, payment_method: e.target.value })} className="w-full px-4 py-3 bg-transparent border border-[var(--app-border)] rounded-xl text-[var(--app-text-primary)]">
+                <option value="cash">Efectivo</option>
+                <option value="card">Tarjeta</option>
+                <option value="transfer">Transferencia</option>
+                <option value="nequi">Nequi</option>
+                <option value="daviplata">Daviplata</option>
+                <option value="other">Otro</option>
+              </select>
+            </label>
+            <div className="nexus-account-actions mt-2">
+              <button type="button" onClick={() => setShowSellMembership(false)} disabled={sellingMembership} className="px-4 py-2 rounded-xl border border-[var(--app-border)] text-zinc-400">Cancelar</button>
+              <button type="submit" disabled={sellingMembership} className="px-4 py-2 rounded-xl bg-[var(--app-primary)] text-white font-medium disabled:opacity-50">
+                {sellingMembership ? 'Guardando...' : clientMembership ? 'Renovar' : 'Vender'}
+              </button>
+            </div>
+          </form>
+        </AccessibleModal>
+      )}
 
       {/* Message Modal */}
       {showMessageModal && selectedClient && (
