@@ -239,6 +239,17 @@ export default function ManagerClasses() {
     }
   };
 
+  // NEXUS_GROUP_SERVICES_WAITLIST_V1
+  const markNoShow = async (booking) => {
+    try {
+      await classSessionAPI.markNoShow(booking.class_booking_id);
+      toast.success(`${booking.client_name} marcado como no-show`);
+      await openSession({ class_session_id: selectedId });
+    } catch (error) {
+      toast.error(detail(error, 'No fue posible registrar el no-show'));
+    }
+  };
+
   const submitCheckout = async (e) => {
     e.preventDefault();
     if (!checkoutFor) return;
@@ -407,16 +418,37 @@ export default function ManagerClasses() {
                   {selected.bookings.map(b => (
                     <div key={b.class_booking_id} className="p-3 rounded-xl border border-[var(--app-border)] flex items-center justify-between gap-3">
                       <div>
-                        <p className="text-[var(--app-text-primary)] font-medium">{b.client_name}</p>
+                        <p className="text-[var(--app-text-primary)] font-medium">{b.client_name}{b.from_waitlist && <span className="text-[var(--app-text-secondary)] font-normal text-xs"> · desde lista de espera</span>}</p>
                         <p className="text-xs text-[var(--app-text-secondary)]">{b.client_phone}</p>
                       </div>
-                      {b.status === 'completed' ? (
-                        <StatusBadge tone="success">Cobrado</StatusBadge>
-                      ) : (
-                        <ActionButton variant="secondary" onClick={() => { setCheckoutFor(b); setCheckoutForm(blankCheckout); }}>Cobrar</ActionButton>
-                      )}
+                      <div className="flex items-center gap-2">
+                        {b.no_show && <StatusBadge tone="warning">No-show</StatusBadge>}
+                        {b.status === 'completed' ? (
+                          <StatusBadge tone="success">Cobrado</StatusBadge>
+                        ) : (
+                          <ActionButton variant="secondary" onClick={() => { setCheckoutFor(b); setCheckoutForm(blankCheckout); }}>Cobrar</ActionButton>
+                        )}
+                        {!b.no_show && (
+                          <ActionButton variant="ghost" onClick={() => markNoShow(b)}>No se presentó</ActionButton>
+                        )}
+                      </div>
                     </div>
                   ))}
+                </div>
+              )}
+              {selected.waitlist?.length > 0 && (
+                <div>
+                  <p className="text-sm font-medium text-[var(--app-text-primary)] mb-2">Lista de espera ({selected.waitlist.length})</p>
+                  <div className="nexus-audit-list">
+                    {selected.waitlist.map((w, i) => (
+                      <div key={w.waitlist_id} className="p-3 rounded-xl border border-[var(--app-border)] flex items-center justify-between gap-3">
+                        <div>
+                          <p className="text-[var(--app-text-primary)] font-medium">#{i + 1} {w.client_name}</p>
+                          <p className="text-xs text-[var(--app-text-secondary)]">{w.client_phone}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               )}
               {selected.session.status === 'scheduled' && (

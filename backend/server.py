@@ -3141,6 +3141,11 @@ _CLASS_NOTICE_FALLBACKS = {
         "Tu clase fue cancelada",
         "Hola {{nombre_cliente}}, tu clase de {{nombre_clase}} en {{nombre_negocio}} del {{fecha_hora_nueva}} fue cancelada.",
     ),
+    # NEXUS_GROUP_SERVICES_WAITLIST_V1
+    "waitlist_promoted": (
+        "¡Conseguiste cupo!",
+        "Hola {{nombre_cliente}}, se liberó un cupo en tu clase de {{nombre_clase}} en {{nombre_negocio}} del {{fecha_hora_nueva}} y ya quedó reservado para ti.",
+    ),
 }
 
 
@@ -3267,7 +3272,11 @@ async def list_class_session_bookings(
     bookings = await db.class_bookings.find(
         {"class_session_id": class_session_id, "status": {"$ne": "cancelled"}}, {"_id": 0}
     ).sort("created_at", 1).to_list(1000)
-    return {"session": session, "bookings": bookings}
+    # NEXUS_GROUP_SERVICES_WAITLIST_V1
+    waitlist = await db.class_waitlist.find(
+        {"class_session_id": class_session_id, "status": "waiting"}, {"_id": 0}
+    ).sort("created_at", 1).to_list(200)
+    return {"session": session, "bookings": bookings, "waitlist": waitlist}
 
 
 # ---- Reserva pública (cliente) ----
@@ -3292,6 +3301,38 @@ class ClassBookingCreate(BaseModel):
     client_phone: str = Field(..., max_length=32)
     client_email: Optional[EmailStr] = None
     marketing_consent: bool = False
+
+
+async def _upsert_public_client(db, org_id: str, phone: str, name: str, email: Optional[str], marketing_consent: bool, request: Request) -> str:
+    """Cliente por teléfono -- reutilizado por la reserva de invitado y la
+    lista de espera de invitado (misma lógica, dos puntos de entrada)."""
+    now = datetime.now(timezone.utc).isoformat()
+    existing_client = await db.clients.find_one({"phone": phone, "organization_id": org_id}, {"_id": 0})
+    client_id = existing_client["client_id"] if existing_client else f"client_{uuid.uuid4().hex[:12]}"
+    if not existing_client:
+        await db.clients.insert_one(
+            {
+                "client_id": client_id,
+                "organization_id": org_id,
+                "phone": phone,
+                "name": name,
+                "email": email,
+                "accepts_marketing": marketing_consent,
+                "marketing_consent_given_at": now if marketing_consent else None,
+                "marketing_consent_ip": request.client.host if (request.client and marketing_consent) else None,
+                "marketing_consent_text": "Acepto recibir promociones y novedades" if marketing_consent else None,
+                "reminder_consent_given": True,
+                "deletion_requested_at": None,
+                "failed_pin_attempts": 0,
+                "pin_locked_until": None,
+                "total_visits": 0,
+                "loyalty_points": 0,
+                "last_visit": None,
+                "created_at": now,
+                "updated_at": now,
+            }
+        )
+    return client_id
 
 
 @api_router.post("/public/{org_id}/class-sessions/{class_session_id}/book", tags=["public-booking"])
@@ -3323,31 +3364,7 @@ async def book_class_session(org_id: str, class_session_id: str, data: ClassBook
         raise HTTPException(status_code=409, detail="This class is full")
 
     now = datetime.now(timezone.utc).isoformat()
-    existing_client = await db.clients.find_one({"phone": phone, "organization_id": org_id}, {"_id": 0})
-    client_id = existing_client["client_id"] if existing_client else f"client_{uuid.uuid4().hex[:12]}"
-    if not existing_client:
-        await db.clients.insert_one(
-            {
-                "client_id": client_id,
-                "organization_id": org_id,
-                "phone": phone,
-                "name": data.client_name,
-                "email": data.client_email,
-                "accepts_marketing": data.marketing_consent,
-                "marketing_consent_given_at": now if data.marketing_consent else None,
-                "marketing_consent_ip": request.client.host if (request.client and data.marketing_consent) else None,
-                "marketing_consent_text": "Acepto recibir promociones y novedades" if data.marketing_consent else None,
-                "reminder_consent_given": True,
-                "deletion_requested_at": None,
-                "failed_pin_attempts": 0,
-                "pin_locked_until": None,
-                "total_visits": 0,
-                "loyalty_points": 0,
-                "last_visit": None,
-                "created_at": now,
-                "updated_at": now,
-            }
-        )
+    client_id = await _upsert_public_client(db, org_id, phone, data.client_name, data.client_email, data.marketing_consent, request)
 
     booking = {
         "class_booking_id": f"cbk_{uuid.uuid4().hex[:12]}",
@@ -3359,6 +3376,11 @@ async def book_class_session(org_id: str, class_session_id: str, data: ClassBook
         "client_email": data.client_email,
         "status": "confirmed",
         "transaction_id": None,
+        "payment_method": "drop_in_pending",
+        "membership_id": None,
+        "no_show": False,
+        "cancelled_late": False,
+        "from_waitlist": False,
         "created_at": now,
     }
     try:
@@ -3371,16 +3393,199 @@ async def book_class_session(org_id: str, class_session_id: str, data: ClassBook
     return booking
 
 
+# ==================== GROUP SERVICES WAITLIST & CANCELLATION POLICY (FASE 4) ====================
+# NEXUS_GROUP_SERVICES_WAITLIST_V1: cancelar a tiempo (fuera de
+# Service.cancellation_cutoff_hours, que existe desde la Fase 1 pero nunca se
+# hacía cumplir) devuelve el uso del beneficio de membresía consumido;
+# cancelar tarde -- o no presentarse -- no lo devuelve, igual que decidimos
+# para el no-show. Al liberarse un cupo (de cualquier forma), se promueve
+# automáticamente a quien lleve más tiempo en la lista de espera.
+
+
+def _is_late_cancellation(session: dict, service: Optional[dict]) -> bool:
+    cutoff_hours = (service or {}).get("cancellation_cutoff_hours")
+    if not cutoff_hours:
+        return False
+    try:
+        session_dt = datetime.strptime(f"{session['date']} {session['time']}", "%Y-%m-%d %H:%M").replace(tzinfo=timezone.utc)
+    except Exception:
+        return False
+    return datetime.now(timezone.utc) > session_dt - timedelta(hours=cutoff_hours)
+
+
+async def _notify_waitlist_promoted(db, session: dict, entry: dict):
+    if not entry.get("client_email"):
+        return
+    org = await db.organizations.find_one({"organization_id": session["organization_id"]}, {"_id": 0})
+    service = await db.services.find_one({"service_id": session["service_id"]}, {"_id": 0})
+    org_name = (org or {}).get("name") or "Nexus"
+    try:
+        templates = await get_or_seed_templates(db, session["organization_id"])
+        template = next((t for t in templates if t.get("purpose") == "waitlist_promoted"), None)
+    except Exception:
+        template = None
+    fallback_subject, fallback_body = _CLASS_NOTICE_FALLBACKS["waitlist_promoted"]
+    subject_raw = (template or {}).get("subject") or fallback_subject
+    body_raw = (template or {}).get("body") or fallback_body
+    context = {
+        "nombre_cliente": entry["client_name"],
+        "nombre_negocio": org_name,
+        "nombre_clase": (service or {}).get("name") or "tu clase",
+        "fecha_hora_nueva": f"{session['date']} {session['time']}",
+    }
+    subject = render_template(subject_raw, context)
+    body = render_template(body_raw, context)
+    html_body = render_email_shell(
+        organization_name=org_name, eyebrow="Lista de espera", title=subject,
+        body_html=f'<p style="white-space:pre-wrap;line-height:1.6;color:#1F2937;">{html_escape(body)}</p>',
+        accent_color=DEFAULT_ACCENT,
+    )
+    try:
+        email_service._send_email(entry["client_email"], subject, html_body, body)
+    except Exception:
+        pass
+
+
+async def _promote_from_waitlist(db, session: dict):
+    """Tras liberarse un cupo, asigna la clase a quien lleve más tiempo en la
+    lista de espera -- misma evaluación de membresía/día que una reserva
+    normal, mismo incremento atómico condicionado que usa book_class_session.
+    Si el cupo ya no está disponible (otra reserva lo tomó primero), la
+    entrada se queda en la cola para la próxima vez."""
+    class_session_id = session["class_session_id"]
+    entry = await db.class_waitlist.find_one(
+        {"class_session_id": class_session_id, "status": "waiting"}, {"_id": 0}, sort=[("created_at", 1)]
+    )
+    if not entry:
+        return
+    result = await db.class_sessions.update_one(
+        {"class_session_id": class_session_id, "$expr": {"$lt": ["$booked_count", "$capacity"]}},
+        {"$inc": {"booked_count": 1}},
+    )
+    if result.modified_count == 0:
+        return
+
+    org_id = entry["organization_id"]
+    membership, plan = await _get_client_membership_with_plan(db, org_id, entry["client_id"])
+    coverage = _membership_coverage_for_service(membership, plan, session["service_id"])
+    covered = bool(coverage and coverage["covered"])
+    benefit = next((b for b in (plan or {}).get("included_services", []) if b["service_id"] == session["service_id"]), None)
+    monthly_limit = benefit.get("monthly_limit") if benefit else None
+    if covered and monthly_limit is not None:
+        usage_field = f"usage_counts.{session['service_id']}"
+        usage_result = await db.client_memberships.update_one(
+            {
+                "membership_id": membership["membership_id"],
+                "$or": [{usage_field: {"$lt": monthly_limit}}, {usage_field: {"$exists": False}}],
+            },
+            {"$inc": {usage_field: 1}},
+        )
+        covered = usage_result.modified_count > 0
+
+    now = datetime.now(timezone.utc).isoformat()
+    booking = {
+        "class_booking_id": f"cbk_{uuid.uuid4().hex[:12]}",
+        "organization_id": org_id,
+        "class_session_id": class_session_id,
+        "client_id": entry["client_id"],
+        "client_name": entry["client_name"],
+        "client_phone": entry["client_phone"],
+        "client_email": entry["client_email"],
+        "status": "confirmed",
+        "transaction_id": None,
+        "payment_method": "membership" if covered else "drop_in_pending",
+        "membership_id": membership["membership_id"] if (covered and membership) else None,
+        "no_show": False,
+        "cancelled_late": False,
+        "from_waitlist": True,
+        "created_at": now,
+    }
+    try:
+        await db.class_bookings.insert_one(booking.copy())
+    except Exception:
+        # el cliente de la lista de espera ya tenía una reserva confirmada
+        # (caso raro) -- revertir el cupo, la entrada se descarta igual
+        await db.class_sessions.update_one({"class_session_id": class_session_id}, {"$inc": {"booked_count": -1}})
+        await db.class_waitlist.update_one({"waitlist_id": entry["waitlist_id"]}, {"$set": {"status": "left"}})
+        return
+    await db.class_waitlist.update_one({"waitlist_id": entry["waitlist_id"]}, {"$set": {"status": "promoted"}})
+    await _notify_waitlist_promoted(db, session, entry)
+
+
+async def _perform_class_booking_cancel(db, booking: dict) -> dict:
+    session = await db.class_sessions.find_one({"class_session_id": booking["class_session_id"]}, {"_id": 0})
+    service = await db.services.find_one({"service_id": session["service_id"]}, {"_id": 0}) if session else None
+    late = _is_late_cancellation(session, service) if session else False
+
+    await db.class_bookings.update_one(
+        {"class_booking_id": booking["class_booking_id"]}, {"$set": {"status": "cancelled", "cancelled_late": late}}
+    )
+    await db.class_sessions.update_one(
+        {"class_session_id": booking["class_session_id"], "booked_count": {"$gt": 0}}, {"$inc": {"booked_count": -1}}
+    )
+    if not late and booking.get("payment_method") == "membership" and booking.get("membership_id") and session:
+        usage_field = f"usage_counts.{session['service_id']}"
+        await db.client_memberships.update_one(
+            {"membership_id": booking["membership_id"], usage_field: {"$gt": 0}}, {"$inc": {usage_field: -1}}
+        )
+    if session:
+        await _promote_from_waitlist(db, session)
+    return {"message": "Booking cancelled", "cancelled_late": late}
+
+
+class ClassWaitlistJoin(BaseModel):
+    client_name: str = Field(..., max_length=100)
+    client_phone: str = Field(..., max_length=32)
+    client_email: Optional[EmailStr] = None
+    marketing_consent: bool = False
+
+
+@api_router.post("/public/{org_id}/class-sessions/{class_session_id}/waitlist", tags=["public-booking"])
+@limiter.limit("10/hour")
+async def join_class_waitlist(org_id: str, class_session_id: str, data: ClassWaitlistJoin, request: Request):
+    session = await db.class_sessions.find_one(
+        {"class_session_id": class_session_id, "organization_id": org_id, "status": "scheduled"}, {"_id": 0}
+    )
+    if not session:
+        raise HTTPException(status_code=404, detail="Class session not found")
+    if session["booked_count"] < session["capacity"]:
+        raise HTTPException(status_code=409, detail="This class still has open spots -- book directly instead")
+
+    phone = sanitize_phone(data.client_phone)
+    client_id = await _upsert_public_client(db, org_id, phone, data.client_name, data.client_email, data.marketing_consent, request)
+    entry = {
+        "waitlist_id": f"wl_{uuid.uuid4().hex[:12]}",
+        "organization_id": org_id,
+        "class_session_id": class_session_id,
+        "client_id": client_id,
+        "client_name": data.client_name,
+        "client_phone": phone,
+        "client_email": data.client_email,
+        "status": "waiting",
+        "created_at": datetime.now(timezone.utc).isoformat(),
+    }
+    try:
+        await db.class_waitlist.insert_one(entry.copy())
+    except Exception:
+        raise HTTPException(status_code=409, detail="You're already on the waitlist for this class")
+    entry.pop("_id", None)
+    return entry
+
+
+@api_router.post("/public/waitlist/{waitlist_id}/leave", tags=["public-booking"])
+async def leave_class_waitlist(waitlist_id: str):
+    result = await db.class_waitlist.update_one({"waitlist_id": waitlist_id, "status": "waiting"}, {"$set": {"status": "left"}})
+    if result.modified_count == 0:
+        raise HTTPException(status_code=404, detail="Waitlist entry not found")
+    return {"message": "Left waitlist"}
+
+
 @api_router.post("/public/class-bookings/{class_booking_id}/cancel", tags=["public-booking"])
 async def cancel_class_booking(class_booking_id: str):
     booking = await db.class_bookings.find_one({"class_booking_id": class_booking_id, "status": "confirmed"}, {"_id": 0})
     if not booking:
         raise HTTPException(status_code=404, detail="Booking not found")
-    await db.class_bookings.update_one({"class_booking_id": class_booking_id}, {"$set": {"status": "cancelled"}})
-    await db.class_sessions.update_one(
-        {"class_session_id": booking["class_session_id"], "booked_count": {"$gt": 0}}, {"$inc": {"booked_count": -1}}
-    )
-    return {"message": "Booking cancelled"}
+    return await _perform_class_booking_cancel(db, booking)
 
 
 # ---- Checkout de clase (manager, manual por asistente) ----
@@ -3475,6 +3680,25 @@ async def checkout_class_booking(
         {"class_booking_id": class_booking_id}, {"$set": {"transaction_id": item["transaction_id"], "status": "completed"}}
     )
     return {"transaction_id": item["transaction_id"], "total_received": item["total_received"]}
+
+
+# NEXUS_GROUP_SERVICES_WAITLIST_V1: puramente informativo por ahora -- sin
+# consecuencia automática (bloqueo, penalización). Solo queda el registro
+# para que el manager lo vea en el detalle de la clase.
+@api_router.post("/class-bookings/{class_booking_id}/no-show", tags=["group-services"])
+async def mark_class_booking_no_show(
+    class_booking_id: str, authorization: Optional[str] = Header(None), session_token: Optional[str] = Cookie(None)
+):
+    current_user = await get_current_user(authorization, session_token)
+    require_management_role(current_user)
+    booking = await db.class_bookings.find_one({"class_booking_id": class_booking_id}, {"_id": 0})
+    if not booking:
+        raise HTTPException(status_code=404, detail="Class booking not found")
+    if not await validate_organization_access(current_user, booking["organization_id"]):
+        raise HTTPException(status_code=403, detail="Access denied")
+    await db.class_bookings.update_one({"class_booking_id": class_booking_id}, {"$set": {"no_show": True}})
+    updated = await db.class_bookings.find_one({"class_booking_id": class_booking_id}, {"_id": 0})
+    return updated
 
 
 # ---- Horarios recurrentes (NEXUS_CLASS_RECURRING_SCHEDULE_V1) ----
@@ -3682,6 +3906,14 @@ async def ensure_group_services_indexes(db):
     )
     await db.class_schedule_templates.create_index("template_id", unique=True)
     await db.class_schedule_templates.create_index([("organization_id", 1), ("active", 1)])
+    # NEXUS_GROUP_SERVICES_WAITLIST_V1
+    await db.class_waitlist.create_index("waitlist_id", unique=True)
+    await db.class_waitlist.create_index([("class_session_id", 1), ("status", 1), ("created_at", 1)])
+    await db.class_waitlist.create_index(
+        [("class_session_id", 1), ("client_phone", 1)],
+        unique=True,
+        partialFilterExpression={"status": "waiting"},
+    )
 
 
 # ==================== END GROUP SERVICES ====================
@@ -4003,6 +4235,12 @@ async def list_portal_class_sessions(current_client: Client = Depends(get_curren
         {"_id": 0, "class_session_id": 1, "class_booking_id": 1},
     ).to_list(1000)
     booking_by_session = {b["class_session_id"]: b["class_booking_id"] for b in my_bookings}
+    # NEXUS_GROUP_SERVICES_WAITLIST_V1
+    my_waitlist = await db.class_waitlist.find(
+        {"organization_id": org_id, "client_id": current_client.client_id, "status": "waiting"},
+        {"_id": 0, "class_session_id": 1, "waitlist_id": 1},
+    ).to_list(1000)
+    waitlist_by_session = {w["class_session_id"]: w["waitlist_id"] for w in my_waitlist}
 
     result = []
     for session in sessions:
@@ -4017,6 +4255,8 @@ async def list_portal_class_sessions(current_client: Client = Depends(get_curren
                 "spots_available": max(0, session["capacity"] - session["booked_count"]),
                 "already_booked": session["class_session_id"] in booking_by_session,
                 "my_class_booking_id": booking_by_session.get(session["class_session_id"]),
+                "already_waitlisted": session["class_session_id"] in waitlist_by_session,
+                "my_waitlist_id": waitlist_by_session.get(session["class_session_id"]),
                 "drop_in_price": service.get("drop_in_price") if service.get("drop_in_price") is not None else service.get("price"),
                 "membership_covers": bool(coverage and coverage["covered"]),
                 "membership_remaining": coverage["remaining"] if coverage else None,
@@ -4116,6 +4356,9 @@ async def book_class_session_from_portal(
         "transaction_id": None,
         "payment_method": "membership" if covered else "drop_in_pending",
         "membership_id": membership["membership_id"] if (covered and membership) else None,
+        "no_show": False,
+        "cancelled_late": False,
+        "from_waitlist": False,
         "created_at": now,
     }
     try:
@@ -4140,15 +4383,47 @@ async def cancel_class_booking_from_portal(class_booking_id: str, current_client
         raise HTTPException(status_code=404, detail="Booking not found")
     if booking.get("client_id") != current_client.client_id:
         raise HTTPException(status_code=403, detail="Access denied")
-    # NEXUS_GROUP_SERVICES_MEMBERSHIPS_V1: no se devuelve el uso del
-    # beneficio al cancelar -- política de cancelación pendiente para la
-    # Fase 4 (lista de espera / no-show), igual que ya se decidió con
-    # créditos en el diseño original.
-    await db.class_bookings.update_one({"class_booking_id": class_booking_id}, {"$set": {"status": "cancelled"}})
-    await db.class_sessions.update_one(
-        {"class_session_id": booking["class_session_id"], "booked_count": {"$gt": 0}}, {"$inc": {"booked_count": -1}}
+    return await _perform_class_booking_cancel(db, booking)
+
+
+@api_router.post("/public/clients/class-sessions/{class_session_id}/waitlist", tags=["public-client-portal"])
+async def join_class_waitlist_from_portal(class_session_id: str, current_client: Client = Depends(get_current_client)):
+    org_id = current_client.organization_id
+    session = await db.class_sessions.find_one(
+        {"class_session_id": class_session_id, "organization_id": org_id, "status": "scheduled"}, {"_id": 0}
     )
-    return {"message": "Booking cancelled"}
+    if not session:
+        raise HTTPException(status_code=404, detail="Class session not found")
+    if session["booked_count"] < session["capacity"]:
+        raise HTTPException(status_code=409, detail="This class still has open spots -- book directly instead")
+    entry = {
+        "waitlist_id": f"wl_{uuid.uuid4().hex[:12]}",
+        "organization_id": org_id,
+        "class_session_id": class_session_id,
+        "client_id": current_client.client_id,
+        "client_name": current_client.name,
+        "client_phone": current_client.phone,
+        "client_email": current_client.email,
+        "status": "waiting",
+        "created_at": datetime.now(timezone.utc).isoformat(),
+    }
+    try:
+        await db.class_waitlist.insert_one(entry.copy())
+    except Exception:
+        raise HTTPException(status_code=409, detail="You're already on the waitlist for this class")
+    entry.pop("_id", None)
+    return entry
+
+
+@api_router.post("/public/clients/waitlist/{waitlist_id}/leave", tags=["public-client-portal"])
+async def leave_class_waitlist_from_portal(waitlist_id: str, current_client: Client = Depends(get_current_client)):
+    entry = await db.class_waitlist.find_one({"waitlist_id": waitlist_id, "status": "waiting"}, {"_id": 0})
+    if not entry:
+        raise HTTPException(status_code=404, detail="Waitlist entry not found")
+    if entry.get("client_id") != current_client.client_id:
+        raise HTTPException(status_code=403, detail="Access denied")
+    await db.class_waitlist.update_one({"waitlist_id": waitlist_id}, {"$set": {"status": "left"}})
+    return {"message": "Left waitlist"}
 
 
 async def ensure_membership_indexes(db):

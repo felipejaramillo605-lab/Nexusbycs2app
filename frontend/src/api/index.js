@@ -140,6 +140,8 @@ export const classSessionAPI = {
   cancel: (id) => api.post(`/class-sessions/${id}/cancel`),
   getBookings: (id) => api.get(`/class-sessions/${id}/bookings`),
   checkoutBooking: (bookingId, data) => api.post(`/class-bookings/${bookingId}/checkout`, data),
+  // NEXUS_GROUP_SERVICES_WAITLIST_V1
+  markNoShow: (bookingId) => api.post(`/class-bookings/${bookingId}/no-show`),
 };
 
 // NEXUS_CLASS_RECURRING_SCHEDULE_V1
@@ -339,6 +341,9 @@ export const clientPortalAPI = {
   getMembership: () => axios.get(`${API}/public/clients/memberships/me`, { withCredentials: true }),
   bookClassSession: (classSessionId) => axios.post(`${API}/public/clients/class-sessions/${classSessionId}/book`, {}, { withCredentials: true }),
   cancelClassBooking: (classBookingId) => axios.post(`${API}/public/clients/class-bookings/${classBookingId}/cancel`, {}, { withCredentials: true }),
+  // NEXUS_GROUP_SERVICES_WAITLIST_V1
+  joinClassWaitlist: (classSessionId) => axios.post(`${API}/public/clients/class-sessions/${classSessionId}/waitlist`, {}, { withCredentials: true }),
+  leaveClassWaitlist: (waitlistId) => axios.post(`${API}/public/clients/waitlist/${waitlistId}/leave`, {}, { withCredentials: true }),
 };
 
 export const billingAPI = {

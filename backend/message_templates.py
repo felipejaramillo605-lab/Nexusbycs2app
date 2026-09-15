@@ -41,6 +41,8 @@ PURPOSES = {
     "class_cancelled",
     # NEXUS_GROUP_SERVICES_MEMBERSHIPS_V1
     "membership_expired",
+    # NEXUS_GROUP_SERVICES_WAITLIST_V1
+    "waitlist_promoted",
 }
 CHANNELS = {"email", "whatsapp"}
 
@@ -122,6 +124,17 @@ _DEFAULT_TEMPLATES = [
             "Tu membresía {{nombre_plan}} en {{nombre_negocio}} venció el {{fecha_vencimiento}}.\n\n"
             "Puedes seguir reservando clases pagando el día, o renovar tu membresía para recuperar tus beneficios -- "
             "contáctanos cuando quieras."
+        ),
+    },
+    {
+        # NEXUS_GROUP_SERVICES_WAITLIST_V1
+        "purpose": "waitlist_promoted",
+        "name": "Cupo liberado (lista de espera)",
+        "subject": "¡Conseguiste cupo en {{nombre_clase}}!",
+        "body": (
+            "Hola {{nombre_cliente}},\n\n"
+            "Se liberó un cupo en tu clase de {{nombre_clase}} en {{nombre_negocio}} del {{fecha_hora_nueva}} "
+            "y ya quedó reservado para ti -- no necesitas hacer nada más."
         ),
     },
 ]
