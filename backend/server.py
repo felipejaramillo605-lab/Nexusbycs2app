@@ -3279,6 +3279,183 @@ async def list_class_session_bookings(
     return {"session": session, "bookings": bookings, "waitlist": waitlist}
 
 
+# ---- Portal del cliente: ver y reservar clases usando la membresía ----
+# NEXUS_GROUP_SERVICES_MEMBERSHIPS_V1 / NEXUS_GROUP_SERVICES_WAITLIST_V1: estas
+# rutas deben registrarse ANTES de las rutas públicas de invitado de abajo
+# (/public/{org_id}/class-sessions...) -- FastAPI/Starlette resuelve rutas en
+# orden de registro, y "clients" calza como valor válido del wildcard
+# {org_id}, así que si estas rutas quedan después, el invitado las "roba"
+# silenciosamente (org_id="clients", nunca existe, siempre 404/lista vacía).
+
+
+@api_router.get("/public/clients/class-sessions", tags=["public-client-portal"])
+async def list_portal_class_sessions(current_client: Client = Depends(get_current_client)):
+    org_id = current_client.organization_id
+    today = datetime.now(timezone.utc).date().isoformat()
+    sessions = (
+        await db.class_sessions.find({"organization_id": org_id, "status": "scheduled", "date": {"$gte": today}}, {"_id": 0})
+        .sort([("date", 1), ("time", 1)])
+        .to_list(500)
+    )
+    if not sessions:
+        return []
+    service_ids = list({s["service_id"] for s in sessions})
+    barber_ids = list({s["barber_id"] for s in sessions})
+    services = await db.services.find({"service_id": {"$in": service_ids}}, {"_id": 0}).to_list(500)
+    barbers = await db.barbers.find({"barber_id": {"$in": barber_ids}}, {"_id": 0}).to_list(500)
+    service_lookup = {s["service_id"]: s for s in services}
+    barber_lookup = {b["barber_id"]: b for b in barbers}
+    membership, plan = await _get_client_membership_with_plan(db, org_id, current_client.client_id)
+    my_bookings = await db.class_bookings.find(
+        {"organization_id": org_id, "client_id": current_client.client_id, "status": "confirmed"},
+        {"_id": 0, "class_session_id": 1, "class_booking_id": 1},
+    ).to_list(1000)
+    booking_by_session = {b["class_session_id"]: b["class_booking_id"] for b in my_bookings}
+    my_waitlist = await db.class_waitlist.find(
+        {"organization_id": org_id, "client_id": current_client.client_id, "status": "waiting"},
+        {"_id": 0, "class_session_id": 1, "waitlist_id": 1},
+    ).to_list(1000)
+    waitlist_by_session = {w["class_session_id"]: w["waitlist_id"] for w in my_waitlist}
+
+    result = []
+    for session in sessions:
+        service = service_lookup.get(session["service_id"]) or {}
+        barber = barber_lookup.get(session["barber_id"]) or {}
+        coverage = _membership_coverage_for_service(membership, plan, session["service_id"])
+        result.append(
+            {
+                **session,
+                "service_name": service.get("name"),
+                "barber_name": barber.get("display_name") or barber.get("name"),
+                "spots_available": max(0, session["capacity"] - session["booked_count"]),
+                "already_booked": session["class_session_id"] in booking_by_session,
+                "my_class_booking_id": booking_by_session.get(session["class_session_id"]),
+                "already_waitlisted": session["class_session_id"] in waitlist_by_session,
+                "my_waitlist_id": waitlist_by_session.get(session["class_session_id"]),
+                "drop_in_price": service.get("drop_in_price") if service.get("drop_in_price") is not None else service.get("price"),
+                "membership_covers": bool(coverage and coverage["covered"]),
+                "membership_remaining": coverage["remaining"] if coverage else None,
+            }
+        )
+    return result
+
+
+@api_router.post("/public/clients/class-sessions/{class_session_id}/book", tags=["public-client-portal"])
+@limiter.limit("20/hour")
+async def book_class_session_from_portal(
+    class_session_id: str, request: Request, current_client: Client = Depends(get_current_client)
+):
+    org_id = current_client.organization_id
+    session = await db.class_sessions.find_one(
+        {"class_session_id": class_session_id, "organization_id": org_id, "status": "scheduled"}, {"_id": 0}
+    )
+    if not session:
+        raise HTTPException(status_code=404, detail="Class session not found")
+
+    service = await db.services.find_one({"service_id": session["service_id"]}, {"_id": 0})
+    if service and service.get("booking_window_days"):
+        session_date = _strict_date(session["date"])
+        max_date = datetime.now(timezone.utc).date() + timedelta(days=service["booking_window_days"])
+        if session_date > max_date:
+            raise HTTPException(status_code=409, detail="This class is not open for booking yet")
+
+    membership, plan = await _get_client_membership_with_plan(db, org_id, current_client.client_id)
+    coverage = _membership_coverage_for_service(membership, plan, session["service_id"])
+    covered = bool(coverage and coverage["covered"])
+    benefit = next((b for b in (plan or {}).get("included_services", []) if b["service_id"] == session["service_id"]), None)
+    monthly_limit = benefit.get("monthly_limit") if benefit else None
+    limited = covered and monthly_limit is not None
+
+    if limited:
+        # NEXUS_GROUP_SERVICES_MEMBERSHIPS_V1: incremento atómico condicionado
+        # a que aún queden usos del beneficio este período -- misma técnica
+        # que el cupo de la clase, evita que dos reservas simultáneas
+        # exploten el límite mensual del plan.
+        usage_field = f"usage_counts.{session['service_id']}"
+        usage_result = await db.client_memberships.update_one(
+            {
+                "membership_id": membership["membership_id"],
+                "$or": [{usage_field: {"$lt": monthly_limit}}, {usage_field: {"$exists": False}}],
+            },
+            {"$inc": {usage_field: 1}},
+        )
+        if usage_result.modified_count == 0:
+            covered = False  # otra reserva concurrente agotó el beneficio -- cae a drop-in
+
+    result = await db.class_sessions.update_one(
+        {"class_session_id": class_session_id, "$expr": {"$lt": ["$booked_count", "$capacity"]}},
+        {"$inc": {"booked_count": 1}},
+    )
+    if result.modified_count == 0:
+        if limited and covered:
+            await db.client_memberships.update_one(
+                {"membership_id": membership["membership_id"]},
+                {"$inc": {f"usage_counts.{session['service_id']}": -1}},
+            )
+        raise HTTPException(status_code=409, detail="This class is full")
+
+    now = datetime.now(timezone.utc).isoformat()
+    booking = {
+        "class_booking_id": f"cbk_{uuid.uuid4().hex[:12]}",
+        "organization_id": org_id,
+        "class_session_id": class_session_id,
+        "client_id": current_client.client_id,
+        "client_name": current_client.name,
+        "client_phone": current_client.phone,
+        "client_email": current_client.email,
+        "status": "confirmed",
+        "transaction_id": None,
+        "payment_method": "membership" if covered else "drop_in_pending",
+        "membership_id": membership["membership_id"] if (covered and membership) else None,
+        "no_show": False,
+        "cancelled_late": False,
+        "from_waitlist": False,
+        "created_at": now,
+    }
+    try:
+        await db.class_bookings.insert_one(booking.copy())
+    except Exception:
+        await db.class_sessions.update_one({"class_session_id": class_session_id}, {"$inc": {"booked_count": -1}})
+        if limited and covered:
+            await db.client_memberships.update_one(
+                {"membership_id": membership["membership_id"]},
+                {"$inc": {f"usage_counts.{session['service_id']}": -1}},
+            )
+        raise HTTPException(status_code=409, detail="You already have a spot in this class")
+
+    booking.pop("_id", None)
+    return booking
+
+
+@api_router.post("/public/clients/class-sessions/{class_session_id}/waitlist", tags=["public-client-portal"])
+async def join_class_waitlist_from_portal(class_session_id: str, current_client: Client = Depends(get_current_client)):
+    org_id = current_client.organization_id
+    session = await db.class_sessions.find_one(
+        {"class_session_id": class_session_id, "organization_id": org_id, "status": "scheduled"}, {"_id": 0}
+    )
+    if not session:
+        raise HTTPException(status_code=404, detail="Class session not found")
+    if session["booked_count"] < session["capacity"]:
+        raise HTTPException(status_code=409, detail="This class still has open spots -- book directly instead")
+    entry = {
+        "waitlist_id": f"wl_{uuid.uuid4().hex[:12]}",
+        "organization_id": org_id,
+        "class_session_id": class_session_id,
+        "client_id": current_client.client_id,
+        "client_name": current_client.name,
+        "client_phone": current_client.phone,
+        "client_email": current_client.email,
+        "status": "waiting",
+        "created_at": datetime.now(timezone.utc).isoformat(),
+    }
+    try:
+        await db.class_waitlist.insert_one(entry.copy())
+    except Exception:
+        raise HTTPException(status_code=409, detail="You're already on the waitlist for this class")
+    entry.pop("_id", None)
+    return entry
+
+
 # ---- Reserva pública (cliente) ----
 
 
@@ -4212,59 +4389,6 @@ async def list_client_memberships(
 # ---- Portal del cliente: ver y reservar clases usando la membresía ----
 
 
-@api_router.get("/public/clients/class-sessions", tags=["public-client-portal"])
-async def list_portal_class_sessions(current_client: Client = Depends(get_current_client)):
-    org_id = current_client.organization_id
-    today = datetime.now(timezone.utc).date().isoformat()
-    sessions = (
-        await db.class_sessions.find({"organization_id": org_id, "status": "scheduled", "date": {"$gte": today}}, {"_id": 0})
-        .sort([("date", 1), ("time", 1)])
-        .to_list(500)
-    )
-    if not sessions:
-        return []
-    service_ids = list({s["service_id"] for s in sessions})
-    barber_ids = list({s["barber_id"] for s in sessions})
-    services = await db.services.find({"service_id": {"$in": service_ids}}, {"_id": 0}).to_list(500)
-    barbers = await db.barbers.find({"barber_id": {"$in": barber_ids}}, {"_id": 0}).to_list(500)
-    service_lookup = {s["service_id"]: s for s in services}
-    barber_lookup = {b["barber_id"]: b for b in barbers}
-    membership, plan = await _get_client_membership_with_plan(db, org_id, current_client.client_id)
-    my_bookings = await db.class_bookings.find(
-        {"organization_id": org_id, "client_id": current_client.client_id, "status": "confirmed"},
-        {"_id": 0, "class_session_id": 1, "class_booking_id": 1},
-    ).to_list(1000)
-    booking_by_session = {b["class_session_id"]: b["class_booking_id"] for b in my_bookings}
-    # NEXUS_GROUP_SERVICES_WAITLIST_V1
-    my_waitlist = await db.class_waitlist.find(
-        {"organization_id": org_id, "client_id": current_client.client_id, "status": "waiting"},
-        {"_id": 0, "class_session_id": 1, "waitlist_id": 1},
-    ).to_list(1000)
-    waitlist_by_session = {w["class_session_id"]: w["waitlist_id"] for w in my_waitlist}
-
-    result = []
-    for session in sessions:
-        service = service_lookup.get(session["service_id"]) or {}
-        barber = barber_lookup.get(session["barber_id"]) or {}
-        coverage = _membership_coverage_for_service(membership, plan, session["service_id"])
-        result.append(
-            {
-                **session,
-                "service_name": service.get("name"),
-                "barber_name": barber.get("display_name") or barber.get("name"),
-                "spots_available": max(0, session["capacity"] - session["booked_count"]),
-                "already_booked": session["class_session_id"] in booking_by_session,
-                "my_class_booking_id": booking_by_session.get(session["class_session_id"]),
-                "already_waitlisted": session["class_session_id"] in waitlist_by_session,
-                "my_waitlist_id": waitlist_by_session.get(session["class_session_id"]),
-                "drop_in_price": service.get("drop_in_price") if service.get("drop_in_price") is not None else service.get("price"),
-                "membership_covers": bool(coverage and coverage["covered"]),
-                "membership_remaining": coverage["remaining"] if coverage else None,
-            }
-        )
-    return result
-
-
 @api_router.get("/public/clients/memberships/me", tags=["public-client-portal"])
 async def get_my_membership(current_client: Client = Depends(get_current_client)):
     membership, plan = await _get_client_membership_with_plan(db, current_client.organization_id, current_client.client_id)
@@ -4289,93 +4413,6 @@ async def get_my_membership(current_client: Client = Depends(get_current_client)
     return {"membership": membership, "plan": plan, "benefits": benefits}
 
 
-@api_router.post("/public/clients/class-sessions/{class_session_id}/book", tags=["public-client-portal"])
-@limiter.limit("20/hour")
-async def book_class_session_from_portal(
-    class_session_id: str, request: Request, current_client: Client = Depends(get_current_client)
-):
-    org_id = current_client.organization_id
-    session = await db.class_sessions.find_one(
-        {"class_session_id": class_session_id, "organization_id": org_id, "status": "scheduled"}, {"_id": 0}
-    )
-    if not session:
-        raise HTTPException(status_code=404, detail="Class session not found")
-
-    service = await db.services.find_one({"service_id": session["service_id"]}, {"_id": 0})
-    if service and service.get("booking_window_days"):
-        session_date = _strict_date(session["date"])
-        max_date = datetime.now(timezone.utc).date() + timedelta(days=service["booking_window_days"])
-        if session_date > max_date:
-            raise HTTPException(status_code=409, detail="This class is not open for booking yet")
-
-    membership, plan = await _get_client_membership_with_plan(db, org_id, current_client.client_id)
-    coverage = _membership_coverage_for_service(membership, plan, session["service_id"])
-    covered = bool(coverage and coverage["covered"])
-    benefit = next((b for b in (plan or {}).get("included_services", []) if b["service_id"] == session["service_id"]), None)
-    monthly_limit = benefit.get("monthly_limit") if benefit else None
-    limited = covered and monthly_limit is not None
-
-    if limited:
-        # NEXUS_GROUP_SERVICES_MEMBERSHIPS_V1: incremento atómico condicionado
-        # a que aún queden usos del beneficio este período -- misma técnica
-        # que el cupo de la clase, evita que dos reservas simultáneas
-        # exploten el límite mensual del plan.
-        usage_field = f"usage_counts.{session['service_id']}"
-        usage_result = await db.client_memberships.update_one(
-            {
-                "membership_id": membership["membership_id"],
-                "$or": [{usage_field: {"$lt": monthly_limit}}, {usage_field: {"$exists": False}}],
-            },
-            {"$inc": {usage_field: 1}},
-        )
-        if usage_result.modified_count == 0:
-            covered = False  # otra reserva concurrente agotó el beneficio -- cae a drop-in
-
-    result = await db.class_sessions.update_one(
-        {"class_session_id": class_session_id, "$expr": {"$lt": ["$booked_count", "$capacity"]}},
-        {"$inc": {"booked_count": 1}},
-    )
-    if result.modified_count == 0:
-        if limited and covered:
-            await db.client_memberships.update_one(
-                {"membership_id": membership["membership_id"]},
-                {"$inc": {f"usage_counts.{session['service_id']}": -1}},
-            )
-        raise HTTPException(status_code=409, detail="This class is full")
-
-    now = datetime.now(timezone.utc).isoformat()
-    booking = {
-        "class_booking_id": f"cbk_{uuid.uuid4().hex[:12]}",
-        "organization_id": org_id,
-        "class_session_id": class_session_id,
-        "client_id": current_client.client_id,
-        "client_name": current_client.name,
-        "client_phone": current_client.phone,
-        "client_email": current_client.email,
-        "status": "confirmed",
-        "transaction_id": None,
-        "payment_method": "membership" if covered else "drop_in_pending",
-        "membership_id": membership["membership_id"] if (covered and membership) else None,
-        "no_show": False,
-        "cancelled_late": False,
-        "from_waitlist": False,
-        "created_at": now,
-    }
-    try:
-        await db.class_bookings.insert_one(booking.copy())
-    except Exception:
-        await db.class_sessions.update_one({"class_session_id": class_session_id}, {"$inc": {"booked_count": -1}})
-        if limited and covered:
-            await db.client_memberships.update_one(
-                {"membership_id": membership["membership_id"]},
-                {"$inc": {f"usage_counts.{session['service_id']}": -1}},
-            )
-        raise HTTPException(status_code=409, detail="You already have a spot in this class")
-
-    booking.pop("_id", None)
-    return booking
-
-
 @api_router.post("/public/clients/class-bookings/{class_booking_id}/cancel", tags=["public-client-portal"])
 async def cancel_class_booking_from_portal(class_booking_id: str, current_client: Client = Depends(get_current_client)):
     booking = await db.class_bookings.find_one({"class_booking_id": class_booking_id, "status": "confirmed"}, {"_id": 0})
@@ -4384,35 +4421,6 @@ async def cancel_class_booking_from_portal(class_booking_id: str, current_client
     if booking.get("client_id") != current_client.client_id:
         raise HTTPException(status_code=403, detail="Access denied")
     return await _perform_class_booking_cancel(db, booking)
-
-
-@api_router.post("/public/clients/class-sessions/{class_session_id}/waitlist", tags=["public-client-portal"])
-async def join_class_waitlist_from_portal(class_session_id: str, current_client: Client = Depends(get_current_client)):
-    org_id = current_client.organization_id
-    session = await db.class_sessions.find_one(
-        {"class_session_id": class_session_id, "organization_id": org_id, "status": "scheduled"}, {"_id": 0}
-    )
-    if not session:
-        raise HTTPException(status_code=404, detail="Class session not found")
-    if session["booked_count"] < session["capacity"]:
-        raise HTTPException(status_code=409, detail="This class still has open spots -- book directly instead")
-    entry = {
-        "waitlist_id": f"wl_{uuid.uuid4().hex[:12]}",
-        "organization_id": org_id,
-        "class_session_id": class_session_id,
-        "client_id": current_client.client_id,
-        "client_name": current_client.name,
-        "client_phone": current_client.phone,
-        "client_email": current_client.email,
-        "status": "waiting",
-        "created_at": datetime.now(timezone.utc).isoformat(),
-    }
-    try:
-        await db.class_waitlist.insert_one(entry.copy())
-    except Exception:
-        raise HTTPException(status_code=409, detail="You're already on the waitlist for this class")
-    entry.pop("_id", None)
-    return entry
 
 
 @api_router.post("/public/clients/waitlist/{waitlist_id}/leave", tags=["public-client-portal"])
