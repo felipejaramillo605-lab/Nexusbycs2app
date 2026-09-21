@@ -425,6 +425,8 @@ export default function ManagerClasses() {
                         {b.no_show && <StatusBadge tone="warning">No-show</StatusBadge>}
                         {b.status === 'completed' ? (
                           <StatusBadge tone="success">Cobrado</StatusBadge>
+                        ) : b.payment_method === 'membership' ? (
+                          <StatusBadge tone="success">Membresía</StatusBadge>
                         ) : (
                           <ActionButton variant="secondary" onClick={() => { setCheckoutFor(b); setCheckoutForm(blankCheckout); }}>Cobrar</ActionButton>
                         )}
