@@ -339,7 +339,7 @@ export const clientPortalAPI = {
   // NEXUS_GROUP_SERVICES_MEMBERSHIPS_V1
   getClassSessions: () => axios.get(`${API}/public/clients/class-sessions`, { withCredentials: true }),
   getMembership: () => axios.get(`${API}/public/clients/memberships/me`, { withCredentials: true }),
-  bookClassSession: (classSessionId) => axios.post(`${API}/public/clients/class-sessions/${classSessionId}/book`, {}, { withCredentials: true }),
+  bookClassSession: (classSessionId, spotLabel) => axios.post(`${API}/public/clients/class-sessions/${classSessionId}/book`, { spot_label: spotLabel || null }, { withCredentials: true }),
   cancelClassBooking: (classBookingId) => axios.post(`${API}/public/clients/class-bookings/${classBookingId}/cancel`, {}, { withCredentials: true }),
   // NEXUS_GROUP_SERVICES_WAITLIST_V1
   joinClassWaitlist: (classSessionId) => axios.post(`${API}/public/clients/class-sessions/${classSessionId}/waitlist`, {}, { withCredentials: true }),

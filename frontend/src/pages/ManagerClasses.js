@@ -418,7 +418,7 @@ export default function ManagerClasses() {
                   {selected.bookings.map(b => (
                     <div key={b.class_booking_id} className="p-3 rounded-xl border border-[var(--app-border)] flex items-center justify-between gap-3">
                       <div>
-                        <p className="text-[var(--app-text-primary)] font-medium">{b.client_name}{b.from_waitlist && <span className="text-[var(--app-text-secondary)] font-normal text-xs"> · desde lista de espera</span>}</p>
+                        <p className="text-[var(--app-text-primary)] font-medium">{b.client_name}{b.spot_label && <span className="text-[var(--app-text-secondary)] font-normal text-xs"> · {b.spot_label}</span>}{b.from_waitlist && <span className="text-[var(--app-text-secondary)] font-normal text-xs"> · desde lista de espera</span>}</p>
                         <p className="text-xs text-[var(--app-text-secondary)]">{b.client_phone}</p>
                       </div>
                       <div className="flex items-center gap-2">
