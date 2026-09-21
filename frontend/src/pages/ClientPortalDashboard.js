@@ -52,6 +52,8 @@ export default function ClientPortalDashboard() {
   const [membership, setMembership] = useState(null);
   const [loadingClasses, setLoadingClasses] = useState(true);
   const [bookingSessionId, setBookingSessionId] = useState(null);
+  // NEXUS_GROUP_SERVICES_SPOTS_V1
+  const [pickingSpotFor, setPickingSpotFor] = useState(null);
 
   const loadClasses = useCallback(async () => {
     setLoadingClasses(true);
@@ -69,11 +71,12 @@ export default function ClientPortalDashboard() {
     }
   }, []);
 
-  const handleBookClass = async (classSessionId) => {
+  const handleBookClass = async (classSessionId, spotLabel) => {
     setBookingSessionId(classSessionId);
     try {
-      await api.post(`/public/clients/class-sessions/${classSessionId}/book`, {});
+      await api.post(`/public/clients/class-sessions/${classSessionId}/book`, { spot_label: spotLabel || null });
       toast.success('Cupo reservado');
+      setPickingSpotFor(null);
       await loadClasses();
     } catch (error) {
       toast.error(error.response?.data?.detail || 'No fue posible reservar el cupo');
@@ -531,6 +534,32 @@ export default function ClientPortalDashboard() {
                       className="w-full py-2 bg-white/10 hover:bg-white/15 border border-white/20 text-zinc-300 rounded-lg text-sm transition-colors disabled:opacity-50"
                     >
                       {bookingSessionId === session.class_session_id ? 'Uniéndote...' : 'Unirme a la lista de espera'}
+                    </button>
+                  ) : session.spot_layout?.length && pickingSpotFor === session.class_session_id ? (
+                    <div className="space-y-2">
+                      <div className="grid grid-cols-3 gap-2">
+                        {session.spot_layout.map(spot => {
+                          const taken = (session.occupied_spots || []).includes(spot);
+                          return (
+                            <button
+                              key={spot}
+                              onClick={() => !taken && handleBookClass(session.class_session_id, spot)}
+                              disabled={taken || bookingSessionId === session.class_session_id}
+                              className={`py-2 px-1 rounded-lg text-xs transition-colors ${taken ? 'bg-white/5 text-zinc-600 cursor-not-allowed' : 'bg-violet-500/20 hover:bg-violet-500/30 border border-violet-500/30 text-violet-300'}`}
+                            >
+                              {spot}
+                            </button>
+                          );
+                        })}
+                      </div>
+                      <button onClick={() => setPickingSpotFor(null)} className="w-full py-1.5 text-xs text-zinc-500 hover:text-zinc-300">Cancelar</button>
+                    </div>
+                  ) : session.spot_layout?.length ? (
+                    <button
+                      onClick={() => setPickingSpotFor(session.class_session_id)}
+                      className="w-full py-2 bg-violet-500/20 hover:bg-violet-500/30 border border-violet-500/30 text-violet-300 rounded-lg text-sm transition-colors"
+                    >
+                      Elegir spot
                     </button>
                   ) : (
                     <button

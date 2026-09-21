@@ -347,6 +347,11 @@ class Service(BaseModel):
     # una clase grupal sin membresía activa (o sin cupo dentro de su plan).
     # None = usa `price` normal.
     drop_in_price: Optional[float] = None
+    # NEXUS_GROUP_SERVICES_SPOTS_V1: nombres de los spots/máquinas de este
+    # servicio grupal (ej. ["Bici 1", "Bici 2", ...]), definidos una vez por
+    # el manager -- todas las clases de este servicio comparten el mismo
+    # layout. None = sin selección de spot (comportamiento de siempre).
+    spot_layout: Optional[List[str]] = None
     created_at: datetime
 
 
@@ -463,6 +468,7 @@ class ServiceCreate(BaseModel):
     booking_window_days: Optional[int] = None
     cancellation_cutoff_hours: Optional[int] = None
     drop_in_price: Optional[float] = None
+    spot_layout: Optional[List[str]] = None
 
 
 def _validate_group_service_fields(data: "ServiceCreate"):
@@ -477,6 +483,21 @@ def _validate_group_service_fields(data: "ServiceCreate"):
         raise HTTPException(status_code=400, detail="cancellation_cutoff_hours cannot be negative")
     if data.drop_in_price is not None and data.drop_in_price < 0:
         raise HTTPException(status_code=400, detail="drop_in_price cannot be negative")
+    if data.spot_layout is not None:
+        names = [s.strip() for s in data.spot_layout if s and s.strip()]
+        if not names:
+            raise HTTPException(status_code=400, detail="spot_layout cannot be empty if provided")
+        if len(names) != len(set(names)):
+            raise HTTPException(status_code=400, detail="spot_layout names must be unique")
+        if data.service_type == "group" and data.group_capacity and len(names) < data.group_capacity:
+            raise HTTPException(status_code=400, detail="spot_layout must have at least group_capacity spots")
+
+
+def _normalize_spot_layout(spot_layout: Optional[List[str]]) -> Optional[List[str]]:
+    if not spot_layout:
+        return None
+    names = [s.strip() for s in spot_layout if s and s.strip()]
+    return names or None
 
 
 class BarberCreate(BaseModel):
@@ -2938,6 +2959,7 @@ async def create_service(
         "booking_window_days": data.booking_window_days,
         "cancellation_cutoff_hours": data.cancellation_cutoff_hours,
         "drop_in_price": data.drop_in_price if data.service_type == "group" else None,
+        "spot_layout": _normalize_spot_layout(data.spot_layout) if data.service_type == "group" else None,
         "created_at": datetime.now(timezone.utc).isoformat(),
     }
     await db.services.insert_one(service_doc)
@@ -2977,6 +2999,7 @@ async def update_service(
         "booking_window_days": data.booking_window_days,
         "cancellation_cutoff_hours": data.cancellation_cutoff_hours,
         "drop_in_price": data.drop_in_price if data.service_type == "group" else None,
+        "spot_layout": _normalize_spot_layout(data.spot_layout) if data.service_type == "group" else None,
     }
     # NEXUS_GROUP_SERVICES_V1: no permitir bajar la capacidad por debajo de
     # cupos ya reservados en clases futuras -- evita overbooking retroactivo.
@@ -3335,15 +3358,35 @@ async def list_portal_class_sessions(current_client: Client = Depends(get_curren
                 "drop_in_price": service.get("drop_in_price") if service.get("drop_in_price") is not None else service.get("price"),
                 "membership_covers": bool(coverage and coverage["covered"]),
                 "membership_remaining": coverage["remaining"] if coverage else None,
+                "spot_layout": service.get("spot_layout"),
+                "occupied_spots": [],
             }
         )
+    # NEXUS_GROUP_SERVICES_SPOTS_V1: solo consulta ocupación de spots para
+    # las sesiones cuyo servicio realmente tiene layout -- evita N queries
+    # inútiles para el caso común sin selección de spot.
+    for item in result:
+        if not item["spot_layout"]:
+            continue
+        taken = await db.class_bookings.find(
+            {"class_session_id": item["class_session_id"], "status": "confirmed", "spot_label": {"$ne": None}},
+            {"_id": 0, "spot_label": 1},
+        ).to_list(200)
+        item["occupied_spots"] = [t["spot_label"] for t in taken]
     return result
+
+
+class ClassBookingSpotChoice(BaseModel):
+    spot_label: Optional[str] = None
 
 
 @api_router.post("/public/clients/class-sessions/{class_session_id}/book", tags=["public-client-portal"])
 @limiter.limit("20/hour")
 async def book_class_session_from_portal(
-    class_session_id: str, request: Request, current_client: Client = Depends(get_current_client)
+    class_session_id: str,
+    request: Request,
+    data: ClassBookingSpotChoice = ClassBookingSpotChoice(),
+    current_client: Client = Depends(get_current_client),
 ):
     org_id = current_client.organization_id
     session = await db.class_sessions.find_one(
@@ -3394,6 +3437,20 @@ async def book_class_session_from_portal(
             )
         raise HTTPException(status_code=409, detail="This class is full")
 
+    async def _rollback():
+        await db.class_sessions.update_one({"class_session_id": class_session_id}, {"$inc": {"booked_count": -1}})
+        if limited and covered:
+            await db.client_memberships.update_one(
+                {"membership_id": membership["membership_id"]},
+                {"$inc": {f"usage_counts.{session['service_id']}": -1}},
+            )
+
+    try:
+        spot_label = await _validate_and_claim_spot(db, class_session_id, service, data.spot_label)
+    except HTTPException:
+        await _rollback()
+        raise
+
     now = datetime.now(timezone.utc).isoformat()
     booking = {
         "class_booking_id": f"cbk_{uuid.uuid4().hex[:12]}",
@@ -3407,6 +3464,7 @@ async def book_class_session_from_portal(
         "transaction_id": None,
         "payment_method": "membership" if covered else "drop_in_pending",
         "membership_id": membership["membership_id"] if (covered and membership) else None,
+        "spot_label": spot_label,
         "no_show": False,
         "cancelled_late": False,
         "from_waitlist": False,
@@ -3415,12 +3473,7 @@ async def book_class_session_from_portal(
     try:
         await db.class_bookings.insert_one(booking.copy())
     except Exception:
-        await db.class_sessions.update_one({"class_session_id": class_session_id}, {"$inc": {"booked_count": -1}})
-        if limited and covered:
-            await db.client_memberships.update_one(
-                {"membership_id": membership["membership_id"]},
-                {"$inc": {f"usage_counts.{session['service_id']}": -1}},
-            )
+        await _rollback()
         raise HTTPException(status_code=409, detail="You already have a spot in this class")
 
     booking.pop("_id", None)
@@ -3470,7 +3523,25 @@ async def get_public_class_sessions(
     if service_id:
         query["service_id"] = service_id
     sessions = await db.class_sessions.find(query, {"_id": 0}).sort([("date", 1), ("time", 1)]).to_list(1000)
-    return [{**s, "spots_available": max(0, s["capacity"] - s["booked_count"])} for s in sessions]
+    if not sessions:
+        return []
+    # NEXUS_GROUP_SERVICES_SPOTS_V1
+    services = await db.services.find(
+        {"service_id": {"$in": list({s["service_id"] for s in sessions})}}, {"_id": 0, "service_id": 1, "spot_layout": 1}
+    ).to_list(500)
+    service_lookup = {s["service_id"]: s for s in services}
+    result = []
+    for s in sessions:
+        layout = service_lookup.get(s["service_id"], {}).get("spot_layout")
+        occupied = []
+        if layout:
+            taken = await db.class_bookings.find(
+                {"class_session_id": s["class_session_id"], "status": "confirmed", "spot_label": {"$ne": None}},
+                {"_id": 0, "spot_label": 1},
+            ).to_list(200)
+            occupied = [t["spot_label"] for t in taken]
+        result.append({**s, "spots_available": max(0, s["capacity"] - s["booked_count"]), "spot_layout": layout, "occupied_spots": occupied})
+    return result
 
 
 class ClassBookingCreate(BaseModel):
@@ -3478,6 +3549,27 @@ class ClassBookingCreate(BaseModel):
     client_phone: str = Field(..., max_length=32)
     client_email: Optional[EmailStr] = None
     marketing_consent: bool = False
+    spot_label: Optional[str] = None
+
+
+# NEXUS_GROUP_SERVICES_SPOTS_V1
+async def _validate_and_claim_spot(db, class_session_id: str, service: Optional[dict], spot_label: Optional[str]) -> Optional[str]:
+    """Valida el spot elegido contra Service.spot_layout y comprueba que
+    siga libre. La garantía atómica real la da el índice único parcial
+    (class_session_id, spot_label) sobre bookings confirmadas -- esto es
+    solo la validación amigable antes de intentar el insert."""
+    layout = (service or {}).get("spot_layout")
+    if not layout or not spot_label:
+        return None
+    spot_label = spot_label.strip()
+    if spot_label not in layout:
+        raise HTTPException(status_code=400, detail="Invalid spot for this service")
+    taken = await db.class_bookings.find_one(
+        {"class_session_id": class_session_id, "spot_label": spot_label, "status": "confirmed"}, {"_id": 0}
+    )
+    if taken:
+        raise HTTPException(status_code=409, detail="This spot is already taken")
+    return spot_label
 
 
 async def _upsert_public_client(db, org_id: str, phone: str, name: str, email: Optional[str], marketing_consent: bool, request: Request) -> str:
@@ -3540,6 +3632,12 @@ async def book_class_session(org_id: str, class_session_id: str, data: ClassBook
     if result.modified_count == 0:
         raise HTTPException(status_code=409, detail="This class is full")
 
+    try:
+        spot_label = await _validate_and_claim_spot(db, class_session_id, service, data.spot_label)
+    except HTTPException:
+        await db.class_sessions.update_one({"class_session_id": class_session_id}, {"$inc": {"booked_count": -1}})
+        raise
+
     now = datetime.now(timezone.utc).isoformat()
     client_id = await _upsert_public_client(db, org_id, phone, data.client_name, data.client_email, data.marketing_consent, request)
 
@@ -3555,6 +3653,7 @@ async def book_class_session(org_id: str, class_session_id: str, data: ClassBook
         "transaction_id": None,
         "payment_method": "drop_in_pending",
         "membership_id": None,
+        "spot_label": spot_label,
         "no_show": False,
         "cancelled_late": False,
         "from_waitlist": False,
@@ -3563,7 +3662,8 @@ async def book_class_session(org_id: str, class_session_id: str, data: ClassBook
     try:
         await db.class_bookings.insert_one(booking.copy())
     except Exception:
-        # ya reservado (índice único sesión+teléfono) -- revertir el cupo tomado
+        # ya reservado (índice único sesión+teléfono, o spot ya tomado en la
+        # condición de carrera) -- revertir el cupo tomado
         await db.class_sessions.update_one({"class_session_id": class_session_id}, {"$inc": {"booked_count": -1}})
         raise HTTPException(status_code=409, detail="You already have a spot in this class")
     booking.pop("_id", None)
@@ -3643,6 +3743,18 @@ async def _promote_from_waitlist(db, session: dict):
         return
 
     org_id = entry["organization_id"]
+    service = await db.services.find_one({"service_id": session["service_id"]}, {"_id": 0})
+    # NEXUS_GROUP_SERVICES_SPOTS_V1: se promueve directo, sin preguntarle
+    # spot -- se le asigna el primero libre del layout, si el servicio usa uno.
+    spot_label = None
+    layout = (service or {}).get("spot_layout")
+    if layout:
+        taken = await db.class_bookings.find(
+            {"class_session_id": class_session_id, "status": "confirmed", "spot_label": {"$ne": None}},
+            {"_id": 0, "spot_label": 1},
+        ).to_list(200)
+        taken_labels = {t["spot_label"] for t in taken}
+        spot_label = next((s for s in layout if s not in taken_labels), None)
     membership, plan = await _get_client_membership_with_plan(db, org_id, entry["client_id"])
     coverage = _membership_coverage_for_service(membership, plan, session["service_id"])
     covered = bool(coverage and coverage["covered"])
@@ -3672,6 +3784,7 @@ async def _promote_from_waitlist(db, session: dict):
         "transaction_id": None,
         "payment_method": "membership" if covered else "drop_in_pending",
         "membership_id": membership["membership_id"] if (covered and membership) else None,
+        "spot_label": spot_label,
         "no_show": False,
         "cancelled_late": False,
         "from_waitlist": True,
@@ -4090,6 +4203,13 @@ async def ensure_group_services_indexes(db):
         [("class_session_id", 1), ("client_phone", 1)],
         unique=True,
         partialFilterExpression={"status": "waiting"},
+    )
+    # NEXUS_GROUP_SERVICES_SPOTS_V1: garantiza que dos reservas no puedan
+    # tomar el mismo spot en la misma clase, incluso en condición de carrera.
+    await db.class_bookings.create_index(
+        [("class_session_id", 1), ("spot_label", 1)],
+        unique=True,
+        partialFilterExpression={"status": "confirmed", "spot_label": {"$type": "string"}},
     )
 
 

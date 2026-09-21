@@ -18,7 +18,7 @@ const ManagerServices = () => {
   const [loading, setLoading] = useState(true);
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
-  const [newService, setNewService] = useState({ name: '', duration: 30, price: 0, service_type: 'individual', group_capacity: 8, drop_in_price: '' });
+  const [newService, setNewService] = useState({ name: '', duration: 30, price: 0, service_type: 'individual', group_capacity: 8, drop_in_price: '', spot_layout: '' });
   const [editingService, setEditingService] = useState(null);
   const [organizationName, setOrganizationName] = useState('');
   const [recipeService, setRecipeService] = useState(null);
@@ -71,9 +71,10 @@ const ManagerServices = () => {
       await serviceAPI.create({
         ...newService,
         drop_in_price: newService.drop_in_price === '' ? null : parseFloat(newService.drop_in_price),
+        spot_layout: newService.spot_layout.trim() ? newService.spot_layout.split(',').map(s => s.trim()).filter(Boolean) : null,
       });
       setIsCreateDialogOpen(false);
-      setNewService({ name: '', duration: 30, price: 0, service_type: 'individual', group_capacity: 8, drop_in_price: '' });
+      setNewService({ name: '', duration: 30, price: 0, service_type: 'individual', group_capacity: 8, drop_in_price: '', spot_layout: '' });
       loadServices();
       toast.success('Servicio creado exitosamente');
     } catch (error) {
@@ -91,7 +92,8 @@ const ManagerServices = () => {
       photos: service.photos || [],
       service_type: service.service_type || 'individual',
       group_capacity: service.group_capacity || 8,
-      drop_in_price: service.drop_in_price ?? ''
+      drop_in_price: service.drop_in_price ?? '',
+      spot_layout: (service.spot_layout || []).join(', ')
     });
     setIsEditDialogOpen(true);
   };
@@ -108,7 +110,8 @@ const ManagerServices = () => {
         price: editingService.price,
         service_type: editingService.service_type,
         group_capacity: editingService.group_capacity,
-        drop_in_price: editingService.drop_in_price === '' ? null : parseFloat(editingService.drop_in_price)
+        drop_in_price: editingService.drop_in_price === '' ? null : parseFloat(editingService.drop_in_price),
+        spot_layout: editingService.spot_layout.trim() ? editingService.spot_layout.split(',').map(s => s.trim()).filter(Boolean) : null,
       });
       setIsEditDialogOpen(false);
       setEditingService(null);
@@ -349,6 +352,19 @@ const ManagerServices = () => {
                     <p className="text-xs text-zinc-500 mt-1.5">Lo que paga un cliente sin membresía que reserva y asiste pagando el día.</p>
                   </div>
                 )}
+                {newService.service_type === 'group' && (
+                  <div>
+                    <label className="text-sm text-zinc-400 mb-2 block">Nombres de los cupos (opcional)</label>
+                    <input
+                      type="text"
+                      placeholder="Bici 1, Bici 2, Bici 3..."
+                      value={newService.spot_layout}
+                      onChange={(e) => setNewService({ ...newService, spot_layout: e.target.value })}
+                      className="w-full px-4 py-3 bg-transparent border border-[var(--app-border)] rounded-xl text-[var(--app-text-primary)] focus:border-[var(--app-primary)] focus:ring-1 focus:ring-[var(--app-primary)] outline-none"
+                    />
+                    <p className="text-xs text-zinc-500 mt-1.5">Separados por coma. Si los defines, el cliente elige un spot al reservar. Vacío = sin selección de spot.</p>
+                  </div>
+                )}
                 <button
                   onClick={handleCreate}
                   className="w-full px-6 py-3 bg-[var(--app-primary)] hover:bg-[var(--app-primary-hover)] text-[var(--app-text-primary)] rounded-xl font-medium transition-all"
@@ -441,6 +457,19 @@ const ManagerServices = () => {
                       className="w-full px-4 py-3 bg-transparent border border-[var(--app-border)] rounded-xl text-[var(--app-text-primary)] focus:border-[var(--app-primary)] focus:ring-1 focus:ring-[var(--app-primary)] outline-none"
                     />
                     <p className="text-xs text-zinc-500 mt-1.5">Lo que paga un cliente sin membresía que reserva y asiste pagando el día.</p>
+                  </div>
+                )}
+                {editingService.service_type === 'group' && (
+                  <div>
+                    <label className="text-sm text-zinc-400 mb-2 block">Nombres de los cupos (opcional)</label>
+                    <input
+                      type="text"
+                      placeholder="Bici 1, Bici 2, Bici 3..."
+                      value={editingService.spot_layout}
+                      onChange={(e) => setEditingService({ ...editingService, spot_layout: e.target.value })}
+                      className="w-full px-4 py-3 bg-transparent border border-[var(--app-border)] rounded-xl text-[var(--app-text-primary)] focus:border-[var(--app-primary)] focus:ring-1 focus:ring-[var(--app-primary)] outline-none"
+                    />
+                    <p className="text-xs text-zinc-500 mt-1.5">Separados por coma. Si los defines, el cliente elige un spot al reservar. Vacío = sin selección de spot.</p>
                   </div>
                 )}
                 <button
