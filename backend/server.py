@@ -2873,10 +2873,31 @@ async def update_organization_profile(
     return updated_org
 
 
+
+# NEXUS_PUBLIC_ORG_PROJECTION_V1: a true whitelist turned out unsafe here --
+# Settings.js and BusinessProfile.js (manager-only pages, but both gated by
+# their own auth, not by this endpoint) both call this exact public route to
+# populate the manager's own settings form, and read notification_settings,
+# loyalty_settings and review_request_settings from it. Excluding those would
+# have silently broken the low-stock-alert, loyalty and review-request
+# sections of Settings.js. The real fix is migrating those two pages onto an
+# authenticated organization fetch -- out of scope for this finding. Until
+# then, exclude only the fields nothing in the frontend reads from this
+# endpoint: owner_id (the concrete example the audit called out) and the two
+# platform-entitlement flags.
+PUBLIC_ORGANIZATION_EXCLUDED_FIELDS = {
+    "_id": 0,
+    "owner_id": 0,
+    "created_at": 0,
+    "nexus_ai_contracted": 0,
+    "nexus_ai_enabled": 0,
+}
+
+
 @api_router.get("/public/{organization_id}/organization", tags=["public-booking"])
 async def get_organization_public(organization_id: str):
     """Get organization details (public endpoint for booking flow)"""
-    org = await db.organizations.find_one({"organization_id": organization_id}, {"_id": 0})
+    org = await db.organizations.find_one({"organization_id": organization_id}, PUBLIC_ORGANIZATION_EXCLUDED_FIELDS)
     if not org:
         raise HTTPException(status_code=404, detail="Organization not found")
     return org
