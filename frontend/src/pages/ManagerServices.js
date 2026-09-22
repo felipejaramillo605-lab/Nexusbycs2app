@@ -18,7 +18,7 @@ const ManagerServices = () => {
   const [loading, setLoading] = useState(true);
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
-  const [newService, setNewService] = useState({ name: '', duration: 30, price: 0, service_type: 'individual', group_capacity: 8, drop_in_price: '', spot_layout: '' });
+  const [newService, setNewService] = useState({ name: '', duration: 30, price: 0, service_type: 'individual', group_capacity: 8, drop_in_price: '', spot_layout: '', short_description: '' });
   const [editingService, setEditingService] = useState(null);
   const [organizationName, setOrganizationName] = useState('');
   const [recipeService, setRecipeService] = useState(null);
@@ -73,9 +73,10 @@ const ManagerServices = () => {
         ...newService,
         drop_in_price: newService.drop_in_price === '' ? null : parseFloat(newService.drop_in_price),
         spot_layout: newService.spot_layout.trim() ? newService.spot_layout.split(',').map(s => s.trim()).filter(Boolean) : null,
+        short_description: newService.short_description.trim() || null,
       });
       setIsCreateDialogOpen(false);
-      setNewService({ name: '', duration: 30, price: 0, service_type: 'individual', group_capacity: 8, drop_in_price: '', spot_layout: '' });
+      setNewService({ name: '', duration: 30, price: 0, service_type: 'individual', group_capacity: 8, drop_in_price: '', spot_layout: '', short_description: '' });
       loadServices();
       toast.success('Servicio creado exitosamente');
     } catch (error) {
@@ -340,11 +341,11 @@ const ManagerServices = () => {
                 <div>
                   <label className="text-sm text-zinc-400 mb-2 block">Descripción breve</label>
                   <textarea
-                    value={editingService.short_description}
+                    value={newService.short_description}
                     maxLength={280}
                     rows={3}
                     placeholder="Qué hace especial esta clase o servicio"
-                    onChange={(e) => setEditingService({ ...editingService, short_description: e.target.value })}
+                    onChange={(e) => setNewService({ ...newService, short_description: e.target.value })}
                     className="w-full px-4 py-3 bg-transparent border border-[var(--app-border)] rounded-xl text-[var(--app-text-primary)] focus:border-[var(--app-primary)] focus:ring-1 focus:ring-[var(--app-primary)] outline-none resize-none"
                   />
                   <p className="text-xs text-zinc-500 mt-1">Se muestra al descubrir una clase. Máximo 280 caracteres.</p>
