@@ -8945,7 +8945,7 @@ api_router.include_router(
     tags=["catalog"],
 )
 # NEXUS_PRODUCT_CATALOG_V11_CHECKOUT_REGISTRATION
-api_router.include_router(build_catalog_checkout_router(db, get_current_user), tags=["catalog"])
+api_router.include_router(build_catalog_checkout_router(db, get_current_user, limiter), tags=["catalog"])
 
 app.include_router(api_router)
 
