@@ -104,6 +104,8 @@ export const organizationAPI = {
   // NEXUS_ORGANIZATION_LOGO_UPLOAD_V1
   uploadLogo: (organizationId, file, onUploadProgress) => { const data = new FormData(); data.append('file', file); return api.post(`/organizations/${organizationId}/logo`, data, { onUploadProgress }); },
   deleteLogo: (organizationId) => api.delete(`/organizations/${organizationId}/logo`),
+  uploadPortalBackground: (organizationId, file, onUploadProgress) => { const data = new FormData(); data.append('file', file); return api.post(`/organizations/${organizationId}/portal-background`, data, { onUploadProgress }); },
+  deletePortalBackground: (organizationId) => api.delete(`/organizations/${organizationId}/portal-background`),
 };
 
 // NEXUS_PLATFORM_BRANDING_V1: the Nexus PLATFORM's own logo (owner-only,

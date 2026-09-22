@@ -326,6 +326,10 @@ class Organization(BaseModel):
             "reward_expires_days": 30,
         }
     )
+    # NEXUS_PORTAL_BACKGROUND_THEMES_V1: additive defaults preserve existing portals.
+    portal_background_type: str = "none"
+    portal_background_url: Optional[str] = None
+    portal_background_overlay: str = "dark"
 
 
 class Service(BaseModel):
@@ -686,6 +690,8 @@ class OrganizationUpdate(BaseModel):
     portal_show_prices: Optional[bool] = None
     portal_show_hours: Optional[bool] = None
     portal_show_map: Optional[bool] = None
+    portal_background_type: Optional[str] = None
+    portal_background_overlay: Optional[str] = None
     catalog_enabled: Optional[bool] = None
     # NEXUS_LOW_STOCK_ALERT_DAEMON_V1
     notification_settings: Optional[dict] = None
@@ -2826,6 +2832,11 @@ async def update_organization_profile(
         raise HTTPException(status_code=403, detail="Access denied")
 
     update_data = {k: v for k, v in data.dict().items() if v is not None}
+
+    if "portal_background_type" in update_data and update_data["portal_background_type"] not in {"none", "image", "video"}:
+        raise HTTPException(status_code=400, detail="portal_background_type must be none, image or video")
+    if "portal_background_overlay" in update_data and update_data["portal_background_overlay"] not in {"light", "dark", "none"}:
+        raise HTTPException(status_code=400, detail="portal_background_overlay must be light, dark or none")
 
     # Sanitize phone number if present
     if "phone" in update_data and update_data["phone"]:
@@ -8980,6 +8991,14 @@ from organization_media import build_organization_media_router
 
 api_router.include_router(
     build_organization_media_router(db, get_current_user, require_management_role, resolve_team_organization),
+    tags=["organizations"],
+)
+
+# NEXUS_PORTAL_BACKGROUND_THEMES_V1
+from organization_background_media import build_organization_background_media_router
+
+api_router.include_router(
+    build_organization_background_media_router(db, get_current_user, require_management_role, resolve_team_organization),
     tags=["organizations"],
 )
 
