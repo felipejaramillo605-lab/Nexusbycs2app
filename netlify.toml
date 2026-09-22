@@ -20,3 +20,10 @@
 # given change; a real syntax/type error still fails the build regardless of this flag.
 [build.environment]
   CI = "false"
+
+# React Router handles application routes in the client. Keep direct links and
+# refreshes on manager/portal routes from being served as Netlify 404 pages.
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
