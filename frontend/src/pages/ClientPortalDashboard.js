@@ -494,7 +494,17 @@ export default function ClientPortalDashboard() {
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               {classSessions.map(session => (
-                <div key={session.class_session_id} className="p-4 bg-white/5 border border-white/10 rounded-xl">
+                <div key={session.class_session_id} className="overflow-hidden bg-white/5 border border-white/10 rounded-xl">
+                  {session.service_presentation?.cover_image_url && (
+                    <img
+                      src={session.service_presentation.cover_image_url}
+                      alt={session.service_presentation.image_alt || session.service_name}
+                      className="w-full aspect-[4/3] object-cover"
+                      style={{ objectPosition: session.service_presentation.image_focal_point || 'center' }}
+                      onError={(event) => { event.currentTarget.style.display = 'none'; }}
+                    />
+                  )}
+                  <div className="p-4">
                   <div className="flex items-start justify-between mb-2">
                     <div>
                       <h3 className="font-medium text-white">{session.service_name}</h3>
@@ -507,7 +517,9 @@ export default function ClientPortalDashboard() {
                   <div className="flex items-center gap-4 text-sm text-zinc-400 mb-3">
                     <span className="flex items-center gap-1"><Calendar size={14} />{session.date}</span>
                     <span className="flex items-center gap-1"><Clock size={14} />{session.time}</span>
+                    {session.service_presentation?.duration && <span>{session.service_presentation.duration} min</span>}
                   </div>
+                  {session.service_presentation?.short_description && <p className="text-sm text-zinc-300 mb-3">{session.service_presentation.short_description}</p>}
                   <p className="text-xs text-zinc-500 mb-3">
                     {session.membership_covers
                       ? (session.membership_remaining != null ? `Cubierto por tu plan · ${session.membership_remaining} restantes este mes` : 'Cubierto por tu plan')
@@ -570,6 +582,7 @@ export default function ClientPortalDashboard() {
                       {bookingSessionId === session.class_session_id ? 'Reservando...' : 'Reservar cupo'}
                     </button>
                   )}
+                  </div>
                 </div>
               ))}
             </div>

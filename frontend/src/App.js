@@ -71,6 +71,11 @@ const StaffAppointments = lazy(() => import('./pages/StaffAppointments'));
 const AccountPrivacy = lazy(() => import('./pages/AccountPrivacy'));
 const ClientPortalAuth = lazy(() => import('./pages/ClientPortalAuth'));
 const ClientPortalDashboard = lazy(() => import('./pages/ClientPortalDashboard'));
+
+function LegacyClassesRedirect() {
+  const location = useLocation();
+  return <Navigate replace to={`/manager/services/classes${location.search}`} />;
+}
 const RescheduleAppointment = lazy(() => import('./pages/RescheduleAppointment'));
 const ForgotPin = lazy(() => import('./pages/ForgotPin'));
 const ResetPin = lazy(() => import('./pages/ResetPin'));
@@ -176,12 +181,21 @@ function AppRouter() {
           }
         />
 
-        {/* NEXUS_GROUP_SERVICES_V1 */}
+        {/* NEXUS_SERVICES_CLASSES_V1: las clases viven dentro de Servicios. */}
+        <Route
+          path="/manager/services/classes"
+          element={
+            <ProtectedRoute allowedRoles={['owner', 'manager', 'admin']}>
+              <ManagerClasses />
+            </ProtectedRoute>
+          }
+        />
+        {/* Alias compatible con enlaces históricos. */}
         <Route
           path="/manager/classes"
           element={
             <ProtectedRoute allowedRoles={['owner', 'manager', 'admin']}>
-              <ManagerClasses />
+              <LegacyClassesRedirect />
             </ProtectedRoute>
           }
         />

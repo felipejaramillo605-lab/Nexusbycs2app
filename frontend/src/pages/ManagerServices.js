@@ -3,7 +3,7 @@ import React, { useEffect, useState, useCallback } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { serviceAPI, organizationAPI, inventoryAPI } from '../api';
-import { Plus, Trash2, ArrowLeft, Scissors, Edit2, FlaskConical, AlertTriangle, ShieldCheck, X, ImagePlus, Users } from 'lucide-react';
+import { Plus, Trash2, ArrowLeft, Scissors, Edit2, FlaskConical, AlertTriangle, ShieldCheck, X, ImagePlus, Users, CalendarClock, Image as ImageIcon } from 'lucide-react';
 import { MANAGER } from '../constants/testIds';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '../components/ui/dialog';
 import { toast } from 'sonner';
@@ -27,6 +27,7 @@ const ManagerServices = () => {
   const [policy, setPolicy] = useState('WARNING');
   const [recipeSaving, setRecipeSaving] = useState(false);
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
+  const [uploadingPresentation, setUploadingPresentation] = useState('');
 
   // Get org_id from query param (for owner) or user.organization_id (for manager)
   const organizationId = (user?.role === 'owner' ? searchParams.get('org_id') : user?.organization_id) || user?.organization_id;
@@ -90,9 +91,16 @@ const ManagerServices = () => {
       duration: service.duration,
       price: service.price,
       photos: service.photos || [],
+      short_description: service.short_description || '',
+      image_alt: service.image_alt || '',
+      image_focal_point: service.image_focal_point || 'center',
+      cover_image_url: service.cover_image_url || service.photos?.[0] || '',
+      banner_image_url: service.banner_image_url || service.cover_image_url || service.photos?.[0] || '',
       service_type: service.service_type || 'individual',
       group_capacity: service.group_capacity || 8,
       drop_in_price: service.drop_in_price ?? '',
+      booking_window_days: service.booking_window_days ?? '',
+      cancellation_cutoff_hours: service.cancellation_cutoff_hours ?? '',
       spot_layout: (service.spot_layout || []).join(', ')
     });
     setIsEditDialogOpen(true);
@@ -112,6 +120,11 @@ const ManagerServices = () => {
         group_capacity: editingService.group_capacity,
         drop_in_price: editingService.drop_in_price === '' ? null : parseFloat(editingService.drop_in_price),
         spot_layout: editingService.spot_layout.trim() ? editingService.spot_layout.split(',').map(s => s.trim()).filter(Boolean) : null,
+        booking_window_days: editingService.booking_window_days === '' ? null : Number(editingService.booking_window_days),
+        cancellation_cutoff_hours: editingService.cancellation_cutoff_hours === '' ? null : Number(editingService.cancellation_cutoff_hours),
+        short_description: editingService.short_description.trim() || null,
+        image_alt: editingService.image_alt.trim() || null,
+        image_focal_point: editingService.image_focal_point || 'center',
       });
       setIsEditDialogOpen(false);
       setEditingService(null);
@@ -221,6 +234,24 @@ const ManagerServices = () => {
     }
   };
 
+  const handleUploadPresentationImage = async (slot, event) => {
+    const file = event.target.files?.[0];
+    if (!file || !editingService) return;
+    setUploadingPresentation(slot);
+    try {
+      const response = await serviceAPI.uploadPresentationImage(editingService.service_id, slot, file, { organization_id: organizationId });
+      const field = slot === 'cover' ? 'cover_image_url' : 'banner_image_url';
+      setEditingService(current => current?.service_id === editingService.service_id ? { ...current, [field]: response.data[field] } : current);
+      await loadServices();
+      toast.success(slot === 'cover' ? 'Portada actualizada' : 'Banner actualizado');
+    } catch (error) {
+      toast.error(error.response?.data?.detail || 'No fue posible subir la imagen');
+    } finally {
+      setUploadingPresentation('');
+      event.target.value = '';
+    }
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen nexus-screen flex items-center justify-center">
@@ -232,6 +263,11 @@ const ManagerServices = () => {
   return (
     <div className="min-h-screen nexus-screen p-6">
       <div className="max-w-6xl mx-auto">
+        <nav aria-label="Servicios" className="flex flex-wrap gap-3 mb-6">
+          <span aria-current="page">Catálogo</span>
+          <button onClick={() => navigate(`/manager/services/classes?org_id=${encodeURIComponent(organizationId || '')}`)}>Clases</button>
+          <button onClick={() => navigate(`/manager/services/classes?tab=plans&org_id=${encodeURIComponent(organizationId || '')}`)}>Membresías</button>
+        </nav>
         <div className="flex items-center justify-between mb-8">
           <div className="flex items-center gap-4">
             <button
@@ -300,6 +336,18 @@ const ManagerServices = () => {
                     onChange={(e) => setNewService({ ...newService, price: parseFloat(e.target.value) })}
                     className="w-full px-4 py-3 bg-transparent border border-[var(--app-border)] rounded-xl text-[var(--app-text-primary)] focus:border-[var(--app-primary)] focus:ring-1 focus:ring-[var(--app-primary)] outline-none"
                   />
+                </div>
+                <div>
+                  <label className="text-sm text-zinc-400 mb-2 block">Descripción breve</label>
+                  <textarea
+                    value={editingService.short_description}
+                    maxLength={280}
+                    rows={3}
+                    placeholder="Qué hace especial esta clase o servicio"
+                    onChange={(e) => setEditingService({ ...editingService, short_description: e.target.value })}
+                    className="w-full px-4 py-3 bg-transparent border border-[var(--app-border)] rounded-xl text-[var(--app-text-primary)] focus:border-[var(--app-primary)] focus:ring-1 focus:ring-[var(--app-primary)] outline-none resize-none"
+                  />
+                  <p className="text-xs text-zinc-500 mt-1">Se muestra al descubrir una clase. Máximo 280 caracteres.</p>
                 </div>
                 {/* NEXUS_GROUP_SERVICES_V1 */}
                 <div>
@@ -445,6 +493,32 @@ const ManagerServices = () => {
                   </div>
                 )}
                 {editingService.service_type === 'group' && (
+                  <div className="space-y-3 rounded-2xl border border-[var(--app-border)] p-4 bg-white/[0.02]">
+                    <div className="flex items-center gap-2 text-[var(--app-text-primary)]"><ImageIcon size={18} /><span className="font-medium">Presentación de la clase</span></div>
+                    <p className="text-xs text-zinc-400">Usa una portada 4:3 para el catálogo y un banner horizontal para el detalle. La imagen se optimiza automáticamente.</p>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      {[['cover', 'Portada', editingService.cover_image_url], ['banner', 'Banner', editingService.banner_image_url]].map(([slot, label, url]) => (
+                        <label key={slot} className="relative overflow-hidden min-h-32 rounded-xl border border-dashed border-[var(--app-border)] cursor-pointer focus-within:ring-2 focus-within:ring-[var(--app-primary)] hover:border-[var(--app-primary)] transition-colors">
+                          {url ? <img src={url} alt="" className="absolute inset-0 w-full h-full object-cover opacity-60" /> : null}
+                          <span className="relative min-h-32 p-3 flex flex-col justify-end bg-gradient-to-t from-black/80 to-transparent text-white">
+                            <strong className="text-sm">{uploadingPresentation === slot ? 'Subiendo…' : label}</strong>
+                            <small className="text-xs text-white/80">{url ? 'Reemplazar imagen' : 'Seleccionar imagen'}</small>
+                          </span>
+                          <input type="file" accept="image/*" className="sr-only" disabled={!!uploadingPresentation} onChange={(event) => handleUploadPresentationImage(slot, event)} />
+                        </label>
+                      ))}
+                    </div>
+                    <label className="text-sm text-zinc-400 block">Texto alternativo
+                      <input value={editingService.image_alt} maxLength={180} placeholder={editingService.name} onChange={(e) => setEditingService({ ...editingService, image_alt: e.target.value })} className="w-full mt-2 px-3 py-2 bg-transparent border border-[var(--app-border)] rounded-xl text-[var(--app-text-primary)] outline-none focus:border-[var(--app-primary)]" />
+                    </label>
+                    <label className="text-sm text-zinc-400 block">Punto focal
+                      <select value={editingService.image_focal_point} onChange={(e) => setEditingService({ ...editingService, image_focal_point: e.target.value })} className="w-full mt-2 px-3 py-2 bg-[var(--app-surface)] border border-[var(--app-border)] rounded-xl text-[var(--app-text-primary)] outline-none focus:border-[var(--app-primary)]">
+                        <option value="center">Centro</option><option value="top">Parte superior</option><option value="bottom">Parte inferior</option>
+                      </select>
+                    </label>
+                  </div>
+                )}
+                {editingService.service_type === 'group' && (
                   <div>
                     <label className="text-sm text-zinc-400 mb-2 block">Precio del día (opcional)</label>
                     <input
@@ -472,7 +546,17 @@ const ManagerServices = () => {
                     <p className="text-xs text-zinc-500 mt-1.5">Separados por coma. Si los defines, el cliente elige un spot al reservar. Vacío = sin selección de spot.</p>
                   </div>
                 )}
+                {editingService.service_type === 'group' && (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {[['booking_window_days', 'Anticipación máxima (días)'], ['cancellation_cutoff_hours', 'Límite para cancelar (horas)']].map(([field, label]) => (
+                      <label key={field} className="text-sm text-zinc-400">{label}
+                        <input type="number" min={field === 'booking_window_days' ? 1 : 0} step="1" value={editingService[field]} placeholder="Predeterminado" onChange={e => setEditingService({ ...editingService, [field]: e.target.value })} className="w-full mt-2 px-3 py-2 bg-transparent border border-[var(--app-border)] rounded-xl" />
+                      </label>
+                    ))}
+                  </div>
+                )}
                 <button
+                  disabled={!!uploadingPresentation || uploadingPhoto}
                   onClick={handleUpdate}
                   className="w-full px-6 py-3 bg-[var(--app-primary)] hover:bg-[var(--app-primary-hover)] text-[var(--app-text-primary)] rounded-xl font-medium transition-all"
                 >
@@ -558,6 +642,16 @@ const ManagerServices = () => {
                 <span className="text-zinc-400">{service.duration} min</span>
                 <span className="text-[var(--app-primary)] font-medium text-lg">${service.price}</span>
               </div>
+              {service.service_type === 'group' && (
+                <div><button
+                  type="button"
+                  onClick={() => navigate(`/manager/services/classes?service_id=${encodeURIComponent(service.service_id)}${organizationId ? `&org_id=${encodeURIComponent(organizationId)}` : ''}`)}
+                  className="mt-4 w-full inline-flex items-center justify-center gap-2 rounded-xl border border-[var(--app-primary)]/40 px-3 py-2 text-sm text-[var(--app-primary)] hover:bg-[var(--app-primary)]/10 transition-colors"
+                >
+                  <CalendarClock size={16} /> Programar sesión
+                </button>
+                <button type="button" onClick={() => navigate(`/manager/services/classes?tab=recurring&service_id=${encodeURIComponent(service.service_id)}&org_id=${encodeURIComponent(organizationId || '')}`)} className="mt-2 w-full text-sm text-[var(--app-primary)]">Crear horario recurrente</button></div>
+              )}
             </div>
           ))}
         </div>

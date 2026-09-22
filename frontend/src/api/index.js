@@ -130,6 +130,7 @@ export const serviceAPI = {
   // NEXUS_SERVICE_PHOTOS_V1
   uploadPhoto: (id, file, params={}) => { const fd = new FormData(); fd.append('file', file); return api.post(`/services/${id}/photos`, fd, { params, headers: { 'Content-Type': 'multipart/form-data' } }); },
   deletePhoto: (id, index, params={}) => api.delete(`/services/${id}/photos/${index}`, { params }),
+  uploadPresentationImage: (id, slot, file, params={}) => { const fd = new FormData(); fd.append('file', file); return api.post(`/services/${id}/presentation/${slot}`, fd, { params, headers: { 'Content-Type': 'multipart/form-data' } }); },
 };
 
 // NEXUS_GROUP_SERVICES_V1
