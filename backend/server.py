@@ -3950,6 +3950,15 @@ async def checkout_class_booking(
         raise HTTPException(403, "Access denied")
     if booking.get("transaction_id"):
         raise HTTPException(409, "This booking has already been charged")
+    if booking.get("payment_method") == "membership":
+        # NEXUS_GROUP_SERVICES_MEMBERSHIPS_V1 assumed a membership-covered
+        # booking never reaches this manual checkout (it stays "confirmed"
+        # with no transaction because it was already paid for when the plan
+        # was purchased) -- but that was only ever enforced by hiding the
+        # "Cobrar" button in the UI (PR #15). A direct call from an
+        # authorized manager could still charge it again. Reject in the
+        # backend, not just in the button.
+        raise HTTPException(409, "This booking is already covered by a membership")
     if data.payment_method not in CHECKOUT_PAYMENT_METHODS:
         raise HTTPException(400, "Unsupported payment method")
     if data.discount_amount < 0 or data.tip_amount < 0:
