@@ -3742,12 +3742,18 @@ async def book_class_session(org_id: str, class_session_id: str, data: ClassBook
 # automáticamente a quien lleve más tiempo en la lista de espera.
 
 
-def _is_late_cancellation(session: dict, service: Optional[dict]) -> bool:
+def _is_late_cancellation(session: dict, service: Optional[dict], tz: ZoneInfo) -> bool:
+    # NEXUS_LATE_CANCELLATION_ORG_TZ_FIX: session.date/time are the business's
+    # local wall-clock hours (that's what the manager sees/sets on the
+    # calendar), not UTC. Interpreting them as UTC made a class look "late to
+    # cancel" hours before the real local cutoff for any organization west of
+    # UTC (e.g. Bogota, UTC-5) -- a client could be denied a refund that was
+    # still legitimately due.
     cutoff_hours = (service or {}).get("cancellation_cutoff_hours")
     if not cutoff_hours:
         return False
     try:
-        session_dt = datetime.strptime(f"{session['date']} {session['time']}", "%Y-%m-%d %H:%M").replace(tzinfo=timezone.utc)
+        session_dt = datetime.strptime(f"{session['date']} {session['time']}", "%Y-%m-%d %H:%M").replace(tzinfo=tz)
     except Exception:
         return False
     return datetime.now(timezone.utc) > session_dt - timedelta(hours=cutoff_hours)
@@ -3868,7 +3874,11 @@ async def _promote_from_waitlist(db, session: dict):
 async def _perform_class_booking_cancel(db, booking: dict) -> dict:
     session = await db.class_sessions.find_one({"class_session_id": booking["class_session_id"]}, {"_id": 0})
     service = await db.services.find_one({"service_id": session["service_id"]}, {"_id": 0}) if session else None
-    late = _is_late_cancellation(session, service) if session else False
+    late = False
+    if session:
+        organization = await db.organizations.find_one({"organization_id": booking["organization_id"]}, {"_id": 0})
+        _, tz = _organization_timezone(organization)
+        late = _is_late_cancellation(session, service, tz)
 
     # Atomic, conditioned transition: only a request that actually flips this
     # booking confirmed -> cancelled may release its cupo, refund membership
