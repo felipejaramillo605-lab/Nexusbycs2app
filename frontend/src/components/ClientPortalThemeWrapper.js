@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useCallback } from 'react';
+import React, { useEffect, useMemo, useRef, useCallback, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { useOrganization } from '../context/OrganizationContext';
 import { CLIENT_PORTAL_THEMES, getThemeColors } from '../constants/clientPortalThemes';
@@ -15,6 +15,16 @@ export const ClientPortalThemeWrapper = ({ children }) => {
   const { orgId } = useParams();
   const { organization, loadOrganization } = useOrganization();
   const wrapperRef = useRef(null);
+  const [backgroundFailed, setBackgroundFailed] = useState(false);
+  const [reduceMotion, setReduceMotion] = useState(() => window.matchMedia?.('(prefers-reduced-motion: reduce)').matches || false);
+
+  useEffect(() => {
+    const query = window.matchMedia?.('(prefers-reduced-motion: reduce)');
+    if (!query) return undefined;
+    const update = () => setReduceMotion(query.matches);
+    query.addEventListener('change', update);
+    return () => query.removeEventListener('change', update);
+  }, []);
 
   // NEXUS_CLIENT_THEME_STALE_CACHE_FIX_V1: OrganizationContext is a single
   // provider mounted once for the whole app (see App.js), so its state
@@ -36,6 +46,12 @@ export const ClientPortalThemeWrapper = ({ children }) => {
     ? organization.client_portal_theme
     : 'classic';
   const theme = getThemeColors(themeKey);
+  const backgroundType = organization?.organization_id === orgId ? organization?.portal_background_type : 'none';
+  const backgroundUrl = organization?.organization_id === orgId ? organization?.portal_background_url : null;
+  const backgroundOverlay = organization?.portal_background_overlay || 'dark';
+  const showBackground = !backgroundFailed && backgroundUrl && (backgroundType === 'image' || backgroundType === 'video');
+
+  useEffect(() => { setBackgroundFailed(false); }, [backgroundUrl, backgroundType]);
 
   // NEXUS_ORG_BRANDING_EVERYWHERE_V1: swap the browser tab icon to this
   // org's own logo while a visitor is on their booking/portal pages, and
@@ -136,6 +152,10 @@ export const ClientPortalThemeWrapper = ({ children }) => {
       style={themeVariables}
       onMouseMove={handleMouseMove}
     >
+      {showBackground && <div aria-hidden="true" className="fixed inset-0 -z-10 overflow-hidden bg-[var(--app-background)]">
+        {backgroundType === 'video' ? <video className="h-full w-full object-cover" src={backgroundUrl} autoPlay={!reduceMotion} muted loop={!reduceMotion} playsInline preload="metadata" onError={() => setBackgroundFailed(true)} /> : <img className="h-full w-full object-cover" src={backgroundUrl} alt="" onError={() => setBackgroundFailed(true)} />}
+        <div className={`absolute inset-0 ${backgroundOverlay === 'dark' ? 'bg-black/65' : backgroundOverlay === 'light' ? 'bg-white/30' : ''}`} />
+      </div>}
       <OnboardingTour role="client" />
       {children}
     </div>

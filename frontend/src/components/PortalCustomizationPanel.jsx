@@ -1,6 +1,6 @@
 // NEXUS_PORTAL_PERSONALIZATION_V1
 import React, { useEffect, useState } from 'react';
-import { Image, MessageSquare, Save, Users, Tag, Clock, MapPin, ShoppingBag } from 'lucide-react';
+import { Image, MessageSquare, Save, Users, Tag, Clock, MapPin, ShoppingBag, Film, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { organizationAPI } from '../api';
 
@@ -21,8 +21,12 @@ export default function PortalCustomizationPanel({ organizationId, initial, onSa
     portal_show_hours: true,
     portal_show_map: false,
     catalog_enabled: false,
+    portal_background_type: 'none',
+    portal_background_url: '',
+    portal_background_overlay: 'dark',
   });
   const [saving, setSaving] = useState(false);
+  const [uploadingBackground, setUploadingBackground] = useState(false);
 
   useEffect(() => {
     if (!initial) return;
@@ -35,6 +39,9 @@ export default function PortalCustomizationPanel({ organizationId, initial, onSa
       portal_show_hours: initial.portal_show_hours ?? true,
       portal_show_map: initial.portal_show_map ?? false,
       catalog_enabled: initial.catalog_enabled ?? false,
+      portal_background_type: initial.portal_background_type || 'none',
+      portal_background_url: initial.portal_background_url || '',
+      portal_background_overlay: initial.portal_background_overlay || 'dark',
     }));
   }, [initial]);
 
@@ -51,6 +58,8 @@ export default function PortalCustomizationPanel({ organizationId, initial, onSa
         portal_show_hours: form.portal_show_hours,
         portal_show_map: form.portal_show_map,
         catalog_enabled: form.catalog_enabled,
+        portal_background_type: form.portal_background_type,
+        portal_background_overlay: form.portal_background_overlay,
       };
       const response = await organizationAPI.update(organizationId, payload);
       toast.success('Portal personalizado guardado');
@@ -60,6 +69,26 @@ export default function PortalCustomizationPanel({ organizationId, initial, onSa
     } finally {
       setSaving(false);
     }
+  };
+
+  const uploadBackground = async (file) => {
+    if (!file || !organizationId) return;
+    setUploadingBackground(true);
+    try {
+      const response = await organizationAPI.uploadPortalBackground(organizationId, file);
+      setForm(current => ({ ...current, ...response.data }));
+      toast.success('Fondo del portal actualizado');
+      onSaved?.(response.data);
+    } catch (err) { toast.error(err.response?.data?.detail || 'No fue posible subir el fondo'); }
+    finally { setUploadingBackground(false); }
+  };
+
+  const removeBackground = async () => {
+    try {
+      const response = await organizationAPI.deletePortalBackground(organizationId);
+      setForm(current => ({ ...current, ...response.data }));
+      onSaved?.(response.data);
+    } catch (err) { toast.error(err.response?.data?.detail || 'No fue posible eliminar el fondo'); }
   };
 
   return (
@@ -117,6 +146,20 @@ export default function PortalCustomizationPanel({ organizationId, initial, onSa
           />
           <span className="block text-right text-xs text-[var(--app-text-secondary)]">{form.portal_welcome_message.length}/280</span>
         </label>
+
+        <section className="rounded-xl border border-[var(--app-border)] p-4 space-y-3">
+          <div className="flex items-center gap-2 text-sm font-medium text-[var(--app-text-primary)]"><Film size={15}/>Fondo del portal</div>
+          <p className="text-xs text-[var(--app-text-secondary)]">Clásico conserva el gradiente. Cinemático permite imagen o video corto; Editorial usa una imagen con overlay sutil.</p>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+            {[['none','Clásico'],['cinematic','Cinemático'],['editorial','Editorial']].map(([preset,label]) => <button key={preset} type="button" onClick={() => setForm(current => ({ ...current, portal_background_type: preset === 'none' ? 'none' : current.portal_background_type === 'video' && preset === 'cinematic' ? 'video' : 'image', portal_background_overlay: preset === 'cinematic' ? 'dark' : preset === 'editorial' ? 'light' : 'dark' }))} className={`rounded-lg border px-3 py-2 text-sm ${((preset === 'none' && form.portal_background_type === 'none') || (preset !== 'none' && form.portal_background_type !== 'none')) ? 'border-[var(--app-primary)]' : 'border-[var(--app-border)]'}`}>{label}</button>)}
+          </div>
+          {form.portal_background_type !== 'none' && <>
+            <label className="block text-sm text-[var(--app-text-primary)]">Sube una imagen (máx. 5 MB) o video MP4/WebM de hasta 15 segundos y 20 MB<input type="file" accept="image/jpeg,image/png,image/webp,image/heic,video/mp4,video/webm" disabled={uploadingBackground} onChange={e => uploadBackground(e.target.files?.[0])} className="mt-2 block w-full text-xs" /></label>
+            <label className="block text-sm text-[var(--app-text-primary)]">Overlay<select value={form.portal_background_overlay} onChange={e => setForm(current => ({...current, portal_background_overlay:e.target.value}))} className="ml-2 rounded border border-[var(--app-border)] bg-transparent p-1 text-sm"><option value="dark">Oscuro</option><option value="light">Claro</option><option value="none">Sin overlay</option></select></label>
+            {form.portal_background_url && <div className="relative h-28 overflow-hidden rounded-lg border border-[var(--app-border)]">{form.portal_background_type === 'video' ? <video src={form.portal_background_url} muted controls className="h-full w-full object-cover"/> : <img src={form.portal_background_url} alt="Vista previa del fondo" className="h-full w-full object-cover"/>}</div>}
+          </>}
+          {form.portal_background_url && <button type="button" onClick={removeBackground} className="inline-flex items-center gap-2 text-xs text-red-400"><Trash2 size={14}/>Quitar fondo</button>}
+        </section>
 
         <div>
           <span className="text-sm font-medium text-[var(--app-text-primary)]">Qué mostrar en el portal</span>
