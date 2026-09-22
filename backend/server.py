@@ -51,7 +51,7 @@ from owner_billing_hub import (
 )
 from owner_subscription_lifecycle import ensure_lifecycle_indexes, enforce_subscription_access
 from owner_subscription_lifecycle_api import build_lifecycle_router
-from request_security import TRUSTED_ORIGINS, enforce_request_security, refresh_trusted_origins
+from request_security import TRUSTED_ORIGINS, enforce_request_security, rate_limiter, refresh_trusted_origins
 from security_observability import (
     configure_security_observability,
     ensure_security_observability_indexes,
@@ -3688,6 +3688,28 @@ async def _upsert_public_client(db, org_id: str, phone: str, name: str, email: O
     return client_id
 
 
+# A guest flow still accepts a phone number without an OTP.  Until a stronger
+# proof of possession is introduced, bound writes by the normalized phone and
+# organization as well as by the existing IP limit.  Hashing keeps the number
+# out of the rate-limiter's in-memory keys and related observability metadata.
+GUEST_CLASS_PHONE_LIMIT = 5
+GUEST_CLASS_PHONE_WINDOW_SECONDS = 3600
+
+
+def _guest_class_phone_rate_limit_key(org_id: str, phone: str) -> str:
+    digest = hashlib.sha256(f"{org_id}\0{phone}".encode("utf-8")).hexdigest()
+    return f"guest-class-phone:{digest}"
+
+
+async def _enforce_guest_class_phone_rate_limit(org_id: str, phone: str, request: Request) -> None:
+    await rate_limiter.check(
+        _guest_class_phone_rate_limit_key(org_id, phone),
+        GUEST_CLASS_PHONE_LIMIT,
+        GUEST_CLASS_PHONE_WINDOW_SECONDS,
+        request=request,
+    )
+
+
 @api_router.post("/public/{org_id}/class-sessions/{class_session_id}/book", tags=["public-booking"])
 @limiter.limit("10/hour")
 async def book_class_session(org_id: str, class_session_id: str, data: ClassBookingCreate, request: Request):
@@ -3705,6 +3727,7 @@ async def book_class_session(org_id: str, class_session_id: str, data: ClassBook
             raise HTTPException(status_code=409, detail="This class is not open for booking yet")
 
     phone = sanitize_phone(data.client_phone)
+    await _enforce_guest_class_phone_rate_limit(org_id, phone, request)
 
     # NEXUS_GROUP_SERVICES_V1: incremento atómico condicionado a cupo
     # disponible -- misma técnica que reserve_cart_items usa para inventario,
@@ -3946,6 +3969,7 @@ async def join_class_waitlist(org_id: str, class_session_id: str, data: ClassWai
         raise HTTPException(status_code=409, detail="This class still has open spots -- book directly instead")
 
     phone = sanitize_phone(data.client_phone)
+    await _enforce_guest_class_phone_rate_limit(org_id, phone, request)
     client_id = await _upsert_public_client(db, org_id, phone, data.client_name, data.client_email, data.marketing_consent, request)
     entry = {
         "waitlist_id": f"wl_{uuid.uuid4().hex[:12]}",
