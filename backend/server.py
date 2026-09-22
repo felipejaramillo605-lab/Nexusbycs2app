@@ -2885,13 +2885,44 @@ async def update_organization_profile(
     return updated_org
 
 
+
+# NEXUS_PUBLIC_ORG_PROJECTION_V1: a true whitelist turned out unsafe here --
+# Settings.js and BusinessProfile.js (manager-only pages, but both gated by
+# their own auth, not by this endpoint) both call this exact public route to
+# populate the manager's own settings form, and read notification_settings,
+# loyalty_settings and review_request_settings from it. Excluding those would
+# have silently broken the low-stock-alert, loyalty and review-request
+# sections of Settings.js. The real fix is migrating those two pages onto an
+# authenticated organization fetch -- out of scope for this finding. Until
+# then, exclude only the fields nothing in the frontend reads from this
+# endpoint: owner_id (the concrete example the audit called out) and the two
+# platform-entitlement flags.
+PUBLIC_ORGANIZATION_EXCLUDED_FIELDS = {
+    "_id": 0,
+    "owner_id": 0,
+    "created_at": 0,
+    "nexus_ai_contracted": 0,
+    "nexus_ai_enabled": 0,
+}
+
+
 @api_router.get("/public/{organization_id}/organization", tags=["public-booking"])
 async def get_organization_public(organization_id: str):
     """Get organization details (public endpoint for booking flow)"""
-    org = await db.organizations.find_one({"organization_id": organization_id}, {"_id": 0})
+    org = await db.organizations.find_one({"organization_id": organization_id}, PUBLIC_ORGANIZATION_EXCLUDED_FIELDS)
     if not org:
         raise HTTPException(status_code=404, detail="Organization not found")
     return org
+
+
+def _public_client_view(client: dict) -> dict:
+    """Minimal, explicit whitelist for an unauthenticated response.
+
+    This endpoint has no session and no PIN -- phone + organization_id is the
+    entire "auth". A blacklist (exclude pin_hash, etc.) would silently leak
+    any future field added to Client; a whitelist can't.
+    """
+    return {key: client.get(key) for key in ("client_id", "name", "phone", "total_visits", "last_visit")}
 
 
 @api_router.post("/public/auth/passwordless", tags=["public-auth"])
@@ -2917,7 +2948,11 @@ async def passwordless_login(data: PasswordlessLoginRequest, request: Request):
             )
             client["accepts_marketing"] = True
 
-        return {"status": "existing", "client": client, "message": f"Bienvenido de nuevo, {client['name']}!"}
+        return {
+            "status": "existing",
+            "client": _public_client_view(client),
+            "message": f"Bienvenido de nuevo, {client['name']}!",
+        }
     else:
         # New client - require name
         if not data.name or not data.name.strip():
@@ -2947,11 +2982,10 @@ async def passwordless_login(data: PasswordlessLoginRequest, request: Request):
         }
 
         await db.clients.insert_one(new_client)
-        new_client.pop("_id", None)  # Remove MongoDB _id before returning
 
         return {
             "status": "new",
-            "client": new_client,
+            "client": _public_client_view(new_client),
             "message": f"¡Bienvenido, {new_client['name']}! Tu cuenta ha sido creada.",
         }
 
@@ -3741,12 +3775,18 @@ async def book_class_session(org_id: str, class_session_id: str, data: ClassBook
 # automáticamente a quien lleve más tiempo en la lista de espera.
 
 
-def _is_late_cancellation(session: dict, service: Optional[dict]) -> bool:
+def _is_late_cancellation(session: dict, service: Optional[dict], tz: ZoneInfo) -> bool:
+    # NEXUS_LATE_CANCELLATION_ORG_TZ_FIX: session.date/time are the business's
+    # local wall-clock hours (that's what the manager sees/sets on the
+    # calendar), not UTC. Interpreting them as UTC made a class look "late to
+    # cancel" hours before the real local cutoff for any organization west of
+    # UTC (e.g. Bogota, UTC-5) -- a client could be denied a refund that was
+    # still legitimately due.
     cutoff_hours = (service or {}).get("cancellation_cutoff_hours")
     if not cutoff_hours:
         return False
     try:
-        session_dt = datetime.strptime(f"{session['date']} {session['time']}", "%Y-%m-%d %H:%M").replace(tzinfo=timezone.utc)
+        session_dt = datetime.strptime(f"{session['date']} {session['time']}", "%Y-%m-%d %H:%M").replace(tzinfo=tz)
     except Exception:
         return False
     return datetime.now(timezone.utc) > session_dt - timedelta(hours=cutoff_hours)
@@ -3867,11 +3907,25 @@ async def _promote_from_waitlist(db, session: dict):
 async def _perform_class_booking_cancel(db, booking: dict) -> dict:
     session = await db.class_sessions.find_one({"class_session_id": booking["class_session_id"]}, {"_id": 0})
     service = await db.services.find_one({"service_id": session["service_id"]}, {"_id": 0}) if session else None
-    late = _is_late_cancellation(session, service) if session else False
+    late = False
+    if session:
+        organization = await db.organizations.find_one({"organization_id": booking["organization_id"]}, {"_id": 0})
+        _, tz = _organization_timezone(organization)
+        late = _is_late_cancellation(session, service, tz)
 
-    await db.class_bookings.update_one(
-        {"class_booking_id": booking["class_booking_id"]}, {"$set": {"status": "cancelled", "cancelled_late": late}}
+    # Atomic, conditioned transition: only a request that actually flips this
+    # booking confirmed -> cancelled may release its cupo, refund membership
+    # usage, or promote the waitlist. Two concurrent cancel calls for the same
+    # booking previously both fell through to those effects (no filter on the
+    # prior status, no check on modified_count), releasing/refunding twice for
+    # a single cancellation.
+    result = await db.class_bookings.update_one(
+        {"class_booking_id": booking["class_booking_id"], "status": "confirmed"},
+        {"$set": {"status": "cancelled", "cancelled_late": late}},
     )
+    if result.modified_count == 0:
+        return {"message": "Booking already cancelled", "cancelled_late": late}
+
     await db.class_sessions.update_one(
         {"class_session_id": booking["class_session_id"], "booked_count": {"$gt": 0}}, {"$inc": {"booked_count": -1}}
     )
@@ -3924,8 +3978,22 @@ async def join_class_waitlist(org_id: str, class_session_id: str, data: ClassWai
     return entry
 
 
+class GuestPhoneVerify(BaseModel):
+    # NEXUS_GUEST_MUTATION_AUTHZ_V1: neither of these two guest routes has a
+    # session -- the opaque id alone used to be the entire "authorization".
+    # Requiring the same phone number the guest gave when booking/joining
+    # closes that gap without removing the no-PIN guest flow (these ids
+    # aren't brute-forceable, but they can leak via a forwarded confirmation).
+    client_phone: str = Field(..., max_length=32)
+
+
 @api_router.post("/public/waitlist/{waitlist_id}/leave", tags=["public-booking"])
-async def leave_class_waitlist(waitlist_id: str):
+async def leave_class_waitlist(waitlist_id: str, data: GuestPhoneVerify):
+    entry = await db.class_waitlist.find_one({"waitlist_id": waitlist_id, "status": "waiting"}, {"_id": 0})
+    if not entry:
+        raise HTTPException(status_code=404, detail="Waitlist entry not found")
+    if sanitize_phone(data.client_phone) != entry.get("client_phone"):
+        raise HTTPException(status_code=403, detail="Access denied")
     result = await db.class_waitlist.update_one({"waitlist_id": waitlist_id, "status": "waiting"}, {"$set": {"status": "left"}})
     if result.modified_count == 0:
         raise HTTPException(status_code=404, detail="Waitlist entry not found")
@@ -3933,10 +4001,12 @@ async def leave_class_waitlist(waitlist_id: str):
 
 
 @api_router.post("/public/class-bookings/{class_booking_id}/cancel", tags=["public-booking"])
-async def cancel_class_booking(class_booking_id: str):
+async def cancel_class_booking(class_booking_id: str, data: GuestPhoneVerify):
     booking = await db.class_bookings.find_one({"class_booking_id": class_booking_id, "status": "confirmed"}, {"_id": 0})
     if not booking:
         raise HTTPException(status_code=404, detail="Booking not found")
+    if sanitize_phone(data.client_phone) != booking.get("client_phone"):
+        raise HTTPException(status_code=403, detail="Access denied")
     return await _perform_class_booking_cancel(db, booking)
 
 
@@ -3962,6 +4032,15 @@ async def checkout_class_booking(
         raise HTTPException(403, "Access denied")
     if booking.get("transaction_id"):
         raise HTTPException(409, "This booking has already been charged")
+    if booking.get("payment_method") == "membership":
+        # NEXUS_GROUP_SERVICES_MEMBERSHIPS_V1 assumed a membership-covered
+        # booking never reaches this manual checkout (it stays "confirmed"
+        # with no transaction because it was already paid for when the plan
+        # was purchased) -- but that was only ever enforced by hiding the
+        # "Cobrar" button in the UI (PR #15). A direct call from an
+        # authorized manager could still charge it again. Reject in the
+        # backend, not just in the button.
+        raise HTTPException(409, "This booking is already covered by a membership")
     if data.payment_method not in CHECKOUT_PAYMENT_METHODS:
         raise HTTPException(400, "Unsupported payment method")
     if data.discount_amount < 0 or data.tip_amount < 0:
@@ -8965,7 +9044,7 @@ api_router.include_router(
     tags=["catalog"],
 )
 # NEXUS_PRODUCT_CATALOG_V11_CHECKOUT_REGISTRATION
-api_router.include_router(build_catalog_checkout_router(db, get_current_user), tags=["catalog"])
+api_router.include_router(build_catalog_checkout_router(db, get_current_user, limiter), tags=["catalog"])
 
 app.include_router(api_router)
 

@@ -9,7 +9,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
 
-from fastapi import APIRouter, Cookie, File, Header, HTTPException, Query, UploadFile
+from fastapi import APIRouter, Cookie, File, Header, HTTPException, Query, Request, UploadFile
 from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
 
@@ -59,7 +59,7 @@ def _write_catalog_image(organization_id: str, payload: bytes) -> str:
 def _delete_catalog_image(url: str | None):
     if not url or not url.startswith(PUBLIC_PREFIX + "/"):
         return
-    parts = url[len(PUBLIC_PREFIX) + 1:].split("/")
+    parts = url[len(PUBLIC_PREFIX) + 1 :].split("/")
     if len(parts) == 2 and SAFE_ORG.fullmatch(parts[0]) and SAFE_FILE.fullmatch(parts[1]):
         _safe_catalog_path(parts[0], parts[1]).unlink(missing_ok=True)
 
@@ -117,7 +117,10 @@ def build_product_catalog_router(db, get_current_user, require_management_role, 
             raise HTTPException(400, "Prices, stock and minimum stock cannot be negative")
 
         if data.supplier_id:
-            supplier = await db.suppliers.find_one({"organization_id": org_id, "supplier_id": data.supplier_id, "active": True}, {"_id": 0, "supplier_id": 1})
+            supplier = await db.suppliers.find_one(
+                {"organization_id": org_id, "supplier_id": data.supplier_id, "active": True},
+                {"_id": 0, "supplier_id": 1},
+            )
             if not supplier:
                 raise HTTPException(404, "Supplier not found or inactive")
 
@@ -171,7 +174,10 @@ def build_product_catalog_router(db, get_current_user, require_management_role, 
         if not doc:
             raise HTTPException(404, "Product not found")
         if doc.get("supplier_id"):
-            supplier = await db.suppliers.find_one({"organization_id": org_id, "supplier_id": doc["supplier_id"]}, {"_id": 0, "business_name": 1, "supplier_id": 1})
+            supplier = await db.suppliers.find_one(
+                {"organization_id": org_id, "supplier_id": doc["supplier_id"]},
+                {"_id": 0, "business_name": 1, "supplier_id": 1},
+            )
             doc["supplier"] = supplier
         return doc
 
@@ -209,7 +215,10 @@ def build_product_catalog_router(db, get_current_user, require_management_role, 
             updates["min_stock"] = round(float(data.min_stock), 4)
         if data.supplier_id is not None:
             if data.supplier_id:
-                supplier = await db.suppliers.find_one({"organization_id": org_id, "supplier_id": data.supplier_id, "active": True}, {"_id": 0, "supplier_id": 1})
+                supplier = await db.suppliers.find_one(
+                    {"organization_id": org_id, "supplier_id": data.supplier_id, "active": True},
+                    {"_id": 0, "supplier_id": 1},
+                )
                 if not supplier:
                     raise HTTPException(404, "Supplier not found or inactive")
             updates["supplier_id"] = data.supplier_id or None
@@ -266,7 +275,9 @@ def build_product_catalog_router(db, get_current_user, require_management_role, 
         session_token: Optional[str] = Cookie(None),
     ):
         user, org_id = await mgmt_org(authorization, session_token, organization_id)
-        doc = await db.catalog_products.find_one({"organization_id": org_id, "product_id": product_id, "active": {"$ne": False}}, {"_id": 0})
+        doc = await db.catalog_products.find_one(
+            {"organization_id": org_id, "product_id": product_id, "active": {"$ne": False}}, {"_id": 0}
+        )
         if not doc:
             raise HTTPException(404, "Product not found")
         photos = doc.get("photos") or []
@@ -291,7 +302,9 @@ def build_product_catalog_router(db, get_current_user, require_management_role, 
         session_token: Optional[str] = Cookie(None),
     ):
         user, org_id = await mgmt_org(authorization, session_token, organization_id)
-        doc = await db.catalog_products.find_one({"organization_id": org_id, "product_id": product_id, "active": {"$ne": False}}, {"_id": 0})
+        doc = await db.catalog_products.find_one(
+            {"organization_id": org_id, "product_id": product_id, "active": {"$ne": False}}, {"_id": 0}
+        )
         if not doc:
             raise HTTPException(404, "Product not found")
         photos = doc.get("photos") or []
@@ -315,7 +328,9 @@ def build_product_catalog_router(db, get_current_user, require_management_role, 
         session_token: Optional[str] = Cookie(None),
     ):
         user, org_id = await mgmt_org(authorization, session_token, organization_id)
-        doc = await db.catalog_products.find_one({"organization_id": org_id, "product_id": product_id, "active": {"$ne": False}}, {"_id": 0})
+        doc = await db.catalog_products.find_one(
+            {"organization_id": org_id, "product_id": product_id, "active": {"$ne": False}}, {"_id": 0}
+        )
         if not doc:
             raise HTTPException(404, "Product not found")
         photos = doc.get("photos") or []
@@ -341,7 +356,9 @@ def build_product_catalog_router(db, get_current_user, require_management_role, 
         session_token: Optional[str] = Cookie(None),
     ):
         user, org_id = await mgmt_org(authorization, session_token, organization_id)
-        doc = await db.catalog_products.find_one({"organization_id": org_id, "product_id": product_id, "active": {"$ne": False}}, {"_id": 0})
+        doc = await db.catalog_products.find_one(
+            {"organization_id": org_id, "product_id": product_id, "active": {"$ne": False}}, {"_id": 0}
+        )
         if not doc:
             raise HTTPException(404, "Product not found")
         previous = round(float(doc.get("quantity", 0)), 4)
@@ -376,10 +393,14 @@ def build_product_catalog_router(db, get_current_user, require_management_role, 
         org = await db.organizations.find_one({"organization_id": organization_id}, {"_id": 0, "catalog_enabled": 1})
         if not org or not org.get("catalog_enabled"):
             raise HTTPException(404, "Catalog is not available")
-        rows = await db.catalog_products.find(
-            {"organization_id": organization_id, "active": True, "published": True},
-            {"_id": 0, "unit_cost": 0, "supplier_id": 0, "created_by": 0, "min_stock": 0},
-        ).sort([("name", 1)]).to_list(10000)
+        rows = (
+            await db.catalog_products.find(
+                {"organization_id": organization_id, "active": True, "published": True},
+                {"_id": 0, "unit_cost": 0, "supplier_id": 0, "created_by": 0, "min_stock": 0},
+            )
+            .sort([("name", 1)])
+            .to_list(10000)
+        )
         for r in rows:
             r["in_stock"] = float(r.get("quantity", 0)) > 0
         return rows
@@ -405,24 +426,31 @@ def build_product_catalog_router(db, get_current_user, require_management_role, 
         path = _safe_catalog_path(organization_id, filename)
         if not path.is_file():
             raise HTTPException(status_code=404, detail="Image not found")
-        return FileResponse(path, media_type="image/webp", headers={
-            "Cache-Control": "public, max-age=31536000, immutable",
-            "X-Content-Type-Options": "nosniff",
-        })
+        return FileResponse(
+            path,
+            media_type="image/webp",
+            headers={
+                "Cache-Control": "public, max-age=31536000, immutable",
+                "X-Content-Type-Options": "nosniff",
+            },
+        )
 
     return router
 
 
 class CartItemInput(BaseModel):
     product_id: str
-    quantity: int = Field(..., gt=0, le=999)
+    # NEXUS_CATALOG_CHECKOUT_ABUSE_LIMITS: 999 units/line on an unauthenticated,
+    # unrated endpoint let a single request drain almost any real inventory.
+    # 20 still covers any legitimate retail purchase.
+    quantity: int = Field(..., gt=0, le=20)
 
 
 class CatalogCheckoutRequest(BaseModel):
     client_name: str = Field(..., max_length=100)
     client_phone: str = Field(..., max_length=32)
     client_email: Optional[str] = Field(default=None, max_length=254)
-    items: list[CartItemInput]
+    items: list[CartItemInput] = Field(..., min_length=1, max_length=30)
     notes: Optional[str] = Field(default=None, max_length=500)
 
 
@@ -453,13 +481,32 @@ async def reserve_cart_items(db, organization_id: str, cart_items: list) -> tupl
                 {"_id": 0},
             )
             if not product:
-                raise HTTPException(409, detail={"code": "product_unavailable", "message": "Uno de los productos ya no está disponible en el catálogo", "product_id": product_id})
+                raise HTTPException(
+                    409,
+                    detail={
+                        "code": "product_unavailable",
+                        "message": "Uno de los productos ya no está disponible en el catálogo",
+                        "product_id": product_id,
+                    },
+                )
             result = await db.catalog_products.update_one(
-                {"organization_id": organization_id, "product_id": product_id, "active": True, "quantity": {"$gte": quantity}},
+                {
+                    "organization_id": organization_id,
+                    "product_id": product_id,
+                    "active": True,
+                    "quantity": {"$gte": quantity},
+                },
                 {"$inc": {"quantity": -quantity}, "$set": {"updated_at": datetime.now(timezone.utc).isoformat()}},
             )
             if result.modified_count != 1:
-                raise HTTPException(409, detail={"code": "insufficient_stock", "message": f'No hay suficiente stock de "{product["name"]}"', "product_id": product_id})
+                raise HTTPException(
+                    409,
+                    detail={
+                        "code": "insufficient_stock",
+                        "message": f'No hay suficiente stock de "{product["name"]}"',
+                        "product_id": product_id,
+                    },
+                )
             reserved.append({"product_id": product_id, "quantity": quantity})
             line = {
                 "product_id": product_id,
@@ -498,11 +545,12 @@ async def release_cart_stock(db, organization_id: str, cart_items: list):
         )
 
 
-def build_catalog_checkout_router(db, get_current_user):
+def build_catalog_checkout_router(db, get_current_user, limiter):
     router = APIRouter()
 
     @router.post("/public/{organization_id}/catalog/checkout", tags=["public-client-portal"])
-    async def checkout_products(organization_id: str, data: CatalogCheckoutRequest):
+    @limiter.limit("10/hour")
+    async def checkout_products(organization_id: str, data: CatalogCheckoutRequest, request: Request):
         org = await db.organizations.find_one({"organization_id": organization_id}, {"_id": 0, "catalog_enabled": 1})
         if not org or not org.get("catalog_enabled"):
             raise HTTPException(404, "Catalog is not available")
@@ -535,7 +583,8 @@ def build_catalog_checkout_router(db, get_current_user):
 async def ensure_catalog_indexes(db):
     await db.catalog_products.create_index(
         [("organization_id", 1), ("product_id", 1)],
-        unique=True, name="nexus_catalog_product_identity",
+        unique=True,
+        name="nexus_catalog_product_identity",
     )
     await db.catalog_products.create_index(
         [("organization_id", 1), ("active", 1), ("published", 1), ("name", 1)],
@@ -551,5 +600,6 @@ async def ensure_catalog_indexes(db):
     )
     await db.catalog_orders.create_index(
         [("organization_id", 1), ("order_id", 1)],
-        unique=True, name="nexus_catalog_orders_identity",
+        unique=True,
+        name="nexus_catalog_orders_identity",
     )
