@@ -2882,6 +2882,16 @@ async def get_organization_public(organization_id: str):
     return org
 
 
+def _public_client_view(client: dict) -> dict:
+    """Minimal, explicit whitelist for an unauthenticated response.
+
+    This endpoint has no session and no PIN -- phone + organization_id is the
+    entire "auth". A blacklist (exclude pin_hash, etc.) would silently leak
+    any future field added to Client; a whitelist can't.
+    """
+    return {key: client.get(key) for key in ("client_id", "name", "phone", "total_visits", "last_visit")}
+
+
 @api_router.post("/public/auth/passwordless", tags=["public-auth"])
 async def passwordless_login(data: PasswordlessLoginRequest, request: Request):
     """Passwordless authentication for clients using phone number - TCPA/Ley 1581 compliant"""
@@ -2905,7 +2915,11 @@ async def passwordless_login(data: PasswordlessLoginRequest, request: Request):
             )
             client["accepts_marketing"] = True
 
-        return {"status": "existing", "client": client, "message": f"Bienvenido de nuevo, {client['name']}!"}
+        return {
+            "status": "existing",
+            "client": _public_client_view(client),
+            "message": f"Bienvenido de nuevo, {client['name']}!",
+        }
     else:
         # New client - require name
         if not data.name or not data.name.strip():
@@ -2935,11 +2949,10 @@ async def passwordless_login(data: PasswordlessLoginRequest, request: Request):
         }
 
         await db.clients.insert_one(new_client)
-        new_client.pop("_id", None)  # Remove MongoDB _id before returning
 
         return {
             "status": "new",
-            "client": new_client,
+            "client": _public_client_view(new_client),
             "message": f"¡Bienvenido, {new_client['name']}! Tu cuenta ha sido creada.",
         }
 
