@@ -3857,9 +3857,19 @@ async def _perform_class_booking_cancel(db, booking: dict) -> dict:
     service = await db.services.find_one({"service_id": session["service_id"]}, {"_id": 0}) if session else None
     late = _is_late_cancellation(session, service) if session else False
 
-    await db.class_bookings.update_one(
-        {"class_booking_id": booking["class_booking_id"]}, {"$set": {"status": "cancelled", "cancelled_late": late}}
+    # Atomic, conditioned transition: only a request that actually flips this
+    # booking confirmed -> cancelled may release its cupo, refund membership
+    # usage, or promote the waitlist. Two concurrent cancel calls for the same
+    # booking previously both fell through to those effects (no filter on the
+    # prior status, no check on modified_count), releasing/refunding twice for
+    # a single cancellation.
+    result = await db.class_bookings.update_one(
+        {"class_booking_id": booking["class_booking_id"], "status": "confirmed"},
+        {"$set": {"status": "cancelled", "cancelled_late": late}},
     )
+    if result.modified_count == 0:
+        return {"message": "Booking already cancelled", "cancelled_late": late}
+
     await db.class_sessions.update_one(
         {"class_session_id": booking["class_session_id"], "booked_count": {"$gt": 0}}, {"$inc": {"booked_count": -1}}
     )
@@ -3912,8 +3922,22 @@ async def join_class_waitlist(org_id: str, class_session_id: str, data: ClassWai
     return entry
 
 
+class GuestPhoneVerify(BaseModel):
+    # NEXUS_GUEST_MUTATION_AUTHZ_V1: neither of these two guest routes has a
+    # session -- the opaque id alone used to be the entire "authorization".
+    # Requiring the same phone number the guest gave when booking/joining
+    # closes that gap without removing the no-PIN guest flow (these ids
+    # aren't brute-forceable, but they can leak via a forwarded confirmation).
+    client_phone: str = Field(..., max_length=32)
+
+
 @api_router.post("/public/waitlist/{waitlist_id}/leave", tags=["public-booking"])
-async def leave_class_waitlist(waitlist_id: str):
+async def leave_class_waitlist(waitlist_id: str, data: GuestPhoneVerify):
+    entry = await db.class_waitlist.find_one({"waitlist_id": waitlist_id, "status": "waiting"}, {"_id": 0})
+    if not entry:
+        raise HTTPException(status_code=404, detail="Waitlist entry not found")
+    if sanitize_phone(data.client_phone) != entry.get("client_phone"):
+        raise HTTPException(status_code=403, detail="Access denied")
     result = await db.class_waitlist.update_one({"waitlist_id": waitlist_id, "status": "waiting"}, {"$set": {"status": "left"}})
     if result.modified_count == 0:
         raise HTTPException(status_code=404, detail="Waitlist entry not found")
@@ -3921,10 +3945,12 @@ async def leave_class_waitlist(waitlist_id: str):
 
 
 @api_router.post("/public/class-bookings/{class_booking_id}/cancel", tags=["public-booking"])
-async def cancel_class_booking(class_booking_id: str):
+async def cancel_class_booking(class_booking_id: str, data: GuestPhoneVerify):
     booking = await db.class_bookings.find_one({"class_booking_id": class_booking_id, "status": "confirmed"}, {"_id": 0})
     if not booking:
         raise HTTPException(status_code=404, detail="Booking not found")
+    if sanitize_phone(data.client_phone) != booking.get("client_phone"):
+        raise HTTPException(status_code=403, detail="Access denied")
     return await _perform_class_booking_cancel(db, booking)
 
 
