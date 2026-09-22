@@ -11,7 +11,8 @@ organización autorizada antes de guardar. Los nombres de archivo son aleatorios
 la ruta valida tanto organización como nombre, y la lectura pública solo sirve
 WebP, MP4 o WebM con `nosniff` y caché inmutable.
 
-No se deben guardar URLs arbitrarias mediante la actualización general de
-organización. La aplicación debe obtener la URL exclusivamente de la respuesta
-del endpoint de subida autenticado. Si un futuro requisito necesita fondos
+La actualización general de organización no acepta `portal_background_url`.
+La aplicación debe obtener la URL exclusivamente de la respuesta del endpoint
+de subida autenticado; esto impide guardar URLs arbitrarias para cargar media
+de terceros en el portal. Si un futuro requisito necesita fondos
 privados, deberá usar una URL firmada y no el campo público actual.

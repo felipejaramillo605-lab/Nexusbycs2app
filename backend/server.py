@@ -691,7 +691,6 @@ class OrganizationUpdate(BaseModel):
     portal_show_hours: Optional[bool] = None
     portal_show_map: Optional[bool] = None
     portal_background_type: Optional[str] = None
-    portal_background_url: Optional[str] = Field(default=None, max_length=1000)
     portal_background_overlay: Optional[str] = None
     catalog_enabled: Optional[bool] = None
     # NEXUS_LOW_STOCK_ALERT_DAEMON_V1

@@ -69,3 +69,16 @@ def test_corrupt_or_durationless_containers_are_rejected():
             assert error.status_code in {400, 415}
         else:
             raise AssertionError("Invalid video was accepted")
+
+
+def test_general_organization_update_cannot_set_a_background_url():
+    tree = ast.parse((MODULE_PATH.parents[0] / "server.py").read_text(encoding="utf-8"))
+    update_model = next(node for node in tree.body if isinstance(node, ast.ClassDef) and node.name == "OrganizationUpdate")
+    fields = {
+        target.id
+        for node in update_model.body
+        if isinstance(node, ast.AnnAssign) and isinstance(node.target, ast.Name)
+        for target in [node.target]
+    }
+
+    assert "portal_background_url" not in fields
