@@ -497,6 +497,16 @@ const ManagerServices = () => {
                   <div className="space-y-3 rounded-2xl border border-[var(--app-border)] p-4 bg-white/[0.02]">
                     <div className="flex items-center gap-2 text-[var(--app-text-primary)]"><ImageIcon size={18} /><span className="font-medium">Presentación de la clase</span></div>
                     <p className="text-xs text-zinc-400">Usa una portada 4:3 para el catálogo y un banner horizontal para el detalle. La imagen se optimiza automáticamente.</p>
+                    <label className="text-sm text-zinc-400 block">Descripción breve
+                      <textarea
+                        value={editingService.short_description}
+                        maxLength={280}
+                        rows={2}
+                        placeholder="Qué hace especial esta clase o servicio"
+                        onChange={(e) => setEditingService({ ...editingService, short_description: e.target.value })}
+                        className="w-full mt-2 px-3 py-2 bg-transparent border border-[var(--app-border)] rounded-xl text-[var(--app-text-primary)] outline-none focus:border-[var(--app-primary)] resize-none"
+                      />
+                    </label>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                       {[['cover', 'Portada', editingService.cover_image_url], ['banner', 'Banner', editingService.banner_image_url]].map(([slot, label, url]) => (
                         <label key={slot} className="relative overflow-hidden min-h-32 rounded-xl border border-dashed border-[var(--app-border)] cursor-pointer focus-within:ring-2 focus-within:ring-[var(--app-primary)] hover:border-[var(--app-primary)] transition-colors">
