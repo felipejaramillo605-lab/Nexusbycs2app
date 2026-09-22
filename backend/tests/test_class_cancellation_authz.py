@@ -2,18 +2,22 @@
 
 import ast
 import asyncio
+import logging
 import unittest
 from copy import deepcopy
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from types import SimpleNamespace
 from typing import Optional
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from pydantic import BaseModel, Field
 
 
 def _load(names):
-    names = names | {"sanitize_phone"}
+    # _organization_timezone: _perform_class_booking_cancel resolves the
+    # org's real timezone (PR #25) before calling _is_late_cancellation.
+    names = names | {"sanitize_phone", "_organization_timezone"}
     tree = ast.parse((Path(__file__).resolve().parents[1] / "server.py").read_text(encoding="utf-8"))
     nodes = [
         n for n in tree.body if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)) and n.name in names
@@ -32,6 +36,9 @@ def _load(names):
         "timedelta": timedelta,
         "timezone": timezone,
         "uuid": __import__("uuid"),
+        "ZoneInfo": ZoneInfo,
+        "ZoneInfoNotFoundError": ZoneInfoNotFoundError,
+        "logger": logging.getLogger("test_class_cancellation_authz"),
     }
     exec(compile(ast.Module(body=nodes, type_ignores=[]), "server.py", "exec"), scope)
     return scope
@@ -114,6 +121,7 @@ class CancellationRaceTests(unittest.TestCase):
             class_bookings=FakeCollection([self.booking], "class_booking_id"),
             class_waitlist=FakeCollection([], "waitlist_id"),
             services=FakeCollection([{"service_id": "service_1"}], "service_id"),
+            organizations=FakeCollection([{"organization_id": "org_a"}], "organization_id"),
         )
 
     def test_second_concurrent_cancel_does_not_double_release_cupo(self):
@@ -196,6 +204,7 @@ class GuestMutationAuthzTests(unittest.TestCase):
             class_bookings=FakeCollection([self.booking], "class_booking_id"),
             class_waitlist=FakeCollection([self.entry], "waitlist_id"),
             services=FakeCollection([{"service_id": "service_1"}], "service_id"),
+            organizations=FakeCollection([{"organization_id": "org_a"}], "organization_id"),
         )
         self.scope["db"] = db
         self.db = db
