@@ -12,7 +12,7 @@ import os
 import logging
 from pathlib import Path
 from pydantic import BaseModel, Field, ConfigDict, EmailStr
-from typing import List, Optional
+from typing import List, Optional, Literal
 import uuid
 from datetime import datetime, timezone, timedelta
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
@@ -337,6 +337,13 @@ class Service(BaseModel):
     price: float
     # NEXUS_SERVICE_PHOTOS_V1: max 2, enforced in service_media.py
     photos: List[str] = Field(default_factory=list)
+    # NEXUS_SERVICE_PRESENTATION_V1: optional so existing services and
+    # historical reservations remain valid without a migration.
+    short_description: Optional[str] = Field(default=None, max_length=280)
+    cover_image_url: Optional[str] = None
+    banner_image_url: Optional[str] = None
+    image_alt: Optional[str] = Field(default=None, max_length=180)
+    image_focal_point: Optional[Literal["center", "top", "bottom"]] = None
     # NEXUS_GROUP_SERVICES_V1: "individual" (default, comportamiento de siempre)
     # o "group" -- una clase con cupo limitado (ClassSession/ClassBooking).
     service_type: str = "individual"
@@ -469,6 +476,9 @@ class ServiceCreate(BaseModel):
     cancellation_cutoff_hours: Optional[int] = None
     drop_in_price: Optional[float] = None
     spot_layout: Optional[List[str]] = None
+    short_description: Optional[str] = Field(default=None, max_length=280)
+    image_alt: Optional[str] = Field(default=None, max_length=180)
+    image_focal_point: Optional[Literal["center", "top", "bottom"]] = None
 
 
 def _validate_group_service_fields(data: "ServiceCreate"):
@@ -498,6 +508,27 @@ def _normalize_spot_layout(spot_layout: Optional[List[str]]) -> Optional[List[st
         return None
     names = [s.strip() for s in spot_layout if s and s.strip()]
     return names or None
+
+
+def _service_presentation(service: Optional[dict]) -> dict:
+    """Return one safe discovery contract for every group-session endpoint."""
+    service = service or {}
+    photos = service.get("photos") or []
+    cover_image_url = service.get("cover_image_url") or (photos[0] if photos else None)
+    return {
+        "service_id": service.get("service_id"),
+        "name": service.get("name"),
+        "duration": service.get("duration"),
+        "short_description": service.get("short_description"),
+        "cover_image_url": cover_image_url,
+        "banner_image_url": service.get("banner_image_url") or cover_image_url,
+        "image_alt": service.get("image_alt") or service.get("name"),
+        "image_focal_point": service.get("image_focal_point") or "center",
+        "group_capacity": service.get("group_capacity"),
+        "spot_layout": service.get("spot_layout"),
+        "booking_window_days": service.get("booking_window_days"),
+        "cancellation_cutoff_hours": service.get("cancellation_cutoff_hours"),
+    }
 
 
 class BarberCreate(BaseModel):
@@ -2960,6 +2991,9 @@ async def create_service(
         "cancellation_cutoff_hours": data.cancellation_cutoff_hours,
         "drop_in_price": data.drop_in_price if data.service_type == "group" else None,
         "spot_layout": _normalize_spot_layout(data.spot_layout) if data.service_type == "group" else None,
+        "short_description": data.short_description.strip() if data.short_description else None,
+        "image_alt": data.image_alt.strip() if data.image_alt else None,
+        "image_focal_point": data.image_focal_point or "center",
         "created_at": datetime.now(timezone.utc).isoformat(),
     }
     await db.services.insert_one(service_doc)
@@ -3000,7 +3034,14 @@ async def update_service(
         "cancellation_cutoff_hours": data.cancellation_cutoff_hours,
         "drop_in_price": data.drop_in_price if data.service_type == "group" else None,
         "spot_layout": _normalize_spot_layout(data.spot_layout) if data.service_type == "group" else None,
+        "short_description": data.short_description.strip() if data.short_description else None,
+        "image_alt": data.image_alt.strip() if data.image_alt else None,
+        "image_focal_point": data.image_focal_point or "center",
     }
+    # Older clients may omit these additive fields; omission must preserve policy.
+    for field in ("booking_window_days", "cancellation_cutoff_hours", "short_description", "image_alt", "image_focal_point"):
+        if field not in data.model_fields_set:
+            update_data.pop(field, None)
     # NEXUS_GROUP_SERVICES_V1: no permitir bajar la capacidad por debajo de
     # cupos ya reservados en clases futuras -- evita overbooking retroactivo.
     if data.service_type == "group" and data.group_capacity:
@@ -3324,8 +3365,8 @@ async def list_portal_class_sessions(current_client: Client = Depends(get_curren
         return []
     service_ids = list({s["service_id"] for s in sessions})
     barber_ids = list({s["barber_id"] for s in sessions})
-    services = await db.services.find({"service_id": {"$in": service_ids}}, {"_id": 0}).to_list(500)
-    barbers = await db.barbers.find({"barber_id": {"$in": barber_ids}}, {"_id": 0}).to_list(500)
+    services = await db.services.find({"organization_id": org_id, "service_id": {"$in": service_ids}}, {"_id": 0}).to_list(500)
+    barbers = await db.barbers.find({"organization_id": org_id, "barber_id": {"$in": barber_ids}}, {"_id": 0}).to_list(500)
     service_lookup = {s["service_id"]: s for s in services}
     barber_lookup = {b["barber_id"]: b for b in barbers}
     membership, plan = await _get_client_membership_with_plan(db, org_id, current_client.client_id)
@@ -3349,6 +3390,7 @@ async def list_portal_class_sessions(current_client: Client = Depends(get_curren
             {
                 **session,
                 "service_name": service.get("name"),
+                "service_presentation": _service_presentation(service),
                 "barber_name": barber.get("display_name") or barber.get("name"),
                 "spots_available": max(0, session["capacity"] - session["booked_count"]),
                 "already_booked": session["class_session_id"] in booking_by_session,
@@ -3369,7 +3411,7 @@ async def list_portal_class_sessions(current_client: Client = Depends(get_curren
         if not item["spot_layout"]:
             continue
         taken = await db.class_bookings.find(
-            {"class_session_id": item["class_session_id"], "status": "confirmed", "spot_label": {"$ne": None}},
+            {"organization_id": org_id, "class_session_id": item["class_session_id"], "status": "confirmed", "spot_label": {"$ne": None}},
             {"_id": 0, "spot_label": 1},
         ).to_list(200)
         item["occupied_spots"] = [t["spot_label"] for t in taken]
@@ -3527,7 +3569,7 @@ async def get_public_class_sessions(
         return []
     # NEXUS_GROUP_SERVICES_SPOTS_V1
     services = await db.services.find(
-        {"service_id": {"$in": list({s["service_id"] for s in sessions})}}, {"_id": 0, "service_id": 1, "spot_layout": 1}
+        {"organization_id": org_id, "service_id": {"$in": list({s["service_id"] for s in sessions})}}, {"_id": 0}
     ).to_list(500)
     service_lookup = {s["service_id"]: s for s in services}
     result = []
@@ -3536,11 +3578,19 @@ async def get_public_class_sessions(
         occupied = []
         if layout:
             taken = await db.class_bookings.find(
-                {"class_session_id": s["class_session_id"], "status": "confirmed", "spot_label": {"$ne": None}},
+                {"organization_id": org_id, "class_session_id": s["class_session_id"], "status": "confirmed", "spot_label": {"$ne": None}},
                 {"_id": 0, "spot_label": 1},
             ).to_list(200)
             occupied = [t["spot_label"] for t in taken]
-        result.append({**s, "spots_available": max(0, s["capacity"] - s["booked_count"]), "spot_layout": layout, "occupied_spots": occupied})
+        result.append(
+            {
+                **s,
+                "spots_available": max(0, s["capacity"] - s["booked_count"]),
+                "spot_layout": layout,
+                "occupied_spots": occupied,
+                "service_presentation": _service_presentation(service_lookup.get(s["service_id"])),
+            }
+        )
     return result
 
 

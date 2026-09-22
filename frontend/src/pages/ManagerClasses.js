@@ -23,8 +23,9 @@ export default function ManagerClasses() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const organizationId = (user?.role === 'owner' ? searchParams.get('org_id') : user?.organization_id) || user?.organization_id;
+  const requestedServiceId = searchParams.get('service_id');
 
-  const [tab, setTab] = useState('calendar'); // 'calendar' | 'recurring' | 'plans'
+  const [tab, setTab] = useState(searchParams.get('tab') === 'plans' ? 'plans' : searchParams.get('tab') === 'recurring' ? 'recurring' : 'calendar'); // 'calendar' | 'recurring' | 'plans'
   const [sessions, setSessions] = useState([]), [loading, setLoading] = useState(true);
   const [groupServices, setGroupServices] = useState([]), [barbers, setBarbers] = useState([]);
   const [showNew, setShowNew] = useState(false), [form, setForm] = useState(blankForm), [creating, setCreating] = useState(false);
@@ -56,6 +57,13 @@ export default function ManagerClasses() {
     }
   }, [organizationId]);
   useEffect(() => { load(); }, [load]);
+
+  useEffect(() => {
+    if (requestedServiceId && groupServices.some(service => service.service_id === requestedServiceId)) {
+      setForm(current => current.service_id ? current : { ...current, service_id: requestedServiceId });
+      setTemplateForm(current => current.service_id ? current : { ...current, service_id: requestedServiceId });
+    }
+  }, [requestedServiceId, groupServices]);
 
   // NEXUS_CLASS_RECURRING_SCHEDULE_V1
   const loadTemplates = useCallback(async () => {
@@ -93,7 +101,7 @@ export default function ManagerClasses() {
       const r = await classScheduleTemplateAPI.create(payload);
       toast.success(`Horario recurrente creado · ${r.data.sessions_created} clase(s) generada(s)`);
       setShowNewTemplate(false);
-      setTemplateForm(blankTemplate);
+      setTemplateForm({ ...blankTemplate, service_id: groupServices.some(s => s.service_id === requestedServiceId) ? requestedServiceId : '' });
       await Promise.all([loadTemplates(), load()]);
     } catch (error) {
       toast.error(detail(error, 'No fue posible crear el horario recurrente'));
@@ -218,7 +226,7 @@ export default function ManagerClasses() {
       await classSessionAPI.create(form);
       toast.success('Clase agendada');
       setShowNew(false);
-      setForm(blankForm);
+      setForm({ ...blankForm, service_id: groupServices.some(s => s.service_id === requestedServiceId) ? requestedServiceId : '' });
       await load();
     } catch (error) {
       toast.error(detail(error, 'No fue posible agendar la clase'));
@@ -275,7 +283,7 @@ export default function ManagerClasses() {
     <AdminShell organizationName={user?.organization_name} organizationId={organizationId} actions={<ActionButton variant="ghost" icon={LogOut} onClick={handleLogout}>Salir</ActionButton>}>
       <MotionPage className="space-y-6">
         <PageHeader
-          eyebrow="Operación"
+          eyebrow="Servicios"
           title="Clases"
           description="Servicios grupales con cupo limitado -- agenda una clase, mira quién se inscribió y cobra a cada asistente."
           actions={groupServices.length > 0 ? (
@@ -287,11 +295,12 @@ export default function ManagerClasses() {
           ) : null}
         />
 
+        <ActionButton variant="ghost" onClick={() => navigate(`/manager/services${organizationId ? `?org_id=${encodeURIComponent(organizationId)}` : ''}`)}>Volver al catálogo de servicios</ActionButton>
         {groupServices.length > 0 && (
-          <div className="flex gap-2 p-1 bg-[var(--app-surface-solid)] rounded-xl border border-[var(--app-border)] w-fit">
-            <button onClick={() => setTab('calendar')} className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${tab === 'calendar' ? 'bg-[var(--app-primary)] text-white' : 'text-[var(--app-text-secondary)]'}`}>Calendario</button>
+          <div className="flex flex-wrap gap-2 p-1 bg-[var(--app-surface-solid)] rounded-xl border border-[var(--app-border)] w-fit">
+            <button onClick={() => setTab('calendar')} className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${tab === 'calendar' ? 'bg-[var(--app-primary)] text-white' : 'text-[var(--app-text-secondary)]'}`}>Sesiones</button>
             <button onClick={() => setTab('recurring')} className={`px-4 py-2 rounded-lg text-sm font-medium transition-all flex items-center gap-1.5 ${tab === 'recurring' ? 'bg-[var(--app-primary)] text-white' : 'text-[var(--app-text-secondary)]'}`}><Repeat size={14} />Horarios recurrentes</button>
-            <button onClick={() => setTab('plans')} className={`px-4 py-2 rounded-lg text-sm font-medium transition-all flex items-center gap-1.5 ${tab === 'plans' ? 'bg-[var(--app-primary)] text-white' : 'text-[var(--app-text-secondary)]'}`}><CreditCard size={14} />Planes</button>
+            <button onClick={() => setTab('plans')} className={`px-4 py-2 rounded-lg text-sm font-medium transition-all flex items-center gap-1.5 ${tab === 'plans' ? 'bg-[var(--app-primary)] text-white' : 'text-[var(--app-text-secondary)]'}`}><CreditCard size={14} />Membresías</button>
           </div>
         )}
 
