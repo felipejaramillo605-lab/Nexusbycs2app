@@ -2815,6 +2815,21 @@ async def create_organization(
     }
 
 
+@api_router.get("/organizations/{organization_id}", tags=["organizations"])
+async def get_organization_profile(
+    organization_id: str,
+    authorization: Optional[str] = Header(None),
+    session_token: Optional[str] = Cookie(None),
+):
+    """Return an organization's full settings to authorized management users."""
+    current_user = await get_current_user(authorization, session_token)
+    authorized_organization_id = await resolve_team_organization(current_user, organization_id)
+    organization = await db.organizations.find_one({"organization_id": authorized_organization_id}, {"_id": 0})
+    if not organization:
+        raise HTTPException(status_code=404, detail="Organization not found")
+    return organization
+
+
 @api_router.put("/organizations/{organization_id}", tags=["organizations"])
 async def update_organization_profile(
     organization_id: str,

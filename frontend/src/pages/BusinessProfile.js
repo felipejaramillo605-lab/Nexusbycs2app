@@ -4,6 +4,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { ArrowLeft, Save, Building, MapPin, Clock, Phone, MessageSquare, Loader2, Star, Sparkles } from 'lucide-react';
 import { toast } from 'sonner';
+import { organizationAPI } from '../api';
 
 const BusinessProfile = () => {
   const { user } = useAuth();
@@ -37,29 +38,24 @@ const BusinessProfile = () => {
     if (!organizationId) return;
     
     try {
-      const response = await fetch(
-        `${process.env.REACT_APP_BACKEND_URL}/api/public/${organizationId}/organization`
-      );
-      
-      if (response.ok) {
-        const data = await response.json();
-        setFormData({
-          name: data.name || '',
-          address: data.address || '',
-          business_hours: data.business_hours || '',
-          phone: data.phone || '',
-          whatsapp_link: data.whatsapp_link || '',
-          review_link: data.review_link || '',
-          business_type: data.business_type || 'barbershop',
-          review_request_settings: {
-            enabled: data.review_request_settings?.enabled || false,
-            channels: {
-              email: data.review_request_settings?.channels?.email || false,
-              whatsapp: data.review_request_settings?.channels?.whatsapp || false,
-            },
+      const response = await organizationAPI.get(organizationId);
+      const data = response.data;
+      setFormData({
+        name: data.name || '',
+        address: data.address || '',
+        business_hours: data.business_hours || '',
+        phone: data.phone || '',
+        whatsapp_link: data.whatsapp_link || '',
+        review_link: data.review_link || '',
+        business_type: data.business_type || 'barbershop',
+        review_request_settings: {
+          enabled: data.review_request_settings?.enabled || false,
+          channels: {
+            email: data.review_request_settings?.channels?.email || false,
+            whatsapp: data.review_request_settings?.channels?.whatsapp || false,
           },
-        });
-      }
+        },
+      });
     } catch (error) {
       console.error('Error loading organization:', error);
       toast.error('Error al cargar perfil del negocio');

@@ -8,6 +8,7 @@ from pathlib import Path
 class PublicOrganizationProjectionTests(unittest.TestCase):
     def setUp(self):
         tree = ast.parse((Path(__file__).resolve().parents[1] / "server.py").read_text(encoding="utf-8"))
+        self.tree = tree
         assignment = next(
             n
             for n in tree.body
@@ -22,30 +23,27 @@ class PublicOrganizationProjectionTests(unittest.TestCase):
         for field in ("_id", "owner_id", "created_at", "nexus_ai_contracted", "nexus_ai_enabled"):
             self.assertEqual(self.projection.get(field), 0, f"{field} must be excluded (value 0)")
 
-    def test_fields_settings_js_depends_on_through_this_endpoint_are_not_excluded(self):
-        # Settings.js/BusinessProfile.js read these from THIS SAME public
-        # endpoint to populate the manager's own settings form (see
-        # PUBLIC_ORGANIZATION_EXCLUDED_FIELDS docstring) -- a true whitelist
-        # would silently break the low-stock-alert, loyalty and
-        # review-request sections of Settings.js.
-        for field in (
-            "notification_settings",
-            "loyalty_settings",
-            "review_request_settings",
-            "review_link",
-            "name",
-            "address",
-            "phone",
-            "client_portal_theme",
-            "logo_url",
-            "portal_welcome_message",
-            "portal_show_team",
-            "portal_show_prices",
-            "portal_show_hours",
-            "portal_show_map",
-            "catalog_enabled",
-        ):
-            self.assertNotIn(field, self.projection)
+    def test_manager_settings_do_not_use_the_public_organization_route(self):
+        frontend = Path(__file__).resolve().parents[2] / "frontend" / "src" / "pages"
+        public_route = "/api/public/${organizationId}/organization"
+        for page in ("Settings.js", "BusinessProfile.js"):
+            source = (frontend / page).read_text(encoding="utf-8")
+            self.assertNotIn(public_route, source, f"{page} must use the authenticated organization endpoint")
+            self.assertIn("organizationAPI.get(organizationId)", source)
+
+    def test_authenticated_organization_read_enforces_team_scope(self):
+        handler = next(
+            node
+            for node in self.tree.body
+            if isinstance(node, ast.AsyncFunctionDef) and node.name == "get_organization_profile"
+        )
+        called_names = {
+            node.func.id
+            for node in ast.walk(handler)
+            if isinstance(node, ast.Call) and isinstance(node.func, ast.Name)
+        }
+        self.assertIn("get_current_user", called_names)
+        self.assertIn("resolve_team_organization", called_names)
 
 
 if __name__ == "__main__":
