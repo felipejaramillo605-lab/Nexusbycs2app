@@ -23,6 +23,25 @@ class PublicOrganizationProjectionTests(unittest.TestCase):
         for field in ("_id", "owner_id", "created_at", "nexus_ai_contracted", "nexus_ai_enabled"):
             self.assertEqual(self.projection.get(field), 0, f"{field} must be excluded (value 0)")
 
+    def test_public_route_resolves_template_before_removing_entitlement(self):
+        handler = next(
+            node for node in self.tree.body
+            if isinstance(node, ast.AsyncFunctionDef) and node.name == "get_organization_public"
+        )
+        effective_call = next(
+            node for node in ast.walk(handler)
+            if isinstance(node, ast.Call) and isinstance(node.func, ast.Name) and node.func.id == "effective_portal_template"
+        )
+        pop_call = next(
+            node for node in ast.walk(handler)
+            if isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute)
+            and node.func.attr == "pop" and node.args
+            and isinstance(node.args[0], ast.Constant)
+            and node.args[0].value == "premium_templates_contracted"
+        )
+        self.assertLess(effective_call.lineno, pop_call.lineno)
+        self.assertNotIn("premium_templates_contracted", self.projection)
+
     def test_manager_settings_do_not_use_the_public_organization_route(self):
         frontend = Path(__file__).resolve().parents[2] / "frontend" / "src" / "pages"
         public_route = "/api/public/${organizationId}/organization"
