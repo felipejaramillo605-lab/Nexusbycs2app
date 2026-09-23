@@ -21,6 +21,22 @@
 [build.environment]
   CI = "false"
 
+# This site has no backend of its own -- it's a static mirror of the same
+# frontend build Emergent serves at nexusbycs2.com, which also hosts the real
+# FastAPI backend under /api. Without this rule, /api/* requests fell through
+# to the SPA catch-all below and got index.html back with a 200 status
+# instead of JSON, so every API call silently "succeeded" with garbage and
+# nothing in the app actually worked. This proxies /api/* server-side to the
+# real backend -- the browser only ever talks to this origin, so there's no
+# CORS handshake to configure on the backend side. `force = true` makes it
+# take priority over the SPA catch-all regardless of rule order, and it must
+# stay listed before that catch-all here for readability even so.
+[[redirects]]
+  from = "/api/*"
+  to = "https://nexusbycs2.com/api/:splat"
+  status = 200
+  force = true
+
 # React Router handles application routes in the client. Keep direct links and
 # refreshes on manager/portal routes from being served as Netlify 404 pages.
 [[redirects]]
