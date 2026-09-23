@@ -108,11 +108,20 @@ def _webm_duration(data: bytes) -> float | None:
     duration = None
     # Info lives under Segment, whose payload is a stream of EBML children.
     # Scan bounded element headers rather than trusting filename/MIME metadata.
+    # A file within MAX_VIDEO_BYTES could still repeat a 2-byte marker at
+    # every offset; cap the scan so that pathological input can't turn this
+    # into an unbounded CPU loop. A real WebM Info section has a handful of
+    # these elements, so this leaves ample room before treating the file as
+    # unparseable.
+    max_matches = 10_000
     for marker, target in ((b"\x2a\xd7\xb1", "scale"), (b"\x44\x89", "duration")):
         pos = 0
+        matches = 0
         while True:
             pos = data.find(marker, pos)
             if pos < 0: break
+            matches += 1
+            if matches > max_matches: break
             length_item = _read_vint(data, pos + len(marker))
             if length_item:
                 size, size_len = length_item; start = pos + len(marker) + size_len; end = start + size
