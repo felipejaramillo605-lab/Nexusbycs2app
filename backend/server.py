@@ -73,6 +73,12 @@ from professional_metrics import build_professional_metrics_router
 from platform_billing_settings import build_platform_billing_router, ensure_platform_billing_indexes
 from owner_third_party_matrix import build_third_party_matrix_router, ensure_third_party_matrix_indexes
 from portal_templates import effective_portal_template, portal_template_selection_error
+from platform_capabilities import (
+    CAPABILITY as PORTAL_TEMPLATE_CAPABILITY,
+    build_platform_capability_router,
+    ensure_platform_capability_indexes,
+    protect_active_capability_holder,
+)
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / ".env")
@@ -2167,6 +2173,11 @@ async def _protect_owner_and_organization_administration(
         raise HTTPException(status_code=404, detail="User not found")
     remains_enabled = not deleting and (next_access or target.get("access_status")) == "approved"
     remains_owner = remains_enabled and (next_role or target.get("role")) == "owner"
+    capability_authority = await db.platform_capability_authority.find_one(
+        {"_id": PORTAL_TEMPLATE_CAPABILITY, "active_grants.user_id": target.get("user_id")},
+        {"active_grants": 1},
+    )
+    protect_active_capability_holder(capability_authority, target.get("user_id"), bool(remains_owner))
     if target.get("role") == "owner" and _is_enabled_account(target) and not remains_owner:
         enabled_owners = await db.users.count_documents({"role": "owner", **_ENABLED_ACCOUNT_FILTER})
         if enabled_owners <= 1:
@@ -2940,6 +2951,7 @@ PUBLIC_ORGANIZATION_EXCLUDED_FIELDS = {
     "created_at": 0,
     "nexus_ai_contracted": 0,
     "nexus_ai_enabled": 0,
+    "portal_template_entitlement_request_id": 0,
 }
 
 
@@ -9080,6 +9092,8 @@ api_router.include_router(
     tags=["nexus-ai"],
 )
 
+api_router.include_router(build_platform_capability_router(db, get_current_user))
+
 # NEXUS_PLATFORM_BRANDING_V1: the Nexus platform's own logo (owner-only,
 # global, distinct from any tenant organization's own logo above)
 from platform_branding import build_platform_branding_router
@@ -9117,7 +9131,7 @@ app.add_middleware(
     allow_credentials=True,
     allow_origins=list(TRUSTED_ORIGINS),
     allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-    allow_headers=["Content-Type", "Authorization", "Cookie", "X-Session-ID"],
+    allow_headers=["Content-Type", "Authorization", "Cookie", "X-Session-ID", "X-Request-ID"],
     expose_headers=["Set-Cookie", "Retry-After"],
     max_age=600,
 )
@@ -9180,6 +9194,7 @@ async def _migrate_user_session_dates_and_indexes():
 
 async def create_application_indexes():
     await _migrate_user_session_dates_and_indexes()
+    await ensure_platform_capability_indexes(db)
     await ensure_security_observability_indexes(db)
     # NEXUS_CHECKOUT_BACKEND_V1
     await db.transactions.create_index("transaction_id", unique=True)
