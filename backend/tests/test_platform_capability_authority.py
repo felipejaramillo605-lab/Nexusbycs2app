@@ -1,6 +1,7 @@
 """Pure and Mongo-standalone tests for platform capability authority."""
 import asyncio
 import os
+import threading
 import uuid
 from pathlib import Path
 from types import SimpleNamespace
@@ -86,34 +87,52 @@ def test_platform_owner_eligibility_matches_active_account_rules(user, eligible)
 MONGO_URL = os.environ.get("NEXUS_TEST_MONGO_URL")
 requires_standalone = pytest.mark.skipif(not MONGO_URL, reason="set NEXUS_TEST_MONGO_URL to isolated Mongo standalone for integration tests")
 
-# Motor binds its I/O to the loop used on first operation. Keep one loop alive
-# across the synchronous tests instead of calling asyncio.run repeatedly (which
-# closes the loop while the function-scoped Mongo clients still exist).
+# Motor clients and every operation must use the same running loop. Keep a
+# dedicated loop alive for these synchronous pytest tests, and create the
+# client from a coroutine running on that loop.
 _MONGO_LOOP = asyncio.new_event_loop()
+_MONGO_LOOP_THREAD = threading.Thread(
+    target=_MONGO_LOOP.run_forever,
+    name="platform-capability-mongo-loop",
+    daemon=True,
+)
+_MONGO_LOOP_THREAD.start()
 
 
 def _run_async(coro):
-    return _MONGO_LOOP.run_until_complete(coro)
+    return asyncio.run_coroutine_threadsafe(coro, _MONGO_LOOP).result()
+
+
+async def _open_authority_db(mongo_url, db_name):
+    from motor.motor_asyncio import AsyncIOMotorClient
+
+    client = AsyncIOMotorClient(mongo_url, serverSelectionTimeoutMS=3000)
+    try:
+        await client.admin.command("ping")
+    except Exception:
+        client.close()
+        raise
+    return client, client[db_name]
+
+
+async def _drop_authority_db(client, db_name):
+    await client.drop_database(db_name)
+    client.close()
 
 
 @pytest.fixture
 def authority_db():
-    from motor.motor_asyncio import AsyncIOMotorClient
     from pymongo import MongoClient
-    client = AsyncIOMotorClient(MONGO_URL, serverSelectionTimeoutMS=3000)
     sync_client = MongoClient(MONGO_URL, serverSelectionTimeoutMS=3000)
     db_name = "nexus_platform_cap_test_" + uuid.uuid4().hex
-    db = client[db_name]
     sync_db = sync_client[db_name]
     try:
-        _run_async(client.admin.command("ping"))
+        client, db = _run_async(_open_authority_db(MONGO_URL, db_name))
     except Exception as exc:
-        client.close()
         sync_client.close()
         pytest.fail(f"NEXUS_TEST_MONGO_URL is configured but Mongo ping failed: {exc}")
     yield db, sync_db
-    _run_async(client.drop_database(db_name))
-    client.close()
+    _run_async(_drop_authority_db(client, db_name))
     sync_client.close()
 
 
