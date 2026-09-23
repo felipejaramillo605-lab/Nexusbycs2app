@@ -56,7 +56,7 @@ export default function TermsOfService() {
             <p className="text-zinc-300 mb-4">
               Nexus by CS2 ("Nexus", "nosotros", "la Plataforma") es una plataforma de software como servicio
               (SaaS) desarrollada y operada por Felipe Jaramillo Parra, con domicilio en La Estrella, Antioquia,
-              Colombia, disenada para la gestion integral de negocios de barberia y salon de belleza: agenda de
+              Colombia, disenada para la gestion integral de negocios y organizaciones de servicios: agenda de
               citas, gestion de clientes, inventario, facturacion, comunicaciones y portal de reservas para
               clientes finales.
             </p>
@@ -70,7 +70,7 @@ export default function TermsOfService() {
               <ul className="text-sm text-zinc-400 space-y-1">
                 <li><strong className="text-white">Owner:</strong> persona que crea y es titular de una o mas organizaciones (establecimientos) en Nexus.</li>
                 <li><strong className="text-white">Manager:</strong> persona designada por el Owner para administrar una organizacion.</li>
-                <li><strong className="text-white">Staff / Profesional:</strong> persona registrada por el negocio como prestador de servicios (barbero, estilista, etc.).</li>
+                <li><strong className="text-white">Staff / Profesional:</strong> persona registrada por el negocio como prestador de servicios.</li>
                 <li><strong className="text-white">Cliente final:</strong> persona que reserva citas o utiliza el Portal del Cliente.</li>
                 <li><strong className="text-white">Organizacion:</strong> cada establecimiento o sucursal registrada en Nexus.</li>
               </ul>
@@ -171,7 +171,7 @@ export default function TermsOfService() {
               Al utilizar Nexus, te comprometes a:
             </p>
             <ul className="list-disc list-inside text-zinc-300 space-y-1 mb-4">
-              <li>Usar la Plataforma exclusivamente para la gestion legitima de tu negocio de barberia o salon.</li>
+              <li>Usar la Plataforma exclusivamente para la gestion legitima de tu negocio u organizacion de servicios.</li>
               <li>No enviar comunicaciones masivas no solicitadas (spam) a personas que no sean tus propios clientes con consentimiento vigente.</li>
               <li>No intentar vulnerar, evadir o probar la seguridad de la Plataforma sin autorizacion escrita previa de Nexus.</li>
               <li>No acceder ni intentar acceder a datos, organizaciones o cuentas que no te pertenezcan.</li>

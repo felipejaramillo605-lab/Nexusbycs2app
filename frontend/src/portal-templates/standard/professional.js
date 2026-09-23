@@ -1,7 +1,7 @@
 export const professional = {
     key: 'professional',
     name: 'Profesional',
-    description: 'Barberías ejecutivas, consultorios',
+    description: 'Empresas de servicios, estudios profesionales y consultorios',
     bgStart: '#0f172a',
     bgEnd: '#1e293b',
     accentPrimary: '#38bdf8',

@@ -20,7 +20,7 @@ export default function OwnerPlatformBranding() {
 
       <div className="rounded-2xl border border-[var(--app-border)] bg-[var(--app-surface)] p-5 space-y-1">
         <p className="text-sm text-[var(--app-text-secondary)]">
-          Cada barbería/salón (organización) tiene su propio logo, que solo se ve en <strong className="text-[var(--app-text-primary)]">sus propias páginas</strong> (Configuración → General de cada organización).
+          Cada organización tiene su propio logo, que solo se ve en <strong className="text-[var(--app-text-primary)]">sus propias páginas</strong> (Configuración → General de cada organización).
         </p>
         <p className="text-sm text-[var(--app-text-secondary)]">
           Este logo, en cambio, es la marca de <strong className="text-[var(--app-text-primary)]">Nexus como proveedor del software</strong>: aparece en el ícono del navegador por defecto, en el panel del owner cuando no estás gestionando una organización puntual, y como &quot;Con tecnología de Nexus&quot; en el encabezado de las páginas de reserva/portal de <strong className="text-[var(--app-text-primary)]">todas</strong> las organizaciones.

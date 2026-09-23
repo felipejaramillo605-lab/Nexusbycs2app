@@ -858,7 +858,7 @@ const Settings = () => {
                   data-testid="review-link-input"
                   value={reviewData.review_link}
                   onChange={(e) => setReviewData({ ...reviewData, review_link: e.target.value })}
-                  placeholder="https://g.page/tu-barberia/review"
+                  placeholder="https://g.page/tu-negocio/review"
                   className="w-full px-4 py-3 bg-white/5 border border-[var(--app-border)] rounded-xl text-[var(--app-text-primary)] placeholder-zinc-500 outline-none"
                 />
                 <p className="text-xs text-zinc-500 mt-1">Debe empezar con <code>https://</code>. Obtén tu enlace en Google Business Profile → Compartir enlace de reseñas.</p>

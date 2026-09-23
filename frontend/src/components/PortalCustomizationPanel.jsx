@@ -140,7 +140,7 @@ export default function PortalCustomizationPanel({ organizationId, initial, onSa
           <textarea
             value={form.portal_welcome_message}
             onChange={e => setForm({ ...form, portal_welcome_message: e.target.value.slice(0, 280) })}
-            placeholder="Bienvenido a Mi Barbería, tu espacio de confianza desde 2020."
+            placeholder="Bienvenido a Mi negocio, tu espacio de confianza desde 2020."
             rows={2}
             className="w-full rounded-xl border border-[var(--app-border)] bg-transparent px-3 py-2 text-sm text-[var(--app-text-primary)] focus:border-[var(--app-primary)] focus:ring-1 focus:ring-[var(--app-primary)] outline-none resize-none"
           />
