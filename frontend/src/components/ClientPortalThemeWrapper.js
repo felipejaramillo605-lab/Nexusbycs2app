@@ -2,6 +2,7 @@ import React from 'react';
 import { useClientPortalOrganizationTheme } from '../hooks/useClientPortalOrganizationTheme';
 import OnboardingTour from './onboarding/OnboardingTour';
 import '../portal-templates/premium/barberia-real/barberia-real.css';
+import '../portal-templates/premium/bloom/bloom.css';
 
 export const ClientPortalThemeWrapper = ({ children }) => {
   const {

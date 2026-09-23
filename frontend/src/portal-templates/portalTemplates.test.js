@@ -36,6 +36,15 @@ test('Barbería Real has an original premium theme contract', () => {
   expect(template.fontHref).toContain('family=Bitter');
 });
 
+test('Bloom has an original premium theme contract', () => {
+  const template = PREMIUM_TEMPLATE_IMPLEMENTATIONS.bloom;
+  expect(template).toMatchObject({ key: 'bloom', tier: 'premium', fontFamily: 'Fraunces' });
+  expect(template.theme.bgStart).toBe('#FBE4EC');
+  expect(template.theme.accentPrimary).toBe('#7FB3A3');
+  expect(template.theme.accentSecondary).toBe('#C97B92');
+  expect(template.fontHref).toContain('family=Fraunces');
+});
+
 test('only the matching organization effective premium key resolves to a visual implementation', () => {
   const organization = {
     organization_id: 'org-1',
@@ -46,5 +55,6 @@ test('only the matching organization effective premium key resolves to a visual 
   expect(resolvePremiumPortalTemplate(organization, 'org-2')).toBeNull();
   expect(resolvePremiumPortalTemplate({ ...organization, portal_template: 'neutral' }, 'org-1')).toBeNull();
   expect(resolvePremiumPortalTemplate({ ...organization, portal_template: 'unknown' }, 'org-1')).toBeNull();
-  expect(resolvePremiumPortalTemplate({ ...organization, portal_template: 'bloom' }, 'org-1')).toBeNull();
+  expect(resolvePremiumPortalTemplate({ ...organization, portal_template: 'bloom' }, 'org-1').key).toBe('bloom');
+  expect(resolvePremiumPortalTemplate({ ...organization, portal_template: 'bloom' }, 'org-2')).toBeNull();
 });

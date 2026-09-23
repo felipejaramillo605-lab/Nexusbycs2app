@@ -1,0 +1,371 @@
+/* Original Bloom presentation. Every selector is scoped to the effective Bloom template. */
+.nexus-client-theme[data-portal-template='bloom'] {
+  --bloom-blush: #FBE4EC;
+  --bloom-sage: #7FB3A3;
+  --bloom-rose: #C97B92;
+  --bloom-ink: #442C35;
+  --bloom-gold: #B88A55;
+  min-height: 100vh;
+  overflow: clip;
+  background:
+    radial-gradient(ellipse at 12% 8%, rgba(201,123,146,.19), transparent 34rem),
+    radial-gradient(ellipse at 88% 28%, rgba(127,179,163,.22), transparent 31rem),
+    linear-gradient(145deg, #FBE4EC, #F7EDF0 58%, #F3E8E7);
+  color: var(--bloom-ink);
+  font-family: Poppins, 'Segoe UI', sans-serif;
+}
+
+.nexus-client-theme[data-portal-template='bloom']::before {
+  inset: auto auto 10% -6rem;
+  width: clamp(13rem, 32vw, 27rem);
+  height: clamp(13rem, 32vw, 27rem);
+  border-radius: 56% 44% 63% 37% / 42% 58% 42% 58%;
+  background: radial-gradient(circle at 36% 36%, rgba(255,255,255,.52), rgba(201,123,146,.1) 68%, transparent 70%);
+  filter: blur(1px);
+  opacity: .78;
+  animation: bloom-drift 13s ease-in-out infinite alternate;
+}
+
+.nexus-client-theme[data-portal-template='bloom']::after {
+  inset: 8% -7rem auto auto;
+  width: clamp(10rem, 25vw, 22rem);
+  height: clamp(10rem, 25vw, 22rem);
+  border: 1px solid rgba(127,179,163,.25);
+  border-radius: 43% 57% 37% 63% / 58% 35% 65% 42%;
+  background: radial-gradient(circle at 55% 55%, rgba(127,179,163,.12), rgba(255,255,255,.15) 62%, transparent 70%);
+  opacity: .9;
+  animation: bloom-drift 16s ease-in-out infinite alternate-reverse;
+}
+
+.nexus-client-theme[data-portal-template='bloom'] h1,
+.nexus-client-theme[data-portal-template='bloom'] h2,
+.nexus-client-theme[data-portal-template='bloom'] h3,
+.nexus-public-experience[data-portal-template='bloom'] .nexus-public-brand-tenant strong {
+  color: #4D303B;
+  font-family: Fraunces, Georgia, serif;
+  font-weight: 500;
+  letter-spacing: -.025em;
+}
+
+.nexus-client-theme[data-portal-template='bloom'] .nexus-booking-deep,
+.nexus-client-theme[data-portal-template='bloom'] .nexus-portal-deep,
+.nexus-client-theme[data-portal-template='bloom'] .nexus-portal-login,
+.nexus-client-theme[data-portal-template='bloom'] .nexus-booking-success {
+  color: var(--bloom-ink);
+}
+
+.nexus-client-theme[data-portal-template='bloom'] .nexus-booking-hero {
+  position: relative;
+  isolation: isolate;
+  padding: clamp(2.5rem, 7vw, 5.5rem) 1rem 2.6rem;
+  text-align: center;
+}
+
+.nexus-client-theme[data-portal-template='bloom'] .nexus-booking-hero::before {
+  content: '';
+  position: absolute;
+  z-index: 0;
+  top: 50%;
+  left: 50%;
+  width: clamp(12rem, 27vw, 20rem);
+  aspect-ratio: 1;
+  border: 1px solid rgba(201,123,146,.24);
+  border-radius: 50%;
+  outline: 10px solid rgba(255,250,250,.25);
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+}
+
+.nexus-client-theme[data-portal-template='bloom'] .nexus-booking-hero > * {
+  position: relative;
+  z-index: 1;
+}
+
+.nexus-client-theme[data-portal-template='bloom'] .nexus-booking-hero > small,
+.nexus-client-theme[data-portal-template='bloom'] .nexus-portal-deep > header small {
+  display: block;
+  color: #8A5265;
+  font-size: .72rem;
+  font-weight: 600;
+  letter-spacing: .18em;
+  text-transform: uppercase;
+}
+
+.nexus-client-theme[data-portal-template='bloom'] .nexus-booking-hero h1,
+.nexus-client-theme[data-portal-template='bloom'] .nexus-portal-deep > header h1,
+.nexus-client-theme[data-portal-template='bloom'] .nexus-portal-login h1 {
+  color: #4D303B;
+  font-size: clamp(2rem, 5.8vw, 4rem);
+  font-style: italic;
+  line-height: 1.08;
+}
+
+.nexus-client-theme[data-portal-template='bloom'] .nexus-booking-hero p,
+.nexus-client-theme[data-portal-template='bloom'] .nexus-booking-hero > div {
+  color: #66535A;
+}
+
+.nexus-client-theme[data-portal-template='bloom'] .nexus-booking-layout > main,
+.nexus-client-theme[data-portal-template='bloom'] .nexus-booking-summary,
+.nexus-client-theme[data-portal-template='bloom'] .nexus-portal-card,
+.nexus-client-theme[data-portal-template='bloom'] .nexus-next-appointment,
+.nexus-client-theme[data-portal-template='bloom'] .nexus-portal-login > section,
+.nexus-client-theme[data-portal-template='bloom'] .nexus-booking-success > section {
+  position: relative;
+  overflow: hidden;
+  border: 1px solid rgba(184,138,85,.48);
+  border-radius: 1.35rem;
+  background: linear-gradient(145deg, rgba(255,250,250,.97), rgba(255,247,247,.91));
+  color: #442C35;
+  box-shadow: 0 18px 46px rgba(110,63,81,.11);
+}
+
+.nexus-client-theme[data-portal-template='bloom'] .nexus-booking-layout > main::before,
+.nexus-client-theme[data-portal-template='bloom'] .nexus-portal-card::before,
+.nexus-client-theme[data-portal-template='bloom'] .nexus-booking-summary::before,
+.nexus-client-theme[data-portal-template='bloom'] .nexus-next-appointment::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 1.35rem;
+  width: 3.8rem;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, var(--bloom-gold), transparent);
+  pointer-events: none;
+}
+
+.nexus-client-theme[data-portal-template='bloom'] .nexus-choice-grid > button,
+.nexus-client-theme[data-portal-template='bloom'] .nexus-slots button,
+.nexus-client-theme[data-portal-template='bloom'] .nexus-portal-history article {
+  border: 1px solid rgba(126,78,94,.18);
+  border-radius: 1rem;
+  background: linear-gradient(145deg, #FFF9FA, #F8EEF0);
+  color: #442C35;
+  box-shadow: 0 5px 16px rgba(110,63,81,.06);
+  animation: bloom-card-enter .46s both;
+}
+
+.nexus-client-theme[data-portal-template='bloom'] .nexus-choice-grid > button:nth-child(2n),
+.nexus-client-theme[data-portal-template='bloom'] .nexus-slots button:nth-child(2n) {
+  background: linear-gradient(145deg, #F1F7F3, #E6F0EC);
+}
+
+.nexus-client-theme[data-portal-template='bloom'] .nexus-choice-grid > button.is-selected,
+.nexus-client-theme[data-portal-template='bloom'] .nexus-slots button.is-selected {
+  border-color: #356F60;
+  background: #E4F0EB;
+  color: #1F4F43;
+  box-shadow: inset 0 0 0 1px #356F60, 0 8px 20px rgba(53,111,96,.12);
+}
+
+.nexus-client-theme[data-portal-template='bloom'] .nexus-action-button,
+.nexus-client-theme[data-portal-template='bloom'] .nexus-stepper button,
+.nexus-client-theme[data-portal-template='bloom'] .nexus-choice-grid > button,
+.nexus-client-theme[data-portal-template='bloom'] .nexus-slots button,
+.nexus-client-theme[data-portal-template='bloom'] .nexus-portal-deep button {
+  border-radius: 999px;
+}
+
+.nexus-client-theme[data-portal-template='bloom'] .nexus-action-button {
+  min-height: 46px;
+  padding-inline: 1.25rem;
+  box-shadow: 0 7px 18px rgba(53,111,96,.17);
+  transition: transform .2s ease, box-shadow .2s ease, background-color .2s ease;
+}
+
+.nexus-client-theme[data-portal-template='bloom'] .nexus-action-primary {
+  background: #356F60;
+  color: #FFFFFF;
+}
+
+.nexus-client-theme[data-portal-template='bloom'] .nexus-action-primary:hover:not(:disabled) {
+  background: #285B4F;
+  box-shadow: 0 10px 22px rgba(53,111,96,.24);
+  transform: scale(1.025);
+}
+
+.nexus-client-theme[data-portal-template='bloom'] .nexus-action-secondary {
+  border: 1px solid rgba(126,78,94,.25);
+  background: #FFF9FA;
+  color: #5C3A47;
+}
+
+.nexus-client-theme[data-portal-template='bloom'] button:disabled {
+  cursor: not-allowed;
+  opacity: .58;
+}
+
+.nexus-client-theme[data-portal-template='bloom'] input,
+.nexus-client-theme[data-portal-template='bloom'] select,
+.nexus-client-theme[data-portal-template='bloom'] textarea {
+  border-color: rgba(126,78,94,.28);
+  border-radius: .85rem;
+  background: #FFFCFC;
+  color: #442C35;
+}
+
+.nexus-client-theme[data-portal-template='bloom'] .nexus-client-form label,
+.nexus-client-theme[data-portal-template='bloom'] .nexus-public-field,
+.nexus-client-theme[data-portal-template='bloom'] .nexus-portal-login label {
+  color: #57434B;
+}
+
+.nexus-client-theme[data-portal-template='bloom'] .nexus-status-badge {
+  border: 1px solid currentColor;
+  border-radius: 999px;
+  font-weight: 600;
+}
+
+.nexus-client-theme[data-portal-template='bloom'] .nexus-status-success,
+.nexus-client-theme[data-portal-template='bloom'] [class~='text-green-400'],
+.nexus-client-theme[data-portal-template='bloom'] [class~='text-emerald-400'] { color: #185638 !important; }
+.nexus-client-theme[data-portal-template='bloom'] .nexus-status-success,
+.nexus-client-theme[data-portal-template='bloom'] [class~='bg-green-500/20'],
+.nexus-client-theme[data-portal-template='bloom'] [class~='bg-emerald-500/20'] { background-color: #E1EEE3 !important; }
+.nexus-client-theme[data-portal-template='bloom'] .nexus-status-warning,
+.nexus-client-theme[data-portal-template='bloom'] [class~='text-orange-400'] { color: #704313 !important; }
+.nexus-client-theme[data-portal-template='bloom'] .nexus-status-warning,
+.nexus-client-theme[data-portal-template='bloom'] [class~='bg-orange-500/20'] { background-color: #F5E8D6 !important; }
+.nexus-client-theme[data-portal-template='bloom'] .nexus-status-danger,
+.nexus-client-theme[data-portal-template='bloom'] [class~='text-red-400'] { color: #7A271F !important; }
+.nexus-client-theme[data-portal-template='bloom'] .nexus-status-danger,
+.nexus-client-theme[data-portal-template='bloom'] [class~='bg-red-500/20'] { background-color: #F5DFDB !important; }
+.nexus-client-theme[data-portal-template='bloom'] .nexus-status-info,
+.nexus-client-theme[data-portal-template='bloom'] [class~='text-blue-400'] { color: #16415D !important; }
+.nexus-client-theme[data-portal-template='bloom'] .nexus-status-info,
+.nexus-client-theme[data-portal-template='bloom'] [class~='bg-blue-500/20'] { background-color: #DCE9F2 !important; }
+.nexus-client-theme[data-portal-template='bloom'] .nexus-status-neutral,
+.nexus-client-theme[data-portal-template='bloom'] [class~='text-zinc-400'] { color: #4F4B53 !important; }
+.nexus-client-theme[data-portal-template='bloom'] [class~='bg-zinc-500/20'] { background-color: #ECE8ED !important; }
+
+.nexus-client-theme[data-portal-template='bloom'] :focus-visible {
+  outline: 3px solid #356F60;
+  outline-offset: 3px;
+}
+
+.nexus-client-theme[data-portal-template='bloom'] .nexus-portal-deep > header img,
+.nexus-public-experience[data-portal-template='bloom'] .nexus-public-brand-tenant-logo {
+  border: 4px solid rgba(255,250,250,.94);
+  border-radius: 50%;
+  box-shadow: 0 8px 24px rgba(110,63,81,.18), 0 0 0 1px rgba(184,138,85,.5);
+  object-fit: cover;
+}
+
+.nexus-client-theme[data-portal-template='bloom'] .nexus-bloom-hero-photo-frame {
+  position: relative;
+  z-index: 1;
+  width: clamp(7.5rem, 17vw, 10.5rem);
+  aspect-ratio: 1;
+  margin: 0 auto 1.2rem;
+  padding: .38rem;
+  border: 1px solid rgba(184,138,85,.72);
+  border-radius: 50%;
+  background: linear-gradient(145deg, #FFFDFD, #F4E5E8);
+  box-shadow: 0 14px 32px rgba(110,63,81,.18), 0 0 0 7px rgba(255,250,250,.35);
+  animation: bloom-photo-float 5s ease-in-out infinite alternate;
+}
+
+.nexus-client-theme[data-portal-template='bloom'] .nexus-bloom-hero-photo-frame img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+.nexus-public-experience[data-portal-template='bloom'] {
+  background:
+    radial-gradient(ellipse at 10% 5%, rgba(201,123,146,.18), transparent 34rem),
+    radial-gradient(ellipse at 90% 25%, rgba(127,179,163,.2), transparent 29rem),
+    linear-gradient(145deg, #FBE4EC, #F7EDF0 58%, #F3E8E7);
+  color: #442C35;
+  font-family: Poppins, 'Segoe UI', sans-serif;
+}
+
+.nexus-public-experience[data-portal-template='bloom'] .nexus-public-orb {
+  border: 1px solid rgba(201,123,146,.2);
+  background: radial-gradient(circle at 35% 35%, rgba(255,255,255,.5), rgba(127,179,163,.1) 70%);
+  filter: none;
+}
+
+.nexus-public-experience[data-portal-template='bloom'] .nexus-public-brand {
+  border-color: rgba(184,138,85,.4);
+  border-radius: 1.25rem;
+  background: rgba(255,250,250,.92);
+  color: #442C35;
+  box-shadow: 0 12px 34px rgba(110,63,81,.1);
+}
+
+.nexus-public-experience[data-portal-template='bloom'] .nexus-public-brand-tenant-badge {
+  border: 2px solid rgba(255,250,250,.95);
+  border-radius: 50%;
+  background: #7FB3A3;
+  color: #183F35;
+  box-shadow: 0 0 0 1px rgba(184,138,85,.55);
+}
+
+.nexus-public-experience[data-portal-template='bloom'] .nexus-public-brand-provider-badge {
+  background: #8A5265;
+  color: #FFFFFF;
+}
+
+.nexus-public-experience[data-portal-template='bloom'] .nexus-public-brand-provider {
+  opacity: 1;
+}
+
+.nexus-public-experience[data-portal-template='bloom'] .nexus-public-brand-provider small,
+.nexus-public-experience[data-portal-template='bloom'] .nexus-public-brand-tenant small,
+.nexus-public-experience[data-portal-template='bloom'] .nexus-public-footer { color: #66535A; }
+
+.nexus-client-theme[data-portal-template='bloom'][data-reduced-motion='true'] *,
+.nexus-client-theme[data-portal-template='bloom'][data-reduced-motion='true'] *::before,
+.nexus-client-theme[data-portal-template='bloom'][data-reduced-motion='true'] *::after {
+  animation: none !important;
+  scroll-behavior: auto !important;
+  transition: none !important;
+}
+
+.nexus-client-theme[data-portal-template='bloom'][data-reduced-motion='true']::before,
+.nexus-client-theme[data-portal-template='bloom'][data-reduced-motion='true']::after {
+  animation: none !important;
+  transition: none !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .nexus-client-theme[data-portal-template='bloom'] *,
+  .nexus-client-theme[data-portal-template='bloom'] *::before,
+  .nexus-client-theme[data-portal-template='bloom'] *::after {
+    animation: none !important;
+    scroll-behavior: auto !important;
+    transition: none !important;
+  }
+  .nexus-client-theme[data-portal-template='bloom']::before,
+  .nexus-client-theme[data-portal-template='bloom']::after {
+    animation: none !important;
+    transition: none !important;
+  }
+}
+
+@keyframes bloom-drift {
+  from { transform: translate3d(0, 0, 0) rotate(-6deg); }
+  to { transform: translate3d(1rem, -.8rem, 0) rotate(5deg); }
+}
+
+@keyframes bloom-card-enter {
+  from { opacity: 0; transform: translateY(9px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes bloom-photo-float {
+  from { transform: translateY(0) rotate(-2deg); }
+  to { transform: translateY(-7px) rotate(2deg); }
+}
+
+@media (max-width: 560px) {
+  .nexus-client-theme[data-portal-template='bloom'] .nexus-booking-hero { padding: 2.1rem .35rem 1.8rem; }
+  .nexus-client-theme[data-portal-template='bloom'] .nexus-booking-hero::before { width: min(78vw, 17rem); }
+  .nexus-client-theme[data-portal-template='bloom'] .nexus-bloom-hero-photo-frame { width: 7.25rem; }
+  .nexus-client-theme[data-portal-template='bloom'] .nexus-booking-layout > main,
+  .nexus-client-theme[data-portal-template='bloom'] .nexus-booking-summary { border-radius: 1rem; }
+  .nexus-public-experience[data-portal-template='bloom'] .nexus-public-brand { margin-inline: .35rem; }
+}
