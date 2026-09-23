@@ -4547,14 +4547,13 @@ def _membership_coverage_for_service(membership: Optional[dict], plan: Optional[
 async def sell_client_membership(
     client_id: str,
     data: ClientMembershipCreate,
+    organization_id: Optional[str] = None,
     authorization: Optional[str] = Header(None),
     session_token: Optional[str] = Cookie(None),
 ):
     current_user = await get_current_user(authorization, session_token)
     require_management_role(current_user)
-    if not current_user.organization_id:
-        raise HTTPException(status_code=400, detail="No organization assigned")
-    org_id = current_user.organization_id
+    org_id = await resolve_team_organization(current_user, organization_id)
     client = await db.clients.find_one({"client_id": client_id, "organization_id": org_id}, {"_id": 0})
     if not client:
         raise HTTPException(status_code=404, detail="Client not found")
@@ -4610,14 +4609,13 @@ async def renew_client_membership(
     client_id: str,
     membership_id: str,
     data: ClientMembershipRenew,
+    organization_id: Optional[str] = None,
     authorization: Optional[str] = Header(None),
     session_token: Optional[str] = Cookie(None),
 ):
     current_user = await get_current_user(authorization, session_token)
     require_management_role(current_user)
-    if not current_user.organization_id:
-        raise HTTPException(status_code=400, detail="No organization assigned")
-    org_id = current_user.organization_id
+    org_id = await resolve_team_organization(current_user, organization_id)
     membership = await db.client_memberships.find_one(
         {"membership_id": membership_id, "client_id": client_id, "organization_id": org_id}, {"_id": 0}
     )

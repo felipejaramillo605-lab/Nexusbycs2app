@@ -162,10 +162,10 @@ const ManagerClients = () => {
     setSellingMembership(true);
     try {
       if (clientMembership) {
-        await clientAPI.renewMembership(selectedClient.client_id, clientMembership.membership_id, sellForm);
+        await clientAPI.renewMembership(selectedClient.client_id, clientMembership.membership_id, sellForm, { organization_id: organizationId });
         toast.success('Membresía renovada');
       } else {
-        await clientAPI.sellMembership(selectedClient.client_id, sellForm);
+        await clientAPI.sellMembership(selectedClient.client_id, sellForm, { organization_id: organizationId });
         toast.success('Membresía vendida');
       }
       setShowSellMembership(false);

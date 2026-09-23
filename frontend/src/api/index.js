@@ -198,8 +198,8 @@ export const clientAPI = {
   getBirthdayReward: (clientId) => api.get(`/clients/${clientId}/birthday-reward`),
   // NEXUS_GROUP_SERVICES_MEMBERSHIPS_V1
   getMembership: (clientId) => api.get(`/clients/${clientId}/memberships`),
-  sellMembership: (clientId, data) => api.post(`/clients/${clientId}/memberships`, data),
-  renewMembership: (clientId, membershipId, data) => api.post(`/clients/${clientId}/memberships/${membershipId}/renew`, data),
+  sellMembership: (clientId, data, params = {}) => api.post(`/clients/${clientId}/memberships`, data, { params }),
+  renewMembership: (clientId, membershipId, data, params = {}) => api.post(`/clients/${clientId}/memberships/${membershipId}/renew`, data, { params }),
 };
 
 // NEXUS_GROUP_SERVICES_MEMBERSHIPS_V1
