@@ -98,6 +98,7 @@ export const teamAPI = {
 };
 
 export const organizationAPI = {
+  get: (organizationId) => api.get(`/organizations/${organizationId}`),
   getAll: () => api.get('/organizations'),
   create: (data) => api.post('/organizations', data),
   update: (organizationId, data) => api.put(`/organizations/${organizationId}`, data),

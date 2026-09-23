@@ -7,7 +7,7 @@ import { useOrganization } from '../context/OrganizationContext';
 import { ArrowLeft, Save, Building, Users, Mail, UserCog, Trash2, Loader2, Check, Percent, RotateCcw, Pencil, Copy, ExternalLink, X, Settings as SettingsIcon, FileText, CreditCard, Shield, Palette, Star, MessageSquare, PackageSearch } from 'lucide-react';
 import { toast } from 'sonner';
 import { AccessibleModal, confirmAction } from '../components/design';
-import { teamAPI, commissionAPI } from '../api';
+import { teamAPI, commissionAPI, organizationAPI } from '../api';
 import ManagerFiscalProfile from './ManagerFiscalProfile';
 import AccountPrivacy from './AccountPrivacy';
 import ManagerBilling from './ManagerBilling';
@@ -101,12 +101,8 @@ const Settings = () => {
     if (!organizationId) return;
     
     try {
-      const response = await fetch(
-        `${process.env.REACT_APP_BACKEND_URL}/api/public/${organizationId}/organization`
-      );
-      
-      if (response.ok) {
-        const data = await response.json();
+      const response = await organizationAPI.get(organizationId);
+      const data = response.data;
         console.log('✅ Organization data loaded:', data);
         setProfileData({
           name: data.name || '',
@@ -143,14 +139,6 @@ const Settings = () => {
           email_enabled: !!ns.low_stock_alert_enabled,
           whatsapp_enabled: !!ns.low_stock_alert_whatsapp_enabled,
         });
-      } else {
-        const errorData = await response.json();
-        console.error('❌ ERROR AL CARGAR ORGANIZACIÓN:', {
-          status: response.status,
-          errorData: errorData,
-          organizationId: organizationId
-        });
-      }
     } catch (error) {
       console.error('❌ CATCH ERROR AL CARGAR ORGANIZACIÓN:', error);
       toast.error('Error al cargar configuración');
