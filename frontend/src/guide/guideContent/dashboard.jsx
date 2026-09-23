@@ -114,7 +114,7 @@ const manager = {
     { icon: DollarSign, name: 'Métrica "Ingresos de hoy"', does: 'Muestra el total cobrado hoy (cobros confirmados). Es informativa.', when: 'Para saber cuánto ha entrado en caja hasta el momento.' },
     { icon: Users, name: 'Métrica "Profesionales activos"', does: 'Cuenta los profesionales con cita hoy. Es informativa.', when: 'Para ver quién está trabajando en el día.' },
     { icon: Scissors, name: 'Métrica "Servicios disponibles"', does: 'Cuenta los servicios activos del catálogo. Es informativa.', when: 'Para verificar de un vistazo el tamaño del menú de servicios.' },
-    { icon: Clock3, name: 'Filtro de "Agenda de hoy"', does: 'Filtra la lista de citas del día por "Todas" o por un profesional.', when: 'Cuando quieres revisar solo la agenda de un barbero o estilista.' },
+    { icon: Clock3, name: 'Filtro de "Agenda de hoy"', does: 'Filtra la lista de citas del día por "Todas" o por un profesional.', when: 'Cuando quieres revisar la agenda de una persona del equipo.' },
     { icon: CalendarDays, name: 'Abrir agenda', does: 'Va al módulo de Agenda y citas.', when: 'Para gestionar citas, filtrarlas o cobrarlas.' },
     { icon: Users, name: 'Clientes', does: 'Va al módulo de Clientes.', when: 'Para buscar un cliente o revisar su historial.' },
     { icon: WalletCards, name: 'Ingresos', does: 'Va al módulo de Ingresos.', when: 'Para revisar el detalle financiero de un periodo.' },
@@ -243,7 +243,7 @@ const staff = {
   summary: {
     what: 'Tu Inicio es "Mi perfil profesional". Ahí defines cómo apareces ante los clientes, tu disponibilidad y ves los servicios que te asignó la administración.',
     forWhat: 'Sirve para mantener al día tu información y tus horarios, para que las reservas que recibes sean correctas.',
-    whoUses: 'Cada profesional (barbero, estilista) sobre su propio perfil. No puedes ver ni editar el perfil de tus compañeros.',
+    whoUses: 'Cada profesional puede gestionar su propio perfil. No puedes ver ni editar el perfil de tus compañeros.',
   },
   screens: [
     {

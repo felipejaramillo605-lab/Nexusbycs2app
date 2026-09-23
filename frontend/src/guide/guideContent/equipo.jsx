@@ -183,11 +183,11 @@ const manager = {
   ],
   examples: [
     {
-      scenario: 'Entra un barbero nuevo que trabaja de martes a sábado, de 10:00 a 19:00, y hace corte y barba.',
+      scenario: 'Se incorpora una profesional nueva que trabaja de martes a sábado, de 10:00 a 19:00.',
       walkthrough: [
         'Pulsa "Crear manualmente" y llena nombre, apellido, nombre visible y teléfono.',
         'En "Disponibilidad", marca Mar, Mié, Jue, Vie y Sáb, con inicio 10:00 y fin 19:00.',
-        'En "Servicios asignados", marca "Corte" y "Barba".',
+        'En "Servicios asignados", marca los servicios que ofrece.',
         'Deja el "Perfil activo" encendido y pulsa "Crear profesional".',
       ],
     },

@@ -59,7 +59,7 @@ export default function PrivacyPolicy() {
             <ul className="list-disc list-inside text-zinc-300 space-y-1 mb-4">
               <li><strong className="text-white">Clientes finales</strong> que reservan citas o crean cuentas en el Portal del Cliente.</li>
               <li><strong className="text-white">Duenos y administradores de negocio</strong> (Owners, Managers) que operan la plataforma para gestionar sus establecimientos.</li>
-              <li><strong className="text-white">Profesionales</strong> (Staff/barberos) registrados por el negocio.</li>
+              <li><strong className="text-white">Profesionales</strong> (personal prestador de servicios) registrados por el negocio.</li>
             </ul>
 
             <div className="bg-blue-500/10 border border-blue-500/20 rounded-lg p-4 mb-4">

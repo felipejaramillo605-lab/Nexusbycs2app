@@ -772,8 +772,8 @@ const ManagerBarbers = () => {
         {barbers.length === 0 && (
           <div className="backdrop-blur-xl bg-white/3 border border-[var(--app-border)] rounded-2xl p-12 text-center">
             <Users size={48} strokeWidth={1.5} className="text-zinc-600 mx-auto mb-4" />
-            <p className="text-zinc-400 mb-4">No hay barberos registrados</p>
-            <p className="text-zinc-500 text-sm">Agrega tu primer barbero para comenzar</p>
+            <p className="text-zinc-400 mb-4">Aún no hay profesionales en el equipo</p>
+            <p className="text-zinc-500 text-sm">Agrega a tu primer profesional para comenzar</p>
           </div>
         )}
         </>
