@@ -317,8 +317,10 @@ export const publicAPI = {
   getServices: (orgId) => axios.get(`${API}/public/${orgId}/services`),
   getBarbers: (orgId) => axios.get(`${API}/public/${orgId}/barbers`),
   getAvailability: (orgId, barberId, date, serviceId) => axios.get(`${API}/public/${orgId}/availability`, { params: { barber_id: barberId, date, service_id: serviceId } }),
+  getClassSessions: (orgId, params = {}) => axios.get(`${API}/public/${orgId}/class-sessions`, { params }),
   searchAvailability: (orgId, barberId, serviceId, preferredTime, dateFrom, days = 30) => axios.get(`${API}/public/${orgId}/availability/search`, { params: { barber_id: barberId, service_id: serviceId, preferred_time: preferredTime, date_from: dateFrom, days } }),
   createAppointment: (orgId, data) => axios.post(`${API}/public/${orgId}/appointments`, data),
+  bookClassSession: (orgId, classSessionId, data) => axios.post(`${API}/public/${orgId}/class-sessions/${classSessionId}/book`, data),
   getAppointment: (appointmentId, token) => axios.get(`${API}/public/appointments/${appointmentId}`, { params: { token } }),
   cancelAppointment: (appointmentId, token) => axios.post(`${API}/public/appointments/${appointmentId}/cancel`, {}, { params: { token } }),
   // Customer Portal endpoints
