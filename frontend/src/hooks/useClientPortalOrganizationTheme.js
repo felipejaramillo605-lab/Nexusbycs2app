@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { useOrganization } from '../context/OrganizationContext';
 import { CLIENT_PORTAL_THEMES, getThemeColors } from '../constants/clientPortalThemes';
+import { resolvePremiumPortalTemplate } from '../portal-templates';
 
 const hexToRgba = (hex, alpha) => {
   const value = String(hex || '').replace('#', '');
@@ -15,6 +16,7 @@ export function useClientPortalOrganizationTheme() {
   const { orgId } = useParams();
   const { organization, loadOrganization } = useOrganization();
   const wrapperRef = useRef(null);
+  const activeTemplate = resolvePremiumPortalTemplate(organization, orgId);
   const [backgroundFailed, setBackgroundFailed] = useState(false);
   const [reduceMotion, setReduceMotion] = useState(
     () => window.matchMedia?.('(prefers-reduced-motion: reduce)').matches || false,
@@ -38,7 +40,7 @@ export function useClientPortalOrganizationTheme() {
   const themeKey = CLIENT_PORTAL_THEMES[organization?.client_portal_theme]
     ? organization.client_portal_theme
     : 'classic';
-  const theme = getThemeColors(themeKey);
+  const theme = activeTemplate?.theme || getThemeColors(themeKey);
   const backgroundType = organization?.organization_id === orgId ? organization?.portal_background_type : 'none';
   const backgroundUrl = organization?.organization_id === orgId ? organization?.portal_background_url : null;
   const backgroundOverlay = organization?.portal_background_overlay || 'dark';
@@ -56,6 +58,18 @@ export function useClientPortalOrganizationTheme() {
     link.setAttribute('href', logoUrl);
     return () => { link.setAttribute('href', previousHref); };
   }, [organization?.organization_id, organization?.logo_url, orgId]);
+
+  useEffect(() => {
+    if (!activeTemplate?.fontHref) return undefined;
+    const id = `nexus-portal-font-${activeTemplate.key}`;
+    if (document.getElementById(id)) return undefined;
+    const link = document.createElement('link');
+    link.id = id;
+    link.rel = 'stylesheet';
+    link.href = activeTemplate.fontHref;
+    document.head.appendChild(link);
+    return () => link.remove();
+  }, [activeTemplate]);
 
   useEffect(() => {
     const body = document.body;
@@ -122,7 +136,8 @@ export function useClientPortalOrganizationTheme() {
     '--client-orb-1': hexToRgba(theme.accentPrimary, .10),
     '--client-orb-2': hexToRgba(theme.accentSecondary, .08),
     '--client-glow': hexToRgba(theme.accentPrimary, .12),
-  }), [theme]);
+    ...(activeTemplate?.variables || {}),
+  }), [theme, activeTemplate]);
 
   return {
     orgId,
@@ -134,6 +149,7 @@ export function useClientPortalOrganizationTheme() {
     reduceMotion,
     themeKey,
     theme,
+    activeTemplate,
     backgroundType,
     backgroundUrl,
     backgroundOverlay,
