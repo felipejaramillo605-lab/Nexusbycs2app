@@ -71,6 +71,20 @@ def test_corrupt_or_durationless_containers_are_rejected():
             raise AssertionError("Invalid video was accepted")
 
 
+def test_webm_with_repeated_marker_is_bounded_not_hung():
+    # A crafted file that repeats the 2-byte duration marker at every offset
+    # used to make _webm_duration scan without any cap on match count.
+    functions = _functions("_mp4_duration", "_read_vint", "_webm_duration", "validate_video")
+    payload = b"\x1a\x45\xdf\xa3" + (b"\x44\x89" * 200_000)
+
+    try:
+        functions["validate_video"](payload)
+    except TestHTTPException as error:
+        assert error.status_code in {400, 415}
+    else:
+        raise AssertionError("Video with no real duration metadata was accepted")
+
+
 def test_general_organization_update_cannot_set_a_background_url():
     tree = ast.parse((MODULE_PATH.parents[0] / "server.py").read_text(encoding="utf-8"))
     update_model = next(node for node in tree.body if isinstance(node, ast.ClassDef) and node.name == "OrganizationUpdate")
