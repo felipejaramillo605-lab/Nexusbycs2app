@@ -72,6 +72,7 @@ from internal_reviews import build_internal_reviews_router, ensure_internal_revi
 from professional_metrics import build_professional_metrics_router
 from platform_billing_settings import build_platform_billing_router, ensure_platform_billing_indexes
 from owner_third_party_matrix import build_third_party_matrix_router, ensure_third_party_matrix_indexes
+from portal_templates import effective_portal_template, portal_template_selection_error
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / ".env")
@@ -298,6 +299,8 @@ class Organization(BaseModel):
     # True when `contracted` is True (enforced server-side in nexus_ai.py).
     nexus_ai_contracted: bool = False
     nexus_ai_enabled: bool = False
+    portal_template: str = "classic"
+    premium_templates_contracted: bool = False
     # Notification settings (personalizable por admin)
     notification_settings: Optional[dict] = Field(
         default_factory=lambda: {
@@ -683,6 +686,7 @@ class OrganizationUpdate(BaseModel):
     client_portal_theme: Optional[str] = (
         None  # classic | feminine | professional | cyberpunk | underground | neutral | minimalist_purple
     )
+    portal_template: Optional[str] = None
     # NEXUS_PORTAL_PERSONALIZATION_V1
     logo_url: Optional[str] = Field(default=None, max_length=1000)
     portal_welcome_message: Optional[str] = Field(default=None, max_length=280)
@@ -2706,6 +2710,8 @@ async def create_organization(
         "phone": sanitize_phone(data.phone) if data.phone else None,
         "whatsapp_link": data.whatsapp_link,
         "created_at": now,
+        "portal_template": "classic",
+        "premium_templates_contracted": False,
     }
     profile = {
         **normalized_profile,
@@ -2848,6 +2854,22 @@ async def update_organization_profile(
 
     update_data = {k: v for k, v in data.dict().items() if v is not None}
 
+    if "portal_template" in update_data:
+        organization = await db.organizations.find_one(
+            {"organization_id": organization_id},
+            {"_id": 0, "premium_templates_contracted": 1},
+        )
+        if not organization:
+            raise HTTPException(status_code=404, detail="Organization not found")
+        selection_error = portal_template_selection_error(
+            update_data["portal_template"],
+            bool(organization.get("premium_templates_contracted")),
+        )
+        if selection_error == "unknown_template":
+            raise HTTPException(status_code=400, detail="portal_template is not allowed")
+        if selection_error == "premium_template_not_contracted":
+            raise HTTPException(status_code=403, detail="Premium portal templates are not contracted")
+
     if "portal_background_type" in update_data and update_data["portal_background_type"] not in {"none", "image", "video"}:
         raise HTTPException(status_code=400, detail="portal_background_type must be none, image or video")
     if "portal_background_overlay" in update_data and update_data["portal_background_overlay"] not in {"light", "dark", "none"}:
@@ -2909,8 +2931,9 @@ async def update_organization_profile(
 # sections of Settings.js. The real fix is migrating those two pages onto an
 # authenticated organization fetch -- out of scope for this finding. Until
 # then, exclude only the fields nothing in the frontend reads from this
-# endpoint: owner_id (the concrete example the audit called out) and the two
-# platform-entitlement flags.
+# endpoint: owner_id (the concrete example the audit called out) and the
+# platform-entitlement flags. The premium-template entitlement is fetched
+# internally to compute the effective public template, then removed below.
 PUBLIC_ORGANIZATION_EXCLUDED_FIELDS = {
     "_id": 0,
     "owner_id": 0,
@@ -2926,6 +2949,8 @@ async def get_organization_public(organization_id: str):
     org = await db.organizations.find_one({"organization_id": organization_id}, PUBLIC_ORGANIZATION_EXCLUDED_FIELDS)
     if not org:
         raise HTTPException(status_code=404, detail="Organization not found")
+    org["portal_template"] = effective_portal_template(org)
+    org.pop("premium_templates_contracted", None)
     return org
 
 
