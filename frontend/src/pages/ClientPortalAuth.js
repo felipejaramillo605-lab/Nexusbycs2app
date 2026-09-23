@@ -1,113 +1,15 @@
-// NEXUS_AUTH_BRAND_UNIFY_V15: already wrapped by <ClientPortalThemeWrapper>
-// (App.js), but the JSX itself hardcoded bg-black + Tailwind blue instead
-// of the --app-* vars the wrapper sets — so the org's actual theme never
-// showed here. Switched to --app-* + .nexus-glass, same fix as
-// ForgotPin.js / ResetPin.js.
-// NEXUS_CLIENT_THEME_DEDUPE_V1: also dropped the useClientPortalTheme(organization)
-// call that used to live here -- it wrote straight to <html> and could
-// race with the wrapper's own (more complete) theme vars. The wrapper
-// alone is now the single source of truth for client-portal theming.
-import React, { useState, useEffect } from 'react';
-import { useParams, useNavigate, Link } from 'react-router-dom';
+// The shared portal wrapper remains the source of visual theme variables.
+import React from 'react';
+import { Link } from 'react-router-dom';
 import { Lock, LogIn, UserPlus, ArrowLeft, Loader2, Eye, EyeOff, Cake } from 'lucide-react';
-import { toast } from 'sonner';
-import { api } from '../api';
+import { useClientPortalAuth } from '../hooks/useClientPortalAuth';
 
 export default function ClientPortalAuth() {
-  const { orgId } = useParams();
-  const navigate = useNavigate();
-  const [mode, setMode] = useState('login'); // 'login' or 'register'
-  const [phone, setPhone] = useState('');
-  const [name, setName] = useState('');
-  const [pin, setPin] = useState('');
-  const [birthday, setBirthday] = useState(''); // NEXUS_CLIENT_BIRTHDAY_V1: "YYYY-MM-DD", opcional
-  const [showPin, setShowPin] = useState(false);
-  const [marketingConsent, setMarketingConsent] = useState(false);
-  const [loading, setLoading] = useState(false);
-  const [organizationName, setOrganizationName] = useState('');
-  const [organization, setOrganization] = useState(null);
-
-  useEffect(() => {
-    // Load organization info
-    const loadOrg = async () => {
-      try {
-        const response = await api.get(`/public/${orgId}/organization`);
-        setOrganization(response.data);
-        setOrganizationName(response.data.name || 'Nexus');
-      } catch (error) {
-        console.error('Error loading organization:', error);
-      }
-    };
-    if (orgId) loadOrg();
-  }, [orgId]);
-
-  const handleLogin = async (e) => {
-    e.preventDefault();
-
-    // Validate PIN format
-    if (!/^\d{4}$/.test(pin)) {
-      toast.error('El PIN debe ser exactamente 4 dígitos');
-      return;
-    }
-
-    setLoading(true);
-    try {
-      const response = await api.post('/public/clients/login', {
-        phone,
-        organization_id: orgId,
-        pin
-      });
-
-      toast.success('¡Bienvenido de nuevo!');
-      navigate(`/portal/${orgId}/dashboard`);
-    } catch (error) {
-      if (error.response?.status === 429) {
-        toast.error(error.response.data.detail || 'Demasiados intentos. Espera un momento.');
-      } else {
-        toast.error(error.response?.data?.detail || 'PIN o teléfono incorrecto');
-      }
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleRegister = async (e) => {
-    e.preventDefault();
-
-    if (!name.trim()) {
-      toast.error('El nombre es requerido');
-      return;
-    }
-
-    if (!/^\d{4}$/.test(pin)) {
-      toast.error('El PIN debe ser exactamente 4 dígitos');
-      return;
-    }
-
-    setLoading(true);
-    try {
-      const response = await api.post('/public/clients/register', {
-        phone,
-        organization_id: orgId,
-        name: name.trim(),
-        pin,
-        marketing_consent: marketingConsent,
-        birthday: birthday || undefined
-      });
-
-      toast.success('¡Cuenta creada exitosamente!');
-      navigate(`/portal/${orgId}/dashboard`);
-    } catch (error) {
-      if (error.response?.status === 429) {
-        toast.error('Demasiados intentos. Intenta más tarde.');
-      } else {
-        toast.error(error.response?.data?.detail || 'Error al crear cuenta');
-      }
-    } finally {
-      setLoading(false);
-    }
-  };
-
+  const {
+    orgId, mode, setMode, phone, setPhone, name, setName, pin, setPin, birthday,
+    setBirthday, showPin, setShowPin, marketingConsent, setMarketingConsent, loading,
+    organizationName, organization, handleLogin, handleRegister,
+  } = useClientPortalAuth();
   return (
     <div className="min-h-screen flex items-center justify-center p-4">
       <div className="max-w-md w-full nexus-glass rounded-3xl p-8">
