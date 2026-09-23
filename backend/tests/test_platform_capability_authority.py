@@ -91,8 +91,18 @@ requires_standalone = pytest.mark.skipif(not MONGO_URL, reason="set NEXUS_TEST_M
 # dedicated loop alive for these synchronous pytest tests, and create the
 # client from a coroutine running on that loop.
 _MONGO_LOOP = asyncio.new_event_loop()
+
+
+def _run_mongo_loop():
+    # Motor/Tornado resolve their default IOLoop from the thread-local asyncio
+    # loop. Register the same loop that run_coroutine_threadsafe targets before
+    # starting it, so the client and every Motor Future stay on one loop.
+    asyncio.set_event_loop(_MONGO_LOOP)
+    _MONGO_LOOP.run_forever()
+
+
 _MONGO_LOOP_THREAD = threading.Thread(
-    target=_MONGO_LOOP.run_forever,
+    target=_run_mongo_loop,
     name="platform-capability-mongo-loop",
     daemon=True,
 )
@@ -106,7 +116,11 @@ def _run_async(coro):
 async def _open_authority_db(mongo_url, db_name):
     from motor.motor_asyncio import AsyncIOMotorClient
 
-    client = AsyncIOMotorClient(mongo_url, serverSelectionTimeoutMS=3000)
+    client = AsyncIOMotorClient(
+        mongo_url,
+        io_loop=_MONGO_LOOP,
+        serverSelectionTimeoutMS=3000,
+    )
     try:
         await client.admin.command("ping")
     except Exception:
