@@ -3,6 +3,8 @@ import {
   PORTAL_TEMPLATE_KEYS,
   PORTAL_TEMPLATE_METADATA,
   PREMIUM_TEMPLATE_KEYS,
+  PREMIUM_TEMPLATE_IMPLEMENTATIONS,
+  resolvePremiumPortalTemplate,
   STANDARD_TEMPLATE_KEYS,
 } from './index';
 
@@ -22,4 +24,27 @@ test('standard theme tokens and legacy lookup behavior remain available', () => 
   expect(Object.keys(CLIENT_PORTAL_THEMES)).toEqual(STANDARD_TEMPLATE_KEYS);
   expect(CLIENT_PORTAL_THEMES.classic.bgStart).toBe('#0a0a0a');
   expect(CLIENT_PORTAL_THEMES.neutral.name).toBe('Verde Natural');
+});
+
+test('Barbería Real has an original premium theme contract', () => {
+  const template = PREMIUM_TEMPLATE_IMPLEMENTATIONS['barberia-real'];
+  expect(template).toMatchObject({ key: 'barberia-real', tier: 'premium', fontFamily: 'Bitter' });
+  expect(template.theme.bgStart).toBe('#0F1B2B');
+  expect(template.theme.surface).toBe('#F3E9D2');
+  expect(template.theme.accentPrimary).toBe('#C9A24B');
+  expect(template.theme.accentSecondary).toBe('#6B4A34');
+  expect(template.fontHref).toContain('family=Bitter');
+});
+
+test('only the matching organization effective premium key resolves to a visual implementation', () => {
+  const organization = {
+    organization_id: 'org-1',
+    portal_template: 'barberia-real',
+    client_portal_theme: 'neutral',
+  };
+  expect(resolvePremiumPortalTemplate(organization, 'org-1').key).toBe('barberia-real');
+  expect(resolvePremiumPortalTemplate(organization, 'org-2')).toBeNull();
+  expect(resolvePremiumPortalTemplate({ ...organization, portal_template: 'neutral' }, 'org-1')).toBeNull();
+  expect(resolvePremiumPortalTemplate({ ...organization, portal_template: 'unknown' }, 'org-1')).toBeNull();
+  expect(resolvePremiumPortalTemplate({ ...organization, portal_template: 'bloom' }, 'org-1')).toBeNull();
 });

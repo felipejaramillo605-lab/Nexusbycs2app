@@ -1,12 +1,14 @@
 import React from 'react';
 import { useClientPortalOrganizationTheme } from '../hooks/useClientPortalOrganizationTheme';
 import OnboardingTour from './onboarding/OnboardingTour';
+import '../portal-templates/premium/barberia-real/barberia-real.css';
 
 export const ClientPortalThemeWrapper = ({ children }) => {
   const {
     wrapperRef,
     setBackgroundFailed,
     reduceMotion,
+    activeTemplate,
     themeKey,
     themeVariables,
     backgroundType,
@@ -21,6 +23,8 @@ export const ClientPortalThemeWrapper = ({ children }) => {
       ref={wrapperRef}
       className="nexus-client-theme"
       data-client-theme={themeKey}
+      data-portal-template={activeTemplate?.key}
+      data-reduced-motion={reduceMotion ? 'true' : 'false'}
       style={themeVariables}
       onMouseMove={handleMouseMove}
     >
