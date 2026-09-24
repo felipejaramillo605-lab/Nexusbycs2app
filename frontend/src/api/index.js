@@ -394,10 +394,17 @@ export const billingAPI = {
   getNotifications: (params={}) => api.get('/billing/notifications',{params}),
   markNotificationRead: id => api.post(`/billing/notifications/${id}/read`),
   announce: data => api.post('/billing/owner/announcements',data),
-  getSubscriptions: () => api.get('/billing/owner/subscriptions'),
 };
 
 export const thirdPartyMatrixAPI = {list:(params={})=>api.get('/owner/third-party-matrix',{params}),detail:id=>api.get(`/owner/third-party-matrix/${id}`)};
+
+// NEXUS_AI_V1: tenant-facing AI APIs remain available; owner entitlement changes live in Premium.
+export const nexusAiAPI = {
+  getStatus: (params = {}) => api.get('/nexus-ai/status', { params }),
+  getConversations: (params = {}) => api.get('/nexus-ai/conversations', { params }),
+  createConversation: (params = {}) => api.post('/nexus-ai/conversations', null, { params }),
+  getMessages: (conversationId, params = {}) => api.get(`/nexus-ai/conversations/${conversationId}/messages`, { params }),
+};
 
 // NEXUS_PRODUCT_CATALOG_V10
 export const catalogAPI = {
@@ -422,12 +429,3 @@ export const deliveryOperationsAPI = {backfill:(data)=>api.post('/owner/delivery
 
 // NEXUS_7J_B_BILLING_OPERATIONS
 export const platformBillingAPI = {getSellerProfile:()=>api.get('/owner/platform-billing/seller-profile'),saveSellerProfile:data=>api.put('/owner/platform-billing/seller-profile',data),getOperationalHealth:()=>api.get('/owner/platform-billing/operational-health')};
-
-// NEXUS_AI_V1
-export const nexusAiAPI = {
-  getStatus: (params = {}) => api.get('/nexus-ai/status', { params }),
-  setEntitlement: (organizationId, data) => api.put(`/owner/nexus-ai/${organizationId}`, data),
-  getConversations: (params = {}) => api.get('/nexus-ai/conversations', { params }),
-  createConversation: (params = {}) => api.post('/nexus-ai/conversations', null, { params }),
-  getMessages: (conversationId, params = {}) => api.get(`/nexus-ai/conversations/${conversationId}/messages`, { params }),
-};
