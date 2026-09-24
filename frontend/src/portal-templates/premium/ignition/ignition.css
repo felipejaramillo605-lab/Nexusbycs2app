@@ -1,0 +1,261 @@
+/* Ignition: industrial graphite, electric lime and signal orange. Scoped to the active template. */
+.nexus-client-theme[data-portal-template='ignition'] {
+  --ignition-bg: #0B0B0C; --ignition-panel: #18191B; --ignition-raised: #202124;
+  --ignition-lime: #C6F135; --ignition-orange: #FF5A1F; --ignition-ink: #F4F4EF;
+  --ignition-muted: #B8B9B3; --ignition-line: rgba(244,244,239,.14);
+  min-height: 100vh; overflow: clip;
+  background:
+    linear-gradient(rgba(255,255,255,.025) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,255,255,.025) 1px, transparent 1px),
+    radial-gradient(ellipse at 82% 9%, rgba(255,90,31,.12), transparent 27rem),
+    radial-gradient(ellipse at 9% 38%, rgba(198,241,53,.1), transparent 31rem),
+    linear-gradient(145deg, #0B0B0C, #151618 62%, #0B0B0C);
+  background-size: 48px 48px, 48px 48px, auto, auto, auto;
+  color: var(--ignition-ink); font-family: Inter, 'Segoe UI', sans-serif;
+}
+.nexus-client-theme[data-portal-template='ignition']::before {
+  inset: auto -7rem -10rem auto; width: clamp(15rem,34vw,29rem);
+  height: clamp(15rem,34vw,29rem); border: 1px solid rgba(198,241,53,.18);
+  border-radius: 50%; box-shadow: 0 0 0 2.2rem rgba(198,241,53,.025), 0 0 0 5rem rgba(255,90,31,.025);
+  pointer-events: none;
+}
+.nexus-client-theme[data-portal-template='ignition'] h1,
+.nexus-client-theme[data-portal-template='ignition'] h2,
+.nexus-client-theme[data-portal-template='ignition'] h3,
+.nexus-public-experience[data-portal-template='ignition'] .nexus-public-brand-tenant strong {
+  color: var(--ignition-ink); font-family: Anton, Impact, sans-serif;
+  font-weight: 400; letter-spacing: .025em;
+}
+.nexus-client-theme[data-portal-template='ignition'] .nexus-booking-deep,
+.nexus-client-theme[data-portal-template='ignition'] .nexus-portal-deep,
+.nexus-client-theme[data-portal-template='ignition'] .nexus-portal-login,
+.nexus-client-theme[data-portal-template='ignition'] .nexus-booking-success { color: var(--ignition-ink); }
+.nexus-client-theme[data-portal-template='ignition'] .nexus-booking-hero {
+  position: relative; isolation: isolate; padding: clamp(2.5rem,7vw,5.5rem) 1rem 2.5rem; text-align: left;
+}
+.nexus-client-theme[data-portal-template='ignition'] .nexus-booking-hero::before {
+  content: ''; position: absolute; z-index: -1; inset: 14% -4rem auto auto;
+  width: clamp(10rem,30vw,24rem); aspect-ratio: 1; border: 1px solid rgba(255,90,31,.3);
+  border-radius: 50%; box-shadow: 0 0 0 1.2rem rgba(255,90,31,.035), 0 0 0 2.6rem rgba(198,241,53,.025);
+  pointer-events: none;
+}
+.nexus-client-theme[data-portal-template='ignition'] .nexus-booking-hero > * { position: relative; z-index: 1; }
+.nexus-client-theme[data-portal-template='ignition'] .nexus-booking-hero > small,
+.nexus-client-theme[data-portal-template='ignition'] .nexus-portal-deep > header small {
+  display: block; color: var(--ignition-lime); font-size: .7rem; font-weight: 700;
+  letter-spacing: .2em; text-transform: uppercase;
+}
+.nexus-client-theme[data-portal-template='ignition'] .nexus-booking-hero h1,
+.nexus-client-theme[data-portal-template='ignition'] .nexus-portal-deep > header h1,
+.nexus-client-theme[data-portal-template='ignition'] .nexus-portal-login h1 {
+  max-width: 14ch; font-size: clamp(2.4rem,7vw,5.8rem); line-height: .98; text-transform: uppercase;
+}
+.nexus-client-theme[data-portal-template='ignition'] .nexus-booking-hero p,
+.nexus-client-theme[data-portal-template='ignition'] .nexus-booking-hero > div { color: var(--ignition-muted); }
+
+.nexus-client-theme[data-portal-template='ignition'] .nexus-booking-layout > main,
+.nexus-client-theme[data-portal-template='ignition'] .nexus-booking-summary,
+.nexus-client-theme[data-portal-template='ignition'] .nexus-portal-card,
+.nexus-client-theme[data-portal-template='ignition'] .nexus-next-appointment,
+.nexus-client-theme[data-portal-template='ignition'] .nexus-portal-login > section,
+.nexus-client-theme[data-portal-template='ignition'] .nexus-booking-success > section {
+  position: relative; overflow: hidden; border: 1px solid var(--ignition-line); border-radius: .65rem;
+  background: linear-gradient(145deg,rgba(32,33,36,.98),rgba(20,21,23,.97));
+  color: var(--ignition-ink); box-shadow: 0 20px 50px rgba(0,0,0,.32);
+}
+.nexus-client-theme[data-portal-template='ignition'] .nexus-booking-layout > main::before,
+.nexus-client-theme[data-portal-template='ignition'] .nexus-portal-card::before,
+.nexus-client-theme[data-portal-template='ignition'] .nexus-booking-summary::before,
+.nexus-client-theme[data-portal-template='ignition'] .nexus-next-appointment::before {
+  content: ''; position: absolute; top: 0; left: 1.35rem; width: 4.5rem; height: 3px;
+  background: linear-gradient(90deg,var(--ignition-lime),var(--ignition-orange)); pointer-events: none;
+}
+.nexus-client-theme[data-portal-template='ignition'] .nexus-choice-grid > button,
+.nexus-client-theme[data-portal-template='ignition'] .nexus-slots button,
+.nexus-client-theme[data-portal-template='ignition'] .nexus-portal-history article {
+  border: 1px solid var(--ignition-line); border-radius: .55rem;
+  background: linear-gradient(145deg,#202124,#17181A); color: var(--ignition-ink);
+  box-shadow: 0 7px 18px rgba(0,0,0,.22);
+  transition: transform .18s ease,border-color .18s ease,background-color .18s ease;
+}
+.nexus-client-theme[data-portal-template='ignition'] .nexus-choice-grid > button:hover,
+.nexus-client-theme[data-portal-template='ignition'] .nexus-slots button:hover {
+  border-color: rgba(198,241,53,.65); transform: translateY(-2px);
+}
+.nexus-client-theme[data-portal-template='ignition'] .nexus-choice-grid > button.is-selected,
+.nexus-client-theme[data-portal-template='ignition'] .nexus-slots button.is-selected {
+  border-color: var(--ignition-lime); background: rgba(198,241,53,.12); color: var(--ignition-ink);
+  box-shadow: inset 0 0 0 1px var(--ignition-lime),0 0 22px rgba(198,241,53,.1);
+}
+.nexus-client-theme[data-portal-template='ignition'] .nexus-action-button,
+.nexus-client-theme[data-portal-template='ignition'] .nexus-stepper button,
+.nexus-client-theme[data-portal-template='ignition'] .nexus-choice-grid > button,
+.nexus-client-theme[data-portal-template='ignition'] .nexus-slots button,
+.nexus-client-theme[data-portal-template='ignition'] .nexus-portal-deep button { border-radius: .45rem; }
+.nexus-client-theme[data-portal-template='ignition'] .nexus-action-button {
+  min-height: 46px; padding-inline: 1.3rem; font-weight: 700; letter-spacing: .035em;
+  text-transform: uppercase; transition: transform .18s ease,box-shadow .18s ease,background-color .18s ease;
+}
+.nexus-client-theme[data-portal-template='ignition'] .nexus-action-primary {
+  background: var(--ignition-lime); color: #11120E; box-shadow: 0 7px 22px rgba(198,241,53,.16);
+}
+.nexus-client-theme[data-portal-template='ignition'] .nexus-action-primary:hover:not(:disabled) {
+  background: #D7FF55; box-shadow: 0 10px 28px rgba(198,241,53,.25); transform: translateY(-2px);
+}
+.nexus-client-theme[data-portal-template='ignition'] .nexus-action-secondary {
+  border: 1px solid var(--ignition-line); background: #202124; color: var(--ignition-ink);
+}
+.nexus-client-theme[data-portal-template='ignition'] button:disabled { cursor: not-allowed; opacity: .56; }
+.nexus-client-theme[data-portal-template='ignition'] input,
+.nexus-client-theme[data-portal-template='ignition'] select,
+.nexus-client-theme[data-portal-template='ignition'] textarea {
+  border-color: rgba(244,244,239,.2); border-radius: .45rem; background: #121315; color: var(--ignition-ink);
+}
+.nexus-client-theme[data-portal-template='ignition'] input::placeholder,
+.nexus-client-theme[data-portal-template='ignition'] textarea::placeholder { color: #8D8F89; }
+.nexus-client-theme[data-portal-template='ignition'] .nexus-client-form label,
+.nexus-client-theme[data-portal-template='ignition'] .nexus-public-field,
+.nexus-client-theme[data-portal-template='ignition'] .nexus-portal-login label { color: var(--ignition-muted); }
+.nexus-client-theme[data-portal-template='ignition'] .nexus-stepper button { color: var(--ignition-muted); }
+.nexus-client-theme[data-portal-template='ignition'] .nexus-stepper button.is-current,
+.nexus-client-theme[data-portal-template='ignition'] .nexus-stepper button.is-complete { color: var(--ignition-lime); }
+.nexus-client-theme[data-portal-template='ignition'] .nexus-stepper button > span {
+  border: 1px solid currentColor; background: var(--ignition-raised);
+}
+.nexus-client-theme[data-portal-template='ignition'] .nexus-stepper button.is-current > span,
+.nexus-client-theme[data-portal-template='ignition'] .nexus-stepper button.is-complete > span {
+  background: var(--ignition-lime); color: #11120E;
+}
+.nexus-client-theme[data-portal-template='ignition'] .nexus-status-badge { border: 1px solid currentColor; border-radius: 999px; font-weight: 700; }
+.nexus-client-theme[data-portal-template='ignition'] .nexus-status-success,
+.nexus-client-theme[data-portal-template='ignition'] [class~='text-green-400'],
+.nexus-client-theme[data-portal-template='ignition'] [class~='text-emerald-400'] { color: #C6F135 !important; }
+.nexus-client-theme[data-portal-template='ignition'] [class~='bg-green-500/20'],
+.nexus-client-theme[data-portal-template='ignition'] [class~='bg-emerald-500/20'] { background-color: rgba(198,241,53,.13) !important; }
+.nexus-client-theme[data-portal-template='ignition'] .nexus-status-warning,
+.nexus-client-theme[data-portal-template='ignition'] [class~='text-orange-400'] { color: #FF895C !important; }
+.nexus-client-theme[data-portal-template='ignition'] [class~='bg-orange-500/20'] { background-color: rgba(255,90,31,.18) !important; }
+.nexus-client-theme[data-portal-template='ignition'] .nexus-status-danger,
+.nexus-client-theme[data-portal-template='ignition'] [class~='text-red-400'] { color: #FF8A7A !important; }
+.nexus-client-theme[data-portal-template='ignition'] .nexus-status-info,
+.nexus-client-theme[data-portal-template='ignition'] [class~='text-blue-400'] { color: #8ECFFF !important; }
+.nexus-client-theme[data-portal-template='ignition'] .nexus-status-neutral,
+.nexus-client-theme[data-portal-template='ignition'] [class~='text-zinc-400'] { color: #C0C1BB !important; }
+.nexus-client-theme[data-portal-template='ignition'] :focus-visible { outline: 3px solid var(--ignition-lime); outline-offset: 3px; }
+.nexus-client-theme[data-portal-template='ignition'] .nexus-booking-success > section { border-top: 3px solid var(--ignition-lime); }
+.nexus-client-theme[data-portal-template='ignition'] .nexus-booking-success > section > span { color: var(--ignition-lime); }
+.nexus-client-theme[data-portal-template='ignition'] .nexus-booking-receipt {
+  border: 1px solid var(--ignition-line); border-radius: .5rem; background: rgba(0,0,0,.18); color: var(--ignition-ink);
+}
+.nexus-client-theme[data-portal-template='ignition'] .nexus-portal-deep > header img,
+.nexus-public-experience[data-portal-template='ignition'] .nexus-public-brand-tenant-logo {
+  border: 2px solid rgba(198,241,53,.72); border-radius: .4rem;
+  box-shadow: 0 0 0 4px rgba(198,241,53,.08); object-fit: cover;
+}
+
+.nexus-public-experience[data-portal-template='ignition'] {
+  background:
+    linear-gradient(rgba(255,255,255,.025) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(255,255,255,.025) 1px,transparent 1px),
+    radial-gradient(ellipse at 85% 10%,rgba(255,90,31,.12),transparent 28rem),
+    linear-gradient(145deg,#0B0B0C,#151618 62%,#0B0B0C);
+  background-size: 48px 48px,48px 48px,auto,auto;
+  color: var(--ignition-ink); font-family: Inter,'Segoe UI',sans-serif;
+}
+.nexus-public-experience[data-portal-template='ignition'] .nexus-public-orb {
+  border: 1px solid rgba(198,241,53,.2);
+  background: radial-gradient(circle at 35% 35%,rgba(198,241,53,.14),rgba(255,90,31,.08) 70%); filter: none;
+}
+.nexus-public-experience[data-portal-template='ignition'] .nexus-public-brand {
+  border: 1px solid var(--ignition-line); border-radius: .6rem;
+  background: rgba(24,25,27,.92); color: var(--ignition-ink); box-shadow: 0 12px 34px rgba(0,0,0,.28);
+}
+.nexus-public-experience[data-portal-template='ignition'] .nexus-public-brand-tenant-badge {
+  border: 2px solid rgba(198,241,53,.8); border-radius: .4rem; background: var(--ignition-lime); color: #11120E;
+}
+.nexus-public-experience[data-portal-template='ignition'] .nexus-public-brand-provider-badge { background: var(--ignition-orange); color: #11120E; }
+.nexus-public-experience[data-portal-template='ignition'] .nexus-public-brand-provider { opacity: 1; }
+.nexus-public-experience[data-portal-template='ignition'] .nexus-public-brand-provider small,
+.nexus-public-experience[data-portal-template='ignition'] .nexus-public-brand-tenant small,
+.nexus-public-experience[data-portal-template='ignition'] .nexus-public-footer { color: var(--ignition-muted); }
+
+/* Keep uploaded or video backgrounds subdued so the theme remains legible. */
+.nexus-client-theme[data-portal-template='ignition'] > [aria-hidden='true'] > img ~ [class~='absolute'][class~='inset-0'],
+.nexus-client-theme[data-portal-template='ignition'] > [aria-hidden='true'] > video ~ [class~='absolute'][class~='inset-0'] {
+  background: rgba(11,11,12,.72) !important;
+}
+
+/* A lime solid fallback remains readable where text stroke is unavailable. */
+.nexus-client-theme[data-portal-template='ignition'] .nexus-booking-hero h1 {
+  color: var(--ignition-lime);
+  text-shadow: 2px 2px 0 rgba(255,90,31,.78);
+}
+@supports (-webkit-text-stroke: 1px #0B0B0C) {
+  .nexus-client-theme[data-portal-template='ignition'] .nexus-booking-hero h1 {
+    -webkit-text-stroke: 1.5px #0B0B0C;
+    paint-order: stroke fill;
+  }
+}
+
+/* Cut corners define the action language; unsupported browsers keep a rect. */
+.nexus-client-theme[data-portal-template='ignition'] .nexus-action-button,
+.nexus-client-theme[data-portal-template='ignition'] .nexus-stepper button,
+.nexus-client-theme[data-portal-template='ignition'] .nexus-choice-grid > button,
+.nexus-client-theme[data-portal-template='ignition'] .nexus-slots button,
+.nexus-client-theme[data-portal-template='ignition'] .nexus-portal-deep button {
+  min-width: 44px;
+  min-height: 44px;
+  clip-path: none;
+}
+@supports (clip-path: polygon(0 0, calc(100% - .75rem) 0, 100% .75rem, 100% 100%, .75rem 100%, 0 calc(100% - .75rem))) {
+  .nexus-client-theme[data-portal-template='ignition'] .nexus-action-button,
+  .nexus-client-theme[data-portal-template='ignition'] .nexus-stepper button,
+  .nexus-client-theme[data-portal-template='ignition'] .nexus-choice-grid > button,
+  .nexus-client-theme[data-portal-template='ignition'] .nexus-slots button,
+  .nexus-client-theme[data-portal-template='ignition'] .nexus-portal-deep button {
+    clip-path: polygon(0 0, calc(100% - .75rem) 0, 100% .75rem, 100% 100%, .75rem 100%, 0 calc(100% - .75rem));
+  }
+}
+@supports not (clip-path: polygon(0 0, calc(100% - .75rem) 0, 100% .75rem, 100% 100%, .75rem 100%, 0 calc(100% - .75rem))) {
+  .nexus-client-theme[data-portal-template='ignition'] .nexus-action-button,
+  .nexus-client-theme[data-portal-template='ignition'] .nexus-stepper button,
+  .nexus-client-theme[data-portal-template='ignition'] .nexus-choice-grid > button,
+  .nexus-client-theme[data-portal-template='ignition'] .nexus-slots button,
+  .nexus-client-theme[data-portal-template='ignition'] .nexus-portal-deep button { border-radius: .45rem; }
+}
+.nexus-client-theme[data-portal-template='ignition'] .nexus-choice-grid > button:hover,
+.nexus-client-theme[data-portal-template='ignition'] .nexus-slots button:hover {
+  box-shadow: 0 9px 24px rgba(0,0,0,.28), 0 0 20px rgba(198,241,53,.2);
+  transform: scale(1.015);
+}
+.nexus-client-theme[data-portal-template='ignition'] .nexus-action-button:focus-visible,
+.nexus-client-theme[data-portal-template='ignition'] .nexus-stepper button:focus-visible,
+.nexus-client-theme[data-portal-template='ignition'] .nexus-choice-grid > button:focus-visible,
+.nexus-client-theme[data-portal-template='ignition'] .nexus-slots button:focus-visible,
+.nexus-client-theme[data-portal-template='ignition'] .nexus-portal-deep button:focus-visible {
+  outline: 2px solid var(--ignition-lime);
+  outline-offset: 4px;
+  filter: drop-shadow(0 0 2px var(--ignition-lime)) drop-shadow(0 0 4px rgba(198,241,53,.55));
+}
+
+.nexus-client-theme[data-portal-template='ignition'][data-reduced-motion='true'] *,
+.nexus-client-theme[data-portal-template='ignition'][data-reduced-motion='true'] *::before,
+.nexus-client-theme[data-portal-template='ignition'][data-reduced-motion='true'] *::after {
+  animation: none !important; scroll-behavior: auto !important; transition: none !important;
+}
+@media (prefers-reduced-motion: reduce) {
+  .nexus-client-theme[data-portal-template='ignition'] *,
+  .nexus-client-theme[data-portal-template='ignition'] *::before,
+  .nexus-client-theme[data-portal-template='ignition'] *::after {
+    animation: none !important; scroll-behavior: auto !important; transition: none !important;
+  }
+}
+@media (max-width: 560px) {
+  .nexus-client-theme[data-portal-template='ignition'] .nexus-booking-hero { padding: 2rem .35rem 1.7rem; }
+  .nexus-client-theme[data-portal-template='ignition'] .nexus-booking-hero h1 { font-size: clamp(2.4rem,12vw,4rem); }
+  .nexus-client-theme[data-portal-template='ignition'] .nexus-booking-layout > main,
+  .nexus-client-theme[data-portal-template='ignition'] .nexus-booking-summary { border-radius: .5rem; }
+  .nexus-client-theme[data-portal-template='ignition'] .nexus-booking-actions { gap: .6rem; }
+  .nexus-client-theme[data-portal-template='ignition'] .nexus-action-button { padding-inline: .9rem; }
+  .nexus-public-experience[data-portal-template='ignition'] .nexus-public-brand { margin-inline: .35rem; }
+}
