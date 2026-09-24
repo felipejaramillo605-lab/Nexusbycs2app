@@ -12,6 +12,7 @@ import ManagerFiscalProfile from './ManagerFiscalProfile';
 import AccountPrivacy from './AccountPrivacy';
 import ManagerBilling from './ManagerBilling';
 import PortalThemeSelector from '../components/PortalThemeSelector';
+import PremiumTemplateSelector from '../components/PremiumTemplateSelector';
 import PortalCustomizationPanel from '../components/PortalCustomizationPanel';
 import OrganizationLogoUpload from '../components/OrganizationLogoUpload';
 import PremiumPlanRequestCard from '../components/PremiumPlanRequestCard';
@@ -51,6 +52,8 @@ const Settings = () => {
     address: '',
     phone: '',
     client_portal_theme: 'classic',
+    portal_template: 'classic',
+    premium_templates_contracted: false,
     logo_url: '',
     portal_welcome_message: '',
     portal_show_team: true,
@@ -110,6 +113,8 @@ const Settings = () => {
           address: data.address || '',
           phone: data.phone || '',
           client_portal_theme: data.client_portal_theme || 'classic',
+          portal_template: data.portal_template || 'classic',
+          premium_templates_contracted: data.premium_templates_contracted ?? false,
           logo_url: data.logo_url || '',
           portal_welcome_message: data.portal_welcome_message || '',
           portal_show_team: data.portal_show_team ?? true,
@@ -1110,6 +1115,15 @@ const Settings = () => {
               onThemeChange={(theme) => {
                 setProfileData(current => ({ ...current, client_portal_theme: theme }));
               }}
+            />
+            <PremiumTemplateSelector
+              organizationId={organizationId}
+              currentTemplate={profileData.portal_template || 'classic'}
+              contracted={!!profileData.premium_templates_contracted}
+              onTemplateChange={(template) => {
+                setProfileData(current => ({ ...current, portal_template: template }));
+              }}
+              onRequestPremium={() => setActiveTab('general')}
             />
             <PortalCustomizationPanel
               organizationId={organizationId}
