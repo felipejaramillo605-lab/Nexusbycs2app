@@ -10,7 +10,7 @@ import uuid
 from datetime import datetime, timezone
 from typing import Optional
 
-from fastapi import APIRouter, Cookie, Header, HTTPException, Request
+from fastapi import APIRouter, Cookie, Header, HTTPException, Query, Request
 from pydantic import BaseModel, Field
 from pymongo import ReturnDocument
 
@@ -35,6 +35,14 @@ def _request_id(request: Request) -> str:
     if supplied and len(supplied) <= MAX_REQUEST_ID_LENGTH and re.fullmatch(r"[A-Za-z0-9._:-]+", supplied):
         return supplied
     return "req_" + uuid.uuid4().hex
+
+
+def _required_request_id(request: Request) -> str:
+    """Require a caller supplied operation ID for mutation endpoints."""
+    supplied = (request.headers.get("x-request-id") or "").strip()
+    if not supplied or len(supplied) > MAX_REQUEST_ID_LENGTH or not re.fullmatch(r"[A-Za-z0-9._:-]+", supplied):
+        raise HTTPException(status_code=400, detail="A valid X-Request-ID is required")
+    return supplied
 
 
 def _clean_reason(reason: str) -> str:
@@ -539,6 +547,33 @@ async def _reserve_premium_invoice_activation(
 ) -> dict:
     """Claim the paid invoice before entitlement writes; a refund uses the opposite CAS."""
     now = _now()
+    request_lock = await db.premium_plan_requests.update_one(
+        {
+            "request_id": premium_request_id,
+            "organization_id": organization_id,
+            "status": {"$in": ["pending", "active"]},
+            "$or": [
+                {"premium_activation_operation_id": {"$exists": False}},
+                {"premium_activation_operation_id": operation_id},
+            ],
+            "$and": [{"$or": [
+                {"premium_invoice_link_state": {"$exists": False}},
+                {"premium_invoice_link_state": "released"},
+            ]}],
+        },
+        {"$set": {
+            "premium_activation_state": "reserved",
+            "premium_activation_operation_id": operation_id,
+            "premium_activation_locked_at": now,
+            "updated_at": now,
+        }},
+    )
+    if request_lock.matched_count != 1:
+        current_request = await db.premium_plan_requests.find_one(
+            {"request_id": premium_request_id, "organization_id": organization_id}, {"_id": 0}
+        )
+        if not current_request or current_request.get("status") not in {"pending", "active"} or current_request.get("premium_activation_operation_id") != operation_id:
+            raise HTTPException(status_code=409, detail="Premium request is rejected, unavailable, or locked by another activation")
     result = await db.subscription_invoices.update_one(
         {
             "invoice_id": invoice_id,
@@ -572,6 +607,26 @@ async def _reserve_premium_invoice_activation(
         {"invoice_id": invoice_id, "organization_id": organization_id}, {"_id": 0}
     )
     if not invoice or invoice.get("premium_activation_operation_id") != operation_id or invoice.get("premium_activation_state") not in {"reserved", "active"}:
+        # The request-side lock closes the race with rejection. Release it only
+        # when this operation provably owns neither the invoice nor org marker.
+        org = await db.organizations.find_one(
+            {"organization_id": organization_id}, {"_id": 0, "portal_template_entitlement_request_id": 1}
+        ) or {}
+        if org.get("portal_template_entitlement_request_id") != operation_id:
+            await db.premium_plan_requests.update_one(
+                {
+                    "request_id": premium_request_id,
+                    "organization_id": organization_id,
+                    "status": "pending",
+                    "premium_activation_operation_id": operation_id,
+                    "premium_activation_state": "reserved",
+                },
+                {"$unset": {
+                    "premium_activation_operation_id": "",
+                    "premium_activation_state": "",
+                    "premium_activation_locked_at": "",
+                }},
+            )
         raise HTTPException(status_code=409, detail="Premium invoice is already locked or no longer paid")
     # A no-op CAS is an idempotent retry for this exact operation.
     return invoice
@@ -627,6 +682,20 @@ async def _release_premium_invoice_lock(db, organization_id: str, invoice: dict,
         )
         if not current or current.get("premium_activation_state") != "released" or current.get("premium_request_id") != premium_request_id:
             raise HTTPException(status_code=503, detail="Premium invoice lock release requires reconciliation")
+    await db.premium_plan_requests.update_one(
+        {
+            "request_id": premium_request_id,
+            "organization_id": organization_id,
+            "status": "pending",
+            "premium_activation_operation_id": lock_operation_id,
+            "premium_activation_state": "reserved",
+        },
+        {"$unset": {
+            "premium_activation_operation_id": "",
+            "premium_activation_state": "",
+            "premium_activation_locked_at": "",
+        }},
+    )
 
 
 async def _release_all_premium_invoice_locks(db, organization_id: str, operation_id: str) -> int:
@@ -665,7 +734,14 @@ async def _release_all_premium_invoice_locks(db, organization_id: str, operation
                     "organization_id": organization_id,
                     "status": {"$in": ["pending", "active"]},
                 },
-                {"$set": {"status": "disabled", "last_entitlement_request_id": operation_id, "updated_at": _now()}},
+                {
+                    "$set": {"status": "disabled", "last_entitlement_request_id": operation_id, "updated_at": _now()},
+                    "$unset": {
+                        "premium_activation_operation_id": "",
+                        "premium_activation_state": "",
+                        "premium_activation_locked_at": "",
+                    },
+                },
             )
     remaining = await db.subscription_invoices.find(query, {"_id": 0}).to_list(1)
     if remaining:
@@ -707,11 +783,39 @@ async def _compensate_unpersisted_premium_reservation(
         }},
     )
     if released.modified_count == 1:
+        await db.premium_plan_requests.update_one(
+            {
+                "request_id": premium_request_id,
+                "organization_id": organization_id,
+                "status": "pending",
+                "premium_activation_operation_id": operation_id,
+                "premium_activation_state": "reserved",
+            },
+            {"$unset": {
+                "premium_activation_operation_id": "",
+                "premium_activation_state": "",
+                "premium_activation_locked_at": "",
+            }},
+        )
         return True
     current = await db.subscription_invoices.find_one(
         {"invoice_id": invoice_id, "organization_id": organization_id}, {"_id": 0}
     )
     if current and current.get("premium_activation_state") == "released" and current.get("premium_activation_operation_id") == operation_id:
+        await db.premium_plan_requests.update_one(
+            {
+                "request_id": premium_request_id,
+                "organization_id": organization_id,
+                "status": "pending",
+                "premium_activation_operation_id": operation_id,
+                "premium_activation_state": "reserved",
+            },
+            {"$unset": {
+                "premium_activation_operation_id": "",
+                "premium_activation_state": "",
+                "premium_activation_locked_at": "",
+            }},
+        )
         return True
     return False
 
@@ -946,10 +1050,42 @@ async def _finalize_entitlement_event(db, request_id: str, maintenance_lock_id: 
 async def _update_premium_request_status(db, premium_request_id, organization_id, contracted, operation_id):
     if not premium_request_id:
         return
-    status = "active" if contracted else "disabled"
+    if contracted:
+        result = await db.premium_plan_requests.update_one(
+            {
+                "request_id": premium_request_id,
+                "organization_id": organization_id,
+                "status": {"$in": ["pending", "active"]},
+                "premium_activation_operation_id": operation_id,
+                "premium_activation_state": "reserved",
+            },
+            {"$set": {
+                "status": "active",
+                "premium_activation_state": "active",
+                "last_entitlement_request_id": operation_id,
+                "updated_at": _now(),
+            }},
+        )
+        current = await db.premium_plan_requests.find_one(
+            {"request_id": premium_request_id, "organization_id": organization_id}, {"_id": 0}
+        )
+        if result.matched_count != 1 and not (
+            current and current.get("status") == "active"
+            and current.get("premium_activation_operation_id") == operation_id
+            and current.get("premium_activation_state") == "active"
+        ):
+            raise HTTPException(status_code=503, detail="Premium request activation requires reconciliation")
+        return
     await db.premium_plan_requests.update_one(
         {"request_id": premium_request_id, "organization_id": organization_id},
-        {"$set": {"status": status, "last_entitlement_request_id": operation_id, "updated_at": _now()}},
+        {
+            "$set": {"status": "disabled", "last_entitlement_request_id": operation_id, "updated_at": _now()},
+            "$unset": {
+                "premium_activation_operation_id": "",
+                "premium_activation_state": "",
+                "premium_activation_locked_at": "",
+            },
+        },
     )
 
 
@@ -992,6 +1128,191 @@ def _premium_request_public(row: dict) -> dict:
         "status": row.get("status"),
         "created_at": row.get("created_at"),
         "requested_by": row.get("requested_by"),
+        "rejected_at": row.get("rejected_at"),
+        "public_note": row.get("public_note"),
+    }
+
+
+class PremiumRejectRequest(BaseModel):
+    reason: str = Field(min_length=1, max_length=MAX_REASON_LENGTH)
+    public_note: Optional[str] = Field(default=None, max_length=300)
+
+
+async def _reserve_premium_invoice_link(db, organization_id: str, premium_request_id: str, request_id: str) -> None:
+    result = await db.premium_plan_requests.update_one(
+        {
+            "request_id": premium_request_id,
+            "organization_id": organization_id,
+            "status": "pending",
+            "$and": [
+                {"$or": [
+                    {"premium_activation_state": {"$exists": False}},
+                    {"premium_activation_state": "released"},
+                ]},
+                {"$or": [
+                    {"premium_invoice_link_state": {"$exists": False}},
+                    {"premium_invoice_link_state": "released"},
+                ]},
+            ],
+        },
+        {"$set": {
+            "premium_invoice_link_state": "linking",
+            "premium_invoice_link_operation_id": request_id,
+            "updated_at": _now(),
+        }},
+    )
+    if result.matched_count != 1:
+        raise HTTPException(status_code=409, detail="Premium request is no longer available for invoice linking")
+
+
+async def _release_premium_invoice_link(db, organization_id: str, premium_request_id: str, request_id: str) -> None:
+    await db.premium_plan_requests.update_one(
+        {
+            "request_id": premium_request_id,
+            "organization_id": organization_id,
+            "status": "pending",
+            "premium_invoice_link_state": "linking",
+            "premium_invoice_link_operation_id": request_id,
+        },
+        {"$set": {"premium_invoice_link_state": "released", "updated_at": _now()}},
+    )
+
+
+async def _request_has_premium_activation_lock(db, request_row: dict) -> bool:
+    if request_row.get("premium_activation_state") in {"reserved", "active"}:
+        return True
+    invoice = await db.subscription_invoices.find_one(
+        {
+            "premium_request_id": request_row["request_id"],
+            "organization_id": request_row["organization_id"],
+        },
+        {"_id": 0, "status": 1, "premium_activation_state": 1},
+    )
+    return bool(invoice and (
+        invoice.get("status") == "paid"
+        or invoice.get("premium_activation_state") in {"reserved", "active"}
+    ))
+
+
+async def _reject_premium_plan_request(db, actor_user_id: str, premium_request_id: str, request_id: str,
+                                       reason: str, public_note: Optional[str]) -> dict:
+    reason = _clean_reason(reason)
+    public_note = (public_note or "").strip() or None
+    if public_note and len(public_note) > 300:
+        raise HTTPException(status_code=422, detail="public_note is too long")
+    plan_request = await db.premium_plan_requests.find_one(
+        {"request_id": premium_request_id}, {"_id": 0}
+    )
+    if not plan_request:
+        raise HTTPException(status_code=404, detail="Premium request not found")
+    if plan_request.get("status") == "rejected" and plan_request.get("rejection_request_id") == request_id:
+        linked_invoice = await db.subscription_invoices.find_one(
+            {
+                "premium_request_id": premium_request_id,
+                "organization_id": plan_request["organization_id"],
+            },
+            {"_id": 0, "invoice_id": 1, "status": 1, "premium_activation_state": 1},
+        )
+        linked_unpaid_invoice_id = None
+        if linked_invoice and linked_invoice.get("status") != "paid" and linked_invoice.get("premium_activation_state") not in {"reserved", "active"}:
+            linked_unpaid_invoice_id = linked_invoice.get("invoice_id")
+        await _ensure_premium_audit_event(db, {
+            "event_id": "ppae_" + uuid.uuid4().hex,
+            "request_id": request_id,
+            "premium_request_id": premium_request_id,
+            "organization_id": plan_request["organization_id"],
+            "event_type": "premium_rejected",
+            "actor_user_id": plan_request.get("rejected_by", actor_user_id),
+            "reason": plan_request.get("rejection_reason", reason),
+            "public_note": plan_request.get("public_note"),
+            "state": "applied",
+            "created_at": plan_request.get("rejected_at") or _now(),
+        })
+        return {"rejected": True, "idempotent_replay": True, "linked_unpaid_invoice_id": linked_unpaid_invoice_id}
+    linked_invoice = await db.subscription_invoices.find_one(
+        {
+            "premium_request_id": premium_request_id,
+            "organization_id": plan_request["organization_id"],
+        },
+        {"_id": 0, "invoice_id": 1, "status": 1, "premium_activation_state": 1},
+    )
+    if linked_invoice and (
+        linked_invoice.get("status") == "paid"
+        or linked_invoice.get("premium_activation_state") in {"reserved", "active"}
+    ):
+        raise HTTPException(
+            status_code=409,
+            detail="La solicitud tiene una factura pagada o una activación en curso; resuélvela antes de rechazar",
+        )
+    linked_unpaid_invoice_id = (linked_invoice or {}).get("invoice_id")
+    now = _now()
+    result = await db.premium_plan_requests.update_one(
+        {
+            "request_id": premium_request_id,
+            "status": "pending",
+            "$and": [
+                {"$or": [
+                    {"premium_activation_state": {"$exists": False}},
+                    {"premium_activation_state": "released"},
+                ]},
+                {"$or": [
+                    {"premium_invoice_link_state": {"$exists": False}},
+                    {"premium_invoice_link_state": "released"},
+                ]},
+            ],
+        },
+        {"$set": {
+            "status": "rejected",
+            "rejected_by": actor_user_id,
+            "rejected_at": now,
+            "public_note": public_note,
+            "rejection_request_id": request_id,
+            "updated_at": now,
+        }},
+    )
+    if result.modified_count == 0:
+        latest = await db.premium_plan_requests.find_one(
+            {"request_id": premium_request_id}, {"_id": 0}
+        )
+        if (latest or {}).get("status") == "rejected" and (latest or {}).get("rejection_request_id") == request_id:
+            linked_invoice = await db.subscription_invoices.find_one(
+                {
+                    "premium_request_id": premium_request_id,
+                    "organization_id": (latest or {}).get("organization_id"),
+                },
+                {"_id": 0, "invoice_id": 1, "status": 1, "premium_activation_state": 1},
+            )
+            linked_unpaid_invoice_id = None
+            if linked_invoice and linked_invoice.get("status") != "paid" and linked_invoice.get("premium_activation_state") not in {"reserved", "active"}:
+                linked_unpaid_invoice_id = linked_invoice.get("invoice_id")
+            replay = True
+        else:
+            if latest and await _request_has_premium_activation_lock(db, latest):
+                raise HTTPException(
+                    status_code=409,
+                    detail="La solicitud tiene una factura pagada o una activación en curso; resuélvela antes de rechazar",
+                )
+            if latest and latest.get("premium_invoice_link_state") == "linking":
+                raise HTTPException(status_code=409, detail="La factura se está asociando a esta solicitud")
+            raise HTTPException(status_code=409, detail="Premium request is no longer pending")
+    else:
+        replay = False
+    await _ensure_premium_audit_event(db, {
+        "event_id": "ppae_" + uuid.uuid4().hex,
+        "request_id": request_id,
+        "premium_request_id": premium_request_id,
+        "organization_id": plan_request["organization_id"],
+        "event_type": "premium_rejected",
+        "actor_user_id": actor_user_id,
+        "reason": reason,
+        "public_note": public_note,
+        "state": "applied",
+        "created_at": (latest.get("rejected_at") if replay else now) if result.modified_count == 0 else now,
+    })
+    return {
+        "rejected": True,
+        "idempotent_replay": replay,
+        "linked_unpaid_invoice_id": linked_unpaid_invoice_id,
     }
 
 
@@ -1061,6 +1382,19 @@ def build_platform_capability_router(db, get_current_user, resolve_team_organiza
             db, actor, organization_id, data.contracted, _clean_reason(data.reason), rid,
             data.premium_request_id, data.invoice_id,
         )
+
+    @router.get("/me")
+    async def platform_capability_me(authorization: Optional[str] = Header(None), session_token: Optional[str] = Cookie(None)):
+        user = await get_current_user(authorization, session_token)
+        if user.role != "owner" or user.access_status != "approved":
+            raise HTTPException(status_code=403, detail="Owner access required")
+        authority = await db.platform_capability_authority.find_one(
+            {"_id": AUTHORITY_ID, "active_grants.user_id": user.user_id}, {"_id": 1}
+        )
+        pending_count = None
+        if authority:
+            pending_count = await db.premium_plan_requests.count_documents({"status": "pending"})
+        return {"premium_authority": bool(authority), "pending_premium_requests": pending_count}
 
     @router.post("/premium-plan-requests")
     async def request_premium_plan(
@@ -1144,13 +1478,50 @@ def build_platform_capability_router(db, get_current_user, resolve_team_organiza
         if all(bool(org.get(k)) for k in ("nexus_ai_contracted", "nexus_ai_enabled", "premium_templates_contracted")):
             return {"status": "active"}
         pending = await db.premium_plan_requests.find_one({"organization_id": org_id, "status": "pending"}, {"_id": 1})
-        return {"status": "pending" if pending else "not_requested"}
+        if pending:
+            return {"status": "pending"}
+        latest = await db.premium_plan_requests.find_one(
+            {"organization_id": org_id}, {"_id": 0, "status": 1, "public_note": 1}, sort=[("created_at", -1)]
+        )
+        if latest and latest.get("status") == "rejected":
+            return {"status": "rejected", "public_note": latest.get("public_note")}
+        return {"status": "not_requested"}
 
     @router.get("/premium-plan-requests")
-    async def list_premium_requests(request: Request, authorization: Optional[str] = Header(None), session_token: Optional[str] = Cookie(None)):
+    async def list_premium_requests(
+        request: Request,
+        status: Optional[str] = None,
+        limit: int = Query(200, ge=1, le=200),
+        authorization: Optional[str] = Header(None),
+        session_token: Optional[str] = Cookie(None),
+    ):
         _, rid = await authorized(request, authorization, session_token)
-        rows = await db.premium_plan_requests.find({"status": {"$in": ["pending", "active"]}}, {"_id": 0}).sort("created_at", -1).to_list(200)
-        return {"requests": [_premium_request_public(row) for row in rows], "request_id": rid}
+        allowed = {"pending", "active", "rejected", "disabled", "all"}
+        if status is not None and status not in allowed:
+            raise HTTPException(status_code=422, detail="Unsupported Premium request status")
+        query = {"status": {"$in": ["pending", "active"]}} if status is None else (
+            {} if status == "all" else {"status": status}
+        )
+        rows = await db.premium_plan_requests.find(query, {"_id": 0}).sort("created_at", -1).to_list(limit)
+        counts = {
+            state: await db.premium_plan_requests.count_documents({"status": state})
+            for state in ("pending", "active", "rejected", "disabled")
+        }
+        return {"requests": [_premium_request_public(row) for row in rows], "counts": counts, "request_id": rid}
+
+    @router.post("/premium-plan-requests/{premium_request_id}/reject")
+    async def reject_premium_request(
+        premium_request_id: str,
+        data: PremiumRejectRequest,
+        request: Request,
+        authorization: Optional[str] = Header(None),
+        session_token: Optional[str] = Cookie(None),
+    ):
+        rid = _required_request_id(request)
+        actor, _ = await authorized(request, authorization, session_token)
+        return await _reject_premium_plan_request(
+            db, actor.user_id, premium_request_id, rid, data.reason, data.public_note,
+        )
 
     @router.post("/premium-plan-requests/{premium_request_id}/invoice-link")
     async def link_premium_invoice(
@@ -1191,6 +1562,7 @@ def build_platform_capability_router(db, get_current_user, resolve_team_organiza
                 })
                 return {"linked": True, "idempotent_replay": True}
             raise HTTPException(status_code=409, detail="Invoice already has a commercial purpose")
+        await _reserve_premium_invoice_link(db, org_id, premium_request_id, rid)
         try:
             linked = await db.subscription_invoices.update_one(
                 {
@@ -1211,10 +1583,13 @@ def build_platform_capability_router(db, get_current_user, resolve_team_organiza
                 }},
             )
         except Exception as exc:
+            await _release_premium_invoice_link(db, org_id, premium_request_id, rid)
             logger.exception("Premium invoice link failed; request_id=%s", rid)
             raise HTTPException(status_code=503, detail="Premium invoice link requires reconciliation") from exc
         if linked.modified_count != 1:
+            await _release_premium_invoice_link(db, org_id, premium_request_id, rid)
             raise HTTPException(status_code=409, detail="Invoice changed before it could be linked")
+        await _release_premium_invoice_link(db, org_id, premium_request_id, rid)
         audit = {
             "event_id": "ppae_" + uuid.uuid4().hex,
             "request_id": rid,
