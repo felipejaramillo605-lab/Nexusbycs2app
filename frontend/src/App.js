@@ -19,6 +19,7 @@ import './App.css';
 import CancelAppointment from './pages/CancelAppointment';
 import { RouteExperienceFrame } from './components/design';
 import { ClientPortalThemeWrapper } from './components/ClientPortalThemeWrapper';
+import { settingsTabRedirectLocation } from './routing/settingsTabRedirect';
 
 // NEXUS_FRONTEND_PERFORMANCE_4C1_V1
 const ReactQueryDevtools = process.env.NODE_ENV === 'development'
@@ -37,9 +38,7 @@ const OwnerOrganizationOnboarding = lazy(() => import('./pages/OwnerOrganization
 const ManagerOrganizationOnboarding = lazy(() => import('./pages/ManagerOrganizationOnboarding'));
 const NexusAI = lazy(() => import('./pages/NexusAI'));
 const ManagerDashboard = lazy(() => import('./pages/ManagerDashboard'));
-const ManagerBilling = lazy(() => import('./pages/ManagerBilling'));
 const ManagerSupport = lazy(() => import('./pages/ManagerSupport'));
-const ManagerFiscalProfile = lazy(() => import('./pages/ManagerFiscalProfile'));
 const ManagerServices = lazy(() => import('./pages/ManagerServices'));
 const ManagerClasses = lazy(() => import('./pages/ManagerClasses')); // NEXUS_GROUP_SERVICES_V1
 const ManagerBarbers = lazy(() => import('./pages/ManagerBarbers'));
@@ -90,12 +89,16 @@ const PageLoader = () => (
   </div>
 );
 
-// Managers/owners/admins keep their privacy settings inside the Settings tabs;
-// staff has no access to /manager/settings, so they get the standalone page instead.
+function SettingsTabRedirect({ tab }) {
+  const location = useLocation();
+  return <Navigate to={settingsTabRedirectLocation(location.search, tab)} replace />;
+}
+
+// Staff keeps the standalone privacy page; business roles use the Settings tab.
 const AccountPrivacyRedirect = () => {
   const { user } = useAuth();
   if (user && ['owner', 'manager', 'admin'].includes(user.role)) {
-    return <Navigate to="/manager/settings?tab=privacy" replace />;
+    return <SettingsTabRedirect tab="privacy" />;
   }
   return <AccountPrivacy />;
 };
@@ -155,14 +158,11 @@ function AppRouter() {
         {/* NEXUS_AI_V1 */}
         <Route path="/manager/nexus-ai" element={<ProtectedRoute allowedRoles={['owner', 'manager', 'admin']}><Suspense fallback={<PageLoader />}><NexusAI /></Suspense></ProtectedRoute>} />
 
-        {/* Settings and related redirects */}
+        {/* Canonical Settings route and legacy redirects */}
         <Route path="/manager/settings" element={<ProtectedRoute allowedRoles={['owner', 'manager', 'admin']}><Settings /></ProtectedRoute>} />
-        <Route path="/manager/fiscal-profile" element={<Navigate to="/manager/settings?tab=fiscal" replace />} />
-        
-        <Route path="/manager/billing" element={<ProtectedRoute allowedRoles={['owner', 'manager', 'admin']}><ManagerBilling /></ProtectedRoute>} />
+        <Route path="/manager/fiscal-profile" element={<ProtectedRoute allowedRoles={['owner', 'manager', 'admin']}><SettingsTabRedirect tab="fiscal" /></ProtectedRoute>} />
+        <Route path="/manager/billing" element={<ProtectedRoute allowedRoles={['owner', 'manager', 'admin']}><SettingsTabRedirect tab="billing" /></ProtectedRoute>} />
         <Route path="/manager/support" element={<ProtectedRoute allowedRoles={['owner', 'manager', 'admin']}><ManagerSupport /></ProtectedRoute>} />
-        <Route path="/manager/fiscal-profile" element={<ProtectedRoute allowedRoles={['owner', 'manager', 'admin']}><ManagerFiscalProfile /></ProtectedRoute>} />
-
         <Route
           path="/manager/dashboard"
           element={
@@ -279,14 +279,6 @@ function AppRouter() {
           }
         />
 
-        <Route
-          path="/manager/settings"
-          element={
-            <ProtectedRoute allowedRoles={['owner', 'manager', 'admin']}>
-              <Settings />
-            </ProtectedRoute>
-          }
-        />
 
         <Route
           path="/staff/profile"
