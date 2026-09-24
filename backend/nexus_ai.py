@@ -335,20 +335,16 @@ def build_nexus_ai_router(db, get_current_user, require_management_role, resolve
 
     @router.put("/owner/nexus-ai/{organization_id}", tags=["owner"])
     async def set_entitlement(organization_id: str, data: NexusAiEntitlementUpdate, authorization: Optional[str] = Header(None), session_token: Optional[str] = Cookie(None)):
+        # Retain the route during the compatibility window, but fail closed. This
+        # legacy endpoint independently changed Nexus AI flags and would bypass the
+        # unified Premium package, paid-manual-invoice check, and capability ledger.
         user = await get_current_user(authorization, session_token)
         if user.role != "owner" or user.access_status != "approved":
             raise HTTPException(status_code=403, detail="Approved Owner access required")
-        org = await db.organizations.find_one({"organization_id": organization_id})
-        if not org:
-            raise HTTPException(status_code=404, detail="Organization not found")
-        contracted = data.contracted if data.contracted is not None else bool(org.get("nexus_ai_contracted"))
-        enabled = data.enabled if data.enabled is not None else bool(org.get("nexus_ai_enabled"))
-        if enabled and not contracted:
-            raise HTTPException(status_code=400, detail="No se puede habilitar Nexus AI sin el addon contratado")
-        if not contracted:
-            enabled = False
-        await db.organizations.update_one({"organization_id": organization_id}, {"$set": {"nexus_ai_contracted": contracted, "nexus_ai_enabled": enabled}})
-        return {"organization_id": organization_id, "contracted": contracted, "enabled": enabled}
+        raise HTTPException(
+            status_code=410,
+            detail="Nexus AI entitlement is managed with the Premium package workflow",
+        )
 
     @router.get("/nexus-ai/conversations")
     async def list_conversations(organization_id: Optional[str] = None, authorization: Optional[str] = Header(None), session_token: Optional[str] = Cookie(None)):

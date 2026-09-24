@@ -43,32 +43,13 @@ class TestNexusAIEntitlement:
         r = manager.put(f"{BASE_URL}/api/owner/nexus-ai/{ORG}", json={"contracted": True, "enabled": True}, timeout=15)
         assert r.status_code == 403
 
-    def test_owner_enable_without_contract_400(self, owner):
-        # Create fresh org for test
-        # First disable both
-        r0 = owner.put(f"{BASE_URL}/api/owner/nexus-ai/{ORG}", json={"contracted": False, "enabled": False}, timeout=15)
-        assert r0.status_code == 200
-        # Try enable without contracted
-        r = owner.put(f"{BASE_URL}/api/owner/nexus-ai/{ORG}", json={"contracted": False, "enabled": True}, timeout=15)
-        assert r.status_code == 400
-        # Verify enable forced false when contracted false
-        r2 = owner.get(f"{BASE_URL}/api/nexus-ai/status", params={"organization_id": ORG}, timeout=15)
-        assert r2.json()["enabled"] is False
-        # Restore to enabled state
-        r3 = owner.put(f"{BASE_URL}/api/owner/nexus-ai/{ORG}", json={"contracted": True, "enabled": True}, timeout=15)
-        assert r3.status_code == 200
-        assert r3.json().get("enabled") is True or owner.get(f"{BASE_URL}/api/nexus-ai/status", params={"organization_id": ORG}).json()["enabled"] is True
+    def test_owner_legacy_entitlement_endpoint_is_closed(self, owner):
+        r = owner.put(f"{BASE_URL}/api/owner/nexus-ai/{ORG}", json={"contracted": True, "enabled": True}, timeout=15)
+        assert r.status_code == 410
 
-    def test_contracted_false_forces_enabled_false(self, owner):
-        # ensure enabled=true
-        owner.put(f"{BASE_URL}/api/owner/nexus-ai/{ORG}", json={"contracted": True, "enabled": True}, timeout=15)
-        # Now unset contracted
+    def test_owner_legacy_disable_endpoint_is_closed(self, owner):
         r = owner.put(f"{BASE_URL}/api/owner/nexus-ai/{ORG}", json={"contracted": False, "enabled": False}, timeout=15)
-        assert r.status_code == 200
-        s = owner.get(f"{BASE_URL}/api/nexus-ai/status", params={"organization_id": ORG}).json()
-        assert s["contracted"] is False and s["enabled"] is False
-        # Restore
-        owner.put(f"{BASE_URL}/api/owner/nexus-ai/{ORG}", json={"contracted": True, "enabled": True}, timeout=15)
+        assert r.status_code == 410
 
 
 class TestNexusAIStaffRBAC:
