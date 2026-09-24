@@ -3,6 +3,7 @@ import { useClientPortalOrganizationTheme } from '../hooks/useClientPortalOrgani
 import OnboardingTour from './onboarding/OnboardingTour';
 import '../portal-templates/premium/barberia-real/barberia-real.css';
 import '../portal-templates/premium/bloom/bloom.css';
+import '../portal-templates/premium/ignition/ignition.css';
 
 export const ClientPortalThemeWrapper = ({ children }) => {
   const {

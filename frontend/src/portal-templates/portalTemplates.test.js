@@ -45,6 +45,15 @@ test('Bloom has an original premium theme contract', () => {
   expect(template.fontHref).toContain('family=Fraunces');
 });
 
+test('Ignition has an original premium theme contract', () => {
+  const template = PREMIUM_TEMPLATE_IMPLEMENTATIONS.ignition;
+  expect(template).toMatchObject({ key: 'ignition', tier: 'premium', fontFamily: 'Anton' });
+  expect(template.theme.bgStart).toBe('#0B0B0C');
+  expect(template.theme.accentPrimary).toBe('#C6F135');
+  expect(template.theme.accentSecondary).toBe('#FF5A1F');
+  expect(template.fontHref).toContain('family=Anton');
+});
+
 test('only the matching organization effective premium key resolves to a visual implementation', () => {
   const organization = {
     organization_id: 'org-1',
