@@ -14,6 +14,7 @@ import ManagerBilling from './ManagerBilling';
 import PortalThemeSelector from '../components/PortalThemeSelector';
 import PortalCustomizationPanel from '../components/PortalCustomizationPanel';
 import OrganizationLogoUpload from '../components/OrganizationLogoUpload';
+import PremiumPlanRequestCard from '../components/PremiumPlanRequestCard';
 
 const TABS = {
   general: { key: 'general', label: 'General', icon: SettingsIcon },
@@ -592,6 +593,10 @@ const Settings = () => {
         {/* Render content based on active tab */}
         {activeTab === 'general' && (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+
+          {(user?.role === 'manager' || user?.role === 'admin') && (
+            <div className="lg:col-span-2"><PremiumPlanRequestCard /></div>
+          )}
           
           {/* CARD 1 - Perfil del Local */}
           <div className="backdrop-blur-xl bg-white/3 border border-[var(--app-border)] rounded-2xl p-6">
