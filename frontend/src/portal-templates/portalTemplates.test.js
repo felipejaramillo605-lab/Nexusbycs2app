@@ -54,6 +54,15 @@ test('Ignition has an original premium theme contract', () => {
   expect(template.fontHref).toContain('family=Anton');
 });
 
+test('Noir has an original premium theme contract', () => {
+  const template = PREMIUM_TEMPLATE_IMPLEMENTATIONS.noir;
+  expect(template).toMatchObject({ key: 'noir', tier: 'premium', fontFamily: 'Playfair Display' });
+  expect(template.theme.bgStart).toBe('#2A0A3D');
+  expect(template.theme.accentPrimary).toBe('#D4AF37');
+  expect(template.theme.accentSecondary).toBe('#E0218A');
+  expect(template.fontHref).toContain('family=Playfair+Display');
+});
+
 test('only the matching organization effective premium key resolves to a visual implementation', () => {
   const organization = {
     organization_id: 'org-1',
