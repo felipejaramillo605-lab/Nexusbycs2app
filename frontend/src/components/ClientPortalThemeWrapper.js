@@ -4,6 +4,7 @@ import OnboardingTour from './onboarding/OnboardingTour';
 import '../portal-templates/premium/barberia-real/barberia-real.css';
 import '../portal-templates/premium/bloom/bloom.css';
 import '../portal-templates/premium/ignition/ignition.css';
+import '../portal-templates/premium/noir/noir.css';
 
 export const ClientPortalThemeWrapper = ({ children }) => {
   const {
