@@ -73,6 +73,7 @@ from professional_metrics import build_professional_metrics_router
 from platform_billing_settings import build_platform_billing_router, ensure_platform_billing_indexes
 from owner_third_party_matrix import build_third_party_matrix_router, ensure_third_party_matrix_indexes
 from portal_templates import effective_portal_template, portal_template_selection_error
+from transaction_export import build_transactions_csv, transactions_export_filename
 from platform_capabilities import (
     CAPABILITY as PORTAL_TEMPLATE_CAPABILITY,
     build_platform_capability_router,
@@ -5793,6 +5794,26 @@ async def transaction_summary(
     totals["payment_methods"] = sorted(payment_totals.values(), key=lambda row: row["total_received"], reverse=True)
     totals["daily_totals"] = [daily_totals[key] for key in sorted(daily_totals)]
     return totals
+
+
+@api_router.get("/transactions/export", tags=["transactions"])
+async def export_transactions_csv(
+    organization_id: Optional[str] = None,
+    start_date: Optional[str] = None,
+    end_date: Optional[str] = None,
+    barber_id: Optional[str] = None,
+    payment_method: Optional[str] = None,
+    authorization: Optional[str] = Header(None),
+    session_token: Optional[str] = Cookie(None),
+):
+    current_user = await get_current_user(authorization, session_token)
+    query = await transaction_query(current_user, organization_id, start_date, end_date, barber_id, payment_method)
+    items = await db.transactions.find(query, {"_id": 0}).sort("created_at", 1).to_list(100000)
+    return Response(
+        content=build_transactions_csv(items),
+        media_type="text/csv; charset=utf-8",
+        headers={"Content-Disposition": f'attachment; filename="{transactions_export_filename(start_date, end_date)}"'},
+    )
 
 
 @api_router.get("/transactions/{transaction_id}", tags=["transactions"])

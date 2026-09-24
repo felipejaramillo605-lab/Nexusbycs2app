@@ -334,6 +334,7 @@ export const transactionAPI = {
   getSummary: (params = {}) => api.get('/transactions/summary', { params }),
   getById: (transactionId) => api.get(`/transactions/${transactionId}`),
   void: (transactionId, data) => api.post(`/transactions/${transactionId}/void`, data),
+  exportCsv: (params = {}) => api.get('/transactions/export', { params, responseType: 'blob' }),
 };
 
 export const commissionAPI = {
