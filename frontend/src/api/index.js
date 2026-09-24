@@ -103,6 +103,23 @@ export const premiumPlanAPI = {
   }),
 };
 
+// Owner-only controls for requests, manual invoice association, and Premium
+// entitlement changes. Each mutation gets a stable request ID per user intent.
+export const ownerPremiumPlanAPI = {
+  createRequestId: premiumPlanAPI.createRequestId,
+  listRequests: () => api.get('/owner/platform-capabilities/premium-plan-requests'),
+  linkInvoice: (requestId, data, operationId) => api.post(
+    `/owner/platform-capabilities/premium-plan-requests/${requestId}/invoice-link`,
+    data,
+    { headers: { 'X-Request-ID': operationId } },
+  ),
+  setEntitlement: (organizationId, data, operationId) => api.put(
+    `/owner/platform-capabilities/portal-templates/${organizationId}/entitlement`,
+    data,
+    { headers: { 'X-Request-ID': operationId } },
+  ),
+};
+
 export const teamAPI = {
   getMembers: (organizationId) => api.get('/team/members', { params: { organization_id: organizationId } }),
   updateRole: (userId, role, organizationId) => api.put(`/team/members/${userId}/role`, { role }, { params: { organization_id: organizationId } }),
