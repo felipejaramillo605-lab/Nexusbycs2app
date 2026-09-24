@@ -478,7 +478,15 @@ def test_premium_invoice_activation_and_refund_share_atomic_lock(authority_db):
         assert invoice["paid_amount_minor"] == invoice["amount_minor"]
         _run_async(_mark_premium_invoice_active(db, org_id, request_id, invoice_id, "activate-race"))
         blocked = sync_db.subscription_invoices.update_one(
-            {"invoice_id": invoice_id, "status": "paid", "premium_activation_state": {"$in": ["reserved", "active"]}},
+            {
+                "invoice_id": invoice_id,
+                "organization_id": org_id,
+                "status": "paid",
+                "$or": [
+                    {"premium_activation_state": {"$exists": False}},
+                    {"premium_activation_state": "released"},
+                ],
+            },
             {"$set": {"status": "refunded"}},
         )
         assert blocked.modified_count == 0
@@ -724,6 +732,8 @@ def test_archived_request_id_remains_idempotent_and_cannot_be_reused(authority_d
     assert _run_async(archive_and_compact(db, archive)) > 0
     tombstone = sync_db.platform_capability_request_tombstones.find_one({"_id": "archive-idempotency-id"})
     assert tombstone and tombstone["event"]["state"] == "applied"
+    assert tombstone["event"]["premium_request_id"] == premium_request_id
+    assert tombstone["event"]["invoice_id"] == invoice_id
     retried = _run_async(set_organization_entitlement(
         db, _actor("owner-a"), "org-archive", True, "enable premium", "archive-idempotency-id", premium_request_id, invoice_id,
     ))

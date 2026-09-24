@@ -94,6 +94,7 @@ def _request_tombstone_event(event: dict) -> dict:
     fields = (
         "request_id", "event_id", "type", "actor_user_id", "target_user_id",
         "organization_id", "before", "after", "state", "failure_code",
+        "premium_request_id", "invoice_id",
     )
     return {key: event[key] for key in fields if key in event}
 
