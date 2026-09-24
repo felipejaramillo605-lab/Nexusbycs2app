@@ -87,6 +87,22 @@ export const subscriptionAPI = {
   reactivateOrganization: (organizationId, data) => api.post(`/owner/subscription-lifecycle/organizations/${organizationId}/reactivate`, data),
 };
 
+// Premium requests are scoped to the signed-in manager's organization by the
+// backend. Keep the request id in the calling component so retries of one user
+// intention reuse the same idempotency key.
+export const premiumPlanAPI = {
+  createRequestId: () => {
+    if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+      return crypto.randomUUID();
+    }
+    return `premium-${Date.now()}-${Math.random().toString(36).slice(2, 14)}`;
+  },
+  getStatus: () => api.get('/owner/platform-capabilities/premium-plan/status'),
+  request: (requestId) => api.post('/owner/platform-capabilities/premium-plan-requests', {}, {
+    headers: { 'X-Request-ID': requestId },
+  }),
+};
+
 export const teamAPI = {
   getMembers: (organizationId) => api.get('/team/members', { params: { organization_id: organizationId } }),
   updateRole: (userId, role, organizationId) => api.put(`/team/members/${userId}/role`, { role }, { params: { organization_id: organizationId } }),
