@@ -920,7 +920,7 @@ async def get_current_user(authorization: Optional[str] = Header(None), session_
     if not token:
         raise HTTPException(status_code=401, detail="Not authenticated")
 
-    session = await db.user_sessions.find_one({"session_token": token}, {"_id": 0})
+    session = await db.user_sessions.find_one({"session_token_hash": token_digest(token)}, {"_id": 0})
     if not session:
         raise HTTPException(status_code=401, detail="Invalid session")
 
@@ -1054,11 +1054,13 @@ async def create_session(response: Response, request: Request, x_session_id: str
     expires_at = datetime.now(timezone.utc) + timedelta(days=7)
     session_doc = {
         "user_id": user_id,
-        "session_token": session_token,
+        "session_token_hash": token_digest(session_token),
         "expires_at": expires_at,
         "created_at": datetime.now(timezone.utc),
     }
-    await db.user_sessions.update_one({"session_token": session_token}, {"$set": session_doc}, upsert=True)
+    await db.user_sessions.update_one(
+        {"session_token_hash": token_digest(session_token)}, {"$set": session_doc}, upsert=True
+    )
 
     response.set_cookie(
         key="session_token",
@@ -1085,7 +1087,7 @@ async def get_me(authorization: Optional[str] = Header(None), session_token: Opt
 @api_router.post("/auth/logout", tags=["auth"])
 async def logout(response: Response, session_token: Optional[str] = Cookie(None)):
     if session_token:
-        await db.user_sessions.delete_many({"session_token": session_token})
+        await db.user_sessions.delete_many({"session_token_hash": token_digest(session_token)})
     response.delete_cookie(key="session_token", path="/")
     return {"message": "Logged out"}
 
@@ -1142,7 +1144,7 @@ async def login_user(data: LoginRequest, response: Response, request: Request):
     await db.user_sessions.insert_one(
         {
             "user_id": user["user_id"],
-            "session_token": session_token,
+            "session_token_hash": token_digest(session_token),
             "expires_at": expires_at,
             "created_at": datetime.now(timezone.utc),
         }
@@ -9230,11 +9232,20 @@ async def _migrate_user_session_dates_and_indexes():
                         invalid_expires += 1
         if updates:
             await db.user_sessions.update_one({"_id": session["_id"]}, {"$set": updates})
+    # NEXUS_SESSION_TOKEN_HASH_V1: remove legacy plaintext sessions on deploy. They
+    # cannot authenticate under the hash-only lookup, and retaining their bearer
+    # tokens in Mongo would preserve the database-leak risk until TTL expiry.
+    indexes = await db.user_sessions.index_information()
+    if "user_sessions_token_unique" in indexes:
+        await db.user_sessions.drop_index("user_sessions_token_unique")
+    await db.user_sessions.delete_many({"session_token_hash": {"$exists": False}})
+    await db.user_sessions.create_index(
+        "session_token_hash", unique=True, name="user_sessions_token_hash_unique"
+    )
+    await db.user_sessions.create_index("user_id", name="user_sessions_user_id")
     if invalid_expires:
         logger.error("Invalid session expiry values: %s; TTL index skipped", invalid_expires)
         return
-    await db.user_sessions.create_index("session_token", unique=True, name="user_sessions_token_unique")
-    await db.user_sessions.create_index("user_id", name="user_sessions_user_id")
     await db.user_sessions.create_index("expires_at", expireAfterSeconds=0, name="user_sessions_ttl")
 
 
