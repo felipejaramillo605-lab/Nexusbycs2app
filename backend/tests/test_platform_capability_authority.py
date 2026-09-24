@@ -494,7 +494,7 @@ def test_premium_invoice_activation_and_refund_share_atomic_lock(authority_db):
             {"organization_id": org_id},
             {"$set": {"premium_templates_contracted": False, "nexus_ai_contracted": False, "nexus_ai_enabled": False}},
         )
-        locked_invoice = _run_async(db.subscription_invoices.find_one({"invoice_id": invoice_id}, {"_id": 0}))
+        locked_invoice = sync_db.subscription_invoices.find_one({"invoice_id": invoice_id}, {"_id": 0})
         _run_async(_release_premium_invoice_lock(db, org_id, locked_invoice, "disable-premium"))
         released = sync_db.subscription_invoices.find_one({"invoice_id": invoice_id})
         assert released["status"] == "paid" and released["premium_activation_state"] == "released"
