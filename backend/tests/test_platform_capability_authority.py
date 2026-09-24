@@ -30,6 +30,8 @@ from platform_capabilities import (  # noqa: E402
     _atomic_authority_update,
     _record_denial,
     bootstrap_initial_grant,
+    bootstrap_from_environment,
+    BOOTSTRAP_ENV_VAR,
     acquire_platform_maintenance_lock,
     grant_capability,
     reconcile_pending_entitlements,
@@ -251,6 +253,44 @@ def test_bootstrap_rejects_inactive_or_deleted_owner(authority_db, extra):
     sync_db.users.insert_one(user)
     with pytest.raises(ValueError, match="approved owner"):
         _run_async(bootstrap_initial_grant(db, "owner-ineligible"))
+    assert sync_db.platform_capability_authority.find_one({"_id": AUTHORITY_ID}) is None
+
+
+def test_bootstrap_from_environment_returns_none_without_the_env_var():
+    assert _run_async(bootstrap_from_environment(SimpleNamespace(), env={})) is None
+
+
+@requires_standalone
+def test_bootstrap_from_environment_creates_then_is_idempotent(authority_db):
+    db, sync_db = authority_db
+    sync_db.users.insert_one(_owner_doc("owner-a"))
+    env = {BOOTSTRAP_ENV_VAR: "owner-a"}
+    first = _run_async(bootstrap_from_environment(db, env=env))
+    assert first == {"status": "created", "user_id": "owner-a", "version": 1}
+    second = _run_async(bootstrap_from_environment(db, env=env))
+    assert second == {"status": "already_initialized", "user_id": "owner-a", "version": 1}
+    authority = sync_db.platform_capability_authority.find_one({"_id": AUTHORITY_ID})
+    assert [grant["user_id"] for grant in authority["active_grants"]] == ["owner-a"]
+
+
+@requires_standalone
+def test_bootstrap_from_environment_skips_instead_of_raising_for_a_second_owner(authority_db):
+    db, sync_db = authority_db
+    sync_db.users.insert_many([_owner_doc("owner-a"), _owner_doc("owner-b")])
+    _run_async(bootstrap_initial_grant(db, "owner-a"))
+    result = _run_async(bootstrap_from_environment(db, env={BOOTSTRAP_ENV_VAR: "owner-b"}))
+    assert result["status"] == "skipped"
+    assert result["user_id"] == "owner-b"
+    authority = sync_db.platform_capability_authority.find_one({"_id": AUTHORITY_ID})
+    assert [grant["user_id"] for grant in authority["active_grants"]] == ["owner-a"]
+
+
+@requires_standalone
+def test_bootstrap_from_environment_skips_for_an_ineligible_owner(authority_db):
+    db, sync_db = authority_db
+    sync_db.users.insert_one({"user_id": "owner-c", "role": "manager", "access_status": "approved"})
+    result = _run_async(bootstrap_from_environment(db, env={BOOTSTRAP_ENV_VAR: "owner-c"}))
+    assert result == {"status": "skipped", "user_id": "owner-c", "reason": "bootstrap target must be an approved owner"}
     assert sync_db.platform_capability_authority.find_one({"_id": AUTHORITY_ID}) is None
 
 

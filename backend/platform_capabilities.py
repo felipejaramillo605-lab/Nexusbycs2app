@@ -4,6 +4,7 @@ from __future__ import annotations
 import hashlib
 import json
 import logging
+import os
 import re
 import uuid
 from datetime import datetime, timezone
@@ -1281,6 +1282,29 @@ async def bootstrap_initial_grant(db, user_id: str) -> dict:
     if len(grants) == 1 and grants[0].get("user_id") == user_id and any(e.get("target_user_id") == user_id for e in boot):
         return {"created": False, "user_id": user_id, "version": result.get("version", 1)}
     raise ValueError("platform capability authority already exists; bootstrap failed closed")
+
+
+BOOTSTRAP_ENV_VAR = "PLATFORM_CAPABILITY_BOOTSTRAP_OWNER_ID"
+
+
+async def bootstrap_from_environment(db, env: dict | None = None) -> dict | None:
+    """Deploy-time wrapper around bootstrap_initial_grant, gated by an environment variable.
+
+    Reads BOOTSTRAP_ENV_VAR from `env` (defaults to os.environ). Returns None when the variable
+    is unset, so callers can no-op cheaply on every normal startup. When set, it is safe to leave
+    set across restarts: bootstrap_initial_grant is idempotent for the same owner and never
+    overwrites an authority already granted to someone else -- that case comes back as a
+    "skipped" status here instead of raising, so a misconfigured secret cannot crash startup.
+    """
+    target_user_id = (env if env is not None else os.environ).get(BOOTSTRAP_ENV_VAR)
+    if not target_user_id:
+        return None
+    try:
+        result = await bootstrap_initial_grant(db, target_user_id)
+    except ValueError as exc:
+        return {"status": "skipped", "user_id": target_user_id, "reason": str(exc)}
+    status = "created" if result["created"] else "already_initialized"
+    return {"status": status, "user_id": target_user_id, "version": result["version"]}
 
 
 async def acquire_platform_maintenance_lock(db) -> str:
