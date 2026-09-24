@@ -186,7 +186,27 @@ def build_subscription_router(db, get_current_user):
         if not previous: raise HTTPException(404,"Invoice not found")
         if previous["status"]=="paid" and data.status not in {"refunded"}: raise HTTPException(409,"Paid invoice can only transition to refunded")
         if previous["status"] in {"void","refunded"}: raise HTTPException(409,"Terminal invoice state cannot be changed")
-        now=_now(); await db.subscription_invoices.update_one({"organization_id":organization_id,"invoice_id":invoice_id,"status":previous["status"]},{"$set":{"status":data.status,"state_reason":data.reason,"updated_by":user.user_id,"updated_at":now}})
+        now=_now()
+        # Premium activation and refund race on this invoice document. Activation
+        # atomically reserves it while paid; refund can proceed only when no live
+        # entitlement lock remains. This is a single-document CAS (Mongo standalone safe).
+        changed=await db.subscription_invoices.update_one(
+            {
+                "organization_id":organization_id,
+                "invoice_id":invoice_id,
+                "status":previous["status"],
+                "$or":[
+                    {"premium_activation_state":{"$exists":False}},
+                    {"premium_activation_state":"released"},
+                ],
+            },
+            {"$set":{"status":data.status,"state_reason":data.reason,"updated_by":user.user_id,"updated_at":now}},
+        )
+        if changed.modified_count!=1:
+            current=await db.subscription_invoices.find_one({"organization_id":organization_id,"invoice_id":invoice_id},{"_id":0})
+            if current and current.get("premium_activation_state") in {"reserved","active"}:
+                raise HTTPException(409,"Disable the Premium package before refunding its invoice")
+            raise HTTPException(409,"Invoice state changed before the requested transition")
         current=await db.subscription_invoices.find_one({"organization_id":organization_id,"invoice_id":invoice_id},{"_id":0}); await _audit(db,organization_id,"invoice_state_changed","invoice",invoice_id,user,previous,current,data.reason)
         return current
 

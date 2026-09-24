@@ -9092,7 +9092,7 @@ api_router.include_router(
     tags=["nexus-ai"],
 )
 
-api_router.include_router(build_platform_capability_router(db, get_current_user))
+api_router.include_router(build_platform_capability_router(db, get_current_user, resolve_team_organization))
 
 # NEXUS_PLATFORM_BRANDING_V1: the Nexus platform's own logo (owner-only,
 # global, distinct from any tenant organization's own logo above)

@@ -12,6 +12,7 @@ from fastapi import HTTPException
 BACKEND = Path(__file__).resolve().parents[1]
 import sys
 sys.path.insert(0, str(BACKEND))
+import platform_capabilities as platform_capabilities_module  # noqa: E402
 
 from platform_capabilities import (  # noqa: E402
     AUTHORITY_ID,
@@ -22,6 +23,9 @@ from platform_capabilities import (  # noqa: E402
     _clean_reason,
     _request_id,
     _is_eligible_platform_owner,
+    _reserve_premium_invoice_activation,
+    _mark_premium_invoice_active,
+    _release_premium_invoice_lock,
     _request_id_unused_filter,
     _atomic_authority_update,
     _record_denial,
@@ -156,6 +160,68 @@ def _actor(user_id):
 
 def _owner_doc(user_id, role="owner", status="approved"):
     return {"user_id": user_id, "role": role, "access_status": status}
+
+
+def _seed_paid_premium_invoice(sync_db, organization_id, suffix):
+    premium_request_id = f"ppr-{suffix}"
+    invoice_id = f"sinv-{suffix}"
+    sync_db.premium_plan_requests.insert_one({
+        "request_id": premium_request_id, "organization_id": organization_id,
+        "status": "pending", "created_at": "test",
+    })
+    sync_db.subscription_invoices.insert_one({
+        "invoice_id": invoice_id, "organization_id": organization_id,
+        "provider": "manual", "invoice_purpose": "premium_plan_excess",
+        "premium_request_id": premium_request_id, "status": "paid",
+        "amount_minor": 10000, "paid_amount_minor": 10000,
+    })
+    return premium_request_id, invoice_id
+
+
+def test_activation_invoice_must_be_paid_manual_premium_for_exact_org_and_request():
+    from platform_capabilities import _validate_premium_invoice
+
+    request_row = {"request_id": "ppr-1", "organization_id": "org-a", "status": "pending"}
+    invoice_row = {
+        "invoice_id": "inv-1", "organization_id": "org-a", "provider": "manual",
+        "invoice_purpose": "premium_plan_excess", "premium_request_id": "ppr-1",
+        "status": "paid", "amount_minor": 1000, "paid_amount_minor": 1000,
+    }
+
+    class Collection:
+        def __init__(self, row):
+            self.row = row
+        async def find_one(self, query, *_args, **_kwargs):
+            if all(self.row.get(key) == value for key, value in query.items()):
+                return self.row.copy()
+            return None
+
+    class Database:
+        premium_plan_requests = Collection(request_row)
+        subscription_invoices = Collection(invoice_row)
+
+    assert _run_async(_validate_premium_invoice(Database(), "org-a", "ppr-1", "inv-1"))["status"] == "paid"
+    invalid = [
+        ("org-b", "ppr-1", "inv-1", "cross-tenant invoice"),
+        ("org-a", "ppr-other", "inv-1", "wrong request"),
+    ]
+    for org_id, request_id, invoice_id, _label in invalid:
+        with pytest.raises(HTTPException) as exc:
+            _run_async(_validate_premium_invoice(Database(), org_id, request_id, invoice_id))
+        assert exc.value.status_code == 409
+
+    for changes in (
+        {"invoice_purpose": "subscription"},
+        {"provider": "stripe"},
+        {"status": "pending"},
+        {"premium_request_id": "ppr-other"},
+        {"paid_amount_minor": 999},
+    ):
+        Database.subscription_invoices.row = {**invoice_row, **changes}
+        with pytest.raises(HTTPException) as exc:
+            _run_async(_validate_premium_invoice(Database(), "org-a", "ppr-1", "inv-1"))
+        assert exc.value.status_code == 409
+        Database.subscription_invoices.row = invoice_row.copy()
 
 
 @requires_standalone
@@ -359,11 +425,158 @@ def test_entitlement_can_be_set_for_legacy_org_without_explicit_false(authority_
     sync_db.users.insert_one(_owner_doc("owner-a"))
     _run_async(bootstrap_initial_grant(db, "owner-a"))
     sync_db.organizations.insert_one({"organization_id": "legacy-org"})
-    result = _run_async(set_organization_entitlement(db, _actor("owner-a"), "legacy-org", True, "enable premium", "legacy-ent-1"))
+    premium_request_id, invoice_id = _seed_paid_premium_invoice(sync_db, "legacy-org", "legacy")
+    result = _run_async(set_organization_entitlement(
+        db, _actor("owner-a"), "legacy-org", True, "enable premium", "legacy-ent-1",
+        premium_request_id, invoice_id,
+    ))
     org = sync_db.organizations.find_one({"organization_id": "legacy-org"})
     assert result["contracted"] is True
     assert org["premium_templates_contracted"] is True
+    assert org["nexus_ai_contracted"] is True
+    assert org["nexus_ai_enabled"] is True
     assert org["portal_template_entitlement_request_id"] == "legacy-ent-1"
+
+
+@requires_standalone
+def test_premium_invoice_activation_and_refund_share_atomic_lock(authority_db):
+    db, sync_db = authority_db
+    org_id = "org-refund-race"
+    request_id, invoice_id = _seed_paid_premium_invoice(sync_db, org_id, "refund-race")
+    sync_db.organizations.insert_one({"organization_id": org_id})
+
+    async def race_activation_and_refund():
+        async def activate():
+            try:
+                await _reserve_premium_invoice_activation(db, org_id, request_id, invoice_id, "activate-race")
+                return True
+            except HTTPException:
+                return False
+
+        async def refund():
+            result = await db.subscription_invoices.update_one(
+                {
+                    "invoice_id": invoice_id,
+                    "organization_id": org_id,
+                    "status": "paid",
+                    "$or": [
+                        {"premium_activation_state": {"$exists": False}},
+                        {"premium_activation_state": "released"},
+                    ],
+                },
+                {"$set": {"status": "refunded"}},
+            )
+            return result.modified_count == 1
+
+        return await asyncio.gather(activate(), refund())
+
+    activated, refunded = _run_async(race_activation_and_refund())
+    assert activated != refunded
+    invoice = sync_db.subscription_invoices.find_one({"invoice_id": invoice_id})
+    if activated:
+        assert invoice["status"] == "paid" and invoice["premium_activation_state"] == "reserved"
+        assert invoice["paid_amount_minor"] == invoice["amount_minor"]
+        _run_async(_mark_premium_invoice_active(db, org_id, request_id, invoice_id, "activate-race"))
+        blocked = sync_db.subscription_invoices.update_one(
+            {"invoice_id": invoice_id, "status": "paid", "premium_activation_state": {"$in": ["reserved", "active"]}},
+            {"$set": {"status": "refunded"}},
+        )
+        assert blocked.modified_count == 0
+        sync_db.organizations.update_one(
+            {"organization_id": org_id},
+            {"$set": {"premium_templates_contracted": False, "nexus_ai_contracted": False, "nexus_ai_enabled": False}},
+        )
+        locked_invoice = _run_async(db.subscription_invoices.find_one({"invoice_id": invoice_id}, {"_id": 0}))
+        _run_async(_release_premium_invoice_lock(db, org_id, locked_invoice, "disable-premium"))
+        released = sync_db.subscription_invoices.find_one({"invoice_id": invoice_id})
+        assert released["status"] == "paid" and released["premium_activation_state"] == "released"
+        refunded_after_disable = sync_db.subscription_invoices.update_one(
+            {"invoice_id": invoice_id, "status": "paid", "premium_activation_state": "released"},
+            {"$set": {"status": "refunded"}},
+        )
+        assert refunded_after_disable.modified_count == 1
+        with pytest.raises(HTTPException) as exc:
+            _run_async(_reserve_premium_invoice_activation(db, org_id, request_id, invoice_id, "activate-again"))
+        assert exc.value.status_code == 409
+    else:
+        assert invoice["status"] == "refunded"
+
+
+@requires_standalone
+def test_disable_reactivate_disable_releases_all_premium_invoice_locks(authority_db):
+    db, sync_db = authority_db
+    org_id = "org-premium-cycle"
+    sync_db.users.insert_one(_owner_doc("owner-a"))
+    _run_async(bootstrap_initial_grant(db, "owner-a"))
+    sync_db.organizations.insert_one({
+        "organization_id": org_id,
+        "premium_templates_contracted": True,
+        "nexus_ai_contracted": True,
+        "nexus_ai_enabled": True,
+        "portal_template_entitlement_request_id": "activate-a",
+    })
+    request_a, invoice_a = _seed_paid_premium_invoice(sync_db, org_id, "cycle-a")
+    sync_db.premium_plan_requests.update_one({"request_id": request_a}, {"$set": {"status": "active"}})
+    sync_db.subscription_invoices.update_one(
+        {"invoice_id": invoice_a},
+        {"$set": {
+            "premium_activation_state": "active",
+            "premium_activation_operation_id": "activate-a",
+            "premium_activation_request_id": request_a,
+        }},
+    )
+
+    # First disable releases A; the organization is then reactivated against C.
+    _run_async(set_organization_entitlement(
+        db, _actor("owner-a"), org_id, False, "disable", "disable-first",
+    ))
+    invoice_a_row = sync_db.subscription_invoices.find_one({"invoice_id": invoice_a})
+    assert invoice_a_row["premium_activation_state"] == "released"
+    request_c = "ppr-cycle-c"
+    invoice_c = "sinv-cycle-c"
+    sync_db.premium_plan_requests.insert_one({
+        "request_id": request_c, "organization_id": org_id, "status": "pending", "created_at": "test",
+    })
+    sync_db.subscription_invoices.insert_one({
+        "invoice_id": invoice_c, "organization_id": org_id, "provider": "manual",
+        "invoice_purpose": "premium_plan_excess", "premium_request_id": request_c,
+        "status": "paid", "amount_minor": 10000, "paid_amount_minor": 10000,
+    })
+    _run_async(set_organization_entitlement(
+        db, _actor("owner-a"), org_id, True, "reactivate", "activate-c", request_c, invoice_c,
+    ))
+
+    # Model a stale A lock from an interrupted earlier cycle alongside C. The
+    # second disable must release both even if its primary event names A.
+    sync_db.subscription_invoices.update_one(
+        {"invoice_id": invoice_a},
+        {"$set": {
+            "premium_activation_state": "active",
+            "premium_activation_operation_id": "stale-activate-a",
+            "premium_activation_request_id": request_a,
+        }},
+    )
+    sync_db.premium_plan_requests.update_one({"request_id": request_a}, {"$set": {"status": "active"}})
+    _run_async(set_organization_entitlement(
+        db, _actor("owner-a"), org_id, False, "disable again", "disable-second",
+    ))
+
+    for invoice_id in (invoice_a, invoice_c):
+        current = sync_db.subscription_invoices.find_one({"invoice_id": invoice_id})
+        assert current["status"] == "paid" and current["premium_activation_state"] == "released"
+        refunded = sync_db.subscription_invoices.update_one(
+            {
+                "invoice_id": invoice_id,
+                "organization_id": org_id,
+                "status": "paid",
+                "$or": [
+                    {"premium_activation_state": {"$exists": False}},
+                    {"premium_activation_state": "released"},
+                ],
+            },
+            {"$set": {"status": "refunded"}},
+        )
+        assert refunded.modified_count == 1
 
 
 @requires_standalone
@@ -372,9 +585,10 @@ def test_concurrent_entitlement_mutation_for_same_org_is_serialized(authority_db
     sync_db.users.insert_one(_owner_doc("owner-a"))
     _run_async(bootstrap_initial_grant(db, "owner-a"))
     sync_db.organizations.insert_one({"organization_id": "org-serial", "premium_templates_contracted": False})
+    premium_request_id, invoice_id = _seed_paid_premium_invoice(sync_db, "org-serial", "serial")
     async def race():
         return await asyncio.gather(
-            set_organization_entitlement(db, _actor("owner-a"), "org-serial", True, "enable", "ent-serial-a"),
+            set_organization_entitlement(db, _actor("owner-a"), "org-serial", True, "enable", "ent-serial-a", premium_request_id, invoice_id),
             set_organization_entitlement(db, _actor("owner-a"), "org-serial", False, "disable", "ent-serial-b"),
             return_exceptions=True,
         )
@@ -393,12 +607,66 @@ def test_ledger_failure_leaves_organization_unchanged(authority_db):
     sync_db.users.insert_one(_owner_doc("owner-a"))
     _run_async(bootstrap_initial_grant(db, "owner-a"))
     sync_db.organizations.insert_one({"organization_id": "org-a", "premium_templates_contracted": False})
+    premium_request_id, invoice_id = _seed_paid_premium_invoice(sync_db, "org-a", "ledger")
     broken = _DatabaseProxy(db, _FailPendingAuthority(db.platform_capability_authority))
     with pytest.raises(RuntimeError):
-        _run_async(set_organization_entitlement(broken, _actor("owner-a"), "org-a", True, "enable premium", "ent-1"))
+        _run_async(set_organization_entitlement(broken, _actor("owner-a"), "org-a", True, "enable premium", "ent-1", premium_request_id, invoice_id))
     org = sync_db.organizations.find_one({"organization_id": "org-a"})
     assert org["premium_templates_contracted"] is False
     assert "portal_template_entitlement_request_id" not in org
+    invoice = sync_db.subscription_invoices.find_one({"invoice_id": invoice_id})
+    assert invoice["status"] == "paid" and invoice["premium_activation_state"] == "released"
+    assert invoice["premium_activation_compensation_reason"] == "authority_event_not_persisted"
+
+
+@requires_standalone
+def test_capacity_failure_compensates_reserved_invoice(monkeypatch, authority_db):
+    db, sync_db = authority_db
+    sync_db.users.insert_one(_owner_doc("owner-a"))
+    _run_async(bootstrap_initial_grant(db, "owner-a"))
+    sync_db.organizations.insert_one({"organization_id": "org-capacity", "premium_templates_contracted": False})
+    premium_request_id, invoice_id = _seed_paid_premium_invoice(sync_db, "org-capacity", "capacity")
+
+    async def no_capacity(*_args, **_kwargs):
+        return None
+
+    monkeypatch.setattr(platform_capabilities_module, "_atomic_authority_update", no_capacity)
+    with pytest.raises(HTTPException) as exc:
+        _run_async(set_organization_entitlement(
+            db, _actor("owner-a"), "org-capacity", True, "enable", "ent-capacity", premium_request_id, invoice_id,
+        ))
+    assert exc.value.status_code == 503
+    invoice = sync_db.subscription_invoices.find_one({"invoice_id": invoice_id})
+    assert invoice["status"] == "paid" and invoice["premium_activation_state"] == "released"
+    assert not any(
+        event.get("organization_id") == "org-capacity"
+        and event.get("type") == "entitlement_change_requested"
+        for event in sync_db.platform_capability_authority.find_one({"_id": AUTHORITY_ID}).get("audit_events", [])
+    )
+
+
+@requires_standalone
+def test_revoked_capability_after_reservation_compensates_invoice(monkeypatch, authority_db):
+    db, sync_db = authority_db
+    sync_db.users.insert_one(_owner_doc("owner-a"))
+    _run_async(bootstrap_initial_grant(db, "owner-a"))
+    sync_db.organizations.insert_one({"organization_id": "org-revoked", "premium_templates_contracted": False})
+    premium_request_id, invoice_id = _seed_paid_premium_invoice(sync_db, "org-revoked", "revoked")
+
+    async def revoke_after_precheck(*_args, **_kwargs):
+        sync_db.platform_capability_authority.update_one(
+            {"_id": AUTHORITY_ID}, {"$set": {"active_grants": []}, "$inc": {"version": 1}},
+        )
+        return None
+
+    monkeypatch.setattr(platform_capabilities_module, "_atomic_authority_update", revoke_after_precheck)
+    with pytest.raises(HTTPException) as exc:
+        _run_async(set_organization_entitlement(
+            db, _actor("owner-a"), "org-revoked", True, "enable", "ent-revoked", premium_request_id, invoice_id,
+        ))
+    assert exc.value.status_code == 403
+    invoice = sync_db.subscription_invoices.find_one({"invoice_id": invoice_id})
+    assert invoice["status"] == "paid" and invoice["premium_activation_state"] == "released"
 
 
 @requires_standalone
@@ -410,9 +678,10 @@ def test_pending_applied_and_unapplied_are_reconciled(authority_db):
         {"organization_id": "org-applied", "premium_templates_contracted": False},
         {"organization_id": "org-not-applied", "premium_templates_contracted": False},
     ])
+    premium_request_id, invoice_id = _seed_paid_premium_invoice(sync_db, "org-applied", "applied")
     broken = _DatabaseProxy(db, _FailAppliedAuthority(db.platform_capability_authority))
     with pytest.raises(HTTPException) as exc:
-        _run_async(set_organization_entitlement(broken, _actor("owner-a"), "org-applied", True, "enable premium", "ent-applied"))
+        _run_async(set_organization_entitlement(broken, _actor("owner-a"), "org-applied", True, "enable premium", "ent-applied", premium_request_id, invoice_id))
     assert exc.value.status_code == 503
     sync_db.platform_capability_authority.update_one(
         {"_id": AUTHORITY_ID},
@@ -433,6 +702,10 @@ def test_pending_applied_and_unapplied_are_reconciled(authority_db):
     states = {event["request_id"]: event["state"] for event in authority["audit_events"] if event.get("request_id") in {"ent-applied", "ent-unapplied"}}
     assert states == {"ent-applied": "applied", "ent-unapplied": "failed"}
     assert sync_db.organizations.find_one({"organization_id": "org-applied"})["premium_templates_contracted"] is True
+    invoice = sync_db.subscription_invoices.find_one({"invoice_id": invoice_id})
+    premium_request = sync_db.premium_plan_requests.find_one({"request_id": premium_request_id})
+    assert invoice["premium_activation_state"] == "active"
+    assert premium_request["status"] == "active"
 
 
 @requires_standalone
@@ -443,15 +716,16 @@ def test_archived_request_id_remains_idempotent_and_cannot_be_reused(authority_d
     sync_db.users.insert_one(_owner_doc("owner-a"))
     _run_async(bootstrap_initial_grant(db, "owner-a"))
     sync_db.organizations.insert_one({"organization_id": "org-archive", "premium_templates_contracted": False})
+    premium_request_id, invoice_id = _seed_paid_premium_invoice(sync_db, "org-archive", "archive")
     original = _run_async(set_organization_entitlement(
-        db, _actor("owner-a"), "org-archive", True, "enable premium", "archive-idempotency-id",
+        db, _actor("owner-a"), "org-archive", True, "enable premium", "archive-idempotency-id", premium_request_id, invoice_id,
     ))
     archive = tmp_path / "audit.json"
     assert _run_async(archive_and_compact(db, archive)) > 0
     tombstone = sync_db.platform_capability_request_tombstones.find_one({"_id": "archive-idempotency-id"})
     assert tombstone and tombstone["event"]["state"] == "applied"
     retried = _run_async(set_organization_entitlement(
-        db, _actor("owner-a"), "org-archive", True, "enable premium", "archive-idempotency-id",
+        db, _actor("owner-a"), "org-archive", True, "enable premium", "archive-idempotency-id", premium_request_id, invoice_id,
     ))
     assert retried == original
     with pytest.raises(HTTPException) as exc:
@@ -469,8 +743,9 @@ def test_archive_racing_with_mutation_cannot_reuse_compacted_request_id(authorit
     sync_db.users.insert_one(_owner_doc("owner-a"))
     _run_async(bootstrap_initial_grant(db, "owner-a"))
     sync_db.organizations.insert_one({"organization_id": "org-race", "premium_templates_contracted": False})
+    premium_request_id, invoice_id = _seed_paid_premium_invoice(sync_db, "org-race", "race")
     _run_async(set_organization_entitlement(
-        db, _actor("owner-a"), "org-race", True, "enable", "archive-race-id",
+        db, _actor("owner-a"), "org-race", True, "enable", "archive-race-id", premium_request_id, invoice_id,
     ))
 
     class PauseAfterTombstoneRead:
@@ -525,6 +800,10 @@ def test_authority_router_contains_only_owner_capability_routes():
         "/owner/platform-capabilities/portal-template-entitlements/grants",
         "/owner/platform-capabilities/portal-template-entitlements/grants/{user_id}",
         "/owner/platform-capabilities/portal-templates/{organization_id}/entitlement",
+        "/owner/platform-capabilities/premium-plan-requests",
+        "/owner/platform-capabilities/premium-plan-requests/{premium_request_id}/invoice-link",
+        "/owner/platform-capabilities/premium-plan-requests",
+        "/owner/platform-capabilities/premium-plan/status",
     }
     assert all(not path.startswith("/public/") for path in paths)
 
