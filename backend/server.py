@@ -76,6 +76,7 @@ from portal_templates import effective_portal_template, portal_template_selectio
 from transaction_export import build_transactions_csv, transactions_export_filename
 from platform_capabilities import (
     CAPABILITY as PORTAL_TEMPLATE_CAPABILITY,
+    bootstrap_from_environment,
     build_platform_capability_router,
     ensure_platform_capability_indexes,
     protect_active_capability_holder,
@@ -155,8 +156,32 @@ tags_metadata = [
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     await create_application_indexes()
+    await _run_platform_capability_bootstrap_if_configured()
     yield
     await shutdown_db_client()
+
+
+async def _run_platform_capability_bootstrap_if_configured():
+    """One-time, idempotent startup bootstrap for the portal-template platform capability.
+
+    Only runs when PLATFORM_CAPABILITY_BOOTSTRAP_OWNER_ID is set as a deployment secret. See
+    platform_capabilities.bootstrap_from_environment for the safety guarantees (idempotent,
+    never overwrites another owner's grant, never raises on a misconfigured secret).
+    """
+    result = await bootstrap_from_environment(db)
+    if result is None:
+        return
+    logger = logging.getLogger(__name__)
+    if result["status"] == "skipped":
+        logger.warning(
+            "Platform-template capability bootstrap skipped for user_id=%s: %s",
+            result["user_id"], result["reason"],
+        )
+    else:
+        logger.info(
+            "Platform-template capability bootstrap %s; user_id=%s; version=%s",
+            result["status"], result["user_id"], result["version"],
+        )
 
 
 app = FastAPI(
