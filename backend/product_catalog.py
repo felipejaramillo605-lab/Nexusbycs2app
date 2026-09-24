@@ -17,8 +17,8 @@ from professional_media import (
     SAFE_FILE,
     SAFE_ORG,
     _read_limited,
-    normalize_image,
 )
+from image_pipeline import normalize_image_async
 
 MAX_PRODUCT_PHOTOS = 4
 PUBLIC_PREFIX = "/api/media/catalog"
@@ -283,7 +283,7 @@ def build_product_catalog_router(db, get_current_user, require_management_role, 
         photos = doc.get("photos") or []
         if len(photos) >= MAX_PRODUCT_PHOTOS:
             raise HTTPException(400, f"Maximum {MAX_PRODUCT_PHOTOS} photos allowed. Delete one first.")
-        payload, metadata = normalize_image(await _read_limited(file))
+        payload, metadata = await normalize_image_async(await _read_limited(file), "photo")
         new_url = _write_catalog_image(org_id, payload)
         photos.append(new_url)
         now = datetime.now(timezone.utc).isoformat()

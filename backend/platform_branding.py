@@ -13,8 +13,6 @@
 # normalization to WebP, SVG explicitly rejected).
 from __future__ import annotations
 
-import hashlib
-import io
 import os
 import re
 import secrets
@@ -23,24 +21,14 @@ from pathlib import Path
 
 from fastapi import APIRouter, Cookie, File, Header, HTTPException, UploadFile
 from fastapi.responses import FileResponse
-from PIL import Image, ImageOps, UnidentifiedImageError
+from image_pipeline import MAX_UPLOAD_BYTES, MAX_SIDE, MAX_INPUT_PIXELS, read_upload_limited, normalize_image as _normalize_image, normalize_image_async
 
-try:
-    import pillow_heif
-    pillow_heif.register_heif_opener()
-    _HEIC_SUPPORTED = True
-except ImportError:
-    _HEIC_SUPPORTED = False
-
-MAX_UPLOAD_BYTES = 5 * 1024 * 1024
-MAX_SIDE = 4096
-MAX_PIXELS = 16_000_000
-OUTPUT_SIDE = 800
-ALLOWED_FORMATS = {"JPEG", "PNG", "WEBP"} | ({"HEIF"} if _HEIC_SUPPORTED else set())
+MAX_PIXELS = MAX_INPUT_PIXELS
+OUTPUT_SIDE = 1024
+ALLOWED_FORMATS = {"JPEG", "PNG", "WEBP", "HEIF", "AVIF", "GIF", "BMP", "TIFF"}
 SAFE_FILE = re.compile(r"^[a-f0-9]{32}\.webp$")
 PUBLIC_PREFIX = "/api/media/platform"
 SETTINGS_ID = "platform_branding"
-Image.MAX_IMAGE_PIXELS = MAX_PIXELS
 
 
 def media_root() -> Path:
@@ -65,46 +53,14 @@ def managed_filename(value: str | None) -> str | None:
 
 
 async def _read_limited(upload: UploadFile) -> bytes:
-    data = await upload.read(MAX_UPLOAD_BYTES + 1)
-    await upload.close()
-    if not data:
-        raise HTTPException(status_code=400, detail="Image file is empty")
-    if len(data) > MAX_UPLOAD_BYTES:
-        raise HTTPException(status_code=413, detail="Image exceeds the 5 MB limit")
-    return data
+    return await read_upload_limited(upload)
 
 
 def normalize_platform_logo(data: bytes) -> tuple[bytes, dict]:
     """Identical pipeline to organization_media.normalize_logo: keeps
     transparency (no white-background flatten), since the Nexus mark is
     shown over varied surfaces (sidebar, favicon, public header)."""
-    try:
-        with Image.open(io.BytesIO(data)) as probe:
-            source_format = (probe.format or "").upper()
-            if source_format not in ALLOWED_FORMATS:
-                allowed_label = "JPEG, PNG, WebP" + (" and HEIC" if _HEIC_SUPPORTED else "")
-                raise HTTPException(status_code=415, detail=f"Only {allowed_label} images are allowed. SVG is not supported for security reasons.")
-            if getattr(probe, "is_animated", False) or getattr(probe, "n_frames", 1) != 1:
-                raise HTTPException(status_code=415, detail="Animated images are not allowed")
-            width, height = probe.size
-            if width < 1 or height < 1 or width > MAX_SIDE or height > MAX_SIDE or width * height > MAX_PIXELS:
-                raise HTTPException(status_code=400, detail="Image dimensions are not allowed")
-            probe.verify()
-        with Image.open(io.BytesIO(data)) as image:
-            image.load()
-            image = ImageOps.exif_transpose(image)
-            has_alpha = "A" in image.getbands() if image.mode not in ("RGB",) else False
-            if image.mode not in ("RGB", "RGBA"):
-                image = image.convert("RGBA" if has_alpha else "RGB")
-            image.thumbnail((OUTPUT_SIDE, OUTPUT_SIDE), Image.Resampling.LANCZOS)
-            output = io.BytesIO()
-            image.save(output, format="WEBP", quality=90, method=6, lossless=False, exif=b"")
-            payload = output.getvalue()
-            return payload, {"source_format": source_format, "width": image.width, "height": image.height, "bytes": len(payload), "sha256": hashlib.sha256(payload).hexdigest(), "has_transparency": image.mode == "RGBA"}
-    except HTTPException:
-        raise
-    except (UnidentifiedImageError, OSError, ValueError, Image.DecompressionBombError, Image.DecompressionBombWarning):
-        raise HTTPException(status_code=400, detail="Invalid or unsafe image")
+    return _normalize_image(data, "logo", preserve_alpha=True)
 
 
 def _write_atomic(payload: bytes) -> tuple[str, Path]:
@@ -154,7 +110,7 @@ def build_platform_branding_router(db, get_current_user):
     @router.post("/owner/platform-logo", tags=["platform-branding"])
     async def upload_platform_logo(file: UploadFile = File(...), authorization: str | None = Header(None), session_token: str | None = Cookie(None)):
         user = await owner(authorization, session_token)
-        payload, metadata = normalize_platform_logo(await _read_limited(file))
+        payload, metadata = await normalize_image_async(await _read_limited(file), "logo", preserve_alpha=True)
         old_url = (await current_branding())["platform_logo_url"]
         new_url, new_path = _write_atomic(payload)
         now = datetime.now(timezone.utc).isoformat()
