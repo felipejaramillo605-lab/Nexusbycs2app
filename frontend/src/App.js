@@ -150,7 +150,7 @@ function AppRouter() {
         <Route path="/owner/third-party-matrix" element={<ProtectedRoute requiredRole="owner"><OwnerThirdPartyMatrix /></ProtectedRoute>} />
               <Route path="/owner/announcements" element={<ProtectedRoute requiredRole="owner"><Suspense fallback={<PageLoader />}><OwnerAnnouncements /></Suspense></ProtectedRoute>} />
               <Route path="/owner/platform-branding" element={<ProtectedRoute requiredRole="owner"><Suspense fallback={<PageLoader />}><OwnerPlatformBranding /></Suspense></ProtectedRoute>} />
-              <Route path="/manager/barbers/:barberId/metrics" element={<ProtectedRoute requiredRole="manager"><Suspense fallback={<PageLoader />}><ProfessionalMetrics /></Suspense></ProtectedRoute>} />
+              <Route path="/manager/barbers/:barberId/metrics" element={<ProtectedRoute allowedRoles={['owner', 'manager', 'admin']}><Suspense fallback={<PageLoader />}><ProfessionalMetrics /></Suspense></ProtectedRoute>} />
               <Route path="/staff/reviews" element={<ProtectedRoute requiredRole="staff"><Suspense fallback={<PageLoader />}><StaffReviews /></Suspense></ProtectedRoute>} />
         <Route path="/owner/organizations/new" element={<ProtectedRoute requiredRole="owner"><OwnerOrganizationOnboarding /></ProtectedRoute>} />
         {/* NEXUS_SELF_SERVICE_MANAGER_ONBOARDING_V1 */}
