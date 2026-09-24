@@ -222,9 +222,10 @@ def build_billing_hub_router(db,get_current_user):
         if not organization:
             raise HTTPException(status_code=404, detail="Organization not found")
         bounded_limit = max(1, min(limit, 200))
-        return await db.subscription_notifications.find(
+        rows = await db.subscription_notifications.find(
             {"organization_id": organization_id}, {"_id": 0}
         ).sort("created_at", -1).to_list(bounded_limit)
+        return [public(row) for row in rows]
 
     router.include_router(billing_router)
     router.include_router(owner_billing_router)
