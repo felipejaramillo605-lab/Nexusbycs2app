@@ -15,7 +15,7 @@ const mockBlockOrganization = jest.fn();
 const mockReactivateOrganization = jest.fn();
 const mockDownloadPdf = jest.fn();
 
-jest.mock('react-router-dom', () => ({ useNavigate: () => jest.fn() }));
+jest.mock('react-router-dom', () => ({ useNavigate: () => jest.fn() }), { virtual: true });
 jest.mock('sonner', () => ({ toast: { error: (...args) => mockToastError(...args), success: (...args) => mockToastSuccess(...args) } }));
 jest.mock('../api', () => ({
   organizationAPI: { getAll: (...args) => mockOrganizationGetAll(...args) },
@@ -105,7 +105,7 @@ describe('OwnerSubscriptions invoice actions', () => {
     await renderPage();
     mockChangeInvoiceState.mockResolvedValue({ data: {} });
     await act(async () => button('Anular').click());
-    const reason = host.querySelector('textarea');
+    const reason = host.querySelector('[role="alertdialog"] textarea');
     expect(reason).toBeTruthy();
     await change(reason, 'Factura duplicada');
     await act(async () => button('Anular factura').click());
@@ -132,7 +132,7 @@ describe('OwnerSubscriptions invoice actions', () => {
     locked.response = { status: 409, data: { detail: 'Disable Premium' } };
     mockChangeInvoiceState.mockRejectedValue(locked);
     await act(async () => button('Reembolsar').click());
-    await change(host.querySelector('textarea'), 'Devolución acordada');
+    await change(host.querySelector('[role="alertdialog"] textarea'), 'Devolución acordada');
     await act(async () => button('Reembolsar').click());
     expect(mockToastError).toHaveBeenCalledWith('Desactiva Premium antes de reembolsar');
   });
