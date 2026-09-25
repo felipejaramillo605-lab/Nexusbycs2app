@@ -1024,6 +1024,18 @@ async def set_organization_entitlement(
             if contracted:
                 await _compensate_unpersisted_premium_reservation(db, organization_id, premium_request_id, invoice_id, request_id)
             raise HTTPException(status_code=409, detail="Organization has a pending entitlement request")
+        current_org = await db.organizations.find_one(
+            {"organization_id": organization_id},
+            {"_id": 0, "portal_template_entitlement_request_id": 1},
+        ) or {}
+        if current_org.get("portal_template_entitlement_request_id") != event.get("before_request_id"):
+            if contracted:
+                compensated = await _compensate_unpersisted_premium_reservation(
+                    db, organization_id, premium_request_id, invoice_id, request_id,
+                )
+                if not compensated:
+                    raise HTTPException(status_code=503, detail="Premium activation lock requires reconciliation")
+            raise HTTPException(status_code=409, detail="Organization entitlement changed concurrently")
         if contracted:
             compensated = await _compensate_unpersisted_premium_reservation(db, organization_id, premium_request_id, invoice_id, request_id)
             if not compensated:
