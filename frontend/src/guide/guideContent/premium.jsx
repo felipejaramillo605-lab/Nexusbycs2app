@@ -104,7 +104,7 @@ const owner = {
       id: 'p4',
       title: 'Revisar solicitudes de Premium',
       substeps: [
-        'Abre "Suscripciones" desde la navegación del Owner (ruta: /owner/subscriptions).',
+        'Abre "Cartera y facturación" desde la navegación del Owner (ruta: /owner/billing).',
         'Revisa la lista global de organizaciones y el estado de cada solicitud.',
         'Pulsa "Actualizar" si necesitas volver a cargar los datos.',
         'En la organización correspondiente, pulsa "Administrar organización".',
