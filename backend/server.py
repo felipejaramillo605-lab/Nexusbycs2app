@@ -72,6 +72,7 @@ from internal_reviews import build_internal_reviews_router, ensure_internal_revi
 from professional_metrics import build_professional_metrics_router
 from platform_billing_settings import build_platform_billing_router, ensure_platform_billing_indexes
 from owner_third_party_matrix import build_third_party_matrix_router, ensure_third_party_matrix_indexes
+from owner_access_sessions import build_owner_access_sessions_router, ensure_owner_access_sessions_indexes
 from portal_templates import effective_portal_template, portal_template_selection_error
 from transaction_export import build_transactions_csv, transactions_export_filename
 from platform_capabilities import (
@@ -9079,6 +9080,7 @@ api_router.include_router(build_lifecycle_router(db, get_current_user, invoice_p
 api_router.include_router(build_delivery_operations_router(db, get_current_user), tags=["owner-delivery-ops"])
 api_router.include_router(build_platform_billing_router(db, get_current_user), tags=["platform-billing"])
 api_router.include_router(build_third_party_matrix_router(db, get_current_user), tags=["owner-integrations"])
+api_router.include_router(build_owner_access_sessions_router(db, get_current_user, _owner_account_audit), tags=["owner-access-sessions"])
 # NEXUS_8A7S1A_SUPPORT_FOUNDATION_REGISTRATION_V1
 from support_center import build_support_center_router, ensure_support_center_indexes
 
@@ -9267,6 +9269,7 @@ async def _migrate_client_session_token_hash_and_indexes():
 async def create_application_indexes():
     await _migrate_user_session_dates_and_indexes()
     await _migrate_client_session_token_hash_and_indexes()
+    await ensure_owner_access_sessions_indexes(db)
     await ensure_platform_capability_indexes(db)
     await ensure_security_observability_indexes(db)
     # NEXUS_CHECKOUT_BACKEND_V1
