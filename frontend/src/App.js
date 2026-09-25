@@ -31,6 +31,7 @@ const OwnerAccessControl = lazy(() => import('./pages/OwnerAccessControl'));
 const OwnerSubscriptions = lazy(() => import('./pages/OwnerSubscriptions'));
 const OwnerThirdPartyMatrix = lazy(() => import('./pages/OwnerThirdPartyMatrix'));
 const OwnerAnnouncements = lazy(() => import('./pages/OwnerAnnouncements'));
+const OwnerSupportInbox = lazy(() => import('./pages/OwnerSupportInbox'));
 const OwnerPlatformBranding = lazy(() => import('./pages/OwnerPlatformBranding')); // NEXUS_PLATFORM_BRANDING_V1
 const ProfessionalMetrics = lazy(() => import('./pages/ProfessionalMetrics'));
 const StaffReviews = lazy(() => import('./pages/StaffReviews'));
@@ -149,6 +150,7 @@ function AppRouter() {
         <Route path="/owner/subscriptions" element={<ProtectedRoute requiredRole="owner"><OwnerSubscriptions /></ProtectedRoute>} />
         <Route path="/owner/third-party-matrix" element={<ProtectedRoute requiredRole="owner"><OwnerThirdPartyMatrix /></ProtectedRoute>} />
               <Route path="/owner/announcements" element={<ProtectedRoute requiredRole="owner"><Suspense fallback={<PageLoader />}><OwnerAnnouncements /></Suspense></ProtectedRoute>} />
+              <Route path="/owner/support" element={<ProtectedRoute requiredRole="owner"><Suspense fallback={<PageLoader />}><OwnerSupportInbox /></Suspense></ProtectedRoute>} />
               <Route path="/owner/platform-branding" element={<ProtectedRoute requiredRole="owner"><Suspense fallback={<PageLoader />}><OwnerPlatformBranding /></Suspense></ProtectedRoute>} />
               <Route path="/manager/barbers/:barberId/metrics" element={<ProtectedRoute allowedRoles={['owner', 'manager', 'admin']}><Suspense fallback={<PageLoader />}><ProfessionalMetrics /></Suspense></ProtectedRoute>} />
               <Route path="/staff/reviews" element={<ProtectedRoute requiredRole="staff"><Suspense fallback={<PageLoader />}><StaffReviews /></Suspense></ProtectedRoute>} />
