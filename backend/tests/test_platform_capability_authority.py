@@ -628,42 +628,36 @@ def test_disable_reactivate_disable_releases_all_premium_invoice_locks(authority
 
 
 @requires_standalone
-def test_concurrent_entitlement_mutation_for_same_org_is_serialized(authority_db):
+def test_entitlement_loser_after_concurrent_marker_change_returns_conflict(monkeypatch, authority_db):
     db, sync_db = authority_db
     sync_db.users.insert_one(_owner_doc("owner-a"))
     _run_async(bootstrap_initial_grant(db, "owner-a"))
-    sync_db.organizations.insert_one({"organization_id": "org-serial", "premium_templates_contracted": False})
+    sync_db.organizations.insert_one({
+        "organization_id": "org-serial",
+        "premium_templates_contracted": False,
+        "portal_template_entitlement_request_id": "ent-before",
+    })
     premium_request_id, invoice_id = _seed_paid_premium_invoice(sync_db, "org-serial", "serial")
 
-    async def race():
-        return await asyncio.gather(
-            set_organization_entitlement(
-                db, _actor("owner-a"), "org-serial", True, "enable",
-                "ent-serial-a", premium_request_id, invoice_id,
-            ),
-            set_organization_entitlement(
-                db, _actor("owner-a"), "org-serial", False, "disable", "ent-serial-b",
-            ),
-            return_exceptions=True,
+    async def loser_after_winner(*_args, **_kwargs):
+        sync_db.organizations.update_one(
+            {"organization_id": "org-serial"},
+            {"$set": {"portal_template_entitlement_request_id": "ent-winner"}},
         )
+        return None
 
-    results = _run_async(race())
-    assert sum(not isinstance(value, Exception) for value in results) == 1, results
-    errors = [value for value in results if isinstance(value, HTTPException)]
-    assert len(errors) == 1 and errors[0].status_code == 409
-
+    monkeypatch.setattr(platform_capabilities_module, "_atomic_authority_update", loser_after_winner)
+    with pytest.raises(HTTPException) as exc:
+        _run_async(set_organization_entitlement(
+            db, _actor("owner-a"), "org-serial", True, "enable",
+            "ent-serial-a", premium_request_id, invoice_id,
+        ))
+    assert exc.value.status_code == 409
     invoice = sync_db.subscription_invoices.find_one({"invoice_id": invoice_id})
     premium_request = sync_db.premium_plan_requests.find_one({"request_id": premium_request_id})
-    assert not sync_db.subscription_invoices.count_documents({
-        "organization_id": "org-serial", "premium_activation_state": "reserved",
-    })
+    assert invoice["status"] == "paid" and invoice["premium_activation_state"] == "released"
+    assert invoice["premium_activation_compensation_reason"] == "authority_event_not_persisted"
     assert premium_request.get("premium_activation_state") != "reserved"
-    if invoice.get("premium_activation_state") == "active":
-        assert premium_request["status"] == "active"
-    else:
-        assert invoice.get("premium_activation_state") == "released"
-        assert premium_request["status"] == "disabled"
-
 
 @requires_standalone
 def test_ledger_failure_leaves_organization_unchanged(authority_db):
