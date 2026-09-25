@@ -135,7 +135,9 @@ def invoice_pdf(invoice):
     x=len(out);out+=f"xref\n0 {len(objs)+1}\n0000000000 65535 f \n".encode();out+=b"".join(f"{o:010d} 00000 n \n".encode() for o in offsets[1:]);out+=f"trailer << /Size {len(objs)+1} /Root 1 0 R >>\nstartxref\n{x}\n%%EOF".encode();return bytes(out)
 
 def build_billing_hub_router(db,get_current_user):
-    router=APIRouter(prefix="/billing",tags=["billing-hub"])
+    router=APIRouter()
+    billing_router=APIRouter(prefix="/billing",tags=["billing-hub"])
+    owner_billing_router=APIRouter(prefix="/owner/billing",tags=["owner-billing"])
     async def actor(auth,cookie): return await get_current_user(auth,cookie)
     def org_for(user,requested=None):
         if user.role=="owner":
@@ -144,14 +146,14 @@ def build_billing_hub_router(db,get_current_user):
         if user.role not in {"manager","admin"} or not user.organization_id: raise HTTPException(403,"Billing access required")
         if requested and requested!=user.organization_id: raise HTTPException(403,"Cross-tenant billing access denied")
         return user.organization_id
-    @router.get("/profile")
+    @billing_router.get("/profile")
     async def get_profile(organization_id:Optional[str]=None,authorization:Optional[str]=Header(None),session_token:Optional[str]=Cookie(None)):
         user=await actor(authorization,session_token);oid=org_for(user,organization_id);profile=await db.organization_billing_profiles.find_one({"organization_id":oid},{"_id":0})
         if profile:
             profile["profile_source"]="organization_billing_profiles"
             return fiscal_profile_view(profile)
         _,manager,org,email=await resolve_billing_recipient(db,oid);return fiscal_profile_view({"organization_id":oid,"billing_email":email,"billing_contact_name":manager.get("name"),"legal_name":org.get("legal_name") or org.get("name"),"email_source":"fallback","profile_source":"fallback","profile_version":0})
-    @router.put("/profile")
+    @billing_router.put("/profile")
     async def put_profile(data:BillingProfileRequest,organization_id:Optional[str]=None,authorization:Optional[str]=Header(None),session_token:Optional[str]=Cookie(None)):
         user=await actor(authorization,session_token);oid=org_for(user,organization_id);organization=await db.organizations.find_one({"organization_id":oid},{"_id":0,"organization_id":1})
         if not organization:raise HTTPException(404,"Organization not found")
@@ -174,28 +176,28 @@ def build_billing_hub_router(db,get_current_user):
                 logger.error("Fiscal profile rollback did not match any document for organization_id=%s profile_version=%s; profile may be inconsistent with its audit trail",oid,item["profile_version"])
             raise
         return item
-    @router.get("/invoices")
+    @billing_router.get("/invoices")
     async def invoices(organization_id:Optional[str]=None,invoice_number:Optional[str]=None,status:Optional[str]=None,authorization:Optional[str]=Header(None),session_token:Optional[str]=Cookie(None)):
         user=await actor(authorization,session_token); oid=org_for(user,organization_id); q={"organization_id":oid}
         if invoice_number:q["invoice_number"]=invoice_number.strip().upper()
         if status:q["status"]=status
         return await db.subscription_invoices.find(q,{"_id":0}).sort([("issued_at",-1),("created_at",-1)]).to_list(500)
-    @router.get("/invoices/{invoice_id}/pdf")
+    @billing_router.get("/invoices/{invoice_id}/pdf")
     async def pdf(invoice_id:str,organization_id:Optional[str]=None,authorization:Optional[str]=Header(None),session_token:Optional[str]=Cookie(None)):
         user=await actor(authorization,session_token); oid=org_for(user,organization_id); item=await db.subscription_invoices.find_one({"organization_id":oid,"invoice_id":invoice_id},{"_id":0})
         if not item: raise HTTPException(404,"Invoice not found")
         return Response(invoice_pdf(item),media_type="application/pdf",headers={"Content-Disposition":f"attachment; filename={item.get('invoice_number',invoice_id)}.pdf"})
-    @router.get("/notifications")
+    @billing_router.get("/notifications")
     async def notifications(unread_only:bool=False,limit:int=100,authorization:Optional[str]=Header(None),session_token:Optional[str]=Cookie(None)):
         user=await actor(authorization,session_token); oid=org_for(user,None if user.role!='owner' else user.organization_id); q={"organization_id":oid}
         if unread_only:q["read_by"]={"$ne":user.user_id}
         return await db.subscription_notifications.find(q,{"_id":0}).sort("created_at",-1).to_list(max(1,min(limit,200)))
-    @router.post("/notifications/{notification_id}/read")
+    @billing_router.post("/notifications/{notification_id}/read")
     async def mark_read(notification_id:str,authorization:Optional[str]=Header(None),session_token:Optional[str]=Cookie(None)):
         user=await actor(authorization,session_token); oid=org_for(user,None if user.role!='owner' else user.organization_id); result=await db.subscription_notifications.update_one({"notification_id":notification_id,"organization_id":oid},{"$addToSet":{"read_by":user.user_id},"$set":{"last_read_at":now_iso()}})
         if not result.matched_count: raise HTTPException(404,"Notification not found")
         return {"notification_id":notification_id,"read":True}
-    @router.post("/owner/announcements")
+    @billing_router.post("/owner/announcements")
     async def announce(data:AnnouncementRequest,authorization:Optional[str]=Header(None),session_token:Optional[str]=Cookie(None)):
         user=await actor(authorization,session_token)
         if user.role!="owner": raise HTTPException(403,"Owner access required")
@@ -203,4 +205,28 @@ def build_billing_hub_router(db,get_current_user):
         for oid in dict.fromkeys(data.organization_ids):
             row={"notification_id":make_id("snot"),"organization_id":oid,"event_type":"owner_announcement","severity":data.severity,"title":data.title,"message":data.message,"created_by":user.user_id,"created_at":now,"expires_at":data.expires_at,"read_by":[]}; await db.subscription_notifications.insert_one(row); rows.append(public(row))
         return rows
+
+    @owner_billing_router.get("/organizations/{organization_id}/notifications")
+    async def owner_organization_notifications(
+        organization_id: str,
+        limit: int = 100,
+        authorization: Optional[str] = Header(None),
+        session_token: Optional[str] = Cookie(None),
+    ):
+        user = await actor(authorization, session_token)
+        if user.role != "owner" or user.access_status != "approved":
+            raise HTTPException(status_code=403, detail="Approved Owner access required")
+        organization = await db.organizations.find_one(
+            {"organization_id": organization_id}, {"_id": 0, "organization_id": 1}
+        )
+        if not organization:
+            raise HTTPException(status_code=404, detail="Organization not found")
+        bounded_limit = max(1, min(limit, 200))
+        rows = await db.subscription_notifications.find(
+            {"organization_id": organization_id}, {"_id": 0}
+        ).sort("created_at", -1).to_list(bounded_limit)
+        return [public(row) for row in rows]
+
+    router.include_router(billing_router)
+    router.include_router(owner_billing_router)
     return router

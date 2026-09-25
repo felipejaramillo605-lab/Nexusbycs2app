@@ -1024,6 +1024,18 @@ async def set_organization_entitlement(
             if contracted:
                 await _compensate_unpersisted_premium_reservation(db, organization_id, premium_request_id, invoice_id, request_id)
             raise HTTPException(status_code=409, detail="Organization has a pending entitlement request")
+        current_org = await db.organizations.find_one(
+            {"organization_id": organization_id},
+            {"_id": 0, "portal_template_entitlement_request_id": 1},
+        ) or {}
+        if current_org.get("portal_template_entitlement_request_id") != event.get("before_request_id"):
+            if contracted:
+                compensated = await _compensate_unpersisted_premium_reservation(
+                    db, organization_id, premium_request_id, invoice_id, request_id,
+                )
+                if not compensated:
+                    raise HTTPException(status_code=503, detail="Premium activation lock requires reconciliation")
+            raise HTTPException(status_code=409, detail="Organization entitlement changed concurrently")
         if contracted:
             compensated = await _compensate_unpersisted_premium_reservation(db, organization_id, premium_request_id, invoice_id, request_id)
             if not compensated:
@@ -1297,6 +1309,48 @@ async def _reject_premium_plan_request(db, actor_user_id: str, premium_request_i
             raise HTTPException(status_code=409, detail="Premium request is no longer pending")
     else:
         replay = False
+        # NEXUS_FIX_REJECT_PAYMENT_RACE_V1: the pre-check above and this CAS write are
+        # against two different collections, so they cannot be made atomic together.
+        # If manual payment confirmation (subscription_invoices.update_one, which never
+        # touches premium_plan_requests) lands in the gap between that pre-check and this
+        # write winning, we would otherwise leave a now-paid request marked "rejected".
+        # Re-check the invoice immediately after winning the CAS and self-heal by
+        # reverting the rejection if payment/activation landed concurrently.
+        post_write_invoice = await db.subscription_invoices.find_one(
+            {
+                "premium_request_id": premium_request_id,
+                "organization_id": plan_request["organization_id"],
+            },
+            {"_id": 0, "invoice_id": 1, "status": 1, "premium_activation_state": 1},
+        )
+        if post_write_invoice and (
+            post_write_invoice.get("status") == "paid"
+            or post_write_invoice.get("premium_activation_state") in {"reserved", "active"}
+        ):
+            reverted = await db.premium_plan_requests.update_one(
+                {
+                    "request_id": premium_request_id,
+                    "status": "rejected",
+                    "rejection_request_id": request_id,
+                },
+                {"$set": {
+                    "status": "pending",
+                    "rejected_by": None,
+                    "rejected_at": None,
+                    "public_note": None,
+                    "rejection_request_id": None,
+                    "updated_at": _now(),
+                }},
+            )
+            if reverted.modified_count != 1:
+                raise HTTPException(
+                    status_code=503,
+                    detail="Premium rejection requires reconciliation",
+                )
+            raise HTTPException(
+                status_code=409,
+                detail="La solicitud tiene una factura pagada o una activación en curso; resuélvela antes de rechazar",
+            )
     await _ensure_premium_audit_event(db, {
         "event_id": "ppae_" + uuid.uuid4().hex,
         "request_id": request_id,

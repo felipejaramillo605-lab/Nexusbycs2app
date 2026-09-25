@@ -16,7 +16,8 @@ from struct import unpack
 from fastapi import APIRouter, Cookie, File, Header, HTTPException, UploadFile
 from fastapi.responses import FileResponse
 
-from organization_media import SAFE_ORG, normalize_logo
+from organization_media import SAFE_ORG
+from image_pipeline import MAX_UPLOAD_BYTES, is_heif_or_avif_container, normalize_image_async
 
 MAX_VIDEO_BYTES = 20 * 1024 * 1024
 MAX_VIDEO_SECONDS = 15.0
@@ -147,6 +148,18 @@ def validate_video(data: bytes) -> tuple[str, float]:
     return extension, duration
 
 
+async def prepare_background_upload(source: bytes) -> tuple[bytes, str, float | None, str]:
+    """Classify and prepare an upload using the same branch as the route."""
+    is_image_container = is_heif_or_avif_container(source)
+    if not is_image_container and (source[4:8] == b"ftyp" or source.startswith(b"\x1a\x45\xdf\xa3")):
+        extension, duration = validate_video(source)
+        return source, extension, duration, "video"
+    if len(source) > MAX_UPLOAD_BYTES:
+        raise HTTPException(status_code=413, detail="La imagen supera 12 MB")
+    payload, _ = await normalize_image_async(source, "background")
+    return payload, "webp", None, "image"
+
+
 def _write_atomic(organization_id: str, payload: bytes, extension: str) -> tuple[str, Path]:
     filename = f"{secrets.token_hex(16)}.{extension}"
     destination = _safe_path(organization_id, filename)
@@ -180,12 +193,7 @@ def build_organization_background_media_router(db, get_current_user, require_man
     async def upload_background(organization_id: str, file: UploadFile = File(...), authorization: str | None = Header(None), session_token: str | None = Cookie(None)):
         org = await target(await get_current_user(authorization, session_token), organization_id)
         source = await _read_limited(file, MAX_VIDEO_BYTES)
-        if source[4:8] == b"ftyp" or source.startswith(b"\x1a\x45\xdf\xa3"):
-            extension, duration = validate_video(source); payload, kind = source, "video"
-        else:
-            # Re-read image limits through the established normalizer; 5MB cap is enforced before decode.
-            if len(source) > 5 * 1024 * 1024: raise HTTPException(status_code=413, detail="Background image exceeds the 5 MB limit")
-            payload, _ = normalize_logo(source); extension, duration, kind = "webp", None, "image"
+        payload, extension, duration, kind = await prepare_background_upload(source)
         new_url, path = _write_atomic(org["organization_id"], payload, extension)
         try:
             await db.organizations.update_one({"organization_id": org["organization_id"]}, {"$set": {"portal_background_type": kind, "portal_background_url": new_url, "updated_at": datetime.now(timezone.utc).isoformat()}})

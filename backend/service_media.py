@@ -11,7 +11,8 @@ from typing import Optional
 from fastapi import APIRouter, Cookie, File, Header, HTTPException, UploadFile
 
 from product_catalog import _write_catalog_image, _delete_catalog_image
-from professional_media import normalize_image, _read_limited
+from professional_media import _read_limited
+from image_pipeline import normalize_image_async
 
 MAX_SERVICE_PHOTOS = 2
 PRESENTATION_SLOTS = {"cover": "cover_image_url", "banner": "banner_image_url"}
@@ -60,7 +61,7 @@ def build_service_media_router(db, get_current_user, require_management_role, re
         photos = list(service.get("photos") or [])
         if len(photos) >= MAX_SERVICE_PHOTOS:
             raise HTTPException(status_code=400, detail=f"Máximo {MAX_SERVICE_PHOTOS} imágenes por servicio. Elimina una primero.")
-        payload, metadata = normalize_image(await _read_limited(file))
+        payload, metadata = await normalize_image_async(await _read_limited(file), "photo")
         new_url = _write_catalog_image(org_id, payload)
         photos.append(new_url)
         try:
@@ -102,7 +103,7 @@ def build_service_media_router(db, get_current_user, require_management_role, re
             raise HTTPException(status_code=400, detail="Presentation slot must be cover or banner")
         user = await get_current_user(authorization, session_token)
         org_id, service = await management_service(user, organization_id, service_id)
-        payload, metadata = normalize_image(await _read_limited(file))
+        payload, metadata = await normalize_image_async(await _read_limited(file), "photo")
         new_url = _write_catalog_image(org_id, payload)
         previous_url = service.get(field)
         try:

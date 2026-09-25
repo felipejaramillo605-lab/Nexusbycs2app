@@ -256,6 +256,46 @@ def test_activation_and_rejection_race_uses_request_lock():
     assert "premium_activation_operation_id" not in request_row
 
 
+class InvoicePayLandsDuringRejectCollection(FakeCollection):
+    """Simulates manual payment confirmation landing in the gap between the reject
+    pre-check read and the CAS write that applies the rejection. Payment confirmation
+    (subscription_invoices.update_one) never touches premium_plan_requests, so it isn't
+    serialized by the request-level CAS the way activation/link reservations are."""
+
+    def __init__(self, *rows, invoices):
+        super().__init__(*rows)
+        self._invoices = invoices
+        self._armed = True
+
+    async def update_one(self, query, update, upsert=False):
+        if self._armed and update.get("$set", {}).get("status") == "rejected":
+            self._armed = False
+            for row in self._invoices.rows:
+                if row.get("premium_request_id") == "ppr-1":
+                    row["status"] = "paid"
+        return await super().update_one(query, update, upsert)
+
+
+def test_payment_confirmed_during_reject_write_is_self_healed():
+    async def race():
+        invoices = FakeCollection({
+            "invoice_id": "inv-1", "organization_id": "org-1",
+            "premium_request_id": "ppr-1", "status": "issued",
+        })
+        requests = InvoicePayLandsDuringRejectCollection(_request_row(), invoices=invoices)
+        db = _db(requests=requests, invoices=invoices)
+        with pytest.raises(HTTPException) as exc:
+            await _reject_premium_plan_request(db, "owner-1", "ppr-1", "reject-1", "internal", None)
+        return exc.value.status_code, requests.rows[0], invoices.rows[0], db.premium_plan_audit_events.rows
+
+    status, request_row, invoice_row, audit_rows = _run(race())
+    assert status == 409
+    assert request_row["status"] == "pending"
+    assert request_row["rejection_request_id"] is None
+    assert invoice_row["status"] == "paid"
+    assert audit_rows == []
+
+
 def test_invoice_link_and_rejection_race_is_serialized_by_request_cas():
     async def race():
         db = _db()
