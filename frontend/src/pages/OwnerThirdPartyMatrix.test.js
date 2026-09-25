@@ -69,7 +69,11 @@ describe('OwnerThirdPartyMatrix Premium summary', () => {
     expect(host.textContent).not.toContain('Marcar como contratado');
     const premiumLink = [...host.querySelectorAll('button')].find(button => button.textContent.includes('Ver Plan Premium'));
     await act(async () => premiumLink.dispatchEvent(new MouseEvent('click', { bubbles: true })));
-    expect(mockNavigate).toHaveBeenCalledWith('/owner/premium');
+    // NEXUS_OWNER_CONSOLE_SHELL_V1 (plan PR 8): /owner/premium was a dead
+    // link -- that route was never built. Points at Cartera now, where the
+    // Premium plan panel actually lives (OwnerPremiumPlanPanel, rendered
+    // inside OwnerSubscriptions).
+    expect(mockNavigate).toHaveBeenCalledWith('/owner/billing');
     expect(mockListRequests).toHaveBeenCalledTimes(1);
   });
 });
