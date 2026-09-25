@@ -1,10 +1,10 @@
 /* NEXUS_7I_V3_MANUAL_ORGANIZATION_BLOCK */
-import React,{useCallback,useEffect,useMemo,useRef,useState} from 'react';
+import React,{useCallback,useEffect,useMemo,useState} from 'react';
 import {useNavigate} from 'react-router-dom';
-import {CreditCard,Download,FileText,History,RefreshCw,ShieldCheck,WalletCards} from 'lucide-react';
+import {CreditCard,FileText,History,RefreshCw,ShieldCheck,WalletCards} from 'lucide-react';
 import {toast} from 'sonner';
 import {billingAPI,deliveryOperationsAPI,organizationAPI,subscriptionAPI,supportAPI} from '../api';
-import {AccessibleModal,ActionButton,AdminShell,EmptyState,FieldGuide,LoadingState,MetricCard,MotionPage,PageHeader,StatusBadge,SurfaceCard} from '../components/design';
+import {ActionButton,AdminShell,FieldGuide,LoadingState,MetricCard,MotionPage,PageHeader,SurfaceCard} from '../components/design';
 import OwnerPremiumPlanPanel from '../components/OwnerPremiumPlanPanel';
 import AccessControlCard from '../components/owner/AccessControlCard';
 import AnnouncementsCard from '../components/owner/AnnouncementsCard';
@@ -12,6 +12,7 @@ import AuditLogCard from '../components/owner/AuditLogCard';
 import BackfillCard from '../components/owner/BackfillCard';
 import BillingProfileCard from '../components/owner/BillingProfileCard';
 import DeliveryMonitoringCard from '../components/owner/DeliveryMonitoringCard';
+import InvoicesTableCard from '../components/owner/InvoicesTableCard';
 import OperationalHealthCard from '../components/owner/OperationalHealthCard';
 import PendingManagersCard from '../components/owner/PendingManagersCard';
 import PqrsCard from '../components/owner/PqrsCard';
@@ -20,25 +21,18 @@ import SubscriptionConfigCard from '../components/owner/SubscriptionConfigCard';
 import {formatCOPMinor as money} from '../lib/currency';
 
 const statuses={trial:'Prueba',active:'Activa',grace_period:'Periodo de gracia',past_due:'Vencida',suspended:'Suspendida',cancelled:'Cancelada',indefinite_block:'Bloqueo indefinido'};
-const invoiceLabels={draft:'Borrador',issued:'Emitida',pending:'Pendiente',paid:'Pagada',overdue:'Vencida',void:'Anulada',refunded:'Reembolsada'};
 const detail=(error,fallback)=>error.response?.data?.detail||fallback;
 
 export default function OwnerSubscriptions(){
  const navigate=useNavigate();
- const [orgs,setOrgs]=useState([]),[orgId,setOrgId]=useState(''),[subscription,setSubscription]=useState(null),[invoices,setInvoices]=useState([]),[audit,setAudit]=useState([]),[loading,setLoading]=useState(true),[busy,setBusy]=useState('');
+ const [orgs,setOrgs]=useState([]),[orgId,setOrgId]=useState(''),[subscription,setSubscription]=useState(null),[invoices,setInvoices]=useState([]),[audit,setAudit]=useState([]),[loading,setLoading]=useState(true);
  const [announcements,setAnnouncements]=useState([]),[tickets,setTickets]=useState([]);
  const [deliveries,setDeliveries]=useState([]);
  const selected=useMemo(()=>orgs.find(x=>x.organization_id===orgId),[orgs,orgId]);
- const requestIds=useRef({});
- const stableRequestId=(key)=>{if(!requestIds.current[key])requestIds.current[key]=`owner-${key}-${globalThis.crypto?.randomUUID?.()||Date.now()}`;return requestIds.current[key]};
- const [invoiceAction,setInvoiceAction]=useState(null),[paymentReference,setPaymentReference]=useState(''),[actionReason,setActionReason]=useState('');
  const load=useCallback(async(id)=>{if(!id)return;setLoading(true);try{const [s,i,a]=await Promise.all([subscriptionAPI.get(id).catch(e=>e.response?.status===200?e:({data:null})),subscriptionAPI.getInvoices(id),subscriptionAPI.getAudit(id,{limit:100})]);setSubscription(s.data);setInvoices(i.data||[]);setAudit(a.data||[]);const d=await deliveryOperationsAPI.getDeliveries({organization_id:id,limit:100});setDeliveries(d.data||[]);}catch(e){toast.error(detail(e,'No fue posible cargar las suscripciones'))}finally{setLoading(false)}
   try{const [notif,supp]=await Promise.all([billingAPI.getNotifications({organization_id:id,limit:50}),supportAPI.ownerList({organization_id:id,page_size:50})]);const notifRows=notif.data?.notifications||notif.data||[];setAnnouncements(notifRows.filter(n=>n.event_type==='owner_announcement'));setTickets(supp.data?.items||supp.data?.conversations||supp.data||[]);}catch(e){/* secondary panels: fail quietly, primary subscription data above already loaded */}},[]);
  useEffect(()=>{organizationAPI.getAll().then(r=>{const rows=r.data||[];setOrgs(rows);if(rows[0])setOrgId(rows[0].organization_id)}).catch(e=>toast.error(detail(e,'No fue posible cargar organizaciones')))},[]);
  useEffect(()=>{if(orgId)load(orgId)},[orgId,load]);
- const pay=async()=>{const row=invoiceAction?.row,reference=paymentReference.trim();if(!row||reference.length<3){toast.error('La referencia debe tener al menos 3 caracteres');return}setBusy(row.invoice_id);try{await subscriptionAPI.confirmManualPayment(orgId,row.invoice_id,{amount_minor:row.amount_minor,currency:row.currency,provider_reference:reference,idempotency_key:stableRequestId(`pay-${row.invoice_id}`),notes:'Confirmado desde administración Owner'});delete requestIds.current[`pay-${row.invoice_id}`];toast.success('Pago confirmado');setInvoiceAction(null);setPaymentReference('');await load(orgId)}catch(err){toast.error(detail(err,'No fue posible confirmar el pago'))}finally{setBusy('')}};
- const changeInvoiceState=async()=>{const {row,status}=invoiceAction||{};const reason=actionReason.trim();if(!row||reason.length<3||reason.length>500){toast.error('El motivo debe tener entre 3 y 500 caracteres');return}setBusy(row.invoice_id);try{await subscriptionAPI.changeInvoiceState(orgId,row.invoice_id,{status,reason});toast.success(status==='void'?'Factura anulada':'Factura reembolsada');setInvoiceAction(null);setActionReason('');await load(orgId)}catch(err){const message=detail(err,'No fue posible actualizar la factura');toast.error(err.response?.status===409&&status==='refunded'?'Desactiva Premium antes de reembolsar':message)}finally{setBusy('')}};
- const downloadInvoice=async(row)=>{setBusy(`pdf-${row.invoice_id}`);try{const response=await billingAPI.downloadPdf(row.invoice_id,{organization_id:orgId});const url=URL.createObjectURL(response.data);const link=document.createElement('a');link.href=url;link.download=`${row.invoice_number||row.invoice_id}.pdf`;document.body.appendChild(link);link.click();link.remove();URL.revokeObjectURL(url)}catch(err){toast.error(detail(err,'No fue posible descargar el PDF'))}finally{setBusy('')}};
  const pending=invoices.filter(x=>['draft','issued','pending','overdue'].includes(x.status));
  return <AdminShell organizationName={selected?.name||'Nexus'} organizationId={orgId}><MotionPage><PageHeader eyebrow="Owner" title="Suscripciones" description="Administra planes, facturación mensual y pagos manuales por organización." actions={<><ActionButton icon={RefreshCw} onClick={()=>load(orgId)}>Actualizar</ActionButton><ActionButton variant="secondary" icon={ShieldCheck} onClick={()=>navigate('/owner/access-control')}>Ir a Control de accesos</ActionButton></>}/>
  <SurfaceCard><label><FieldGuide label="Organización" hint="Selecciona el tenant que deseas administrar." required/><select value={orgId} onChange={e=>setOrgId(e.target.value)}>{orgs.map(o=><option key={o.organization_id} value={o.organization_id}>{o.name}</option>)}</select></label></SurfaceCard>
@@ -48,7 +42,8 @@ export default function OwnerSubscriptions(){
  <PendingManagersCard/></div>
  <div className="nexus-subscription-grid"><AnnouncementsCard announcements={announcements} organizationName={selected?.name}/>
  <PqrsCard tickets={tickets} organizationName={selected?.name}/></div>
- <AccessControlCard subscription={subscription} pending={pending} organizationId={orgId} organizationName={selected?.name} onReload={()=>load(orgId)}/><SurfaceCard><h2>Facturas</h2>{!invoices.length?<EmptyState icon={FileText} title="Sin facturas" description="Emite la primera factura mensual para esta organización."/>:<div className="nexus-table-wrap"><table className="nexus-table"><thead><tr><th>Periodo</th><th>Vence</th><th>Valor</th><th>Estado</th><th>Acción</th></tr></thead><tbody>{invoices.map(row=><tr key={row.invoice_id}><td>{row.period_start?.slice(0,10)} a {row.period_end?.slice(0,10)}</td><td>{row.due_at?.slice(0,10)}</td><td>{money(row.amount_minor,row.currency)}</td><td><StatusBadge tone={row.status==='paid'?'success':row.status==='overdue'?'danger':'warning'}>{invoiceLabels[row.status]||row.status}</StatusBadge></td><td><div className="flex flex-wrap gap-2"><ActionButton variant="secondary" icon={Download} loading={busy===`pdf-${row.invoice_id}`} onClick={()=>downloadInvoice(row)}>PDF</ActionButton>{row.status==='paid'?<><span>Pago confirmado</span><ActionButton variant="destructive" onClick={()=>{setActionReason('');setInvoiceAction({row,status:'refunded'})}}>Reembolsar</ActionButton></>:['void','refunded'].includes(row.status)?<span>Sin acciones</span>:<><ActionButton onClick={()=>{setPaymentReference('');setInvoiceAction({row,kind:'pay'})}} disabled={busy===row.invoice_id}>Confirmar pago</ActionButton><ActionButton variant="secondary" onClick={()=>{setActionReason('');setInvoiceAction({row,status:'void'})}}>Anular</ActionButton></>}</div></td></tr>)}</tbody></table></div>}</SurfaceCard>
+ <AccessControlCard subscription={subscription} pending={pending} organizationId={orgId} organizationName={selected?.name} onReload={()=>load(orgId)}/>
+ <InvoicesTableCard invoices={invoices} organizationId={orgId} organizationName={selected?.name} onReload={()=>load(orgId)}/>
  <div className="nexus-subscription-grid"><SellerProfileCard/><OperationalHealthCard/></div>
- <div className="nexus-subscription-grid"><BillingProfileCard organizationId={orgId}/><BackfillCard organizationId={orgId} onReload={()=>load(orgId)}/></div><DeliveryMonitoringCard deliveries={deliveries} onReload={()=>load(orgId)}/><AuditLogCard audit={audit}/></>}{invoiceAction&&<AccessibleModal open={!!invoiceAction} onClose={()=>!busy&&setInvoiceAction(null)} role={invoiceAction.kind==='pay'?'dialog':'alertdialog'} labelledBy="owner-invoice-action-title" describedBy="owner-invoice-action-description" panelClassName="nexus-accessible-modal-panel"><h2 id="owner-invoice-action-title">{invoiceAction.kind==='pay'?'Confirmar pago manual':invoiceAction.status==='void'?'Anular factura':'Reembolsar factura'}</h2><p id="owner-invoice-action-description">{invoiceAction.kind==='pay'?'Ingresa la referencia del pago que ya recibiste.':`La acción quedará registrada en la auditoría de ${selected?.name||'la organización'}.`}</p>{invoiceAction.kind==='pay'?<label>Referencia del pago<input className="nexus-field" value={paymentReference} onChange={e=>setPaymentReference(e.target.value)} minLength={3} maxLength={200} required/></label>:<label>Motivo (3 a 500 caracteres)<textarea className="nexus-field" value={actionReason} onChange={e=>setActionReason(e.target.value)} minLength={3} maxLength={500} required/></label>}<div className="mt-4 flex justify-end gap-2"><ActionButton variant="secondary" disabled={!!busy} onClick={()=>setInvoiceAction(null)}>Cancelar</ActionButton><ActionButton variant={invoiceAction.kind==='pay'?'primary':'destructive'} loading={busy===invoiceAction.row.invoice_id} disabled={invoiceAction.kind==='pay'?paymentReference.trim().length<3:actionReason.trim().length<3||actionReason.trim().length>500} onClick={invoiceAction.kind==='pay'?pay:changeInvoiceState}>{invoiceAction.kind==='pay'?'Confirmar pago':invoiceAction.status==='void'?'Anular factura':'Reembolsar'}</ActionButton></div></AccessibleModal>}</MotionPage></AdminShell>;
+ <div className="nexus-subscription-grid"><BillingProfileCard organizationId={orgId}/><BackfillCard organizationId={orgId} onReload={()=>load(orgId)}/></div><DeliveryMonitoringCard deliveries={deliveries} onReload={()=>load(orgId)}/><AuditLogCard audit={audit}/></>}</MotionPage></AdminShell>;
 }
