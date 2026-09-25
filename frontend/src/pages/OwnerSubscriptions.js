@@ -11,6 +11,7 @@ import AnnouncementsCard from '../components/owner/AnnouncementsCard';
 import AuditLogCard from '../components/owner/AuditLogCard';
 import BackfillCard from '../components/owner/BackfillCard';
 import BillingProfileCard from '../components/owner/BillingProfileCard';
+import CarteraAgingCard from '../components/owner/CarteraAgingCard';
 import DeliveryMonitoringCard from '../components/owner/DeliveryMonitoringCard';
 import InvoicesTableCard from '../components/owner/InvoicesTableCard';
 import OperationalHealthCard from '../components/owner/OperationalHealthCard';
@@ -37,6 +38,7 @@ export default function OwnerSubscriptions(){
  return <AdminShell organizationName={selected?.name||'Nexus'} organizationId={orgId}><MotionPage><PageHeader eyebrow="Owner" title="Suscripciones" description="Administra planes, facturación mensual y pagos manuales por organización." actions={<><ActionButton icon={RefreshCw} onClick={()=>load(orgId)}>Actualizar</ActionButton><ActionButton variant="secondary" icon={ShieldCheck} onClick={()=>navigate('/owner/access')}>Ir a Control de accesos</ActionButton></>}/>
  <SurfaceCard><label><FieldGuide label="Organización" hint="Selecciona el tenant que deseas administrar." required/><select value={orgId} onChange={e=>setOrgId(e.target.value)}>{orgs.map(o=><option key={o.organization_id} value={o.organization_id}>{o.name}</option>)}</select></label></SurfaceCard>
  {loading?<LoadingState label="Cargando suscripción"/>:<><div className="nexus-metric-grid"><MetricCard label="Estado" value={statuses[subscription?.status]||'Sin configurar'} icon={CreditCard}/><MetricCard label="Valor mensual" value={subscription?money(subscription.monthly_amount_minor,subscription.currency):'$ 0'} icon={WalletCards}/><MetricCard label="Facturas pendientes" value={pending.length} icon={FileText}/><MetricCard label="Eventos de auditoría" value={audit.length} icon={History}/></div>
+ <CarteraAgingCard invoices={invoices}/>
  <SubscriptionConfigCard subscription={subscription} organizationId={orgId} onReload={()=>load(orgId)}/>
  <div className="nexus-subscription-grid"><OwnerPremiumPlanPanel organizationId={orgId} organizationName={selected?.name} invoices={invoices} reload={()=>load(orgId)} onSelectOrganization={setOrgId}/>
  <PendingManagersCard/></div>
