@@ -69,6 +69,7 @@ export const ownerAPI = {
 export const supportAPI = {
   ownerList: (params = {}) => api.get('/owner/support/conversations', { params }),
   ownerGet: (conversationId) => api.get(`/owner/support/conversations/${conversationId}`),
+  ownerSendMessage: (conversationId, data) => api.post(`/owner/support/conversations/${conversationId}/messages`, data),
   list: (params = {}) => api.get('/support/conversations', { params }),
   create: (data, params = {}) => api.post('/support/conversations', data, { params }),
   get: (conversationId) => api.get(`/support/conversations/${conversationId}`),
