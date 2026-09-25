@@ -628,22 +628,95 @@ def test_disable_reactivate_disable_releases_all_premium_invoice_locks(authority
 
 
 @requires_standalone
-def test_concurrent_entitlement_mutation_for_same_org_is_serialized(authority_db):
+@pytest.mark.parametrize("winner_request_id", ["ent-serial-a", "ent-serial-b"])
+def test_concurrent_entitlement_mutation_for_same_org_is_serialized(monkeypatch, authority_db, winner_request_id):
     db, sync_db = authority_db
     sync_db.users.insert_one(_owner_doc("owner-a"))
     _run_async(bootstrap_initial_grant(db, "owner-a"))
     sync_db.organizations.insert_one({"organization_id": "org-serial", "premium_templates_contracted": False})
     premium_request_id, invoice_id = _seed_paid_premium_invoice(sync_db, "org-serial", "serial")
+    original_update = platform_capabilities_module._atomic_authority_update
+    original_require = platform_capabilities_module.require_platform_capability
+    original_mutation = set_organization_entitlement
+
     async def race():
+        authority_reads = 0
+        both_authority_reads = asyncio.Event()
+        activation_waiting_at_cas = asyncio.Event()
+        winner_event_persisted = asyncio.Event()
+        loser_cas_checked = asyncio.Event()
+        winner_finished = asyncio.Event()
+
+        async def snapshot_together(*args, **kwargs):
+            nonlocal authority_reads
+            authority = await original_require(*args, **kwargs)
+            authority_reads += 1
+            if authority_reads == 2:
+                both_authority_reads.set()
+            await asyncio.wait_for(both_authority_reads.wait(), timeout=5)
+            return authority
+
+        async def serialize_loser(*args, **kwargs):
+            update = args[2] if len(args) > 2 else kwargs["update"]
+            event = update.get("$push", {}).get("audit_events", {})
+            request_id = event.get("request_id")
+            if winner_request_id == "ent-serial-b" and request_id == "ent-serial-a":
+                # The activation already reserved its invoice before reaching this CAS.
+                activation_waiting_at_cas.set()
+                await asyncio.wait_for(winner_event_persisted.wait(), timeout=5)
+            elif winner_request_id == "ent-serial-b" and request_id == "ent-serial-b":
+                await asyncio.wait_for(activation_waiting_at_cas.wait(), timeout=5)
+            elif winner_request_id == "ent-serial-a" and request_id == "ent-serial-b":
+                await asyncio.wait_for(winner_event_persisted.wait(), timeout=5)
+
+            result = await original_update(*args, **kwargs)
+            if result is not None:
+                winner_event_persisted.set()
+                await asyncio.wait_for(loser_cas_checked.wait(), timeout=5)
+            else:
+                loser_cas_checked.set()
+                await asyncio.wait_for(winner_finished.wait(), timeout=5)
+            return result
+
+        async def mutate(*args, **kwargs):
+            try:
+                return await original_mutation(*args, **kwargs)
+            finally:
+                winner_finished.set()
+
+        monkeypatch.setattr(platform_capabilities_module, "require_platform_capability", snapshot_together)
+        monkeypatch.setattr(platform_capabilities_module, "_atomic_authority_update", serialize_loser)
         return await asyncio.gather(
-            set_organization_entitlement(db, _actor("owner-a"), "org-serial", True, "enable", "ent-serial-a", premium_request_id, invoice_id),
-            set_organization_entitlement(db, _actor("owner-a"), "org-serial", False, "disable", "ent-serial-b"),
+            mutate(db, _actor("owner-a"), "org-serial", True, "enable", "ent-serial-a", premium_request_id, invoice_id),
+            mutate(db, _actor("owner-a"), "org-serial", False, "disable", "ent-serial-b"),
             return_exceptions=True,
         )
     results = _run_async(race())
     assert sum(not isinstance(value, Exception) for value in results) == 1, results
-    errors = [value for value in results if isinstance(value, HTTPException)]
-    assert len(errors) == 1 and errors[0].status_code == 409
+    winner_result = results[0] if winner_request_id == "ent-serial-a" else results[1]
+    loser_result = results[1] if winner_request_id == "ent-serial-a" else results[0]
+    assert not isinstance(winner_result, Exception), results
+    assert isinstance(loser_result, HTTPException) and loser_result.status_code == 409
+    org = sync_db.organizations.find_one({"organization_id": "org-serial"})
+    invoice = sync_db.subscription_invoices.find_one({"invoice_id": invoice_id})
+    premium_request = sync_db.premium_plan_requests.find_one({"request_id": premium_request_id})
+    assert not sync_db.subscription_invoices.count_documents({
+        "organization_id": "org-serial", "premium_activation_state": "reserved",
+    })
+    assert premium_request.get("premium_activation_state") != "reserved"
+    if winner_request_id == "ent-serial-a":
+        assert org["premium_templates_contracted"] is True
+        assert invoice["status"] == "paid" and invoice["premium_activation_state"] == "active"
+        assert invoice["premium_activation_operation_id"] == "ent-serial-a"
+        assert premium_request["status"] == "active" and premium_request["premium_activation_state"] == "active"
+        assert premium_request["premium_activation_operation_id"] == "ent-serial-a"
+    else:
+        assert org["premium_templates_contracted"] is False
+        assert invoice["status"] == "paid" and invoice["premium_activation_state"] == "released"
+        assert invoice["premium_activation_released_by_operation_id"] == "ent-serial-b"
+        assert premium_request["status"] == "disabled"
+        assert "premium_activation_operation_id" not in premium_request
+        assert "premium_activation_state" not in premium_request
     authority = sync_db.platform_capability_authority.find_one({"_id": AUTHORITY_ID})
     requests = [e for e in authority["audit_events"] if e.get("organization_id") == "org-serial"]
     assert len(requests) == 1 and requests[0]["state"] == "applied"
