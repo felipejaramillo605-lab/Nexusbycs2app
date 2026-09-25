@@ -27,6 +27,7 @@ const ReactQueryDevtools = process.env.NODE_ENV === 'development'
   : null;
 
 // Lazy load pages for code splitting
+const OwnerHome = lazy(() => import('./pages/OwnerHome'));
 const OwnerAccessControl = lazy(() => import('./pages/OwnerAccessControl'));
 const OwnerSubscriptions = lazy(() => import('./pages/OwnerSubscriptions'));
 const OwnerThirdPartyMatrix = lazy(() => import('./pages/OwnerThirdPartyMatrix'));
@@ -75,6 +76,13 @@ const ClientPortalDashboard = lazy(() => import('./pages/ClientPortalDashboard')
 function LegacyClassesRedirect() {
   const location = useLocation();
   return <Navigate replace to={`/manager/services/classes${location.search}`} />;
+}
+
+// NEXUS_OWNER_CONSOLE_SHELL_V1 (plan PR 7): compatibility redirects for the
+// pre-reorg Owner URLs, preserving any query string.
+function OwnerRouteRedirect({ to }) {
+  const location = useLocation();
+  return <Navigate replace to={`${to}${location.search}`} />;
 }
 const RescheduleAppointment = lazy(() => import('./pages/RescheduleAppointment'));
 const ForgotPin = lazy(() => import('./pages/ForgotPin'));
@@ -138,17 +146,22 @@ function AppRouter() {
         <Route path="/portal/:orgId/forgot-pin" element={<ClientPortalThemeWrapper><ForgotPin /></ClientPortalThemeWrapper>} />
         <Route path="/portal/:orgId/reset-pin" element={<ClientPortalThemeWrapper><ResetPin /></ClientPortalThemeWrapper>} />
 
+        {/* NEXUS_OWNER_CONSOLE_SHELL_V1: canonical Owner console routes (plan PR 7). */}
+        <Route path="/owner" element={<ProtectedRoute requiredRole="owner"><Suspense fallback={<PageLoader />}><OwnerHome /></Suspense></ProtectedRoute>} />
+        <Route path="/owner/organizations" element={<ProtectedRoute requiredRole="owner"><OwnerThirdPartyMatrix /></ProtectedRoute>} />
+        <Route path="/owner/billing" element={<ProtectedRoute requiredRole="owner"><OwnerSubscriptions /></ProtectedRoute>} />
         <Route
-          path="/owner/access-control"
+          path="/owner/access"
           element={
             <ProtectedRoute requiredRole="owner">
               <OwnerAccessControl />
-
             </ProtectedRoute>
           }
         />
-        <Route path="/owner/subscriptions" element={<ProtectedRoute requiredRole="owner"><OwnerSubscriptions /></ProtectedRoute>} />
-        <Route path="/owner/third-party-matrix" element={<ProtectedRoute requiredRole="owner"><OwnerThirdPartyMatrix /></ProtectedRoute>} />
+        {/* Compatibilidad con URLs anteriores a la reorganización de la consola Owner. */}
+        <Route path="/owner/access-control" element={<ProtectedRoute requiredRole="owner"><OwnerRouteRedirect to="/owner/access" /></ProtectedRoute>} />
+        <Route path="/owner/subscriptions" element={<ProtectedRoute requiredRole="owner"><OwnerRouteRedirect to="/owner/billing" /></ProtectedRoute>} />
+        <Route path="/owner/third-party-matrix" element={<ProtectedRoute requiredRole="owner"><OwnerRouteRedirect to="/owner/organizations" /></ProtectedRoute>} />
               <Route path="/owner/announcements" element={<ProtectedRoute requiredRole="owner"><Suspense fallback={<PageLoader />}><OwnerAnnouncements /></Suspense></ProtectedRoute>} />
               <Route path="/owner/support" element={<ProtectedRoute requiredRole="owner"><Suspense fallback={<PageLoader />}><OwnerSupportInbox /></Suspense></ProtectedRoute>} />
               <Route path="/owner/platform-branding" element={<ProtectedRoute requiredRole="owner"><Suspense fallback={<PageLoader />}><OwnerPlatformBranding /></Suspense></ProtectedRoute>} />

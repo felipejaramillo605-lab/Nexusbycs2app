@@ -132,7 +132,7 @@ export default function NexusAI() {
         <div className="w-16 h-16 rounded-2xl bg-[var(--app-primary)]/15 grid place-items-center mx-auto mb-4"><Lock size={28} className="text-[var(--app-primary)]" /></div>
         <h2 className="text-xl font-medium mb-2">Nexus AI no contratado</h2>
         <p className="text-[var(--app-text-secondary)] mb-6">Analiza clientes, ventas, inventario, servicios, marketing y más — todo con datos reales de tu organización, nunca inventados.</p>
-        <ActionButton data-testid="nexus-ai-contact-cta" onClick={() => user?.role === 'owner' ? navigate('/owner/third-party-matrix') : toast.info('Contacta al Owner de Nexus para contratar este servicio.')}>
+        <ActionButton data-testid="nexus-ai-contact-cta" onClick={() => user?.role === 'owner' ? navigate('/owner/organizations') : toast.info('Contacta al Owner de Nexus para contratar este servicio.')}>
           Conocer Nexus AI
         </ActionButton>
       </SurfaceCard>
