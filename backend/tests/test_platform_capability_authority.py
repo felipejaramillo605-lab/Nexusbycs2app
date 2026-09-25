@@ -713,7 +713,8 @@ def test_concurrent_entitlement_mutation_for_same_org_is_serialized(monkeypatch,
     else:
         assert org["premium_templates_contracted"] is False
         assert invoice["status"] == "paid" and invoice["premium_activation_state"] == "released"
-        assert invoice["premium_activation_released_by_operation_id"] == "ent-serial-b"
+        assert invoice["premium_activation_operation_id"] == "ent-serial-a"
+        assert invoice["premium_activation_compensation_reason"] == "authority_event_not_persisted"
         assert premium_request["status"] == "disabled"
         assert "premium_activation_operation_id" not in premium_request
         assert "premium_activation_state" not in premium_request
