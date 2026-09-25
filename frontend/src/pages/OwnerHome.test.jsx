@@ -9,6 +9,7 @@ const mockGetAll = jest.fn();
 const mockGetUsers = jest.fn();
 const mockOwnerList = jest.fn();
 const mockGetOperationalHealth = jest.fn();
+const mockGetBillingSummary = jest.fn();
 
 jest.mock('react-router-dom', () => ({ Link: ({ to, children, ...props }) => require('react').createElement('a', { href: to, ...props }, children) }), { virtual: true });
 jest.mock('sonner', () => ({ toast: { error: (...args) => mockToastError(...args) } }));
@@ -17,6 +18,7 @@ jest.mock('../api', () => ({
   ownerAPI: { getUsers: (...args) => mockGetUsers(...args) },
   supportAPI: { ownerList: (...args) => mockOwnerList(...args) },
   platformBillingAPI: { getOperationalHealth: (...args) => mockGetOperationalHealth(...args) },
+  subscriptionAPI: { getBillingSummary: (...args) => mockGetBillingSummary(...args) },
 }));
 jest.mock('../components/design', () => {
   const React = jest.requireActual('react');
@@ -24,7 +26,7 @@ jest.mock('../components/design', () => {
   return {
     AdminShell: Box, MotionPage: Box, SurfaceCard: Box,
     LoadingState: ({ label }) => React.createElement('div', null, label),
-    MetricCard: ({ label, value }) => React.createElement('div', null, `${label}: ${value}`),
+    MetricCard: ({ label, value, detail: detailText }) => React.createElement('div', null, `${label}: ${value}`, detailText ? ` (${detailText})` : ''),
     PageHeader: ({ title }) => React.createElement('h1', null, title),
   };
 });
@@ -61,17 +63,21 @@ describe('OwnerHome', () => {
     });
     mockOwnerList.mockResolvedValue({ data: { total: 3 } });
     mockGetOperationalHealth.mockResolvedValue({ data: { delivery_status_counts: { failed: 2 } } });
+    // NEXUS_OWNER_CONSOLE_SHELL_V1 (plan PR 14): now backed by the real
+    // cross-organization endpoint -- 20,000,000 minor = COP $ 200.000.
+    mockGetBillingSummary.mockResolvedValue({ data: { total_pending_minor: 20_000_000, currency: 'COP', organizations_with_balance: 2 } });
 
     const rendered = await renderComponent();
     root = rendered.root;
 
     expect(mockOwnerList).toHaveBeenCalledWith({ status: 'waiting_owner', page_size: 1 });
+    expect(mockGetBillingSummary).toHaveBeenCalledTimes(1);
     expect(rendered.host.textContent).toContain('Organizaciones: 2');
+    expect(rendered.host.textContent.replace(/ /g, ' ')).toContain('Cartera pendiente: $ 200.000 (2 organización(es))');
     expect(rendered.host.textContent).toContain('Accesos pendientes: 1');
     expect(rendered.host.textContent).toContain('Managers sin organización: 1');
     expect(rendered.host.textContent).toContain('PQRS esperando respuesta: 3');
     expect(rendered.host.textContent).toContain('2 entregas fallidas registradas.');
-    expect(rendered.host.textContent).not.toMatch(/\$\s*\d/);
   });
 
   test('shows a toast and no crash when a summary call fails', async () => {
@@ -79,10 +85,24 @@ describe('OwnerHome', () => {
     mockGetUsers.mockResolvedValue({ data: [] });
     mockOwnerList.mockResolvedValue({ data: { total: 0 } });
     mockGetOperationalHealth.mockResolvedValue({ data: {} });
+    mockGetBillingSummary.mockResolvedValue({ data: { total_pending_minor: 0, currency: 'COP', organizations_with_balance: 0 } });
 
     const rendered = await renderComponent();
     root = rendered.root;
 
     expect(mockToastError).toHaveBeenCalledWith('boom');
+  });
+
+  test('shows zero pending balance honestly when nothing is owed', async () => {
+    mockGetAll.mockResolvedValue({ data: [] });
+    mockGetUsers.mockResolvedValue({ data: [] });
+    mockOwnerList.mockResolvedValue({ data: { total: 0 } });
+    mockGetOperationalHealth.mockResolvedValue({ data: {} });
+    mockGetBillingSummary.mockResolvedValue({ data: { total_pending_minor: 0, currency: 'COP', organizations_with_balance: 0 } });
+
+    const rendered = await renderComponent();
+    root = rendered.root;
+
+    expect(rendered.host.textContent.replace(/ /g, ' ')).toContain('Cartera pendiente: $ 0');
   });
 });
