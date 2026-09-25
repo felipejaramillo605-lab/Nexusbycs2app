@@ -139,6 +139,37 @@ def build_subscription_router(db, get_current_user):
         user=await get_current_user(authorization,session_token); await _owner(user)
         return catalog_response()
 
+    # NEXUS_OWNER_CONSOLE_SHELL_V1 (plan PR 14): the first real cross-organization
+    # cartera view -- CarteraAgingCard.jsx (plan PR 8) deliberately left this out
+    # because no such endpoint existed yet; its own code comment calls a per-org
+    # fetch loop "dishonest" rather than fake one. Same bucket definitions as that
+    # card (current/1-30/31-60/60+ days from due_at), just summed across every
+    # organization instead of the one selected on the Cartera page. Bucketed in
+    # Python after one bounded fetch rather than a Mongo aggregation pipeline --
+    # at this app's real invoice volume (one invoice per org per month) that's
+    # simpler to get right than $dateDiff/$bucket stages, and easy to verify.
+    @billing_catalog_router.get("/summary")
+    async def billing_summary(authorization: Optional[str] = Header(None), session_token: Optional[str] = Cookie(None)):
+        user=await get_current_user(authorization,session_token); await _owner(user)
+        rows=await db.subscription_invoices.find(
+            {"status":{"$in":["draft","issued","pending","overdue"]}},
+            {"_id":0,"organization_id":1,"amount_minor":1,"currency":1,"due_at":1},
+        ).to_list(5000)
+        today=datetime.now(timezone.utc).date()
+        buckets={"current":{"total_minor":0,"count":0},"d1_30":{"total_minor":0,"count":0},"d31_60":{"total_minor":0,"count":0},"d60_plus":{"total_minor":0,"count":0}}
+        organizations_with_balance=set(); total_pending_minor=0; currency="COP"
+        for row in rows:
+            amount=int(row.get("amount_minor") or 0); total_pending_minor+=amount
+            if row.get("organization_id"): organizations_with_balance.add(row["organization_id"])
+            currency=row.get("currency") or currency
+            due_raw=(row.get("due_at") or "")[:10]
+            try: due_date=datetime.fromisoformat(due_raw).date() if due_raw else today
+            except ValueError: due_date=today
+            days=(today-due_date).days
+            bucket="current" if days<=0 else "d1_30" if days<=30 else "d31_60" if days<=60 else "d60_plus"
+            buckets[bucket]["total_minor"]+=amount; buckets[bucket]["count"]+=1
+        return {"currency":currency,"total_pending_minor":total_pending_minor,"organizations_with_balance":len(organizations_with_balance),"invoice_count":len(rows),"buckets":buckets,"generated_at":_now()}
+
     @subscriptions_router.get("/{organization_id}")
     async def get_subscription(organization_id: str, authorization: Optional[str] = Header(None), session_token: Optional[str] = Cookie(None)):
         user=await get_current_user(authorization,session_token); await _owner(user); await _organization(db,organization_id)
