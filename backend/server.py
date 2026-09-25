@@ -962,7 +962,7 @@ async def get_current_client(client_session_token: Optional[str] = Cookie(None))
     if not client_session_token:
         raise HTTPException(status_code=401, detail="Not authenticated")
 
-    session = await db.client_sessions.find_one({"session_token": client_session_token}, {"_id": 0})
+    session = await db.client_sessions.find_one({"session_token_hash": token_digest(client_session_token)}, {"_id": 0})
     if not session:
         raise HTTPException(status_code=401, detail="Invalid session")
 
@@ -7290,9 +7290,11 @@ async def register_client_with_pin(data: ClientRegisterRequest, request: Request
             "session_id": f"csess_{uuid.uuid4().hex[:12]}",
             "client_id": client_id,
             "organization_id": data.organization_id,
-            "session_token": session_token,
-            "expires_at": expires_at.isoformat(),
-            "created_at": now,
+            "session_token_hash": token_digest(session_token),
+            # NEXUS_CLIENT_SESSION_TOKEN_HASH_V1: real datetime, not isoformat(), so the
+            # expires_at TTL index below can actually expire this document.
+            "expires_at": expires_at,
+            "created_at": datetime.now(timezone.utc),
         }
     )
 
@@ -7372,16 +7374,17 @@ async def login_client_with_pin(data: ClientLoginRequest, request: Request):
     # Create session
     session_token = secrets.token_urlsafe(32)
     expires_at = datetime.now(timezone.utc) + timedelta(days=30)
-    now = datetime.now(timezone.utc).isoformat()
 
     await db.client_sessions.insert_one(
         {
             "session_id": f"csess_{uuid.uuid4().hex[:12]}",
             "client_id": client["client_id"],
             "organization_id": data.organization_id,
-            "session_token": session_token,
-            "expires_at": expires_at.isoformat(),
-            "created_at": now,
+            "session_token_hash": token_digest(session_token),
+            # NEXUS_CLIENT_SESSION_TOKEN_HASH_V1: real datetime, not isoformat(), so the
+            # expires_at TTL index below can actually expire this document.
+            "expires_at": expires_at,
+            "created_at": datetime.now(timezone.utc),
         }
     )
 
@@ -7414,7 +7417,7 @@ async def login_client_with_pin(data: ClientLoginRequest, request: Request):
 async def logout_client(client_session_token: Optional[str] = Cookie(None)):
     """Logout client and delete session"""
     if client_session_token:
-        await db.client_sessions.delete_one({"session_token": client_session_token})
+        await db.client_sessions.delete_one({"session_token_hash": token_digest(client_session_token)})
 
     response = JSONResponse(content={"message": "Logged out successfully"})
     response.delete_cookie(key="client_session_token", path="/")
@@ -9249,8 +9252,21 @@ async def _migrate_user_session_dates_and_indexes():
     await db.user_sessions.create_index("expires_at", expireAfterSeconds=0, name="user_sessions_ttl")
 
 
+# NEXUS_CLIENT_SESSION_TOKEN_HASH_V1: client portal sessions (up to 30-day cookies,
+# larger population than user_sessions) previously stored session_token in plaintext.
+# Mirrors _migrate_user_session_dates_and_indexes: purge legacy plaintext sessions
+# (they cannot authenticate under the hash-only lookup and would otherwise sit in
+# Mongo as live bearer tokens until TTL expiry) and index on the hash instead.
+async def _migrate_client_session_token_hash_and_indexes():
+    await db.client_sessions.delete_many({"session_token_hash": {"$exists": False}})
+    await db.client_sessions.create_index("session_token_hash", unique=True, name="client_sessions_token_hash_unique")
+    await db.client_sessions.create_index("client_id", name="client_sessions_client_id")
+    await db.client_sessions.create_index("expires_at", expireAfterSeconds=0, name="client_sessions_ttl")
+
+
 async def create_application_indexes():
     await _migrate_user_session_dates_and_indexes()
+    await _migrate_client_session_token_hash_and_indexes()
     await ensure_platform_capability_indexes(db)
     await ensure_security_observability_indexes(db)
     # NEXUS_CHECKOUT_BACKEND_V1
