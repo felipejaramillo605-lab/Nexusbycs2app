@@ -1,11 +1,13 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { FileText, RefreshCw, ShieldCheck, Sparkles } from 'lucide-react';
 import { toast } from 'sonner';
-import { ownerPremiumPlanAPI } from '../api';
+import { ownerPremiumPlanAPI, subscriptionAPI } from '../api';
 import { ActionButton, confirmAction, EmptyState, SurfaceCard } from './design';
 import { formatCOPMinor as money } from '../lib/currency';
 
 const unpaidManualStatuses = new Set(['draft', 'issued', 'pending', 'overdue']);
+const defaultSurchargeDueAt = () => { const d = new Date(); d.setDate(d.getDate() + 10); return d.toISOString().slice(0, 10); };
+const PREMIUM_SURCHARGE_COP = 70000;
 const detail = (error, fallback) => {
   const status = error.response?.status;
   if (status === 403) return 'No tienes autorización para administrar el plan Premium.';
@@ -20,6 +22,7 @@ export default function OwnerPremiumPlanPanel({ organizationId, organizationName
   const [busy, setBusy] = useState('');
   const [invoiceByRequest, setInvoiceByRequest] = useState({});
   const [reasonByRequest, setReasonByRequest] = useState({});
+  const [surchargeDueAtByRequest, setSurchargeDueAtByRequest] = useState({});
   const [entitlementReason, setEntitlementReason] = useState('Activación administrativa tras pago de factura Premium');
   const operationIds = useRef({});
 
@@ -50,6 +53,29 @@ export default function OwnerPremiumPlanPanel({ organizationId, organizationName
     invoice.organization_id === organizationId && invoice.provider === 'manual' && invoice.premium_request_id === request.request_id &&
     invoice.invoice_purpose === 'premium_plan_excess',
   );
+
+  // NEXUS_OWNER_CONSOLE_SHELL_V1 (plan PR 12): replaces the discount-field
+  // workaround (150,000 − 80,000 = 70,000) the Owner previously had to use
+  // to fake the surcharge amount through the generic monthly-invoice form --
+  // this calls the dedicated, correctly-priced endpoint instead. The newly
+  // created invoice is unpaid/unpurposed, so it immediately shows up in
+  // `eligibleInvoices` below for the existing "Asociar factura" step -- this
+  // only replaces how the invoice gets CREATED, not how it gets linked.
+  const issueSurcharge = async request => {
+    const dueAt = surchargeDueAtByRequest[request.request_id] || defaultSurchargeDueAt();
+    const busyKey = `surcharge:${request.request_id}`;
+    setBusy(busyKey);
+    try {
+      const response = await subscriptionAPI.createPremiumSurcharge(organizationId, { due_at: `${dueAt}T23:59:59+00:00` });
+      toast.success('Factura de excedente emitida');
+      setInvoiceByRequest({ ...invoiceByRequest, [request.request_id]: response.data.invoice_id });
+      await Promise.all([refresh(), reload()]);
+    } catch (error) {
+      toast.error(detail(error, 'No fue posible emitir la factura de excedente'));
+    } finally {
+      setBusy('');
+    }
+  };
 
   const linkInvoice = async request => {
     const invoiceId = invoiceByRequest[request.request_id];
@@ -119,7 +145,9 @@ export default function OwnerPremiumPlanPanel({ organizationId, organizationName
           <span>Solicitud {request.request_id}</span>
           {!selected && <ActionButton variant="secondary" onClick={() => onSelectOrganization?.(request.organization_id)}>Administrar organización</ActionButton>}
           {selected && request.status === 'pending' && !invoice && <div className="nexus-guided-form mt-3">
-            <label><span>Factura manual elegible de esta organización</span><select value={invoiceByRequest[request.request_id] || ''} onChange={event => setInvoiceByRequest({ ...invoiceByRequest, [request.request_id]: event.target.value })}><option value="">Seleccionar factura</option>{eligibleInvoices.map(row => <option key={row.invoice_id} value={row.invoice_id} label={`${row.invoice_number || row.invoice_id} · ${row.status} · ${money(row.amount_minor, row.currency)}`}/>)}</select></label>
+            <label><span>Vencimiento del excedente ({money(PREMIUM_SURCHARGE_COP * 100, 'COP')})</span><input type="date" value={surchargeDueAtByRequest[request.request_id] || defaultSurchargeDueAt()} onChange={event => setSurchargeDueAtByRequest({ ...surchargeDueAtByRequest, [request.request_id]: event.target.value })}/></label>
+            <ActionButton icon={FileText} disabled={busy === `surcharge:${request.request_id}`} onClick={() => issueSurcharge(request)}>Emitir factura de excedente</ActionButton>
+            <label><span>O selecciona una factura manual ya existente de esta organización</span><select value={invoiceByRequest[request.request_id] || ''} onChange={event => setInvoiceByRequest({ ...invoiceByRequest, [request.request_id]: event.target.value })}><option value="">Seleccionar factura</option>{eligibleInvoices.map(row => <option key={row.invoice_id} value={row.invoice_id} label={`${row.invoice_number || row.invoice_id} · ${row.status} · ${money(row.amount_minor, row.currency)}`}/>)}</select></label>
             <label><span>Motivo de asociación</span><textarea value={reasonByRequest[request.request_id] || ''} onChange={event => setReasonByRequest({ ...reasonByRequest, [request.request_id]: event.target.value })} required/></label>
             <ActionButton icon={FileText} disabled={!invoiceByRequest[request.request_id] || !(reasonByRequest[request.request_id] || '').trim() || busy === `link:${request.request_id}`} onClick={() => linkInvoice(request)}>Asociar factura</ActionButton>
           </div>}

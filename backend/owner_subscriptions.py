@@ -5,7 +5,7 @@ from datetime import datetime, timezone, timedelta
 import hashlib
 import json
 import uuid
-from billing_catalog import CATALOG_VERSION, catalog_response, get_plan
+from billing_catalog import CATALOG_VERSION, PREMIUM_SURCHARGE_AMOUNT_MINOR, catalog_response, get_plan
 from owner_billing_hub import assert_fiscal_profile_complete, enrich_new_invoice, post_invoice_side_effects
 from owner_subscription_lifecycle import reactivate_after_payment
 
@@ -39,6 +39,10 @@ class InvoiceCreateRequest(BaseModel):
     discount_reason: Optional[str] = Field(default=None, max_length=300)
     service_description: str = Field(default="Suscripción o membresía a Nexus by CS2 por un mes.", min_length=5, max_length=240)
     currency: str = Field(default="COP", min_length=3, max_length=3)
+    notes: Optional[str] = Field(default=None, max_length=500)
+
+class PremiumSurchargeInvoiceRequest(BaseModel):
+    due_at: str
     notes: Optional[str] = Field(default=None, max_length=500)
 
 class ManualPaymentRequest(BaseModel):
@@ -91,6 +95,10 @@ async def ensure_subscription_indexes(db):
     await db.subscription_invoices.create_index("invoice_number", unique=True, sparse=True, name="subscription_invoice_number_global_unique")
     await db.subscription_invoices.create_index([("organization_id",1),("period_start",1),("period_end",1)], unique=True, name="subscription_invoice_period_unique")
     await db.subscription_invoices.create_index([("organization_id",1),("status",1),("due_at",1)], name="subscription_invoice_status_due")
+    # NEXUS_OWNER_CONSOLE_SHELL_V1 (plan PR 12): additive, existing invoices
+    # simply lack this field (treated as a regular monthly invoice); supports
+    # filtering/reporting on premium-surcharge invoices without a full scan.
+    await db.subscription_invoices.create_index([("invoice_type",1),("status",1)], sparse=True, name="subscription_invoice_type_status")
     await db.subscription_payment_events.create_index("payment_event_id", unique=True, name="subscription_payment_event_id_unique")
     await db.subscription_payment_events.create_index([("organization_id",1),("idempotency_key",1)], unique=True, name="subscription_payment_idempotency_unique")
     await db.subscription_payment_events.create_index([("provider",1),("provider_reference",1)], unique=True, name="subscription_payment_provider_reference_unique")
@@ -250,6 +258,50 @@ def build_subscription_router(db, get_current_user):
         await db.subscription_invoices.insert_one(item.copy())
         await post_invoice_side_effects(db,item)
         await _audit(db,organization_id,"invoice_created","invoice",item["invoice_id"],user,None,item,data.notes or "Monthly invoice created")
+        return item
+
+    # NEXUS_OWNER_CONSOLE_SHELL_V1 (plan PR 12): dedicated Premium-surcharge
+    # invoice creation. Before this, the Owner had to fake the flat 70,000
+    # COP surcharge through the generic "Emitir factura" form by abusing the
+    # discount field (since create_invoice above forces amount_minor to equal
+    # the organization's *monthly plan price* minus discount -- confirmed in
+    # owner_subscriptions.py:242-246 before this endpoint existed). Kept as a
+    # SEPARATE endpoint rather than loosening that check on the generic one:
+    # loosening the generic monthly-invoice form's amount validation would
+    # let the Owner issue an arbitrary amount on any regular invoice, which
+    # is exactly the kind of billing-integrity hole this app has been
+    # careful to avoid everywhere else (see the idempotency/authorization
+    # discipline on every other money-mutating endpoint in this file).
+    #
+    # Dedup relies on the same mechanism create_invoice already uses -- the
+    # (organization_id, period_start, period_end) unique index -- period_start
+    # here is today's date (no time), so at most one surcharge invoice per
+    # organization per day can share it; a genuine same-day retry collides
+    # and fails loudly instead of double-charging, same tradeoff the existing
+    # monthly-invoice endpoint already accepts.
+    #
+    # This does NOT set invoice_purpose or premium_request_id -- that link is
+    # still made afterward by the existing, already-tested
+    # POST /owner/platform-capabilities/premium-plan-requests/{id}/invoice-link
+    # flow (platform_capabilities.py), which selects from exactly this kind
+    # of eligible unpaid manual invoice (OwnerPremiumPlanPanel.jsx:45-48).
+    @subscriptions_router.post("/{organization_id}/invoices/premium-surcharge")
+    async def create_premium_surcharge_invoice(organization_id: str, data: PremiumSurchargeInvoiceRequest, authorization: Optional[str] = Header(None), session_token: Optional[str] = Cookie(None)):
+        user=await get_current_user(authorization,session_token); await _owner(user); await _organization(db,organization_id)
+        due=_date(data.due_at,"due_at")
+        subscription=await db.organization_subscriptions.find_one({"organization_id":organization_id},{"_id":0})
+        if not subscription: raise HTTPException(409,"Organization subscription does not exist")
+        await assert_fiscal_profile_complete(db,organization_id)
+        today=datetime.now(timezone.utc).date().isoformat()
+        period_start=f"{today}T00:00:00+00:00"
+        existing=await db.subscription_invoices.find_one({"organization_id":organization_id,"period_start":period_start,"period_end":data.due_at},{"_id":0})
+        if existing: raise HTTPException(409,"A premium-surcharge invoice for this organization and due date already exists today")
+        amount=PREMIUM_SURCHARGE_AMOUNT_MINOR
+        now=_now(); item={"invoice_id":_id("sinv"),"organization_id":organization_id,"subscription_id":subscription["subscription_id"],"plan_code_snapshot":subscription["plan_code"],"plan_version_snapshot":subscription["plan_version"],"period_start":period_start,"period_end":data.due_at,"due_at":data.due_at,"contract_amount_minor_snapshot":amount,"discount_minor":0,"discount_reason":None,"amount_minor":amount,"paid_amount_minor":0,"currency":"COP","status":"pending","provider":"manual","service_description":"Excedente del plan Premium — activación de paquete Premium","notes":data.notes,"invoice_type":"premium_surcharge","created_by":user.user_id,"created_at":now,"updated_at":now}
+        item=await enrich_new_invoice(db,item)
+        await db.subscription_invoices.insert_one(item.copy())
+        await post_invoice_side_effects(db,item)
+        await _audit(db,organization_id,"invoice_created","invoice",item["invoice_id"],user,None,item,data.notes or "Premium surcharge invoice created")
         return item
 
     @subscriptions_router.get("/{organization_id}/invoices")

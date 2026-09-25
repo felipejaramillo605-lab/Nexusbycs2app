@@ -5,6 +5,8 @@ from datetime import datetime, timezone, timedelta
 import asyncio, hashlib, logging, os, smtplib, ssl, uuid
 from email.message import EmailMessage
 from platform_billing_settings import get_seller_settings
+from invoice_pdf import build_invoice_pdf
+import platform_branding
 
 logger = logging.getLogger(__name__)
 
@@ -121,18 +123,28 @@ async def post_invoice_side_effects(db,item):
     await db.subscription_email_deliveries.insert_one(delivery)
     return delivery
 
-def _pdf_escape(value): return str(value or "").replace("\\","\\\\").replace("(","\\(").replace(")","\\)").encode("latin-1","replace").decode("latin-1")
+# NEXUS_OWNER_CONSOLE_SHELL_V1 (plan PR 12/13): real PDF generation lives in
+# invoice_pdf.py now (reportlab-based, brand-consistent) -- this fetches the
+# platform's uploaded logo bytes (if any) so the PDF header can show the
+# actual Nexus mark instead of a text fallback.
+async def _platform_logo_bytes(db) -> bytes | None:
+    branding = await db.platform_settings.find_one({"settings_id": platform_branding.SETTINGS_ID}, {"_id": 0})
+    filename = platform_branding.managed_filename((branding or {}).get("platform_logo_url"))
+    if not filename:
+        return None
+    try:
+        return platform_branding._safe_path(filename).read_bytes()
+    except (HTTPException, OSError):
+        return None
+
+# Compatibility wrapper: owner_delivery_operations.py (email delivery,
+# scheduler) and server.py (lifecycle router, scheduler loop) call this
+# synchronously with just an invoice dict, no db access at hand to fetch the
+# platform logo -- they still get the new professional template, just with
+# the text "NEXUS BY CS2" wordmark fallback instead of the uploaded logo
+# image. Never a regression: the old generator never embedded a logo either.
 def invoice_pdf(invoice):
-    seller=invoice.get("seller_snapshot") or {}; buyer=invoice.get("buyer_snapshot") or {}
-    money=lambda n:f"COP $ {int(n or 0)/100:,.0f}".replace(",",".")
-    lines=["NEXUS BY CS2","DOCUMENTO ADMINISTRATIVO DE COBRO",f"Codigo: {invoice.get('invoice_number')}",f"Emision: {str(invoice.get('issued_at',''))[:10]}   Vencimiento: {str(invoice.get('due_at',''))[:10]}","",f"PROVEEDOR: {seller.get('legal_name') or seller.get('commercial_name')}",f"NIT: {seller.get('tax_id') or 'Pendiente de configurar'}",f"Correo: {seller.get('email') or 'Pendiente de configurar'}",f"Direccion: {seller.get('address') or ''} {seller.get('city') or ''}","",f"COMPRADOR: {buyer.get('legal_name') or buyer.get('organization_name')}",f"NIT / documento: {buyer.get('tax_id') or 'Pendiente de configurar'}",f"Correo de facturacion: {invoice.get('delivery_email_snapshot') or 'No configurado'}",f"Direccion: {buyer.get('address') or ''} {buyer.get('city') or ''}","",f"Concepto: {invoice.get('service_description') or 'Suscripcion o membresia a Nexus by CS2 por un mes.'}",f"Plan: {invoice.get('plan_code_snapshot')} version {invoice.get('plan_version_snapshot')}",f"Periodo cubierto: {str(invoice.get('period_start'))[:10]} al {str(invoice.get('period_end'))[:10]}",f"Valor contractual: {money(invoice.get('contract_amount_minor_snapshot') or invoice.get('subtotal_minor') or invoice.get('amount_minor'))}",f"Descuento excepcional: {money(invoice.get('discount_minor'))}",f"Motivo del descuento: {invoice.get('discount_reason') or 'No aplica'}",f"Impuestos: {money(invoice.get('tax_minor'))}",f"TOTAL A PAGAR: {money(invoice.get('amount_minor'))}",f"Pagado: {money(invoice.get('paid_amount_minor'))}",f"Saldo: {money((invoice.get('amount_minor') or 0)-(invoice.get('paid_amount_minor') or 0))}",f"Estado: {invoice.get('status')}","",NOTICE]
-    content=["BT","/F1 16 Tf","50 790 Td"]
-    for i,line in enumerate(lines): content += (["0 -24 Td"] if i else [])+[f"({_pdf_escape(line)}) Tj", "/F1 10 Tf"]
-    stream="\n".join(content+["ET"]).encode("latin-1")
-    objs=[b"<< /Type /Catalog /Pages 2 0 R >>",b"<< /Type /Pages /Kids [3 0 R] /Count 1 >>",b"<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 842] /Resources << /Font << /F1 5 0 R >> >> /Contents 4 0 R >>",b"<< /Length %d >>\nstream\n"%len(stream)+stream+b"\nendstream",b"<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>"]
-    out=bytearray(b"%PDF-1.4\n"); offsets=[0]
-    for i,obj in enumerate(objs,1): offsets.append(len(out)); out+=f"{i} 0 obj\n".encode()+obj+b"\nendobj\n"
-    x=len(out);out+=f"xref\n0 {len(objs)+1}\n0000000000 65535 f \n".encode();out+=b"".join(f"{o:010d} 00000 n \n".encode() for o in offsets[1:]);out+=f"trailer << /Size {len(objs)+1} /Root 1 0 R >>\nstartxref\n{x}\n%%EOF".encode();return bytes(out)
+    return build_invoice_pdf(invoice, None)
 
 def build_billing_hub_router(db,get_current_user):
     router=APIRouter()
@@ -186,7 +198,8 @@ def build_billing_hub_router(db,get_current_user):
     async def pdf(invoice_id:str,organization_id:Optional[str]=None,authorization:Optional[str]=Header(None),session_token:Optional[str]=Cookie(None)):
         user=await actor(authorization,session_token); oid=org_for(user,organization_id); item=await db.subscription_invoices.find_one({"organization_id":oid,"invoice_id":invoice_id},{"_id":0})
         if not item: raise HTTPException(404,"Invoice not found")
-        return Response(invoice_pdf(item),media_type="application/pdf",headers={"Content-Disposition":f"attachment; filename={item.get('invoice_number',invoice_id)}.pdf"})
+        logo_bytes=await _platform_logo_bytes(db)
+        return Response(build_invoice_pdf(item,logo_bytes),media_type="application/pdf",headers={"Content-Disposition":f"attachment; filename={item.get('invoice_number',invoice_id)}.pdf"})
     @billing_router.get("/notifications")
     async def notifications(unread_only:bool=False,limit:int=100,authorization:Optional[str]=Header(None),session_token:Optional[str]=Cookie(None)):
         user=await actor(authorization,session_token); oid=org_for(user,None if user.role!='owner' else user.organization_id); q={"organization_id":oid}

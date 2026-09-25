@@ -7,12 +7,16 @@ const mockListRequests = jest.fn();
 const mockLinkInvoice = jest.fn();
 const mockSetEntitlement = jest.fn();
 const mockConfirmAction = jest.fn();
+const mockCreatePremiumSurcharge = jest.fn();
 jest.mock('../api', () => ({
   ownerPremiumPlanAPI: {
     createRequestId: () => 'operation-id',
     listRequests: (...args) => mockListRequests(...args),
     linkInvoice: (...args) => mockLinkInvoice(...args),
     setEntitlement: (...args) => mockSetEntitlement(...args),
+  },
+  subscriptionAPI: {
+    createPremiumSurcharge: (...args) => mockCreatePremiumSurcharge(...args),
   },
 }));
 jest.mock('sonner', () => ({ toast: { error: jest.fn(), success: jest.fn() } }));
@@ -105,5 +109,21 @@ describe('OwnerPremiumPlanPanel', () => {
     });
     expect(mockConfirmAction).toHaveBeenCalledWith(expect.stringContaining('pagada por completo'), expect.objectContaining({ title: 'Activar Premium' }));
     expect(mockSetEntitlement).toHaveBeenCalledWith('org-1', expect.objectContaining({ contracted: true, premium_request_id: 'ppr-1', invoice_id: 'linked' }), 'operation-id');
+  });
+
+  // NEXUS_OWNER_CONSOLE_SHELL_V1 (plan PR 12): the real fix for the
+  // discount-field workaround -- issuing the surcharge now calls the
+  // dedicated endpoint with the correctly fixed amount, not something the
+  // Owner has to compute by hand.
+  test('issues a correctly priced surcharge invoice instead of the discount-field workaround', async () => {
+    mockCreatePremiumSurcharge.mockResolvedValue({ data: { invoice_id: 'new-surcharge-invoice' } });
+    await renderPanel([]);
+    const issueButton = [...host.querySelectorAll('button')].find(button => button.textContent.includes('Emitir factura de excedente'));
+    expect(issueButton).toBeTruthy();
+    await act(async () => {
+      issueButton.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+      await new Promise(resolve => setTimeout(resolve, 0));
+    });
+    expect(mockCreatePremiumSurcharge).toHaveBeenCalledWith('org-1', expect.objectContaining({ due_at: expect.stringMatching(/^\d{4}-\d{2}-\d{2}T23:59:59\+00:00$/) }));
   });
 });

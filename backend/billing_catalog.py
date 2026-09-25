@@ -20,6 +20,15 @@ PLANS = {
         "premium_package": True,
     },
 }
+# Flat one-time surcharge a Manager pays to request the Premium package
+# (D1-D7 commercial contract: 70,000 COP, no proration, no VAT). Not part of
+# PLANS above because it isn't a recurring monthly price -- it's a single
+# invoice issued once per Premium request, via the dedicated
+# POST /owner/subscriptions/{organization_id}/invoices/premium-surcharge
+# endpoint (owner_subscriptions.py), never the generic monthly-invoice form.
+PREMIUM_SURCHARGE_AMOUNT_MINOR = 7_000_000
+
+
 def get_plan(code):
     """Return a defensive copy of a catalog plan, or None for legacy/custom codes."""
     normalized = str(code or "").strip().lower()
@@ -38,6 +47,7 @@ def catalog_response():
         "catalog_version": CATALOG_VERSION,
         "currency": "COP",
         "plans": plans,
+        "premium_surcharge_minor": PREMIUM_SURCHARGE_AMOUNT_MINOR,
         # Colombia's current CS2 tax treatment was explicitly confirmed as no IVA.
         "tax": {"mode": "none", "iva_rate_bps": 0},
     }

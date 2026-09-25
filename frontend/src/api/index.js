@@ -80,6 +80,7 @@ export const subscriptionAPI = {
   get: (organizationId) => api.get(`/owner/subscriptions/${organizationId}`),
   save: (organizationId, data) => api.put(`/owner/subscriptions/${organizationId}`, data),
   createInvoice: (organizationId, data) => api.post(`/owner/subscriptions/${organizationId}/invoices`, data),
+  createPremiumSurcharge: (organizationId, data) => api.post(`/owner/subscriptions/${organizationId}/invoices/premium-surcharge`, data),
   getInvoices: (organizationId, params = {}) => api.get(`/owner/subscriptions/${organizationId}/invoices`, { params }),
   confirmManualPayment: (organizationId, invoiceId, data) => api.post(`/owner/subscriptions/${organizationId}/invoices/${invoiceId}/manual-payment`, data),
   changeInvoiceState: (organizationId, invoiceId, data) => api.post(`/owner/subscriptions/${organizationId}/invoices/${invoiceId}/state`, data),
