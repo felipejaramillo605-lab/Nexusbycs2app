@@ -229,6 +229,22 @@ def build_third_party_matrix_router(db, get_current_user):
              "actor_user_id": 1, "actor_role": 1, "reason": 1,
              "profile_version": 1, "created_at": 1},
         ).sort("created_at", -1).to_list(25)
+        # NEXUS_OWNER_CONSOLE_SHELL_V1 (plan PR 15): consolidates what the
+        # ficha drawer used to fetch as three separate client-side calls
+        # (third_party_detail + an unscoped premium-requests list filtered in
+        # JS + subscriptionAPI.get) into this one response. Same source
+        # collections and same "most recent pending/active request" rule
+        # list_premium_requests() uses by default -- just scoped to this one
+        # organization_id instead of listing everyone's requests to filter
+        # client-side.
+        subscription = await db.organization_subscriptions.find_one(
+            {"organization_id": organization_id}, {"_id": 0}
+        )
+        premium_request = await db.premium_plan_requests.find_one(
+            {"organization_id": organization_id, "status": {"$in": ["pending", "active"]}},
+            {"_id": 0, "status": 1},
+            sort=[("created_at", -1)],
+        )
         return {
             "organization": organization,
             "fiscal_profile": fiscal_profile_view(profile or {
@@ -237,6 +253,8 @@ def build_third_party_matrix_router(db, get_current_user):
             "people": people,
             "people_count": len(people),
             "fiscal_audit": audit,
+            "subscription": subscription,
+            "premium_status": (premium_request or {}).get("status", "not_requested"),
         }
 
     return router

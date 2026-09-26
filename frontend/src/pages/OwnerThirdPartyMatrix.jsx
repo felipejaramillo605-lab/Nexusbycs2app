@@ -3,7 +3,7 @@ import React,{useCallback,useEffect,useMemo,useState} from 'react';
 import {Building2,ChevronLeft,ChevronRight,FileCheck2,FileWarning,Plus,RefreshCw,Search,Users} from 'lucide-react';
 import {useNavigate} from 'react-router-dom';
 import {toast} from 'sonner';
-import {ownerPremiumPlanAPI,subscriptionAPI,thirdPartyMatrixAPI} from '../api';
+import {thirdPartyMatrixAPI} from '../api';
 import {ActionButton,AnimatedNumber,DetailDrawer,EmptyState,MetricCard,MotionPage,PageHeader,ResponsiveDataView,SegmentedControl,StatusBadge,SurfaceCard} from '../components/design';
 const labels={complete:'Completo',incomplete:'Incompleto'};const tones={complete:'success',incomplete:'warning'};
 // NEXUS_OWNER_CONSOLE_SHELL_V1 (plan PR 9): same status labels OwnerSubscriptions
@@ -20,12 +20,13 @@ export default function OwnerThirdPartyMatrix(){
  const load=useCallback(async()=>{setLoading(true);try{const r=await thirdPartyMatrixAPI.list({page,page_size:25,search:applied||undefined,profile_status:status==='all'?undefined:status});setRows(r.data.items||[]);setMeta(r.data)}catch(e){toast.error(safeDetail(e))}finally{setLoading(false)}},[page,applied,status]);useEffect(()=>{load()},[load]);
  const visible=useMemo(()=>({complete:rows.filter(x=>x.profile_status==='complete').length,incomplete:rows.filter(x=>x.profile_status==='incomplete').length,people:rows.reduce((s,x)=>s+Number(x.people_count||0),0)}),[rows]);
  const search=e=>{e.preventDefault();setPage(1);setApplied(query.trim())};const changeStatus=v=>{setStatus(v);setPage(1)};
- const open=async item=>{setDetailLoading(true);setSelected({organization:item,loading:true});setPremiumStatus(null);setSubscriptionStatus(undefined);try{const r=await thirdPartyMatrixAPI.detail(item.organization_id);setSelected(r.data);try{const response=await ownerPremiumPlanAPI.listRequests();const requests=response.data?.requests||[];const request=requests.find(row=>row.organization_id===item.organization_id);setPremiumStatus(request?.status||'not_requested')}catch{setPremiumStatus('unavailable')}
-  // NEXUS_OWNER_CONSOLE_SHELL_V1 (plan PR 9): reuses the same subscription
-  // endpoint OwnerSubscriptions already calls -- no new backend, just
-  // surfacing it in the org's ficha the way the plan asks: subscription and
-  // access-block state shown separately from the fiscal/Premium fields above.
-  const sub=await subscriptionAPI.get(item.organization_id).catch(e=>e.response?.status===200?e:({data:null}));setSubscriptionStatus(sub.data)}catch(e){setSelected(null);toast.error(safeDetail(e))}finally{setDetailLoading(false)}};
+ // NEXUS_OWNER_CONSOLE_SHELL_V1 (plan PR 15): third_party_detail now embeds
+ // subscription + premium status server-side, so this is one call instead of
+ // three (the previous version also had a real bug: the premium status came
+ // from an unscoped listRequests() filtered client-side by organization_id --
+ // fine at small volume, but it silently missed any organization once its
+ // request fell outside that endpoint's own page size).
+ const open=async item=>{setDetailLoading(true);setSelected({organization:item,loading:true});setPremiumStatus(null);setSubscriptionStatus(undefined);try{const r=await thirdPartyMatrixAPI.detail(item.organization_id);setSelected(r.data);setSubscriptionStatus(r.data.subscription);setPremiumStatus(r.data.premium_status||'not_requested')}catch(e){setSelected(null);toast.error(safeDetail(e))}finally{setDetailLoading(false)}};
  const columns=[{key:'organization',label:'Organización',render:x=><button className="nexus-owner-user" onClick={()=>open(x)}><span>{(x.name||'?').charAt(0).toUpperCase()}</span><div><strong>{x.name||'Sin nombre'}</strong><small>{x.legal_name||x.organization_id}</small></div></button>},{key:'tax',label:'Identificación',render:x=>x.tax_id||'Pendiente'},{key:'status',label:'Estado fiscal',render:x=><StatusBadge tone={tones[x.profile_status]}>{labels[x.profile_status]}</StatusBadge>},{key:'people',label:'Personas',render:x=>x.people_count||0},{key:'city',label:'Ciudad',render:x=>x.city||'Pendiente'},{key:'actions',label:'Acción',align:'right',render:x=><ActionButton variant="ghost" onClick={()=>open(x)}>Ver detalle</ActionButton>}];
  return <MotionPage className="nexus-owner-page space-y-6"><PageHeader eyebrow="Administración Owner" title="Matriz de terceros" description="Consulta organizaciones, estado fiscal y personas vinculadas mediante una proyección segura." actions={<div className="flex gap-2"><ActionButton icon={Plus} onClick={()=>navigate('/owner/organizations/new')}>Nueva organización</ActionButton><ActionButton variant="secondary" icon={RefreshCw} onClick={load}>Actualizar</ActionButton></div>}/>
  <section className="grid grid-cols-2 xl:grid-cols-4 gap-3"><MetricCard label="Resultados" value={<AnimatedNumber value={meta.total||0} format={v=>Math.round(v)}/>} icon={Building2}/><MetricCard label="Completos visibles" value={<AnimatedNumber value={visible.complete} format={v=>Math.round(v)}/>} icon={FileCheck2}/><MetricCard label="Incompletos visibles" value={<AnimatedNumber value={visible.incomplete} format={v=>Math.round(v)}/>} icon={FileWarning}/><MetricCard label="Personas visibles" value={<AnimatedNumber value={visible.people} format={v=>Math.round(v)}/>} icon={Users}/></section>
