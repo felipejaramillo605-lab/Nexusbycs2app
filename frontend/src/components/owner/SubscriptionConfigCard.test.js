@@ -6,12 +6,19 @@ global.IS_REACT_ACT_ENVIRONMENT = true;
 
 const mockSave = jest.fn();
 const mockCreateInvoice = jest.fn();
+const mockGetCatalog = jest.fn();
+
+const CATALOG_PLANS = [
+  { plan_code: 'standard', name: 'Membresía Estándar', monthly_amount_minor: 8000000, currency: 'COP' },
+  { plan_code: 'premium', name: 'Membresía Premium', monthly_amount_minor: 15000000, currency: 'COP' },
+];
 
 jest.mock('sonner', () => ({ toast: { error: jest.fn(), success: jest.fn() } }));
 jest.mock('../../api', () => ({
   subscriptionAPI: {
     save: (...args) => mockSave(...args),
     createInvoice: (...args) => mockCreateInvoice(...args),
+    getBillingCatalog: (...args) => mockGetCatalog(...args),
   },
 }));
 jest.mock('../design', () => {
@@ -65,6 +72,7 @@ const setValue = async (element, value) => act(async () => {
 
 describe('SubscriptionConfigCard', () => {
   let root;
+  beforeEach(() => mockGetCatalog.mockResolvedValue({ data: { plans: CATALOG_PLANS } }));
   afterEach(() => cleanup(root));
 
   test('populates the subscription form from the prop and saves with centavos conversion', async () => {
@@ -73,10 +81,14 @@ describe('SubscriptionConfigCard', () => {
     const rendered = await renderComponent({ subscription, organizationId: 'org-1', onReload });
     root = rendered.root;
 
-    const planInput = rendered.host.querySelector('input[value="nexus_monthly"]');
-    expect(planInput).toBeTruthy();
+    // nexus_monthly is a legacy code, not in the catalog, so it surfaces as
+    // its own "código heredado" option on the plan <select> rather than a
+    // free-text input.
+    const planSelect = rendered.host.querySelectorAll('select')[0];
+    expect(planSelect.value).toBe('nexus_monthly');
     const amountInput = rendered.host.querySelector('input[value="150000"]');
     expect(amountInput).toBeTruthy(); // 15,000,000 minor units -> 150000 pesos, displayed
+    expect(amountInput.disabled).toBe(false); // legacy plan: price stays editable
 
     await submitForm(rendered.host, 'Guardar suscripción');
     expect(mockSave).toHaveBeenCalledWith('org-1', expect.objectContaining({
@@ -93,9 +105,10 @@ describe('SubscriptionConfigCard', () => {
     const rendered = await renderComponent({ subscription: null, organizationId: 'org-2', onReload: jest.fn() });
     root = rendered.root;
     // Falls back to the built-in defaults, not a blank form -- matches the
-    // original `if (s.data) setForm(...)` behavior exactly.
-    expect(rendered.host.querySelector('input[value="nexus_monthly"]')).toBeTruthy();
-    expect(rendered.host.querySelector('input[value="150000"]')).toBeTruthy();
+    // original `if (s.data) setForm(...)` behavior exactly. Defaults now
+    // point at the catalog's "standard" plan instead of a free-text code.
+    expect(rendered.host.querySelectorAll('select')[0].value).toBe('standard');
+    expect(rendered.host.querySelector('input[value="80000"]')).toBeTruthy();
   });
 
   test('resyncs the form when switching to a different organization with its own subscription', async () => {
@@ -103,8 +116,25 @@ describe('SubscriptionConfigCard', () => {
     root = rendered.root;
     const other = { ...subscription, plan_code: 'nexus_annual', monthly_amount_minor: 20000000 };
     await rerender(root, rendered.host, { subscription: other, organizationId: 'org-2', onReload: jest.fn() });
-    expect(rendered.host.querySelector('input[value="nexus_annual"]')).toBeTruthy();
+    expect(rendered.host.querySelectorAll('select')[0].value).toBe('nexus_annual');
     expect(rendered.host.querySelector('input[value="200000"]')).toBeTruthy();
+  });
+
+  test('selecting a catalog plan auto-fills the price and locks it from manual editing', async () => {
+    const rendered = await renderComponent({ subscription, organizationId: 'org-1', onReload: jest.fn() });
+    root = rendered.root;
+    const planSelect = rendered.host.querySelectorAll('select')[0];
+
+    await act(async () => {
+      Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value').set.call(planSelect, 'premium');
+      planSelect.dispatchEvent(new Event('change', { bubbles: true }));
+    });
+
+    // Premium catalog price: 15,000,000 minor -> 150000 pesos, and the field
+    // locks because the backend rejects a mismatch against the catalog price.
+    const amountInput = rendered.host.querySelector('input[value="150000"]');
+    expect(amountInput).toBeTruthy();
+    expect(amountInput.disabled).toBe(true);
   });
 
   test('emits an invoice with the discount applied and does not reset the draft after success', async () => {

@@ -9,7 +9,8 @@ const isoDay = (offset = 0) => { const d = new Date(); d.setDate(d.getDate() + o
 const asIso = (value) => (value ? `${value}T12:00:00+00:00` : '');
 const detail = (error, fallback) => error.response?.data?.detail || fallback;
 
-const DEFAULT_FORM = { plan_code: 'nexus_monthly', monthly_amount: '150000', currency: 'COP', billing_day: 1, status: 'active', contract_term: 'monthly', trial_days: 0, reason: 'Configuración mensual de la organización' };
+const CUSTOM_PLAN_CODE = 'custom';
+const DEFAULT_FORM = { plan_code: 'standard', monthly_amount: '80000', currency: 'COP', billing_day: 1, status: 'active', contract_term: 'monthly', trial_days: 0, reason: 'Configuración mensual de la organización' };
 const DEFAULT_INVOICE = {
   period_start: isoDay(0).slice(0, 8) + '01',
   period_end: isoDay(30),
@@ -43,6 +44,24 @@ export default function SubscriptionConfigCard({ subscription, organizationId, o
   const [invoice, setInvoice] = useState(DEFAULT_INVOICE);
   const [savingSubscription, setSavingSubscription] = useState(false);
   const [creatingInvoice, setCreatingInvoice] = useState(false);
+  const [catalogPlans, setCatalogPlans] = useState([]);
+
+  useEffect(() => {
+    subscriptionAPI.getBillingCatalog()
+      .then((res) => setCatalogPlans(res.data?.plans || []))
+      .catch(() => setCatalogPlans([]));
+  }, []);
+
+  const selectedCatalogPlan = catalogPlans.find((p) => p.plan_code === form.plan_code);
+
+  const selectPlan = (planCode) => {
+    const plan = catalogPlans.find((p) => p.plan_code === planCode);
+    if (plan) {
+      setForm({ ...form, plan_code: planCode, monthly_amount: String(plan.monthly_amount_minor / 100), currency: plan.currency });
+    } else {
+      setForm({ ...form, plan_code: planCode });
+    }
+  };
 
   useEffect(() => {
     if (subscription) {
@@ -111,9 +130,9 @@ export default function SubscriptionConfigCard({ subscription, organizationId, o
       <SurfaceCard>
         <h2>Configuración mensual</h2>
         <form className="nexus-guided-form" onSubmit={save}>
-          <label><FieldGuide label="Código del plan" hint="Identificador estable del plan contratado." example="nexus_monthly" required /><input value={form.plan_code} onChange={(e) => setForm({ ...form, plan_code: e.target.value })} required /></label>
-          <label><FieldGuide label="Valor mensual" unit="COP" hint="Escribe pesos completos. Nexus almacena el valor en centavos." example="150000" required /><input type="number" min="0" step="1" value={form.monthly_amount} onChange={(e) => setForm({ ...form, monthly_amount: e.target.value })} required /></label>
-          <label><FieldGuide label="Moneda" example="COP" required /><input maxLength="3" value={form.currency} onChange={(e) => setForm({ ...form, currency: e.target.value })} required /></label>
+          <label><FieldGuide label="Plan" hint="Los planes del catálogo fijan el precio automáticamente. Elige «Personalizado» para un valor negociado aparte." required /><select value={form.plan_code} onChange={(e) => selectPlan(e.target.value)}>{catalogPlans.map((p) => <option key={p.plan_code} value={p.plan_code}>{p.name} — {p.currency} $ {(p.monthly_amount_minor / 100).toLocaleString('es-CO')}</option>)}<option value={CUSTOM_PLAN_CODE}>Personalizado / legado</option>{form.plan_code && form.plan_code !== CUSTOM_PLAN_CODE && !catalogPlans.some((p) => p.plan_code === form.plan_code) && <option value={form.plan_code}>{form.plan_code} (código heredado)</option>}</select></label>
+          <label><FieldGuide label="Valor mensual" unit="COP" hint={selectedCatalogPlan ? 'Fijado por el catálogo del plan seleccionado.' : 'Escribe pesos completos. Nexus almacena el valor en centavos.'} example="150000" required /><input type="number" min="0" step="1" value={form.monthly_amount} disabled={!!selectedCatalogPlan} onChange={(e) => setForm({ ...form, monthly_amount: e.target.value })} required /></label>
+          <label><FieldGuide label="Moneda" example="COP" required /><input maxLength="3" value={form.currency} disabled={!!selectedCatalogPlan} onChange={(e) => setForm({ ...form, currency: e.target.value })} required /></label>
           <label><FieldGuide label="Día de cobro" hint="Entre 1 y 28 para evitar fechas inexistentes." required /><input type="number" min="1" max="28" value={form.billing_day} onChange={(e) => setForm({ ...form, billing_day: e.target.value })} required /></label>
           <label><FieldGuide label="Estado" required /><select value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value })}>{Object.entries(statuses).map(([k, v]) => <option key={k} value={k}>{v}</option>)}</select></label>
           <label><FieldGuide label="Duración del contrato" hint="Mensual, seis meses o un año." required /><select value={form.contract_term} onChange={(e) => setForm({ ...form, contract_term: e.target.value })}><option value="monthly">Mensual</option><option value="six_months">6 meses</option><option value="annual">1 año</option></select></label>

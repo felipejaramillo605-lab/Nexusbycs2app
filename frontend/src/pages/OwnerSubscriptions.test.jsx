@@ -26,6 +26,7 @@ jest.mock('../api', () => ({
     changeInvoiceState: (...args) => mockChangeInvoiceState(...args),
     blockOrganization: (...args) => mockBlockOrganization(...args),
     reactivateOrganization: (...args) => mockReactivateOrganization(...args),
+    getBillingCatalog: () => Promise.resolve({ data: { plans: [] } }),
   },
   billingAPI: { getProfile: jest.fn(), getNotifications: jest.fn(), saveProfile: jest.fn(), downloadPdf: (...args) => mockDownloadPdf(...args) },
   deliveryOperationsAPI: { getDeliveries: jest.fn(), backfill: jest.fn(), retry: jest.fn() },
