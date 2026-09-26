@@ -4,6 +4,7 @@ projection fix that finally surfaces the client's own spot/code.
 """
 
 import ast
+import asyncio
 import sys
 from pathlib import Path
 from types import SimpleNamespace
@@ -196,8 +197,7 @@ def _session_service_booking():
     return session, service, booking
 
 
-@pytest.mark.asyncio
-async def test_dispatch_helper_sends_a_correctly_shaped_payload():
+def test_dispatch_helper_sends_a_correctly_shaped_payload():
     captured = {}
 
     async def fake_execute_compatibility_delivery(_db, **kwargs):
@@ -212,8 +212,14 @@ async def test_dispatch_helper_sends_a_correctly_shaped_payload():
     )
     session, service, booking = _session_service_booking()
 
-    await fn(
-        db, organization_id="org-1", session=session, service=service, booking=booking
+    asyncio.run(
+        fn(
+            db,
+            organization_id="org-1",
+            session=session,
+            service=service,
+            booking=booking,
+        )
     )
 
     assert captured["organization_id"] == "org-1"
@@ -245,8 +251,7 @@ async def test_dispatch_helper_sends_a_correctly_shaped_payload():
     )
 
 
-@pytest.mark.asyncio
-async def test_dispatch_helper_swallows_delivery_failures_without_raising():
+def test_dispatch_helper_swallows_delivery_failures_without_raising():
     # A booking is already confirmed by the time this runs -- an email/DB
     # error here must never surface as a 500 on an already-successful booking.
     async def raising_delivery(_db, **_kwargs):
@@ -258,13 +263,18 @@ async def test_dispatch_helper_swallows_delivery_failures_without_raising():
     )
     session, service, booking = _session_service_booking()
 
-    await fn(
-        db, organization_id="org-1", session=session, service=service, booking=booking
+    asyncio.run(
+        fn(
+            db,
+            organization_id="org-1",
+            session=session,
+            service=service,
+            booking=booking,
+        )
     )  # must not raise
 
 
-@pytest.mark.asyncio
-async def test_dispatch_helper_skips_silently_when_booking_has_no_email():
+def test_dispatch_helper_skips_silently_when_booking_has_no_email():
     delivery_calls = []
 
     async def fake_execute_compatibility_delivery(_db, **kwargs):
@@ -275,8 +285,14 @@ async def test_dispatch_helper_skips_silently_when_booking_has_no_email():
     session, service, booking = _session_service_booking()
     booking["client_email"] = None
 
-    await fn(
-        db, organization_id="org-1", session=session, service=service, booking=booking
+    asyncio.run(
+        fn(
+            db,
+            organization_id="org-1",
+            session=session,
+            service=service,
+            booking=booking,
+        )
     )
 
     assert delivery_calls == []
