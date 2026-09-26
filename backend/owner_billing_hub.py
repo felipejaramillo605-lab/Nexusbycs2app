@@ -5,8 +5,17 @@ from datetime import datetime, timezone, timedelta
 import asyncio, hashlib, logging, os, smtplib, ssl, uuid
 from email.message import EmailMessage
 from platform_billing_settings import get_seller_settings
-from invoice_pdf import build_invoice_pdf
 import platform_branding
+
+# NEXUS_STARTUP_MEMORY_V1: reportlab (imported by invoice_pdf) is a heavy,
+# eager import -- loading it at module scope means every uvicorn worker pulls
+# it in at startup, before the app can answer a health check. On this app's
+# minimal resource tier that pushed a real deploy past its readiness timeout
+# (k8s: "deployment failed to become ready"). Deferred to first use instead:
+# invoice PDFs are only ever needed after the server is already healthy.
+def build_invoice_pdf(*args, **kwargs):
+    from invoice_pdf import build_invoice_pdf as _build_invoice_pdf
+    return _build_invoice_pdf(*args, **kwargs)
 
 logger = logging.getLogger(__name__)
 
