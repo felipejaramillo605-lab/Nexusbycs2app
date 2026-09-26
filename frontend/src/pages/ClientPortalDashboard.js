@@ -322,12 +322,23 @@ export default function ClientPortalDashboard() {
                       : `Sin membresía: $${session.drop_in_price} pagando el día`}
                   </p>
                   {session.already_booked ? (
-                    <button
-                      onClick={() => handleCancelClassBooking(session.my_class_booking_id)}
-                      className="w-full py-2 bg-red-500/10 hover:bg-red-500/20 border border-red-500/30 text-red-400 rounded-lg text-sm transition-colors"
-                    >
-                      Cancelar cupo
-                    </button>
+                    <>
+                      {/* NEXUS_CLASS_BOOKING_CONFIRMATION_V1: the client's own
+                          spot/code were never surfaced here before -- this is
+                          the "preview my reservation" the product asked for,
+                          shown every time the portal loads, not just once at
+                          booking time. */}
+                      <div className="mb-2 p-2.5 bg-emerald-500/10 border border-emerald-500/30 rounded-lg text-xs text-emerald-300 space-y-0.5">
+                        <p className="font-medium">Cupo confirmado{session.my_spot_label ? ` · ${session.my_spot_label}` : ''}</p>
+                        {session.my_confirmation_code && <p className="text-emerald-400/80">Código de confirmación: {session.my_confirmation_code}</p>}
+                      </div>
+                      <button
+                        onClick={() => handleCancelClassBooking(session.my_class_booking_id)}
+                        className="w-full py-2 bg-red-500/10 hover:bg-red-500/20 border border-red-500/30 text-red-400 rounded-lg text-sm transition-colors"
+                      >
+                        Cancelar cupo
+                      </button>
+                    </>
                   ) : session.already_waitlisted ? (
                     <button
                       onClick={() => handleLeaveWaitlist(session.my_waitlist_id)}

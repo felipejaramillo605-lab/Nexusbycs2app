@@ -33,6 +33,10 @@ EVENT_CONTRACTS = {
         "required": {"customer_name", "organization_name", "review_link", "client_id", "review_request_id"},
         "forbidden": {"management_token", "cancellation_url"},
     },
+    "class_confirmation": {
+        "required": {"customer_name", "class_name", "professional_name", "date", "time", "organization_name"},
+        "forbidden": {"management_token", "cancellation_url"},
+    },
 }
 
 
@@ -108,6 +112,19 @@ def build_sender(delivery: Mapping[str, Any], service=email_service):
             date=payload["date"],
             time=payload["time"],
             organization_name=payload["organization_name"],
+        )
+    if event_type == "class_confirmation":
+        return lambda: service.send_class_booking_confirmation(
+            to_email=recipient,
+            customer_name=payload["customer_name"],
+            class_name=payload["class_name"],
+            barber_name=payload["professional_name"],
+            date=payload["date"],
+            time=payload["time"],
+            organization_name=payload["organization_name"],
+            organization_address=payload.get("organization_address"),
+            spot_label=payload.get("spot_label"),
+            confirmation_code=payload.get("confirmation_code"),
         )
     if event_type == "review_request":
         return lambda: service.send_review_request(
