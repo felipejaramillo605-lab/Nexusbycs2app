@@ -321,7 +321,111 @@ class EmailService:
         """
         
         return self._send_email(to_email, subject, html_body, text_body)
-    
+
+    # NEXUS_CLASS_BOOKING_CONFIRMATION_V1: class bookings never had a
+    # confirmation email at all before this (unlike 1:1 appointments, which
+    # already had send_appointment_confirmation above) -- deliberately
+    # mirrors that method's structure (same shell/button/accent helpers,
+    # same escape discipline) rather than inventing a new visual language
+    # for what's conceptually the same kind of confirmation.
+    def send_class_booking_confirmation(
+        self,
+        to_email: str,
+        customer_name: str,
+        class_name: str,
+        barber_name: str,
+        date: str,
+        time: str,
+        organization_name: str,
+        organization_address: Optional[str] = None,
+        spot_label: Optional[str] = None,
+        confirmation_code: Optional[str] = None,
+        theme: str = 'classic',
+    ) -> bool:
+        """Send class/group-session booking confirmation email"""
+        customer_name = escape(customer_name)
+        class_name = escape(class_name)
+        barber_name = escape(barber_name)
+        organization_name = escape(organization_name)
+
+        subject = f"✅ Cupo Confirmado - {class_name}"
+        greeting = f"¡Listo, <strong>{customer_name}</strong>! Tu cupo para <strong>{class_name}</strong> quedó confirmado."
+
+        calendar_description = f"{class_name} con {barber_name} en {organization_name}"
+        calendar_location = organization_address or organization_name
+        google_calendar_link = self._create_google_calendar_link(
+            title=f"{class_name} - {organization_name}", date=date, time=time, duration_minutes=60,
+            description=calendar_description, location=calendar_location,
+        )
+        outlook_calendar_link = self._create_outlook_calendar_link(
+            title=f"{class_name} - {organization_name}", date=date, time=time, duration_minutes=60,
+            description=calendar_description, location=calendar_location,
+        )
+
+        maps_link = ""
+        if organization_address:
+            maps_url = f"https://www.google.com/maps/search/?api=1&query={quote(organization_address)}"
+            maps_link = render_button("📍 Cómo llegar", maps_url, color="#475569")
+
+        accent = resolve_accent_color(theme)
+
+        rows = [
+            ("📅 Fecha", date), ("🕐 Hora", time), ("🧘 Clase", class_name), ("👤 Profesional", barber_name),
+        ]
+        if spot_label:
+            rows.append(("💺 Cupo asignado", escape(spot_label)))
+        if organization_address:
+            rows.append(("📍 Dirección", escape(organization_address)))
+        rows_html = "".join(
+            f'<tr><td style="padding:10px 0;font-family:Arial,sans-serif;font-size:14px;color:#667085;border-bottom:1px solid #EEF1F6;">{label}</td>'
+            f'<td align="right" style="padding:10px 0;font-family:Arial,sans-serif;font-size:14px;font-weight:600;color:#111827;border-bottom:1px solid #EEF1F6;">{value}</td></tr>'
+            for label, value in rows
+        )
+        code_html = (
+            render_alert_box(
+                f'Código de confirmación: {confirmation_code} — muéstralo en recepción si el staff te lo pide para confirmar tu identidad.',
+                color="#1D4ED8",
+            ) if confirmation_code else ""
+        )
+        body_html = f"""
+            <p style="font-size:16px;line-height:24px;margin:0 0 16px;">{greeting}</p>
+            <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0"
+                style="background:#F8FAFC;border:1px solid #EEF1F6;border-radius:14px;padding:6px 18px;margin:16px 0;">
+                {rows_html}
+            </table>
+            {code_html}
+            <div style="text-align:center;margin:20px 0 4px;">
+                {render_button("📅 Google Calendar", google_calendar_link, color="#22A559") if google_calendar_link else ''}
+                {render_button("📆 Outlook Calendar", outlook_calendar_link, color="#1D4ED8") if outlook_calendar_link else ''}
+                {maps_link}
+            </div>
+            <p style="color:#667085;margin-top:24px;font-size:14px;">💡 <strong>Recomendación:</strong> te sugerimos llegar 5 minutos antes de tu clase.</p>
+        """
+        html_body = render_email_shell(
+            organization_name=organization_name, eyebrow="Confirmación", title="✨ ¡Cupo confirmado!",
+            body_html=body_html, accent_color=accent,
+            footer_lines=("Este es un mensaje automático, por favor no respondas a este correo.",),
+        )
+
+        text_body = f"""
+        ¡Cupo Confirmado!
+
+        Hola {customer_name},
+
+        Tu cupo para {class_name} quedó confirmado:
+
+        Fecha: {date}
+        Hora: {time}
+        Profesional: {barber_name}
+        {f'Cupo asignado: {spot_label}' if spot_label else ''}
+        {f'Código de confirmación: {confirmation_code}' if confirmation_code else ''}
+        {f'Dirección: {organization_address}' if organization_address else ''}
+
+        {organization_name}
+        """
+
+        return self._send_email(to_email, subject, html_body, text_body)
+
     def send_appointment_reminder(
         self,
         to_email: str,

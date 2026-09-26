@@ -428,7 +428,7 @@ export default function ManagerClasses() {
                     <div key={b.class_booking_id} className="p-3 rounded-xl border border-[var(--app-border)] flex items-center justify-between gap-3">
                       <div>
                         <p className="text-[var(--app-text-primary)] font-medium">{b.client_name}{b.spot_label && <span className="text-[var(--app-text-secondary)] font-normal text-xs"> · {b.spot_label}</span>}{b.from_waitlist && <span className="text-[var(--app-text-secondary)] font-normal text-xs"> · desde lista de espera</span>}</p>
-                        <p className="text-xs text-[var(--app-text-secondary)]">{b.client_phone}</p>
+                        <p className="text-xs text-[var(--app-text-secondary)]">{b.client_phone}{b.confirmation_code && <span> · Código {b.confirmation_code}</span>}</p>
                       </div>
                       <div className="flex items-center gap-2">
                         {b.no_show && <StatusBadge tone="warning">No-show</StatusBadge>}

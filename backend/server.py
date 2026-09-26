@@ -3498,9 +3498,14 @@ async def list_portal_class_sessions(current_client: Client = Depends(get_curren
     membership, plan = await _get_client_membership_with_plan(db, org_id, current_client.client_id)
     my_bookings = await db.class_bookings.find(
         {"organization_id": org_id, "client_id": current_client.client_id, "status": "confirmed"},
-        {"_id": 0, "class_session_id": 1, "class_booking_id": 1},
+        {"_id": 0, "class_session_id": 1, "class_booking_id": 1, "spot_label": 1, "confirmation_code": 1},
     ).to_list(1000)
     booking_by_session = {b["class_session_id"]: b["class_booking_id"] for b in my_bookings}
+    # NEXUS_CLASS_BOOKING_CONFIRMATION_V1: the client's own spot/code were
+    # never exposed here before -- this is why the portal card couldn't show
+    # a voucher for an already-booked session, the data simply never left
+    # the projection above.
+    my_booking_detail_by_session = {b["class_session_id"]: b for b in my_bookings}
     my_waitlist = await db.class_waitlist.find(
         {"organization_id": org_id, "client_id": current_client.client_id, "status": "waiting"},
         {"_id": 0, "class_session_id": 1, "waitlist_id": 1},
@@ -3521,6 +3526,8 @@ async def list_portal_class_sessions(current_client: Client = Depends(get_curren
                 "spots_available": max(0, session["capacity"] - session["booked_count"]),
                 "already_booked": session["class_session_id"] in booking_by_session,
                 "my_class_booking_id": booking_by_session.get(session["class_session_id"]),
+                "my_spot_label": my_booking_detail_by_session.get(session["class_session_id"], {}).get("spot_label"),
+                "my_confirmation_code": my_booking_detail_by_session.get(session["class_session_id"], {}).get("confirmation_code"),
                 "already_waitlisted": session["class_session_id"] in waitlist_by_session,
                 "my_waitlist_id": waitlist_by_session.get(session["class_session_id"]),
                 "drop_in_price": service.get("drop_in_price") if service.get("drop_in_price") is not None else service.get("price"),
@@ -3546,6 +3553,63 @@ async def list_portal_class_sessions(current_client: Client = Depends(get_curren
 
 class ClassBookingSpotChoice(BaseModel):
     spot_label: Optional[str] = None
+
+
+# NEXUS_CLASS_BOOKING_CONFIRMATION_V1: class bookings never had a
+# confirmation email or a client-facing spot/code before this -- shared by
+# both the authenticated client-portal booking endpoint and the guest
+# (unauthenticated) one below, mirroring the 1:1 appointment confirmation
+# dispatch already used elsewhere in this file (execute_compatibility_delivery
+# + email_service, same idempotent delivery-queue infrastructure). Never
+# raises: an email failure must not undo an already-confirmed class spot,
+# same discipline as the appointment confirmation block.
+async def _send_class_booking_confirmation(db, *, organization_id, session, service, booking):
+    if not booking.get("client_email"):
+        return
+    try:
+        organization = await db.organizations.find_one({"organization_id": organization_id}, {"_id": 0}) or {}
+        barber = await db.barbers.find_one({"barber_id": session.get("barber_id"), "organization_id": organization_id}, {"_id": 0}) or {}
+        professional_name = barber.get("display_name") or barber.get("name") or "Profesional"
+        organization_name = organization.get("name") or "Nexus"
+        class_name = (service or {}).get("name") or "Clase"
+        payload = {
+            "customer_name": booking["client_name"],
+            "class_name": class_name,
+            "professional_name": professional_name,
+            "date": session["date"],
+            "time": session["time"],
+            "organization_name": organization_name,
+            "organization_address": organization.get("address"),
+            "spot_label": booking.get("spot_label"),
+            "confirmation_code": booking.get("confirmation_code"),
+        }
+        await execute_compatibility_delivery(
+            db,
+            organization_id=organization_id,
+            appointment_id=booking["class_booking_id"],
+            event_type="class_confirmation",
+            recipient=booking["client_email"],
+            payload=payload,
+            sender=lambda: email_service.send_class_booking_confirmation(
+                to_email=booking["client_email"],
+                customer_name=booking["client_name"],
+                class_name=class_name,
+                barber_name=professional_name,
+                date=session["date"],
+                time=session["time"],
+                organization_name=organization_name,
+                organization_address=organization.get("address"),
+                spot_label=booking.get("spot_label"),
+                confirmation_code=booking.get("confirmation_code"),
+            ),
+            worker_id="class_booking_confirmation",
+        )
+    except Exception as email_error:
+        logger.warning(
+            "class_booking_email_trace_failed class_booking_id=%s diagnostic_code=%s",
+            booking.get("class_booking_id"),
+            type(email_error).__name__,
+        )
 
 
 @api_router.post("/public/clients/class-sessions/{class_session_id}/book", tags=["public-client-portal"])
@@ -3633,6 +3697,7 @@ async def book_class_session_from_portal(
         "payment_method": "membership" if covered else "drop_in_pending",
         "membership_id": membership["membership_id"] if (covered and membership) else None,
         "spot_label": spot_label,
+        "confirmation_code": secrets.token_hex(3).upper(),
         "no_show": False,
         "cancelled_late": False,
         "from_waitlist": False,
@@ -3645,6 +3710,7 @@ async def book_class_session_from_portal(
         raise HTTPException(status_code=409, detail="You already have a spot in this class")
 
     booking.pop("_id", None)
+    await _send_class_booking_confirmation(db, organization_id=org_id, session=session, service=service, booking=booking)
     return booking
 
 
@@ -3853,6 +3919,7 @@ async def book_class_session(org_id: str, class_session_id: str, data: ClassBook
         "payment_method": "drop_in_pending",
         "membership_id": None,
         "spot_label": spot_label,
+        "confirmation_code": secrets.token_hex(3).upper(),
         "no_show": False,
         "cancelled_late": False,
         "from_waitlist": False,
@@ -3866,6 +3933,7 @@ async def book_class_session(org_id: str, class_session_id: str, data: ClassBook
         await db.class_sessions.update_one({"class_session_id": class_session_id}, {"$inc": {"booked_count": -1}})
         raise HTTPException(status_code=409, detail="You already have a spot in this class")
     booking.pop("_id", None)
+    await _send_class_booking_confirmation(db, organization_id=org_id, session=session, service=service, booking=booking)
     return booking
 
 
