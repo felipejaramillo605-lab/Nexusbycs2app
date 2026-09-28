@@ -157,6 +157,14 @@ export const ownerCapabilityAPI = {
   revoke: (userId, data) => api.delete(`/owner/platform-capabilities/portal-template-entitlements/grants/${userId}`, { data }),
 };
 
+// NEXUS_OWNER_CONSOLE_SHELL_V1 (plan PR 22): read side of security_events --
+// record_security_event() (backend) has written to this collection since it
+// was first built; nothing ever read it back until this.
+export const ownerSecurityAPI = {
+  listEvents: (params = {}) => api.get('/owner/security/events', { params }),
+  getEventsSummary: () => api.get('/owner/security/events/summary'),
+};
+
 export const teamAPI = {
   getMembers: (organizationId) => api.get('/team/members', { params: { organization_id: organizationId } }),
   updateRole: (userId, role, organizationId) => api.put(`/team/members/${userId}/role`, { role }, { params: { organization_id: organizationId } }),
