@@ -157,6 +157,15 @@ export const ownerCapabilityAPI = {
   revoke: (userId, data) => api.delete(`/owner/platform-capabilities/portal-template-entitlements/grants/${userId}`, { data }),
 };
 
+// NEXUS_OWNER_CONSOLE_SHELL_V1 (plan PR 21): read side of the unified audit
+// contract (audit_contracts.py) -- merges account/billing/fiscal_profile/
+// capability audit trails into one timeline for the Owner, normalizing the
+// three legacy per-module schemas on the fly rather than requiring them to
+// migrate storage.
+export const ownerAuditAPI = {
+  listEvents: (params = {}) => api.get('/owner/audit/events', { params }),
+};
+
 // NEXUS_OWNER_CONSOLE_SHELL_V1 (plan PR 22): read side of security_events --
 // record_security_event() (backend) has written to this collection since it
 // was first built; nothing ever read it back until this.
