@@ -1,9 +1,11 @@
-from fastapi import APIRouter, Cookie, Header, HTTPException
+from fastapi import APIRouter, Cookie, Header, HTTPException, Query
 from pydantic import BaseModel, Field
 from typing import Literal, Optional
 from datetime import datetime, timezone, timedelta
 import hashlib
 import json
+import math
+import re
 import uuid
 from billing_catalog import CATALOG_VERSION, PREMIUM_SURCHARGE_AMOUNT_MINOR, catalog_response, get_plan
 from owner_billing_hub import assert_fiscal_profile_complete, enrich_new_invoice, post_invoice_side_effects
@@ -169,6 +171,47 @@ def build_subscription_router(db, get_current_user):
             bucket="current" if days<=0 else "d1_30" if days<=30 else "d31_60" if days<=60 else "d60_plus"
             buckets[bucket]["total_minor"]+=amount; buckets[bucket]["count"]+=1
         return {"currency":currency,"total_pending_minor":total_pending_minor,"organizations_with_balance":len(organizations_with_balance),"invoice_count":len(rows),"buckets":buckets,"generated_at":_now()}
+
+    # NEXUS_OWNER_CONSOLE_SHELL_V1 (plan PR 17): the first browsable global
+    # invoices view -- billing_summary (plan PR 14) only ever returns bucketed
+    # aggregates, never individual invoice rows, so there was no way to see
+    # or search actual invoices across organizations before this. Reuses the
+    # organization_name/legal_name every invoice already snapshots at
+    # issuance (enrich_new_invoice, owner_billing_hub.py) instead of joining
+    # organizations here. invoice_type is only ever set to "premium_surcharge"
+    # (create_premium_surcharge_invoice above) -- a regular monthly invoice
+    # simply has no invoice_type field, so filtering by its absence separates
+    # the two kinds without a schema change.
+    @billing_catalog_router.get("/invoices")
+    async def list_all_invoices(
+        page: int = Query(default=1, ge=1),
+        page_size: int = Query(default=25, ge=1, le=100),
+        status: Optional[str] = None,
+        invoice_type: Optional[str] = None,
+        search: Optional[str] = Query(default=None, max_length=120),
+        authorization: Optional[str] = Header(None),
+        session_token: Optional[str] = Cookie(None),
+    ):
+        user=await get_current_user(authorization,session_token); await _owner(user)
+        if status is not None and status not in INVOICE_STATES:
+            raise HTTPException(400,"Unsupported invoice status")
+        if invoice_type not in {None,"premium_surcharge"}:
+            raise HTTPException(400,"Unsupported invoice_type")
+        query={}
+        if status: query["status"]=status
+        if invoice_type=="premium_surcharge": query["invoice_type"]="premium_surcharge"
+        if search and search.strip():
+            pattern={"$regex":re.escape(search.strip()),"$options":"i"}
+            query["$or"]=[
+                {"invoice_number":pattern},
+                {"buyer_snapshot.organization_name":pattern},
+                {"buyer_snapshot.legal_name":pattern},
+            ]
+        projection={"_id":0,"invoice_id":1,"invoice_number":1,"organization_id":1,"status":1,"invoice_type":1,"amount_minor":1,"paid_amount_minor":1,"currency":1,"due_at":1,"issued_at":1,"period_start":1,"period_end":1,"buyer_snapshot.organization_name":1,"buyer_snapshot.legal_name":1}
+        total=await db.subscription_invoices.count_documents(query)
+        rows=await db.subscription_invoices.find(query,projection).sort([("issued_at",-1),("created_at",-1)]).skip((page-1)*page_size).limit(page_size).to_list(page_size)
+        total_pages=max(1,math.ceil(total/page_size))
+        return {"items":rows,"page":page,"page_size":page_size,"total":total,"total_pages":total_pages,"has_previous":page>1,"has_next":page<total_pages}
 
     @subscriptions_router.get("/{organization_id}")
     async def get_subscription(organization_id: str, authorization: Optional[str] = Header(None), session_token: Optional[str] = Cookie(None)):

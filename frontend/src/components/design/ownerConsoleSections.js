@@ -1,4 +1,4 @@
-import { Building2, CreditCard, Home, LifeBuoy, Megaphone, ServerCog, ShieldCheck, Sparkles, UserPlus } from 'lucide-react';
+import { Building2, CreditCard, Home, LifeBuoy, Megaphone, Receipt, ServerCog, ShieldCheck, Sparkles, UserPlus } from 'lucide-react';
 
 // NEXUS_OWNER_CONSOLE_SHELL_V1 (plan PR 7): Owner's own navigation registry,
 // separate from `adminSections` (Manager's operational menu). Only reused
@@ -17,7 +17,13 @@ export const ownerConsoleSections = [
       ['/owner/organizations/new', 'Nueva organización', UserPlus],
     ],
   },
-  { label: 'Cartera y facturación', items: [['/owner/billing', 'Suscripciones y facturas', CreditCard]] },
+  {
+    label: 'Cartera y facturación',
+    items: [
+      ['/owner/billing', 'Suscripciones y facturas', CreditCard],
+      ['/owner/billing/invoices', 'Facturas globales', Receipt],
+    ],
+  },
   { label: 'Control de accesos', items: [['/owner/access', 'Control de accesos', ShieldCheck]] },
   {
     label: 'Comunicados y PQRS',
