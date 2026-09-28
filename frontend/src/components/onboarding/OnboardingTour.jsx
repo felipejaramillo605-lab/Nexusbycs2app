@@ -22,7 +22,7 @@ export default function OnboardingTour({ role, autoStart = true }) {
   const reduced = useReducedMotion();
   // NEXUS_GUIDE_V9
   const navigate = useNavigate();
-  const guideHref = role === 'staff' ? '/staff/guia' : '/manager/guia';
+  const guideHref = role === 'owner' ? '/owner/guia' : role === 'staff' ? '/staff/guia' : '/manager/guia';
   // NEXUS_GUIDE_V9 end
 
   useEffect(() => {
