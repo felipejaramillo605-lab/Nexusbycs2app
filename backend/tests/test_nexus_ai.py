@@ -1,5 +1,7 @@
 """Nexus AI Phase 3 backend tests: entitlement, RBAC, multi-tenant isolation."""
 import os
+import asyncio
+from pathlib import Path
 import pytest
 
 BASE_URL = os.environ.get("REACT_APP_BACKEND_URL", "https://listos-manager-reg.preview.emergentagent.com").rstrip("/")
@@ -27,6 +29,92 @@ def staff(staff_client):
 
 
 ORG = "org_demo001"
+
+
+def _nexus_ai_module():
+    import sys
+
+    backend_root = str(Path(__file__).resolve().parents[1])
+    if backend_root not in sys.path:
+        sys.path.insert(0, backend_root)
+    import nexus_ai
+    return nexus_ai
+
+
+class _FakeStream:
+    def __init__(self, chunks):
+        self.chunks = chunks
+
+    def __aiter__(self):
+        self._iterator = iter(self.chunks)
+        return self
+
+    async def __anext__(self):
+        try:
+            return next(self._iterator)
+        except StopIteration:
+            raise StopAsyncIteration
+
+
+def test_litellm_stream_preserves_text_delta_shape(monkeypatch):
+    nexus_ai = _nexus_ai_module()
+    calls = []
+
+    async def fake_acompletion(**request):
+        calls.append(request)
+        return _FakeStream([
+            {"choices": [{"delta": {"content": "Hola"}}]},
+            {"choices": [{"delta": {"content": " mundo"}}]},
+        ])
+
+    monkeypatch.setattr(nexus_ai.litellm, "acompletion", fake_acompletion)
+    chat = nexus_ai.LlmChat("test-key", "conversation", "Sistema").with_model("gemini", "gemini-test")
+
+    async def collect():
+        return [event async for event in chat.stream_message(nexus_ai.UserMessage("Pregunta"))]
+
+    events = asyncio.run(collect())
+    assert [event.content for event in events if isinstance(event, nexus_ai.TextDelta)] == ["Hola", " mundo"]
+    assert isinstance(events[-1], nexus_ai.StreamDone)
+    assert calls[0]["model"] == "gemini/gemini-test"
+    assert calls[0]["stream"] is True
+    assert chat.messages[-1] == {"role": "assistant", "content": "Hola mundo"}
+
+
+def test_litellm_tool_call_round_trip_preserves_tool_result_loop(monkeypatch):
+    nexus_ai = _nexus_ai_module()
+    calls = []
+
+    async def fake_acompletion(**request):
+        calls.append(request)
+        if len(calls) == 1:
+            return _FakeStream([
+                {"choices": [{"delta": {"tool_calls": [
+                    {"index": 0, "id": "call_1", "function": {"name": "get_top_customers", "arguments": "{\"limit\":"}},
+                ]}}]},
+                {"choices": [{"delta": {"tool_calls": [
+                    {"index": 0, "function": {"arguments": " 3}"}},
+                ]}}]},
+            ])
+        return _FakeStream([{"choices": [{"delta": {"content": "Resultado listo"}}]}])
+
+    monkeypatch.setattr(nexus_ai.litellm, "acompletion", fake_acompletion)
+    chat = nexus_ai.LlmChat("test-key", "conversation", "Sistema").with_model("gemini", "gemini-test").with_tools([{"type": "function"}])
+
+    async def run():
+        first = [event async for event in chat.stream_message(nexus_ai.UserMessage("Consulta"))]
+        tool_event = next(event for event in first if isinstance(event, nexus_ai.ToolCallReady))
+        chat.add_tool_result(tool_event.tool_call.id, '{"clients": []}')
+        second = [event async for event in chat.stream_message(None)]
+        return tool_event, second
+
+    tool_event, second = asyncio.run(run())
+    assert tool_event.tool_call.name == "get_top_customers"
+    assert tool_event.tool_call.arguments == {"limit": 3}
+    assert calls[0]["tools"] == [{"type": "function"}]
+    assert [event.content for event in second if isinstance(event, nexus_ai.TextDelta)] == ["Resultado listo"]
+    assert calls[1]["messages"][-2]["role"] == "tool"
+    assert calls[1]["messages"][-1] == {"role": "assistant", "content": "Resultado listo"}
 
 
 class TestNexusAIEntitlement:

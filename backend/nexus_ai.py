@@ -11,24 +11,144 @@ from __future__ import annotations
 
 import json
 import uuid
+from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
-from typing import Optional
+from typing import Any, Optional
 
 from fastapi import APIRouter, Cookie, Header, HTTPException
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
-from emergentintegrations.llm.chat import (
-    LlmChat,
-    StreamDone,
-    TextDelta,
-    ToolCallReady,
-    UserMessage,
-)
+import litellm
 
 from inventory_reorder import load_suggestions
 
 EMERGENT_LLM_KEY = None  # set lazily from os.environ on first use (loaded after dotenv)
+
+
+# These small event objects preserve the interface that the former
+# private wrapper exposed to the two existing streaming callers.
+# The implementation below talks to LiteLLM directly, so no private Emergent
+# package or package index is needed at runtime.
+@dataclass
+class UserMessage:
+    text: str
+
+
+@dataclass
+class TextDelta:
+    content: str
+
+
+@dataclass
+class StreamDone:
+    pass
+
+
+@dataclass
+class ToolCall:
+    id: str
+    name: str
+    arguments: dict
+
+
+@dataclass
+class ToolCallReady:
+    tool_call: ToolCall
+
+
+def _field(value: Any, name: str, default=None):
+    if isinstance(value, dict):
+        return value.get(name, default)
+    return getattr(value, name, default)
+
+
+class LlmChat:
+    """Minimal stateful LiteLLM chat used by Nexus AI and purchase-order copy.
+
+    It intentionally keeps the old wrapper's small public surface so callers
+    retain their SSE shape and tool-result loop while the provider SDK changes.
+    """
+
+    def __init__(self, api_key: str, session_id: str, system_message: str):
+        self.api_key = api_key
+        self.session_id = session_id
+        self.model = None
+        self.tools = None
+        self.tool_choice = None
+        self.messages = [{"role": "system", "content": system_message}]
+
+    def with_model(self, provider: str, model: str):
+        self.model = model if "/" in model else f"{provider}/{model}"
+        return self
+
+    def with_tools(self, tools: list[dict], tool_choice="auto"):
+        self.tools = tools
+        self.tool_choice = tool_choice
+        return self
+
+    def add_tool_result(self, tool_call_id: str, content: str):
+        self.messages.append({"role": "tool", "tool_call_id": tool_call_id, "content": content})
+
+    async def stream_message(self, user_message: Optional[UserMessage]):
+        if user_message is not None:
+            self.messages.append({"role": "user", "content": user_message.text})
+
+        request = {
+            "model": self.model,
+            "api_key": self.api_key,
+            "messages": self.messages,
+            "stream": True,
+        }
+        if self.tools:
+            request["tools"] = self.tools
+            request["tool_choice"] = self.tool_choice
+
+        stream = await litellm.acompletion(**request)
+        response_text = ""
+        pending_tools: dict[str, dict] = {}
+        async for chunk in stream:
+            choices = _field(chunk, "choices", []) or []
+            if not choices:
+                continue
+            delta = _field(choices[0], "delta", {}) or {}
+            content = _field(delta, "content")
+            if content:
+                response_text += content
+                yield TextDelta(content)
+
+            for raw_call in _field(delta, "tool_calls", []) or []:
+                index = _field(raw_call, "index")
+                call_id = _field(raw_call, "id")
+                key = str(index if index is not None else call_id or len(pending_tools))
+                state = pending_tools.setdefault(key, {"id": call_id, "name": "", "arguments": ""})
+                if call_id:
+                    state["id"] = call_id
+                function = _field(raw_call, "function", {}) or {}
+                name = _field(function, "name")
+                if name:
+                    state["name"] = name
+                arguments = _field(function, "arguments")
+                if arguments:
+                    state["arguments"] += arguments if isinstance(arguments, str) else json.dumps(arguments)
+
+        if pending_tools:
+            calls = []
+            for state in pending_tools.values():
+                try:
+                    arguments = json.loads(state["arguments"] or "{}")
+                except json.JSONDecodeError:
+                    arguments = {}
+                calls.append({
+                    "id": state["id"] or f"tool_{uuid.uuid4().hex}",
+                    "type": "function",
+                    "function": {"name": state["name"], "arguments": state["arguments"] or "{}"},
+                })
+                yield ToolCallReady(ToolCall(calls[-1]["id"], state["name"], arguments))
+            self.messages.append({"role": "assistant", "content": response_text or None, "tool_calls": calls})
+        else:
+            self.messages.append({"role": "assistant", "content": response_text})
+        yield StreamDone()
 
 
 def _key():

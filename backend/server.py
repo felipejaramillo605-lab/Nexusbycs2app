@@ -17,7 +17,7 @@ import uuid
 from datetime import datetime, timezone, timedelta
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 import httpx
-from emergentintegrations.llm.chat import LlmChat, UserMessage, TextDelta, StreamDone
+from nexus_ai import LlmChat, UserMessage, TextDelta, StreamDone
 import json
 import bcrypt
 import secrets
