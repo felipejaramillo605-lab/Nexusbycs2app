@@ -65,6 +65,26 @@ export const ownerAPI = {
   deleteUser: (userId) => api.delete(`/owner/users/${userId}`),
 };
 
+// NEXUS_OWNER_CONSOLE_SHELL_V1 (plan PR 19/20): backend from #61
+// (owner_access_sessions.py) already lists/revokes a user's active login
+// sessions -- this just wires it up, nothing changes server-side. Revoke
+// closes ALL of that user's sessions at once (there's no per-session
+// revoke endpoint), so it needs a fresh idempotency key per confirmed click.
+export const ownerAccessSessionsAPI = {
+  createRequestId: () => {
+    if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+      return crypto.randomUUID();
+    }
+    return `sessions-${Date.now()}-${Math.random().toString(36).slice(2, 14)}`;
+  },
+  list: (userId, params = {}) => api.get(`/owner/access/users/${userId}/sessions`, { params }),
+  revokeAll: (userId, data, requestId) => api.post(
+    `/owner/access/users/${userId}/sessions/revoke`,
+    data,
+    { headers: { 'X-Request-ID': requestId } },
+  ),
+};
+
 // NEXUS_8A7S1A_SUPPORT_FOUNDATION_V1 (owner-side read access; conversations are created by managers/admins)
 export const supportAPI = {
   ownerList: (params = {}) => api.get('/owner/support/conversations', { params }),
