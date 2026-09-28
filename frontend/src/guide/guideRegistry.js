@@ -1,5 +1,5 @@
 // frontend/src/guide/guideRegistry.js
-import { LayoutDashboard, CalendarDays, Users, Scissors, BriefcaseBusiness, ChartNoAxesCombined, Gem } from 'lucide-react';
+import { LayoutDashboard, CalendarDays, Users, Scissors, BriefcaseBusiness, ChartNoAxesCombined, Gem, ShieldCheck } from 'lucide-react';
 import dashboard from './guideContent/dashboard';
 import agenda from './guideContent/agenda';
 import clientes from './guideContent/clientes';
@@ -7,6 +7,7 @@ import servicios from './guideContent/servicios';
 import equipo from './guideContent/equipo';
 import ingresos from './guideContent/ingresos';
 import premium from './guideContent/premium';
+import ownerConsole from './guideContent/ownerConsole';
 
 export const GUIDE_MODULES = [
   { id: 'dashboard', title: 'Inicio', icon: LayoutDashboard, visibleTo: ['owner', 'manager', 'staff'], content: dashboard },
@@ -16,6 +17,7 @@ export const GUIDE_MODULES = [
   { id: 'equipo', title: 'Equipo', icon: BriefcaseBusiness, visibleTo: ['owner', 'manager'], content: equipo },
   { id: 'ingresos', title: 'Ingresos', icon: ChartNoAxesCombined, visibleTo: ['owner', 'manager', 'staff'], content: ingresos },
   { id: 'premium', title: 'Plan Premium', icon: Gem, visibleTo: ['owner', 'manager'], content: premium },
+  { id: 'owner-console', title: 'Consola del Owner', icon: ShieldCheck, visibleTo: ['owner'], content: ownerConsole },
 ];
 
 export function getModulesForView(view) {

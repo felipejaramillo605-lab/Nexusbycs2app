@@ -1,9 +1,9 @@
 // frontend/src/guide/guideRegistry.test.js
 import { GUIDE_MODULES, getModulesForView, checklistCount } from './guideRegistry';
 
-it('registry has the 7 core modules in order', () => {
+it('registry has the core modules and Owner console in order', () => {
   expect(GUIDE_MODULES.map((m) => m.id)).toEqual([
-    'dashboard', 'agenda', 'clientes', 'servicios', 'equipo', 'ingresos', 'premium',
+    'dashboard', 'agenda', 'clientes', 'servicios', 'equipo', 'ingresos', 'premium', 'owner-console',
   ]);
 });
 
@@ -49,6 +49,16 @@ it('every module exposes content.perRole for each view it claims', () => {
       expect(m.content.perRole[v]).toBeDefined();
     }
   }
+});
+
+it('Owner console is available only in the owner view', () => {
+  const module = GUIDE_MODULES.find((m) => m.id === 'owner-console');
+  expect(module.visibleTo).toEqual(['owner']);
+  expect(Object.keys(module.content.perRole)).toEqual(['owner']);
+  expect(getModulesForView('owner')).toContain(module);
+  expect(getModulesForView('manager')).not.toContain(module);
+  expect(getModulesForView('staff')).not.toContain(module);
+  expect(checklistCount('owner-console', 'manager')).toBe(0);
 });
 
 it('checklistCount returns 0 for a view with no guide', () => {
