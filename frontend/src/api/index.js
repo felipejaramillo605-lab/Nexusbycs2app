@@ -166,6 +166,15 @@ export const ownerAuditAPI = {
   listEvents: (params = {}) => api.get('/owner/audit/events', { params }),
 };
 
+// NEXUS_OWNER_CONSOLE_SHELL_V1 (plan PR 23): read-only cross-domain
+// integrity report (integrity_checks.py) -- orphaned-foreign-key findings
+// across bookings/appointments, billing/subscriptions, and inventory/
+// procurement, the three domains chosen to extend the existing
+// professional-media reconciliation pattern to.
+export const ownerIntegrityAPI = {
+  getReport: (params = {}) => api.get('/owner/integrity/report', { params }),
+};
+
 // NEXUS_OWNER_CONSOLE_SHELL_V1 (plan PR 22): read side of security_events --
 // record_security_event() (backend) has written to this collection since it
 // was first built; nothing ever read it back until this.

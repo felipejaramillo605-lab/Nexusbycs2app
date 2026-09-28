@@ -59,6 +59,7 @@ from security_observability import (
     record_security_event,
 )
 from audit_contracts import build_audit_log_router, ensure_audit_log_indexes, record_audit_event
+from integrity_checks import build_integrity_router
 from owner_delivery_operations import (
     build_delivery_operations_router,
     ensure_delivery_operations_indexes,
@@ -9156,6 +9157,7 @@ api_router.include_router(build_platform_billing_router(db, get_current_user), t
 api_router.include_router(build_third_party_matrix_router(db, get_current_user), tags=["owner-integrations"])
 api_router.include_router(build_owner_access_sessions_router(db, get_current_user, _owner_account_audit), tags=["owner-access-sessions"])
 api_router.include_router(build_audit_log_router(db, get_current_user), tags=["owner-audit"])
+api_router.include_router(build_integrity_router(db, get_current_user), tags=["owner-integrity"])
 api_router.include_router(build_security_observability_router(db, get_current_user), tags=["owner-security"])
 # NEXUS_8A7S1A_SUPPORT_FOUNDATION_REGISTRATION_V1
 from support_center import build_support_center_router, ensure_support_center_indexes
