@@ -1,13 +1,13 @@
-import { Building2, CreditCard, Home, KeyRound, LifeBuoy, Megaphone, Receipt, ServerCog, ShieldCheck, Sparkles, UserPlus } from 'lucide-react';
+import { Building2, CreditCard, Home, KeyRound, LifeBuoy, Megaphone, Receipt, ScrollText, ServerCog, ShieldCheck, Sparkles, UserPlus } from 'lucide-react';
 
 // NEXUS_OWNER_CONSOLE_SHELL_V1 (plan PR 7): Owner's own navigation registry,
 // separate from `adminSections` (Manager's operational menu). Only reused
 // routes today -- Organizaciones/Cartera/Accesos point at the exact same
 // page components as before, just at new canonical URLs (see
-// ownerRouteRedirect.js for the old-URL compatibility redirects). Nothing
-// under "IT y auditoría" beyond platform branding exists yet -- that section
-// stays intentionally thin until PR 21-24 add real health/audit reads,
-// rather than showing capabilities that don't exist.
+// ownerRouteRedirect.js for the old-URL compatibility redirects). "IT y
+// auditoría" grew entitlement grants (PR 18) and the unified audit log
+// (PR 21/24); security events (PR 22) and integrity checks (PR 23) land
+// separately -- see the roadmap notes in the project vault for scope.
 export const ownerConsoleSections = [
   { label: 'Inicio', items: [['/owner', 'Inicio', Home]] },
   {
@@ -37,6 +37,7 @@ export const ownerConsoleSections = [
     items: [
       ['/owner/platform-branding', 'Marca de Nexus', Sparkles],
       ['/owner/capability-grants', 'Administradores de entitlements', KeyRound],
+      ['/owner/audit-log', 'Registro de auditoría', ScrollText],
     ],
   },
 ];

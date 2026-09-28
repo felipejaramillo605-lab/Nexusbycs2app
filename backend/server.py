@@ -57,6 +57,7 @@ from security_observability import (
     ensure_security_observability_indexes,
     record_security_event,
 )
+from audit_contracts import build_audit_log_router, ensure_audit_log_indexes, record_audit_event
 from owner_delivery_operations import (
     build_delivery_operations_router,
     ensure_delivery_operations_indexes,
@@ -2230,18 +2231,22 @@ async def _protect_owner_and_organization_administration(
 
 
 async def _owner_account_audit(event_type: str, target: dict, actor: User, previous: dict, new_value: dict):
-    await db.audit_events.insert_one(
-        {
-            "audit_id": f"audit_{uuid.uuid4().hex[:12]}",
-            "organization_id": target.get("organization_id"),
-            "event_type": event_type,
-            "entity_type": "user_account",
-            "entity_id": target.get("user_id"),
-            "actor_user_id": actor.user_id,
-            "previous_value": previous,
-            "new_value": new_value,
-            "created_at": datetime.now(timezone.utc).isoformat(),
-        }
+    # NEXUS_OWNER_CONSOLE_SHELL_V1 (plan PR 21): db.audit_events (this
+    # function's original store) never had a reader anywhere in the app, so
+    # redirecting new writes to the unified audit contract is a zero-risk
+    # cutover -- nothing depended on the old collection's shape. Historical
+    # rows already in db.audit_events stay queryable through the unified
+    # read endpoint (audit_contracts._fetch_recent), so no history is lost.
+    await record_audit_event(
+        db,
+        category="account",
+        event_type=event_type,
+        actor_user_id=actor.user_id,
+        organization_id=target.get("organization_id"),
+        entity_type="user_account",
+        entity_id=target.get("user_id"),
+        previous_value=previous,
+        new_value=new_value,
     )
 
 
@@ -9149,6 +9154,7 @@ api_router.include_router(build_delivery_operations_router(db, get_current_user)
 api_router.include_router(build_platform_billing_router(db, get_current_user), tags=["platform-billing"])
 api_router.include_router(build_third_party_matrix_router(db, get_current_user), tags=["owner-integrations"])
 api_router.include_router(build_owner_access_sessions_router(db, get_current_user, _owner_account_audit), tags=["owner-access-sessions"])
+api_router.include_router(build_audit_log_router(db, get_current_user), tags=["owner-audit"])
 # NEXUS_8A7S1A_SUPPORT_FOUNDATION_REGISTRATION_V1
 from support_center import build_support_center_router, ensure_support_center_indexes
 
@@ -9340,6 +9346,7 @@ async def create_application_indexes():
     await ensure_owner_access_sessions_indexes(db)
     await ensure_platform_capability_indexes(db)
     await ensure_security_observability_indexes(db)
+    await ensure_audit_log_indexes(db)
     # NEXUS_CHECKOUT_BACKEND_V1
     await db.transactions.create_index("transaction_id", unique=True)
     await db.transactions.create_index("appointment_id", unique=True, partialFilterExpression={"status": "confirmed"})
