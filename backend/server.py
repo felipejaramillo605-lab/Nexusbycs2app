@@ -17,7 +17,7 @@ import uuid
 from datetime import datetime, timezone, timedelta
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 import httpx
-from emergentintegrations.llm.chat import LlmChat, UserMessage, TextDelta, StreamDone
+from nexus_ai import LlmChat, UserMessage, TextDelta, StreamDone
 import json
 import bcrypt
 import secrets
@@ -53,6 +53,7 @@ from owner_subscription_lifecycle import ensure_lifecycle_indexes, enforce_subsc
 from owner_subscription_lifecycle_api import build_lifecycle_router
 from request_security import TRUSTED_ORIGINS, enforce_request_security, rate_limiter, refresh_trusted_origins
 from security_observability import (
+    build_security_observability_router,
     configure_security_observability,
     ensure_security_observability_indexes,
     record_security_event,
@@ -9155,6 +9156,7 @@ api_router.include_router(build_platform_billing_router(db, get_current_user), t
 api_router.include_router(build_third_party_matrix_router(db, get_current_user), tags=["owner-integrations"])
 api_router.include_router(build_owner_access_sessions_router(db, get_current_user, _owner_account_audit), tags=["owner-access-sessions"])
 api_router.include_router(build_audit_log_router(db, get_current_user), tags=["owner-audit"])
+api_router.include_router(build_security_observability_router(db, get_current_user), tags=["owner-security"])
 # NEXUS_8A7S1A_SUPPORT_FOUNDATION_REGISTRATION_V1
 from support_center import build_support_center_router, ensure_support_center_indexes
 
