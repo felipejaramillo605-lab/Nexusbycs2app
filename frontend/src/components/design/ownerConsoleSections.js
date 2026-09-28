@@ -1,4 +1,4 @@
-import { Building2, CreditCard, Home, LifeBuoy, Megaphone, Receipt, ServerCog, ShieldCheck, Sparkles, UserPlus } from 'lucide-react';
+import { Building2, CreditCard, Home, KeyRound, LifeBuoy, Megaphone, Receipt, ServerCog, ShieldCheck, Sparkles, UserPlus } from 'lucide-react';
 
 // NEXUS_OWNER_CONSOLE_SHELL_V1 (plan PR 7): Owner's own navigation registry,
 // separate from `adminSections` (Manager's operational menu). Only reused
@@ -32,7 +32,13 @@ export const ownerConsoleSections = [
       ['/owner/support', 'Bandeja de PQRS', LifeBuoy],
     ],
   },
-  { label: 'IT y auditoría', items: [['/owner/platform-branding', 'Marca de Nexus', Sparkles]] },
+  {
+    label: 'IT y auditoría',
+    items: [
+      ['/owner/platform-branding', 'Marca de Nexus', Sparkles],
+      ['/owner/capability-grants', 'Administradores de entitlements', KeyRound],
+    ],
+  },
 ];
 
 // Mobile bottom bar per the approved IA: Inicio/Cartera/Accesos/IT visible,

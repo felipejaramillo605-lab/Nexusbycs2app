@@ -145,6 +145,18 @@ export const ownerPremiumPlanAPI = {
   ),
 };
 
+// NEXUS_OWNER_CONSOLE_SHELL_V1 (plan PR 18): administers WHO holds the
+// manage_portal_template_entitlements capability itself -- distinct from
+// ownerPremiumPlanAPI.setEntitlement above, which spends that capability on
+// one organization's Premium access. This is the one gap plan PR 17's
+// investigation confirmed: the grant/revoke endpoints existed with full
+// backend test coverage but had zero frontend callers.
+export const ownerCapabilityAPI = {
+  listGrants: () => api.get('/owner/platform-capabilities/portal-template-entitlements/grants'),
+  grant: (data) => api.post('/owner/platform-capabilities/portal-template-entitlements/grants', data),
+  revoke: (userId, data) => api.delete(`/owner/platform-capabilities/portal-template-entitlements/grants/${userId}`, { data }),
+};
+
 export const teamAPI = {
   getMembers: (organizationId) => api.get('/team/members', { params: { organization_id: organizationId } }),
   updateRole: (userId, role, organizationId) => api.put(`/team/members/${userId}/role`, { role }, { params: { organization_id: organizationId } }),
