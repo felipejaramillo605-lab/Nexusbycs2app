@@ -335,6 +335,7 @@ function AppRouter() {
         />
 
         {/* NEXUS_GUIDE_V9 */}
+        <Route path="/owner/guia" element={<ProtectedRoute requiredRole="owner"><GuideModule /></ProtectedRoute>} />
         <Route path="/manager/guia" element={<ProtectedRoute allowedRoles={['owner', 'manager', 'admin']}><GuideModule /></ProtectedRoute>} />
         <Route path="/staff/guia" element={<ProtectedRoute requiredRole="staff"><GuideModule /></ProtectedRoute>} />
         {/* NEXUS_GUIDE_V9 end */}

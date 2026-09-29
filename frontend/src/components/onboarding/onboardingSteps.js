@@ -1,10 +1,10 @@
 // NEXUS_ONBOARDING_V1
 export const ONBOARDING_STEPS = {
   owner: [
-    { illustration: 'dashboard', title: 'Bienvenido, eres el Owner', description: 'Tienes visibilidad de todas las organizaciones que administras: suscripciones, facturación y control de accesos desde un solo lugar.' },
-    { illustration: 'billing', title: 'Suscripciones y facturas', description: 'En "Suscripciones" configuras el plan mensual de cada organización, emites facturas y confirmas pagos manuales.' },
-    { illustration: 'team', title: 'Control de accesos', description: 'Aprueba o rechaza el acceso de nuevos managers y administra qué organizaciones están activas.' },
-    { illustration: 'portal', title: 'Portal de cada cliente final', description: 'Cada organización puede personalizar su propio portal de reservas: logo, colores y mensaje de bienvenida, desde "Mi Portal".' },
+    { illustration: 'dashboard', title: 'Bienvenido a la consola Owner', description: 'Aquí administras la plataforma: organizaciones, cartera, accesos, comunicaciones, IT y auditoría.' },
+    { illustration: 'billing', title: 'Cartera y facturación', description: 'Revisa suscripciones y facturas de cada organización. Antes de activar Premium, confirma el pago completo del excedente.' },
+    { illustration: 'team', title: 'Control de accesos', description: 'Aprueba usuarios, corrige vinculaciones y roles con motivo, y cierra sesiones activas cuando exista una necesidad de seguridad.' },
+    { illustration: 'portal', title: 'IT y auditoría', description: 'Consulta entitlements, cambios auditados, señales de seguridad y hallazgos de integridad. Estas vistas de evidencia no alteran datos.' },
   ],
   manager: [
     { illustration: 'dashboard', title: 'Este es tu panel de negocio', description: 'Aquí ves tus citas de hoy, ingresos y accesos rápidos a lo más importante de tu día a día.' },

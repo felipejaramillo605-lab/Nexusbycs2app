@@ -63,6 +63,8 @@ describe('AdminShell owner/manager navigation split', () => {
     const rendered = await renderAt('/owner');
     root = rendered.root;
     expect(rendered.host.textContent).toContain('Control de accesos');
+    expect(rendered.host.textContent).toContain('Guía del Owner');
+    expect(rendered.host.querySelector('a[href="/owner/guia"]')).toBeTruthy();
     expect(rendered.host.textContent).not.toContain('Agenda');
     expect(rendered.host.querySelector('.nexus-owner-context-pill')).toBeNull();
   });
