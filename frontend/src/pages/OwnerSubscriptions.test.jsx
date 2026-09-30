@@ -15,7 +15,12 @@ const mockBlockOrganization = jest.fn();
 const mockReactivateOrganization = jest.fn();
 const mockDownloadPdf = jest.fn();
 
-jest.mock('react-router-dom', () => ({ useNavigate: () => jest.fn() }), { virtual: true });
+const mockSetSearchParams = jest.fn();
+let mockSearchParamsValue = new URLSearchParams();
+jest.mock('react-router-dom', () => ({
+  useNavigate: () => jest.fn(),
+  useSearchParams: () => [mockSearchParamsValue, mockSetSearchParams],
+}), { virtual: true });
 jest.mock('sonner', () => ({ toast: { error: (...args) => mockToastError(...args), success: (...args) => mockToastSuccess(...args) } }));
 jest.mock('../api', () => ({
   organizationAPI: { getAll: (...args) => mockOrganizationGetAll(...args) },
@@ -56,8 +61,8 @@ describe('OwnerSubscriptions invoice actions', () => {
   let root;
   const invoice = { invoice_id: 'inv-1', invoice_number: 'NXS-1', organization_id: 'org-1', period_start: '2026-09-01', period_end: '2026-09-30', due_at: '2026-09-10', amount_minor: 15000000, currency: 'COP', status: 'pending' };
 
-  const renderPage = async (row = invoice) => {
-    mockOrganizationGetAll.mockResolvedValue({ data: [{ organization_id: 'org-1', name: 'Empresa Uno' }] });
+  const renderPage = async (row = invoice, orgs = [{ organization_id: 'org-1', name: 'Empresa Uno' }]) => {
+    mockOrganizationGetAll.mockResolvedValue({ data: orgs });
     mockSubscriptionGet.mockResolvedValue({ data: { status: 'active', monthly_amount_minor: 15000000, currency: 'COP', plan_code: 'monthly', billing_day: 1 } });
     mockGetInvoices.mockResolvedValue({ data: [row] });
     mockGetAudit.mockResolvedValue({ data: [] });
@@ -89,6 +94,7 @@ describe('OwnerSubscriptions invoice actions', () => {
     if (root) await act(async () => root.unmount());
     document.body.innerHTML = '';
     root = null;
+    mockSearchParamsValue = new URLSearchParams();
     jest.clearAllMocks();
   });
 
@@ -152,5 +158,31 @@ describe('OwnerSubscriptions invoice actions', () => {
     await change(reason, 'Documento revisado y aprobado');
     await act(async () => button('Confirmar backfill').click());
     expect(backfill).toHaveBeenLastCalledWith({ organization_id: 'org-1', apply: true, reason: 'Documento revisado y aprobado' });
+  });
+
+  test('selects the organization named by the org_id URL param instead of defaulting to the first row', async () => {
+    mockSearchParamsValue = new URLSearchParams({ org_id: 'org-2' });
+    const orgs = [{ organization_id: 'org-1', name: 'Empresa Uno' }, { organization_id: 'org-2', name: 'Empresa Dos' }];
+    await renderPage(invoice, orgs);
+    expect(mockSubscriptionGet).toHaveBeenCalledWith('org-2');
+    expect(mockSubscriptionGet).not.toHaveBeenCalledWith('org-1');
+  });
+
+  test('falls back to the first organization when org_id in the URL does not match any organization', async () => {
+    mockSearchParamsValue = new URLSearchParams({ org_id: 'org-does-not-exist' });
+    const orgs = [{ organization_id: 'org-1', name: 'Empresa Uno' }, { organization_id: 'org-2', name: 'Empresa Dos' }];
+    await renderPage(invoice, orgs);
+    expect(mockSubscriptionGet).toHaveBeenCalledWith('org-1');
+  });
+
+  test('writes the org_id URL param when switching organizations from the selector', async () => {
+    const orgs = [{ organization_id: 'org-1', name: 'Empresa Uno' }, { organization_id: 'org-2', name: 'Empresa Dos' }];
+    await renderPage(invoice, orgs);
+    const select = host.querySelector('select');
+    await act(async () => {
+      Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value').set.call(select, 'org-2');
+      select.dispatchEvent(new Event('change', { bubbles: true }));
+    });
+    expect(mockSetSearchParams).toHaveBeenCalledWith({ org_id: 'org-2' }, { replace: true });
   });
 });
