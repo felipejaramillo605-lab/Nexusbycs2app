@@ -207,3 +207,88 @@ def test_is_owner_only():
     response = _get(client)
 
     assert response.status_code == 403
+
+
+def test_report_declares_its_fetch_limit_coverage():
+    client = _client(_database())
+
+    response = _get(client)
+
+    coverage = response.json()["coverage"]
+    assert coverage["fetch_limit"] == 5000
+    assert "5000" in coverage["note"]
+
+
+def test_class_booking_referencing_a_session_from_another_organization_is_flagged():
+    database = _database(
+        class_sessions=FakeCollection({"class_session_id": "cs1", "organization_id": "org-2", "barber_id": "b1", "service_id": "s1"}),
+        class_bookings=FakeCollection({"class_booking_id": "cb1", "organization_id": "org-1", "class_session_id": "cs1"}),
+    )
+    client = _client(database)
+
+    response = _get(client, domain="bookings")
+
+    body = response.json()
+    kinds = {f["kind"] for f in body["findings"]}
+    assert "class_booking_wrong_organization" in kinds
+    assert "orphaned_class_booking" not in kinds
+    match = next(f for f in body["findings"] if f["kind"] == "class_booking_wrong_organization")
+    assert match["organization_id"] == "org-1"
+    assert "org-2" in match["detail"]
+
+
+def test_class_session_referencing_a_barber_and_service_from_another_organization_is_flagged():
+    database = _database(
+        barbers=FakeCollection({"barber_id": "b1", "organization_id": "org-2"}),
+        services=FakeCollection({"service_id": "s1", "organization_id": "org-3"}),
+        class_sessions=FakeCollection({"class_session_id": "cs1", "organization_id": "org-1", "barber_id": "b1", "service_id": "s1"}),
+    )
+    client = _client(database)
+
+    response = _get(client, domain="bookings")
+
+    kinds = {f["kind"] for f in response.json()["findings"]}
+    assert kinds == {"class_session_barber_wrong_organization", "class_session_service_wrong_organization"}
+
+
+def test_appointment_referencing_a_barber_from_another_organization_is_flagged():
+    database = _database(
+        barbers=FakeCollection({"barber_id": "b1", "organization_id": "org-2"}),
+        services=FakeCollection({"service_id": "s1", "organization_id": "org-1"}),
+        appointments=FakeCollection({"appointment_id": "a1", "organization_id": "org-1", "barber_id": "b1", "service_id": "s1"}),
+    )
+    client = _client(database)
+
+    response = _get(client, domain="bookings")
+
+    kinds = {f["kind"] for f in response.json()["findings"]}
+    assert kinds == {"appointment_barber_wrong_organization"}
+
+
+def test_purchase_order_and_receipt_referencing_another_organization_are_flagged():
+    database = _database(
+        suppliers=FakeCollection({"supplier_id": "sup1", "organization_id": "org-2"}),
+        purchase_orders=FakeCollection({"purchase_order_id": "po1", "organization_id": "org-1", "supplier_id": "sup1"}),
+        purchase_receipts=FakeCollection({"receipt_id": "r1", "organization_id": "org-3", "purchase_order_id": "po1"}),
+    )
+    client = _client(database)
+
+    response = _get(client, domain="procurement")
+
+    kinds = {f["kind"] for f in response.json()["findings"]}
+    assert kinds == {"purchase_order_supplier_wrong_organization", "purchase_receipt_order_wrong_organization"}
+
+
+def test_reference_without_a_recorded_organization_is_not_flagged_as_a_mismatch():
+    # Same fixture shape existing tests already use (barbers/services with no
+    # organization_id) -- must stay a clean report, not a false positive.
+    database = _database(
+        barbers=FakeCollection({"barber_id": "b1"}),
+        services=FakeCollection({"service_id": "s1"}),
+        class_sessions=FakeCollection({"class_session_id": "cs1", "organization_id": "org-1", "barber_id": "b1", "service_id": "s1"}),
+    )
+    client = _client(database)
+
+    response = _get(client, domain="bookings")
+
+    assert response.json()["total_findings"] == 0

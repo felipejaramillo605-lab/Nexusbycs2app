@@ -15,6 +15,13 @@ const kindLabels = {
   subscription_missing_organization: 'Suscripción sin organización',
   purchase_order_missing_supplier: 'Orden de compra sin proveedor',
   purchase_receipt_missing_order: 'Recibo sin orden de compra',
+  class_booking_wrong_organization: 'Reserva de otra organización',
+  class_session_barber_wrong_organization: 'Clase con profesional de otra organización',
+  class_session_service_wrong_organization: 'Clase con servicio de otra organización',
+  appointment_barber_wrong_organization: 'Cita con profesional de otra organización',
+  appointment_service_wrong_organization: 'Cita con servicio de otra organización',
+  purchase_order_supplier_wrong_organization: 'Orden de compra con proveedor de otra organización',
+  purchase_receipt_order_wrong_organization: 'Recibo con orden de compra de otra organización',
 };
 const safeDetail = (e) => e.response?.data?.detail || 'No fue posible cargar el reporte de integridad';
 
@@ -61,6 +68,12 @@ export default function OwnerIntegrityReport() {
         description="Referencias huérfanas entre reservas, facturación e inventario. Solo lectura -- no corrige nada automáticamente."
         actions={<ActionButton variant="secondary" icon={RefreshCw} onClick={load} disabled={loading}>Actualizar</ActionButton>}
       />
+      {report?.generated_at && (
+        <p className="nexus-owner-caption" data-testid="integrity-coverage-note">
+          Generado {new Date(report.generated_at).toLocaleString()}.{' '}
+          {report.coverage?.note}
+        </p>
+      )}
       <section className="grid grid-cols-2 xl:grid-cols-4 gap-3">
         <MetricCard label="Hallazgos totales" value={report?.total_findings ?? '—'} icon={ShieldQuestion} />
         <MetricCard label="Reservas y citas" value={summary.bookings ?? '—'} icon={ShieldQuestion} />
