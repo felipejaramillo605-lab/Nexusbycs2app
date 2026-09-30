@@ -92,6 +92,22 @@ describe('OwnerIntegrityReport', () => {
     expect(rendered.host.textContent).toContain('Sin hallazgos');
   });
 
+  test('shows the generation time and coverage note when the API provides them', async () => {
+    mockGetReport.mockResolvedValue({
+      data: {
+        summary: { bookings: 0, billing: 0, procurement: 0 }, total_findings: 0, findings: [], mode: 'read_only',
+        generated_at: '2026-09-29T12:00:00Z',
+        coverage: { fetch_limit: 5000, note: 'Cada colección revisada se lee hasta sus primeros 5000 documentos.' },
+      },
+    });
+    const rendered = await renderPage();
+    root = rendered.root;
+
+    const note = rendered.host.querySelector('[data-testid="integrity-coverage-note"]');
+    expect(note).toBeTruthy();
+    expect(note.textContent).toContain('5000 documentos');
+  });
+
   test('the refresh action re-fetches the report', async () => {
     const rendered = await renderPage();
     root = rendered.root;
