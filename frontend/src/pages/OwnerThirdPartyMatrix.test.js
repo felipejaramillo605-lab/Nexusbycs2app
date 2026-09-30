@@ -70,7 +70,7 @@ describe('OwnerThirdPartyMatrix Premium summary', () => {
     // link -- that route was never built. Points at Cartera now, where the
     // Premium plan panel actually lives (OwnerPremiumPlanPanel, rendered
     // inside OwnerSubscriptions).
-    expect(mockNavigate).toHaveBeenCalledWith('/owner/billing');
+    expect(mockNavigate).toHaveBeenCalledWith('/owner/billing?org_id=org-1');
     // NEXUS_OWNER_CONSOLE_SHELL_V1 (plan PR 15): third_party_detail now
     // embeds premium_status/subscription server-side, so opening the ficha
     // is a single detail() call instead of three.
@@ -97,7 +97,7 @@ describe('OwnerThirdPartyMatrix Premium summary', () => {
 
     const manageLink = [...host.querySelectorAll('button')].find(button => button.textContent.includes('Gestionar suscripción y acceso'));
     await act(async () => manageLink.dispatchEvent(new MouseEvent('click', { bubbles: true })));
-    expect(mockNavigate).toHaveBeenCalledWith('/owner/billing');
+    expect(mockNavigate).toHaveBeenCalledWith('/owner/billing?org_id=org-1');
   });
 
   test('shows "Sin configurar" when the organization has no subscription yet', async () => {
