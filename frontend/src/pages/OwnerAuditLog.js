@@ -56,6 +56,7 @@ export default function OwnerAuditLog() {
     <MotionPage className="nexus-owner-page space-y-6">
       <PageHeader eyebrow="IT y auditoría" title="Registro de auditoría" description="Línea de tiempo unificada de cambios de cuentas, facturación, perfil fiscal y permisos de plataforma." />
       <SurfaceCard>
+        <p role="note">{meta.window ? `Ventana reciente: hasta ${meta.window.per_source_limit} registros por fuente. El total corresponde a esta ventana; no garantiza el historial completo.` : "Alcance del historial no informado por el servidor."} {meta.generated_at && <>Consulta generada: <time dateTime={meta.generated_at}>{meta.generated_at} (UTC)</time>.</>}</p>
         <div className="nexus-owner-toolbar">
           <SegmentedControl value={category} onChange={changeCategory} options={[
             { value: 'all', label: 'Todas las categorías' },

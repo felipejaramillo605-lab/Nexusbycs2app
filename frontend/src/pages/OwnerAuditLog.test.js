@@ -63,6 +63,14 @@ describe('OwnerAuditLog', () => {
     jest.clearAllMocks();
   });
 
+  test('explains the bounded window and generation time', async () => {
+    mockListEvents.mockResolvedValue({ data: { items: [], window: { per_source_limit: 200 }, generated_at: '2026-09-29T12:00:00+00:00' } });
+    const rendered = await renderPage(); root = rendered.root;
+    expect(rendered.host.textContent).toContain('hasta 200 registros por fuente');
+    expect(rendered.host.textContent).toContain('no garantiza el historial completo');
+    expect(rendered.host.querySelector('time').dateTime).toBe('2026-09-29T12:00:00+00:00');
+  });
+
   test('lists merged audit events on load', async () => {
     const rendered = await renderPage();
     root = rendered.root;

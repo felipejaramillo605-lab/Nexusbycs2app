@@ -70,6 +70,7 @@ export default function OwnerSecurityEvents() {
   return (
     <MotionPage className="nexus-owner-page space-y-6">
       <PageHeader eyebrow="IT y auditoría" title="Eventos de seguridad" description="Bloqueos de origen, límites de intentos y accesos entre organizaciones rechazados por el backend." />
+      {summary && <p role="note">{summary.scope?.filtered === false ? "Resumen global: los filtros de la tabla no se aplican a estas cifras." : "Alcance del resumen no informado por el servidor."} {summary.retention_days != null && `Retención configurada: ${summary.retention_days} días; no garantiza cobertura completa de ese periodo.`} {summary.generated_at && <>Consulta generada: <time dateTime={summary.generated_at}>{summary.generated_at} (UTC)</time>.</>}</p>}
       {summary && (
         <section className="grid grid-cols-2 xl:grid-cols-4 gap-3">
           <MetricCard label="Tipos de evento" value={<AnimatedNumber value={summary.by_event_type?.length || 0} format={(v) => Math.round(v)} />} icon={ShieldAlert} />

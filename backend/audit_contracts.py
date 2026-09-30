@@ -255,6 +255,8 @@ def build_audit_log_router(db, get_current_user):
         page_rows = rows[start : start + page_size]
         total_pages = max(1, -(-total // page_size))
         return {
+            "generated_at": _now(),
+            "window": {"kind": "recent_per_source", "per_source_limit": _SOURCE_FETCH_LIMIT, "total_scope": "window", "complete_history_guaranteed": False},
             "items": page_rows,
             "page": page,
             "page_size": page_size,

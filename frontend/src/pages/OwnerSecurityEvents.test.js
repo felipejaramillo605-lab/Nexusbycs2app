@@ -79,6 +79,14 @@ describe('OwnerSecurityEvents', () => {
     expect(rendered.host.textContent).toContain('Origen bloqueado');
   });
 
+  test('explains global scope and retention', async () => {
+    mockGetSummary.mockResolvedValue({ data: { scope: { filtered: false }, retention_days: 30, generated_at: '2026-09-29T12:00:00+00:00' } });
+    const rendered = await renderPage(); root = rendered.root;
+    expect(rendered.host.textContent).toContain('los filtros de la tabla no se aplican');
+    expect(rendered.host.textContent).toContain('Retención configurada: 30 días');
+    expect(rendered.host.querySelector('time').dateTime).toBe('2026-09-29T12:00:00+00:00');
+  });
+
   test('renders the summary metrics from the summary endpoint', async () => {
     const rendered = await renderPage();
     root = rendered.root;

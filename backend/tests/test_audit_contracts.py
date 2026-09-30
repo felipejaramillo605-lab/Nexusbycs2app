@@ -317,3 +317,10 @@ def test_is_owner_only():
     response = _list(client)
 
     assert response.status_code == 403
+
+
+def test_declares_bounded_window_even_when_empty():
+    from datetime import datetime
+    body = _list(_client(_database())).json()
+    assert datetime.fromisoformat(body["generated_at"]).tzinfo is not None
+    assert body["window"] == {"kind": "recent_per_source", "per_source_limit": 200, "total_scope": "window", "complete_history_guaranteed": False}
