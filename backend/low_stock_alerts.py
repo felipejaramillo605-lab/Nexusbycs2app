@@ -8,9 +8,11 @@ organization_id) para no disparar todos los emails/WhatsApp al mismo minuto.
 
 Canales:
 - Email: real, vía email_service (SMTP ya configurado).
-- WhatsApp: MOCKEADO (whatsapp_service.py) -- falta la API key real de
-  Twilio/WhatsApp Business. La estructura queda lista: cuando exista la key,
-  solo hay que actualizar whatsapp_service.send_whatsapp_message.
+- WhatsApp: real vía whatsapp_service.py (WhatsApp Cloud API) una vez estén
+  configuradas WHATSAPP_ACCESS_TOKEN, WHATSAPP_PHONE_NUMBER_ID y
+  WHATSAPP_GENERIC_TEMPLATE_NAME; mockeado (registrado en
+  whatsapp_mock_outbox) mientras falte cualquiera de las tres. No hay nada
+  que cambiar aquí para pasar de un modo a otro.
 """
 from __future__ import annotations
 
