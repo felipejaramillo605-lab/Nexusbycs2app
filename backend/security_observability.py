@@ -20,6 +20,10 @@ def configure_security_observability(db):
     _db = db
 
 
+def _retention_days():
+    return max(1, min(int(os.getenv("SECURITY_EVENT_RETENTION_DAYS", "90")), 365))
+
+
 def _key():
     value = os.getenv("SECURITY_OBSERVABILITY_KEY", "")
     if len(value) < 32:
@@ -68,7 +72,7 @@ async def record_security_event(*, event_type, severity="warning", request_metho
         return None
     try:
         now = datetime.now(timezone.utc)
-        retention = max(1, min(int(os.getenv("SECURITY_EVENT_RETENTION_DAYS", "90")), 365))
+        retention = _retention_days()
         normalized = normalize_path(path)
         source_fp = fingerprint(source)
         actor_fp = fingerprint(actor)
@@ -192,6 +196,6 @@ def build_security_observability_router(db, get_current_user):
             entry["count"] += row["count"]
             entry["occurrences"] += int(row.get("occurrences") or 0)
             total_occurrences += int(row.get("occurrences") or 0)
-        return {"by_event_type": list(by_type.values()), "total_events": sum(e["count"] for e in by_type.values()), "total_occurrences": total_occurrences}
+        return {"generated_at": datetime.now(timezone.utc).isoformat(), "scope": {"filtered": False}, "retention_days": _retention_days(), "by_event_type": list(by_type.values()), "total_events": sum(e["count"] for e in by_type.values()), "total_occurrences": total_occurrences}
 
     return router

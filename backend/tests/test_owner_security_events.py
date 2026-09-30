@@ -195,3 +195,12 @@ def test_is_owner_only():
     response = _list(client)
 
     assert response.status_code == 403
+
+
+def test_summary_declares_global_scope_and_configured_retention(monkeypatch):
+    from datetime import datetime
+    monkeypatch.setenv("SECURITY_EVENT_RETENTION_DAYS", "30")
+    body = _summary(_client(events=FakeCollection())).json()
+    assert datetime.fromisoformat(body["generated_at"]).tzinfo is not None
+    assert body["scope"] == {"filtered": False}
+    assert body["retention_days"] == 30
