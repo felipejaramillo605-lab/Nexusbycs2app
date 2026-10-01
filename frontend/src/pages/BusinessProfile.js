@@ -13,6 +13,7 @@ const BusinessProfile = () => {
   const organizationId = (user?.role === 'owner' ? searchParams.get('org_id') : user?.organization_id) || user?.organization_id;
 
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
   const [saving, setSaving] = useState(false);
   const [formData, setFormData] = useState({
     name: '',
@@ -36,7 +37,8 @@ const BusinessProfile = () => {
 
   const loadOrganization = useCallback(async () => {
     if (!organizationId) return;
-    
+    setLoading(true);
+    setLoadError(false);
     try {
       const response = await organizationAPI.get(organizationId);
       const data = response.data;
@@ -58,6 +60,7 @@ const BusinessProfile = () => {
       });
     } catch (error) {
       console.error('Error loading organization:', error);
+      setLoadError(true);
       toast.error('Error al cargar perfil del negocio');
     } finally {
       setLoading(false);
@@ -70,6 +73,7 @@ const BusinessProfile = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (loadError) return;
     setSaving(true);
 
     try {
@@ -129,6 +133,7 @@ const BusinessProfile = () => {
       </nav>
 
       <div className="max-w-4xl mx-auto px-4 sm:px-6 py-8">
+        {loadError && <div role="alert" className="mb-6 rounded-2xl border border-red-500/30 bg-red-500/10 p-4 text-red-200"><p>No pudimos cargar el perfil. No se guardarán cambios hasta recuperar los datos actuales.</p><button type="button" onClick={loadOrganization} className="mt-3 rounded-lg border border-red-300/40 px-3 py-2 text-sm font-medium hover:bg-red-500/10">Reintentar carga</button></div>}
         {/* Info Card */}
         <div className="backdrop-blur-xl bg-white/3 border border-[var(--app-border)] rounded-2xl p-6 mb-6">
           <div className="flex items-center gap-3 mb-2">
@@ -141,7 +146,7 @@ const BusinessProfile = () => {
         </div>
 
         {/* Form */}
-        <form onSubmit={handleSubmit} className="backdrop-blur-xl bg-white/3 border border-[var(--app-border)] rounded-2xl p-6 space-y-6">
+        <form onSubmit={handleSubmit} aria-disabled={loadError} className="backdrop-blur-xl bg-white/3 border border-[var(--app-border)] rounded-2xl p-6 space-y-6">
           {/* Name */}
           <div>
             <label className="block text-sm font-medium text-zinc-400 mb-2">
@@ -327,7 +332,7 @@ const BusinessProfile = () => {
             </button>
             <button
               type="submit"
-              disabled={saving}
+              disabled={saving || loadError}
               className="flex-1 px-4 py-3 rounded-xl bg-[var(--app-primary)] hover:bg-[var(--app-primary-hover)] text-[var(--app-text-primary)] font-medium transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
             >
               {saving ? (
