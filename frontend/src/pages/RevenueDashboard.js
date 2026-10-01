@@ -6,9 +6,10 @@ import {useAuth} from '../context/AuthContext';
 import {barberAPI,transactionAPI} from '../api';
 import {AccessibleModal,AdminShell,ActionButton,AnimatedNumber,DetailDrawer,EmptyState,MetricCard,MotionPage,PageHeader,ResponsiveDataView,SurfaceCard} from '../components/design';
 import {formatCOP as money} from '../lib/currency';
+import {localDateString} from '../lib/date';
 // NEXUS_TRANSACTION_VOID_UI_5B4_V1
 const METHODS={cash:'Efectivo',card:'Tarjeta',transfer:'Transferencia',nequi:'Nequi',daviplata:'Daviplata',other:'Otro'};
-const date=d=>new Date(Date.now()-d*86400000).toISOString().split('T')[0];
+const date=d=>localDateString(new Date(Date.now()-d*86400000));
 let voidSubmitLocked=false;
 const statusLabel=x=>x.status==='voided'?'Anulada':'Confirmada';
 const statusClass=x=>x.status==='voided'?'nexus-status-badge nexus-status-danger':'nexus-status-badge nexus-status-success';

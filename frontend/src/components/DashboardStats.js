@@ -3,6 +3,7 @@ import { LineChart, Line, BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, Cart
 import { Calendar, TrendingUp, Users, Scissors, DollarSign, BadgePercent, Banknote, HandCoins, ReceiptText } from 'lucide-react';
 import { api, transactionAPI } from '../api';
 import { formatCOP as money } from '../lib/currency';
+import { localDateString } from '../lib/date';
 
 // NEXUS_FINANCIAL_DASHBOARD_V1
 const COLORS = ['var(--app-primary)', '#32D74B', '#FF453A', '#FF9F0A', '#BF5AF2', '#00C7BE'];
@@ -12,7 +13,7 @@ const DashboardStats = ({ organizationId }) => {
   const [stats, setStats] = useState(null);
   const [financial, setFinancial] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [dateRange, setDateRange] = useState({ start: new Date(Date.now() - 2592000000).toISOString().split('T')[0], end: new Date().toISOString().split('T')[0] });
+  const [dateRange, setDateRange] = useState({ start: localDateString(new Date(Date.now() - 2592000000)), end: localDateString() });
 
   const loadStats = useCallback(async () => {
     if (!organizationId) return;

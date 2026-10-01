@@ -3,7 +3,8 @@ import React,{useCallback,useEffect,useMemo,useState} from 'react';
 import {CalendarDays,CheckCircle,Clock,Mail,Phone,RefreshCw,XCircle} from 'lucide-react';
 import {staffAppointmentAPI} from '../api';
 import {ActionButton,AnimatedNumber,DetailDrawer,EmptyState,LoadingState,MetricCard,MotionPage,PageHeader,ResponsiveDataView,SegmentedControl,StatusBadge,SurfaceCard} from '../components/design';
-const date=d=>new Date(Date.now()+d*86400000).toISOString().split('T')[0];
+import {localDateString} from '../lib/date';
+const date=d=>localDateString(new Date(Date.now()+d*86400000));
 const labels={confirmed:'Confirmada',completed:'Completada',cancelled:'Cancelada'},tones={confirmed:'info',completed:'success',cancelled:'danger'};
 const message=(error,fallback)=>{const detail=error?.response?.data?.detail;return typeof detail==='string'?detail:detail?.message||fallback};
 export default function StaffAppointments(){
