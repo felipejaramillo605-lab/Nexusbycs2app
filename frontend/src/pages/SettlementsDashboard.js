@@ -6,11 +6,12 @@ import { settlementAPI, settlementWorkflowAPI } from '../api';
 import { toast } from 'sonner';
 import { AccessibleModal } from '../components/design';
 import { formatCOP as money } from '../lib/currency';
+import { localDateString } from '../lib/date';
 
 // NEXUS_STAFF_SETTLEMENTS_UI_V1
 // NEXUS_STAFF_FINANCE_DEEP_V1
-const today = () => new Date().toISOString().split('T')[0];
-const monthAgo = () => new Date(Date.now() - 30 * 86400000).toISOString().split('T')[0];
+const today = () => localDateString();
+const monthAgo = () => localDateString(new Date(Date.now() - 30 * 86400000));
 const STATUS = { draft: 'Borrador', approved: 'Aprobada', paid: 'Pagada', cancelled: 'Cancelada' };
 const STATUS_CLASS = { draft: 'text-amber-300 bg-amber-500/10 border-amber-500/20', approved: 'text-blue-300 bg-blue-500/10 border-blue-500/20', paid: 'text-emerald-300 bg-emerald-500/10 border-emerald-500/20', cancelled: 'text-red-300 bg-red-500/10 border-red-500/20' };
 

@@ -1,4 +1,5 @@
 import axios from 'axios';
+import {localDateString} from '../lib/date';
 
 const configuredBackendUrl =
   process.env.REACT_APP_BACKEND_URL;
@@ -275,7 +276,7 @@ export const barberAPI = {
 export const appointmentAPI = {
   getAll: (params = {}) => api.get('/appointments', { params }),
   getToday: (params = {}) => {
-    const today = new Date().toISOString().split('T')[0];
+    const today = localDateString();
     return api.get('/appointments', { params: { ...params, date: today } });
   },
   getStats: (params = {}) => api.get('/appointments/stats', { params }),

@@ -4,8 +4,9 @@ import {ArrowLeft,CalendarDays,Check,Clock,Copy,RefreshCw} from 'lucide-react';
 import {toast} from 'sonner';
 import {clientPortalAPI,publicAPI} from '../api';
 import {ActionButton,LoadingState,MotionPage,PageHeader,SurfaceCard} from '../components/design';
+import {localDateString} from '../lib/date';
 
-const today=()=>new Date().toISOString().slice(0,10);
+const today=()=>localDateString();
 const formatDate=value=>new Intl.DateTimeFormat('es-CO',{weekday:'long',day:'numeric',month:'long'}).format(new Date(value+'T12:00:00'));
 
 export default function RescheduleAppointment(){

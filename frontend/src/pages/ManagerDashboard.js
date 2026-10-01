@@ -2,6 +2,7 @@ import React,{useCallback,useEffect,useMemo,useState} from 'react';
 import {useAuth} from '../context/AuthContext';
 import {useNavigate,useSearchParams} from 'react-router-dom';
 import {appointmentAPI,organizationAPI,serviceAPI,barberAPI,transactionAPI} from '../api';
+import {localDateString} from '../lib/date';
 import {CalendarDays,DollarSign,Scissors,Users,WalletCards,LogOut,Plus,Clock3} from 'lucide-react';
 import DashboardStats from '../components/DashboardStats';
 import BookingTools from '../components/BookingTools';
@@ -13,7 +14,7 @@ import {formatCOP as money} from '../lib/currency';
 export default function ManagerDashboard(){
  const {user,logout,checkAuth}=useAuth();const navigate=useNavigate();const [sp,setSp]=useSearchParams();
  const [appointments,setAppointments]=useState([]),[organizations,setOrganizations]=useState([]),[selectedOrg,setSelectedOrg]=useState(null),[services,setServices]=useState([]),[barbers,setBarbers]=useState([]),[todayRevenue,setTodayRevenue]=useState(0),[loading,setLoading]=useState(true),[filter,setFilter]=useState('all');
- const loadOrgData=useCallback(async orgId=>{const params=user.role==='owner'?{organization_id:orgId}:{};const today=new Date().toISOString().split('T')[0];const [a,s,b,r]=await Promise.all([appointmentAPI.getToday(params),serviceAPI.getAll(params),barberAPI.getAll(params),transactionAPI.getSummary({...params,start_date:today,end_date:today})]);setAppointments(a.data||[]);setServices(s.data||[]);setBarbers(b.data||[]);setTodayRevenue(Number(r.data?.total_received)||0)},[user.role]);
+ const loadOrgData=useCallback(async orgId=>{const params=user.role==='owner'?{organization_id:orgId}:{};const today=localDateString();const [a,s,b,r]=await Promise.all([appointmentAPI.getToday(params),serviceAPI.getAll(params),barberAPI.getAll(params),transactionAPI.getSummary({...params,start_date:today,end_date:today})]);setAppointments(a.data||[]);setServices(s.data||[]);setBarbers(b.data||[]);setTodayRevenue(Number(r.data?.total_received)||0)},[user.role]);
  const load=useCallback(async()=>{setLoading(true);try{const response=await organizationAPI.getAll();const rows=response.data||[];setOrganizations(rows);const requested=sp.get('org_id');const isOwner=user.role==='owner';const sessionOrgId=user.organization_id;const target=isOwner?(rows.find(item=>item.organization_id===requested)||rows[0]):rows.find(item=>item.organization_id===sessionOrgId);if(!isOwner&&sessionOrgId&&requested!==sessionOrgId){setSp({org_id:sessionOrgId},{replace:true});}if(target){setSelectedOrg(target);await loadOrgData(target.organization_id)}else{setSelectedOrg(null)}}finally{setLoading(false)}},[loadOrgData,setSp,sp,user.organization_id,user.role]);
  useEffect(()=>{load()},[load]);
  const filtered=useMemo(()=>appointments.filter(item=>filter==='all'||(filter.startsWith('service_')&&item.service_id===filter.replace('service_',''))||(filter.startsWith('barber_')&&item.barber_id===filter.replace('barber_',''))),[appointments,filter]);

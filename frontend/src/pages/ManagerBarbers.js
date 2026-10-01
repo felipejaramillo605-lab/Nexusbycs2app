@@ -5,6 +5,7 @@ import React, { useEffect, useState, useCallback } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { barberAPI, organizationAPI, serviceAPI } from '../api';
+import { localDateString } from '../lib/date';
 import { Plus, Trash2, ArrowLeft, Users, Edit2, Clock, Calendar, Mail, BarChart3 } from 'lucide-react';
 import { MANAGER } from '../constants/testIds';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '../components/ui/dialog';
@@ -437,7 +438,7 @@ const ManagerBarbers = () => {
   };
 
   const getMinDate = () => {
-    return new Date().toISOString().split('T')[0];
+    return localDateString();
   };
 
   if (loading) {
