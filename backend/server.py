@@ -7078,6 +7078,8 @@ async def get_client_history_public(request: Request, phone: str, organization_i
     if not client:
         return {"client": None, "appointments": []}
 
+    public_client = _public_client_view(client)
+
     # Get all appointments for this client
     appointments = (
         await db.appointments.find({"client_phone": phone, "organization_id": organization_id}, {"_id": 0})
@@ -7105,7 +7107,7 @@ async def get_client_history_public(request: Request, phone: str, organization_i
         apt["service_price"] = service["price"] if service else 0
         apt["barber_name"] = barber["name"] if barber else "Unknown"
 
-    return {"client": client, "appointments": appointments}
+    return {"client": public_client, "appointments": appointments}
 
 
 # ==================== LEGAL COMPLIANCE ENDPOINTS (TCPA, CAN-SPAM, Ley 1581 Colombia) ====================

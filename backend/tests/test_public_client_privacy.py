@@ -63,5 +63,35 @@ class PublicClientViewTests(unittest.TestCase):
         self.assertIsNone(result["total_visits"])
 
 
+class PublicClientHistoryEndpointTests(unittest.TestCase):
+    """Regression test for the public appointment-history secret leak.
+
+    GET /public/clients/history took phone+organization_id as its entire
+    "auth" and returned the raw Mongo client document -- including
+    pin_hash and a live, plaintext pin_reset_token good for an hour to
+    reset that client's PIN. Any caller who knew (or enumerated within the
+    20/hour rate limit) a phone+org could read it. Fixed by routing the
+    response through the same _public_client_view whitelist already used
+    by the passwordless-login endpoint, rather than trusting a blacklist
+    that silently leaks any future field added to Client.
+    """
+
+    def setUp(self):
+        self.source = (Path(__file__).resolve().parents[1] / "server.py").read_text(encoding="utf-8")
+        tree = ast.parse(self.source)
+        self.function = next(
+            n
+            for n in tree.body
+            if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef)) and n.name == "get_client_history_public"
+        )
+        lines = self.source.splitlines()
+        self.body = "\n".join(lines[self.function.lineno - 1 : self.function.end_lineno])
+
+    def test_response_is_built_from_the_whitelist_helper(self):
+        self.assertIn("_public_client_view(client)", self.body)
+        self.assertNotIn('"client": client', self.body)
+        self.assertIn('"client": public_client', self.body)
+
+
 if __name__ == "__main__":
     unittest.main()
