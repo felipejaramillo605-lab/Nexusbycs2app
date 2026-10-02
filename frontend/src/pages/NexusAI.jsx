@@ -3,7 +3,7 @@ import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { Bot, Lock, Loader2, Plus, Send, Sparkles, User as UserIcon } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
-import { API, nexusAiAPI } from '../api';
+import { nexusAiAPI } from '../api';
 import { useAuth } from '../context/AuthContext';
 import { ActionButton, EmptyState, MotionPage, PageHeader, SurfaceCard } from '../components/design';
 
@@ -84,12 +84,11 @@ export default function NexusAI() {
     let assistantText = '';
     setMessages(prev => [...prev, { role: 'assistant', content: '' }]);
     try {
-      const response = await fetch(`${API}/nexus-ai/conversations/${conversationId}/messages?organization_id=${organizationId || ''}`, {
-        method: 'POST',
-        credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: content }),
-      });
+      const response = await nexusAiAPI.streamMessage(
+        conversationId,
+        { message: content },
+        { organization_id: organizationId },
+      );
       if (!response.ok || !response.body) throw new Error('stream_failed');
       const reader = response.body.getReader();
       const decoder = new TextDecoder();

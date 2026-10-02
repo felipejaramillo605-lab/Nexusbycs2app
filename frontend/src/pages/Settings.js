@@ -25,6 +25,11 @@ const TABS = {
   'portal-theme': { key: 'portal-theme', label: 'Mi Portal', icon: Palette },
 };
 
+const requestErrorMessage = (error, fallback) => {
+  const detail = error?.response?.data?.detail;
+  return typeof detail === 'string' ? detail : detail?.message || error?.message || fallback;
+};
+
 const Settings = () => {
   const { user, logout, checkAuth } = useAuth();
   const { updateOrganization, refreshOrganization } = useOrganization();
@@ -236,43 +241,20 @@ const Settings = () => {
       console.log('📞 Teléfono original:', profileData.phone);
       console.log('📞 Teléfono sanitizado:', finalPhone);
 
-      const response = await fetch(
-        `${process.env.REACT_APP_BACKEND_URL}/api/organizations/${organizationId}`,
-        {
-          method: 'PUT',
-          credentials: 'include',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(payload),
-        }
-      );
+      const response = await organizationAPI.update(organizationId, payload);
+      const updatedOrg = response.data;
+      console.log('✅ Organization updated successfully:', updatedOrg);
 
-      if (response.ok) {
-        const updatedOrg = await response.json();
-        console.log('✅ Organization updated successfully:', updatedOrg);
-        
-        // Actualizar el estado global de la organización
-        updateOrganization(updatedOrg);
-        
-        // Forzar re-fetch para sincronizar toda la app
-        await refreshOrganization(organizationId);
-        
-        toast.success('✅ Perfil actualizado correctamente');
-      } else {
-        const errorData = await response.json();
-        console.error('❌ ERROR AL ACTUALIZAR PERFIL:', {
-          status: response.status,
-          statusText: response.statusText,
-          errorData: errorData,
-          sentPayload: payload,
-          organizationId: organizationId
-        });
-        throw new Error(errorData.detail || 'Failed to update');
-      }
+      // Actualizar el estado global de la organización
+      updateOrganization(updatedOrg);
+
+      // Forzar re-fetch para sincronizar toda la app
+      await refreshOrganization(organizationId);
+
+      toast.success('✅ Perfil actualizado correctamente');
     } catch (error) {
       console.error('❌ CATCH ERROR AL ACTUALIZAR PERFIL:', error);
-      toast.error(`Error al actualizar el perfil: ${error.message}`);
+      toast.error(`Error al actualizar el perfil: ${requestErrorMessage(error, 'No se pudo actualizar')}`);
     } finally {
       setSaving(false);
     }
@@ -291,19 +273,11 @@ const Settings = () => {
           reward_description: (loyaltyData.reward_description || '').trim().slice(0, 240),
         }
       };
-      const response = await fetch(
-        `${process.env.REACT_APP_BACKEND_URL}/api/organizations/${organizationId}`,
-        { method: 'PUT', credentials: 'include', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) }
-      );
-      if (response.ok) {
-        toast.success('Programa de lealtad actualizado');
-        await refreshOrganization(organizationId);
-      } else {
-        const err = await response.json();
-        throw new Error(err.detail || 'No se pudo guardar');
-      }
+      await organizationAPI.update(organizationId, payload);
+      toast.success('Programa de lealtad actualizado');
+      await refreshOrganization(organizationId);
     } catch (error) {
-      toast.error(`Error al guardar lealtad: ${error.message}`);
+      toast.error(`Error al guardar lealtad: ${requestErrorMessage(error, 'No se pudo guardar')}`);
     } finally {
       setSavingLoyalty(false);
     }
@@ -326,19 +300,11 @@ const Settings = () => {
           channels: { email: !!reviewData.email_channel },
         },
       };
-      const response = await fetch(
-        `${process.env.REACT_APP_BACKEND_URL}/api/organizations/${organizationId}`,
-        { method: 'PUT', credentials: 'include', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) }
-      );
-      if (response.ok) {
-        toast.success('Solicitudes de reseña actualizadas');
-        await refreshOrganization(organizationId);
-      } else {
-        const err = await response.json();
-        throw new Error(err.detail || 'No se pudo guardar');
-      }
+      await organizationAPI.update(organizationId, payload);
+      toast.success('Solicitudes de reseña actualizadas');
+      await refreshOrganization(organizationId);
     } catch (error) {
-      toast.error(`Error: ${error.message}`);
+      toast.error(`Error: ${requestErrorMessage(error, 'No se pudo guardar')}`);
     } finally {
       setSavingReview(false);
     }
@@ -356,20 +322,12 @@ const Settings = () => {
           low_stock_alert_whatsapp_enabled: !!lowStockData.whatsapp_enabled,
         },
       };
-      const response = await fetch(
-        `${process.env.REACT_APP_BACKEND_URL}/api/organizations/${organizationId}`,
-        { method: 'PUT', credentials: 'include', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) }
-      );
-      if (response.ok) {
-        toast.success('Alertas de bajo stock actualizadas');
-        setNotificationSettings(payload.notification_settings);
-        await refreshOrganization(organizationId);
-      } else {
-        const err = await response.json();
-        throw new Error(err.detail || 'No se pudo guardar');
-      }
+      await organizationAPI.update(organizationId, payload);
+      toast.success('Alertas de bajo stock actualizadas');
+      setNotificationSettings(payload.notification_settings);
+      await refreshOrganization(organizationId);
     } catch (error) {
-      toast.error(`Error: ${error.message}`);
+      toast.error(`Error: ${requestErrorMessage(error, 'No se pudo guardar')}`);
     } finally {
       setSavingLowStock(false);
     }
