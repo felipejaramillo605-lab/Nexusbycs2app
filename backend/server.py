@@ -3099,22 +3099,24 @@ async def get_services(
 
 @api_router.post("/services", tags=["services"])
 async def create_service(
-    data: ServiceCreate, authorization: Optional[str] = Header(None), session_token: Optional[str] = Cookie(None)
+    data: ServiceCreate,
+    org_id: Optional[str] = None,
+    authorization: Optional[str] = Header(None),
+    session_token: Optional[str] = Cookie(None),
 ):
     current_user = await get_current_user(authorization, session_token)
     require_management_role(current_user)
 
-    if not current_user.organization_id:
-        raise HTTPException(status_code=400, detail="No organization assigned")
+    organization_id = await resolve_team_organization(current_user, org_id)
 
     # RLS: Enforce write access
-    await enforce_rls_on_write(current_user, {}, current_user.organization_id)
+    await enforce_rls_on_write(current_user, {}, organization_id)
     _validate_group_service_fields(data)
 
     service_id = f"service_{uuid.uuid4().hex[:12]}"
     service_doc = {
         "service_id": service_id,
-        "organization_id": current_user.organization_id,
+        "organization_id": organization_id,
         "name": data.name,
         "duration": data.duration,
         "price": data.price,

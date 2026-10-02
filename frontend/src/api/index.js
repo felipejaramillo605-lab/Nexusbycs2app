@@ -219,7 +219,7 @@ export const platformAPI = {
 
 export const serviceAPI = {
   getAll: (params = {}) => api.get('/services', { params }),
-  create: (data) => api.post('/services', data),
+  create: (data, params = {}) => api.post('/services', data, { params }),
   update: (id, data) => api.put(`/services/${id}`, data),
   delete: (id) => api.delete(`/services/${id}`),
   getRecipe: (id, params = {}) => api.get(`/service-recipes/${id}`, { params }),
