@@ -290,6 +290,7 @@ export const appointmentAPI = {
 };
 
 export const clientAPI = {
+  sendWhatsApp: (clientId, data) => api.post(`/clients/${clientId}/messages/whatsapp`, data),
   getAll: (params = {}) => api.get('/clients', { params }),
   getHistory: (clientId) => api.get(`/clients/${clientId}/history`),
   update: (clientId, data) => api.put(`/clients/${clientId}`, null, { params: data }),
