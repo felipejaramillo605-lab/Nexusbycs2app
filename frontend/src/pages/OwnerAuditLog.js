@@ -10,8 +10,9 @@ const categoryLabels = {
   fiscal_profile: 'Perfil fiscal',
   capability: 'Permisos de plataforma',
   support_view: 'Modo visualización',
+  ai_decision: 'Decisiones de IA',
 };
-const categoryTones = { account: 'info', billing: 'warning', fiscal_profile: 'neutral', capability: 'danger', support_view: 'warning' };
+const categoryTones = { account: 'info', billing: 'warning', fiscal_profile: 'neutral', capability: 'danger', support_view: 'warning', ai_decision: 'info' };
 const safeDetail = (e) => e.response?.data?.detail || 'No fue posible cargar el registro de auditoría';
 
 // NEXUS_OWNER_CONSOLE_SHELL_V1 (plan PR 21/24): first unified view over the
@@ -66,6 +67,7 @@ export default function OwnerAuditLog() {
             { value: 'fiscal_profile', label: categoryLabels.fiscal_profile },
             { value: 'capability', label: categoryLabels.capability },
             { value: 'support_view', label: categoryLabels.support_view },
+            { value: 'ai_decision', label: categoryLabels.ai_decision },
           ]} />
         </div>
         {loading ? (
