@@ -59,3 +59,20 @@ test('sends the promotion typed by the manager rather than an invented discount'
   await act(async () => button.click());
   expect(clientAPI.sendWhatsApp).toHaveBeenCalledWith('c-a', { kind: 'promotion', organization_id: 'org-a', message: 'Oferta escrita' });
 });
+
+test('searching keeps the search form mounted instead of replacing the page with a spinner', async () => {
+  await render();
+  const input = host.querySelector('#client-search');
+  let resolveSearch;
+  clientAPI.getAll.mockImplementationOnce(() => new Promise(resolve => { resolveSearch = resolve; }));
+  await act(async () => {
+    Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(input, 'Ana');
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+  });
+  await act(async () => { host.querySelector('form[role="search"]').dispatchEvent(new Event('submit', { bubbles: true, cancelable: true })); });
+  expect(host.querySelector('#client-search')).toBe(input);
+  expect(host.textContent).not.toContain('Cargando clientes');
+  expect(host.querySelector('[role="status"]').textContent).toContain('Actualizando');
+  await act(async () => resolveSearch({ data: { items: [], total: 0 } }));
+  expect(host.querySelector('#client-search')).toBe(input);
+});
