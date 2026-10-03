@@ -6837,7 +6837,9 @@ async def get_clients(
     paged = page is not None or page_size is not None
     safe_page = max(1, page or 1)
     safe_size = max(1, min(page_size or 25, 100))
-    cursor = db.clients.find(org_filter, {"_id": 0}).sort([("total_visits", -1), ("client_id", 1)])
+    cursor = db.clients.find(org_filter, {"_id": 0, "pin_reset_token": 0, "pin_reset_token_hash": 0}).sort(
+        [("total_visits", -1), ("client_id", 1)]
+    )
     total = await db.clients.count_documents(org_filter) if paged else None
     if paged:
         clients = await cursor.skip((safe_page - 1) * safe_size).limit(safe_size).to_list(safe_size)
@@ -6902,7 +6904,9 @@ async def update_client(
         update_data["updated_at"] = datetime.now(timezone.utc).isoformat()
         await db.clients.update_one({"client_id": client_id}, {"$set": update_data})
 
-    updated_client = await db.clients.find_one({"client_id": client_id}, {"_id": 0})
+    updated_client = await db.clients.find_one(
+        {"client_id": client_id}, {"_id": 0, "pin_reset_token": 0, "pin_reset_token_hash": 0}
+    )
     return updated_client
 
 
@@ -7075,7 +7079,10 @@ async def get_client_history_public(request: Request, phone: str, organization_i
     SECURITY: rate-limited because phone+org_id is guessable/enumerable and this is a guest
     lookup feature by design (no PIN required) — see pentest finding #1/#5."""
     # Find client by phone and org
-    client = await db.clients.find_one({"phone": phone, "organization_id": organization_id}, {"_id": 0})
+    client = await db.clients.find_one(
+        {"phone": phone, "organization_id": organization_id},
+        {"_id": 0, "pin_reset_token": 0, "pin_reset_token_hash": 0},
+    )
 
     if not client:
         return {"client": None, "appointments": []}
@@ -7168,7 +7175,14 @@ async def get_my_data(request: Request, client: Client = Depends(get_current_cli
     """
     client_data = await db.clients.find_one(
         {"client_id": client.client_id},
-        {"_id": 0, "pin_hash": 0, "pin_reset_token": 0, "pin_reset_expires": 0, "failed_pin_attempts": 0},
+        {
+            "_id": 0,
+            "pin_hash": 0,
+            "pin_reset_token": 0,
+            "pin_reset_token_hash": 0,
+            "pin_reset_expires": 0,
+            "failed_pin_attempts": 0,
+        },
     )
 
     # Get all appointments for this client
@@ -7753,7 +7767,13 @@ async def forgot_client_pin(data: ClientForgotPinRequest, request: Request):
 
     await db.clients.update_one(
         {"client_id": client["client_id"]},
-        {"$set": {"pin_reset_token": reset_token, "pin_reset_expires": expires_at.isoformat()}},
+        {
+            "$set": {
+                "pin_reset_token_hash": token_digest(reset_token),
+                "pin_reset_token": None,
+                "pin_reset_expires": expires_at.isoformat(),
+            }
+        },
     )
 
     # Send email
@@ -7774,30 +7794,39 @@ async def reset_client_pin(data: ClientResetPinRequest):
     if not re.match(r"^\d{4}$", data.new_pin):
         raise HTTPException(status_code=400, detail="PIN must be exactly 4 digits")
 
-    # Find client with valid token
-    client = await db.clients.find_one({"pin_reset_token": data.token}, {"_id": 0})
+    # New links store only a digest; already-issued links remain valid for their one-hour lifetime.
+    token_query = {"pin_reset_token_hash": token_digest(data.token)}
+    client = await db.clients.find_one(token_query, {"_id": 0})
+    if not client:
+        token_query = {"pin_reset_token": data.token}
+        client = await db.clients.find_one(token_query, {"_id": 0})
 
     if not client:
         raise HTTPException(status_code=400, detail="Invalid or expired reset link")
 
     # Check expiration
-    expires_at = datetime.fromisoformat(client["pin_reset_expires"])
+    try:
+        expires_at = datetime.fromisoformat(client["pin_reset_expires"])
+    except (KeyError, TypeError, ValueError):
+        raise HTTPException(status_code=400, detail="Invalid or expired reset link")
     if expires_at.tzinfo is None:
         expires_at = expires_at.replace(tzinfo=timezone.utc)
 
-    if datetime.now(timezone.utc) > expires_at:
+    if datetime.now(timezone.utc) >= expires_at:
         raise HTTPException(status_code=400, detail="Reset link has expired")
 
     # Hash new PIN
     new_pin_hash = bcrypt.hashpw(data.new_pin.encode(), bcrypt.gensalt()).decode()
 
     # Update PIN and clear reset token
-    await db.clients.update_one(
-        {"client_id": client["client_id"]},
+    # Consume conditionally so simultaneous resets or a newly-issued link cannot reuse this token.
+    consumed = await db.clients.update_one(
+        {"client_id": client["client_id"], **token_query, "pin_reset_expires": client["pin_reset_expires"]},
         {
             "$set": {
                 "pin_hash": new_pin_hash,
                 "pin_reset_token": None,
+                "pin_reset_token_hash": None,
                 "pin_reset_expires": None,
                 "failed_pin_attempts": 0,
                 "pin_locked_until": None,
@@ -7805,6 +7834,8 @@ async def reset_client_pin(data: ClientResetPinRequest):
             }
         },
     )
+    if not consumed.matched_count:
+        raise HTTPException(status_code=400, detail="Invalid or expired reset link")
 
     # Invalidate all existing sessions (if someone else had access with old PIN)
     await db.client_sessions.delete_many({"client_id": client["client_id"]})
