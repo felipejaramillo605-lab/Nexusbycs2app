@@ -60,6 +60,11 @@ from security_observability import (
 )
 from audit_contracts import build_audit_log_router, ensure_audit_log_indexes, record_audit_event
 from owner_view_mode import build_owner_view_router, enforce_view_mode, ensure_view_session_indexes
+from owner_account_management import (
+    build_owner_account_router,
+    consume_owner_invitation,
+    enforce_organization_active,
+)
 from integrity_checks import build_integrity_router
 from owner_media_integrity import build_owner_media_integrity_router
 from owner_delivery_operations import (
@@ -1038,6 +1043,9 @@ async def create_session(response: Response, request: Request, x_session_id: str
         )
         role = "owner" if is_bootstrap_owner else "manager"
         access_status = "approved" if is_bootstrap_owner else "pending"
+        # Google has verified this email: a pending Owner invitation for it is honored here only.
+        if not is_bootstrap_owner and await consume_owner_invitation(db, email):
+            role, access_status = "owner", "approved"
 
         user_id = f"user_{uuid.uuid4().hex[:12]}"
         user_doc = {
@@ -2649,7 +2657,7 @@ async def get_organizations(authorization: Optional[str] = Header(None), session
     require_management_role(current_user)
 
     if current_user.role == "owner":
-        orgs = await db.organizations.find({}, {"_id": 0}).to_list(1000)
+        orgs = await db.organizations.find({"deleted_at": None}, {"_id": 0}).to_list(1000)
     else:
         if not current_user.organization_id:
             return []
@@ -9204,6 +9212,7 @@ api_router.include_router(build_third_party_matrix_router(db, get_current_user),
 api_router.include_router(build_owner_access_sessions_router(db, get_current_user, _owner_account_audit), tags=["owner-access-sessions"])
 api_router.include_router(build_audit_log_router(db, get_current_user), tags=["owner-audit"])
 api_router.include_router(build_owner_view_router(db, get_current_user))
+api_router.include_router(build_owner_account_router(db, get_current_user))
 api_router.include_router(build_integrity_router(db, get_current_user), tags=["owner-integrity"])
 api_router.include_router(build_owner_media_integrity_router(db, get_current_user), tags=["owner-media-integrity"])
 api_router.include_router(build_security_observability_router(db, get_current_user), tags=["owner-security"])
@@ -9321,6 +9330,7 @@ async def request_security_and_headers(request: Request, call_next):
     try:
         await enforce_request_security(request)
         await enforce_view_mode(request, db, record_security_event)
+        await enforce_organization_active(request, db)
         response = await call_next(request)
     except HTTPException as exc:
         response = JSONResponse(
@@ -9401,6 +9411,8 @@ async def create_application_indexes():
     await ensure_security_observability_indexes(db)
     await ensure_audit_log_indexes(db)
     await ensure_view_session_indexes(db)
+    await db.owner_invitations.create_index("invitation_id", unique=True, name="owner_invitations_id_unique")
+    await db.owner_invitations.create_index([("email_normalized", 1), ("status", 1)], name="owner_invitations_email_status")
     # NEXUS_CHECKOUT_BACKEND_V1
     await db.transactions.create_index("transaction_id", unique=True)
     await db.transactions.create_index("appointment_id", unique=True, partialFilterExpression={"status": "confirmed"})

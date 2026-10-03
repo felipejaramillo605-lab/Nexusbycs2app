@@ -8,6 +8,7 @@ const mockNavigate = jest.fn();
 const mockList = jest.fn();
 const mockDetail = jest.fn();
 const mockStartView = jest.fn();
+const mockImpact = jest.fn();
 const mockSetViewSession = jest.fn();
 
 jest.mock('react-router-dom', () => ({ useNavigate: () => mockNavigate }), { virtual: true });
@@ -15,6 +16,7 @@ jest.mock('sonner', () => ({ toast: { error: jest.fn() } }));
 jest.mock('../lib/viewMode', () => ({ setViewSession: (...args) => mockSetViewSession(...args) }));
 jest.mock('../api', () => ({
   ownerViewAPI: { start: (...args) => mockStartView(...args) },
+  ownerAPI: { getDeletionImpact: (...args) => mockImpact(...args) },
   thirdPartyMatrixAPI: {
     list: (...args) => mockList(...args),
     detail: (...args) => mockDetail(...args),
@@ -142,5 +144,18 @@ describe('OwnerThirdPartyMatrix Premium summary', () => {
     expect(mockStartView).toHaveBeenCalledWith('org-1', 'Revisar reporte de soporte');
     expect(mockSetViewSession).toHaveBeenCalledWith(expect.objectContaining({ view_id: 'ovs_1' }));
     expect(mockNavigate).toHaveBeenCalledWith('/manager/dashboard?org_id=org-1');
+  });
+
+  test('offers organization deletion from the detail drawer and asks for the impact first', async () => {
+    mockImpact.mockResolvedValue({ data: { users: 2, upcoming_appointments: 1, clients: 5, enabled_owners: 0 } });
+    await act(async () => root.render(<OwnerThirdPartyMatrix />));
+    await act(async () => {
+      host.querySelector('button').dispatchEvent(new MouseEvent('click', { bubbles: true }));
+      await new Promise(resolve => setTimeout(resolve, 0));
+    });
+    const remove = [...host.querySelectorAll('button')].find(button => button.textContent.includes('Eliminar organización'));
+    await act(async () => { remove.dispatchEvent(new MouseEvent('click', { bubbles: true })); await new Promise(resolve => setTimeout(resolve, 0)); });
+    expect(mockImpact).toHaveBeenCalledWith('org-1');
+    expect([...host.ownerDocument.querySelectorAll('[role="dialog"]')].some(d => d.textContent.includes('Vas a eliminar') && d.textContent.includes('Centro Uno'))).toBe(true);
   });
 });
