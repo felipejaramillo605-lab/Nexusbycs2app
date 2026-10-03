@@ -61,6 +61,7 @@ from security_observability import (
 from audit_contracts import build_audit_log_router, ensure_audit_log_indexes, record_audit_event
 from owner_view_mode import build_owner_view_router, enforce_view_mode, ensure_view_session_indexes
 from integrity_checks import build_integrity_router
+from owner_media_integrity import build_owner_media_integrity_router
 from owner_delivery_operations import (
     build_delivery_operations_router,
     ensure_delivery_operations_indexes,
@@ -9204,6 +9205,7 @@ api_router.include_router(build_owner_access_sessions_router(db, get_current_use
 api_router.include_router(build_audit_log_router(db, get_current_user), tags=["owner-audit"])
 api_router.include_router(build_owner_view_router(db, get_current_user))
 api_router.include_router(build_integrity_router(db, get_current_user), tags=["owner-integrity"])
+api_router.include_router(build_owner_media_integrity_router(db, get_current_user), tags=["owner-media-integrity"])
 api_router.include_router(build_security_observability_router(db, get_current_user), tags=["owner-security"])
 # NEXUS_8A7S1A_SUPPORT_FOUNDATION_REGISTRATION_V1
 from support_center import build_support_center_router, ensure_support_center_indexes
