@@ -21,6 +21,7 @@ const ManagerClients = () => {
   const [searchInput, setSearchInput] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
   const [loading, setLoading] = useState(true);
+  const [hasLoaded, setHasLoaded] = useState(false);
   const [selectedClient, setSelectedClient] = useState(null);
   const [clientHistory, setClientHistory] = useState([]);
   const [historyLoading, setHistoryLoading] = useState(false);
@@ -73,6 +74,7 @@ const ManagerClients = () => {
       toast.error('Error al cargar clientes');
     } finally {
       setLoading(false);
+      setHasLoaded(true);
     }
   }, [organizationId, currentPage, searchTerm]);
 
@@ -299,7 +301,8 @@ const ManagerClients = () => {
     navigate('/login');
   };
 
-  if (loading) {
+  // Only the first load replaces the page; searches and page changes keep the form mounted so focus is not lost.
+  if (loading && !hasLoaded) {
     return (
       <div className="min-h-screen nexus-screen flex items-center justify-center">
         <div className="text-[var(--app-text-primary)] text-lg">Cargando clientes...</div>
@@ -380,6 +383,7 @@ const ManagerClients = () => {
           <label className="sr-only" htmlFor="client-search">Buscar clientes</label>
           <div className="relative flex-1"><Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500" aria-hidden="true" /><input id="client-search" value={searchInput} onChange={(event) => setSearchInput(event.target.value)} placeholder="Buscar por nombre, teléfono o correo" className="w-full pl-10 pr-4 py-3 bg-white/5 border border-[var(--app-border)] rounded-xl text-[var(--app-text-primary)] outline-none focus:border-[var(--app-primary)] focus:ring-2 focus:ring-[var(--app-primary)]/20" /></div>
           <button type="submit" className="px-5 py-3 rounded-xl bg-[var(--app-primary)] text-white font-medium">Buscar</button>
+          {loading && <span role="status" className="self-center text-sm text-zinc-400">Actualizando…</span>}
           {searchTerm && <button type="button" onClick={() => { setSearchInput(''); setSearchTerm(''); setCurrentPage(1); }} className="px-5 py-3 rounded-xl border border-[var(--app-border)] text-[var(--app-text-primary)]">Limpiar</button>}
         </form>
 
