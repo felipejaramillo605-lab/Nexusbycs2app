@@ -87,3 +87,41 @@ def test_catalog_route_restores_from_mirror(tmp_path, monkeypatch):
     client = _app(product_catalog.build_product_catalog_router(db, None, None, None))
     response = client.get(f"/media/catalog/org_a/{filename}")
     assert response.status_code == 200 and response.content == b"catalog"
+
+
+def test_background_upload_over_mirror_limit_stays_on_disk_instead_of_failing(tmp_path, monkeypatch):
+    # Videos up to 20 MB are allowed but MongoDB documents cap at 16 MB: the upload must succeed unmirrored.
+    from media_mirror import MAX_MIRROR_BYTES
+
+    class Orgs:
+        def __init__(self):
+            self.doc = {"organization_id": "org_a"}
+
+        async def find_one(self, query, projection=None):
+            return dict(self.doc)
+
+        async def update_one(self, query, update):
+            self.doc.update(update["$set"])
+
+    db = SimpleNamespace(media_blobs=Blobs(), organizations=Orgs())
+    monkeypatch.setattr(organization_background_media, "media_root", lambda: tmp_path / "backgrounds")
+
+    async def fake_prepare(source):
+        return b"v" * (MAX_MIRROR_BYTES + 1), "mp4", 5.0, "video"
+
+    monkeypatch.setattr(organization_background_media, "prepare_background_upload", fake_prepare)
+
+    async def current_user(*_):
+        return SimpleNamespace(role="manager", organization_id="org_a")
+
+    async def resolve(user, requested):
+        return "org_a"
+
+    router = organization_background_media.build_organization_background_media_router(
+        db, current_user, lambda user: None, resolve
+    )
+    files = {"file": ("bg.mp4", b"x", "video/mp4")}
+    response = _app(router).post("/organizations/org_a/portal-background", files=files)
+    assert response.status_code == 200, response.text
+    assert db.media_blobs.docs == {}
+    assert db.organizations.doc["portal_background_type"] == "video"

@@ -18,7 +18,7 @@ from fastapi.responses import FileResponse
 
 from organization_media import SAFE_ORG
 from image_pipeline import MAX_UPLOAD_BYTES, is_heif_or_avif_container, normalize_image_async
-from media_mirror import mirror_delete, mirror_put, mirror_restore
+from media_mirror import MAX_MIRROR_BYTES, mirror_delete, mirror_put, mirror_restore
 
 MAX_VIDEO_BYTES = 20 * 1024 * 1024
 MAX_VIDEO_SECONDS = 15.0
@@ -199,7 +199,9 @@ def build_organization_background_media_router(db, get_current_user, require_man
         payload, extension, duration, kind = await prepare_background_upload(source)
         new_url, path = _write_atomic(org["organization_id"], payload, extension)
         try:
-            await mirror_put(db, "portal-backgrounds", f"{org['organization_id']}/{path.name}", payload, {"webp": "image/webp", "mp4": "video/mp4", "webm": "video/webm"}[extension])
+            # Videos between 15 and 20 MB are allowed but cannot fit a MongoDB document: keep them on disk only.
+            if len(payload) <= MAX_MIRROR_BYTES:
+                await mirror_put(db, "portal-backgrounds", f"{org['organization_id']}/{path.name}", payload, {"webp": "image/webp", "mp4": "video/mp4", "webm": "video/webm"}[extension])
             await db.organizations.update_one({"organization_id": org["organization_id"]}, {"$set": {"portal_background_type": kind, "portal_background_url": new_url, "updated_at": datetime.now(timezone.utc).isoformat()}})
         except Exception:
             path.unlink(missing_ok=True)

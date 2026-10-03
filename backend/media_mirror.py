@@ -8,7 +8,8 @@ from pathlib import Path
 
 from bson import Binary
 
-MAX_MIRROR_BYTES = 20 * 1024 * 1024
+# MongoDB rejects documents over 16 MB (BSON limit); stay below it with headroom for metadata.
+MAX_MIRROR_BYTES = 15 * 1024 * 1024
 ALLOWED_NAMESPACES = {"platform", "organizations", "professionals", "catalog", "portal-backgrounds"}
 
 
