@@ -3,10 +3,10 @@ import React, { useEffect, useState, useCallback } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { clientAPI, organizationAPI, membershipPlanAPI } from '../api';
-import { Users, LogOut, ArrowLeft, Phone, Mail, Calendar, MessageSquare, Send, Eye, CheckCircle, Bell, BellOff, Loader2, ChevronLeft, ChevronRight, Search, Gift, CreditCard } from 'lucide-react';
+import { Users, LogOut, ArrowLeft, Phone, Mail, Calendar, MessageSquare, Send, Eye, Bell, BellOff, Loader2, ChevronLeft, ChevronRight, Search, Gift, CreditCard } from 'lucide-react';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '../components/ui/sheet';
 import { toast } from 'sonner';
-import whatsappService, { MESSAGE_TEMPLATES, generateBirthdayMessage } from '../services/whatsappService';
+import { MESSAGE_TEMPLATES, generateBirthdayMessage, whatsappKind } from '../lib/messagePreviews';
 import { AccessibleModal } from '../components/design';
 
 const ManagerClients = () => {
@@ -196,10 +196,12 @@ const ManagerClients = () => {
     setSendingReward(true);
     try {
       const message = generateBirthdayMessage(selectedClient.name, organizationName || 'Nexus', clientReward.code);
-      const result = await whatsappService.sendWhatsAppMessage(selectedClient.phone, message, 'birthday');
-      if (result.success) toast.success('Mensaje de cumpleaños enviado' + (result.mock ? ' (modo prueba)' : ''));
+      const { data: result } = await clientAPI.sendWhatsApp(selectedClient.client_id, {
+        organization_id: organizationId, kind: 'promotion', message,
+      });
+      if (result.accepted) toast.success('Mensaje de cumpleaños enviado' + (result.provider === 'mock' ? ' (modo prueba)' : ''));
     } catch (error) {
-      toast.error('No fue posible enviar el mensaje');
+      toast.error(error?.response?.data?.detail || 'No fue posible enviar el mensaje');
     } finally {
       setSendingReward(false);
     }
@@ -208,45 +210,33 @@ const ManagerClients = () => {
   const handleSendMessage = async () => {
     if (!selectedClient) return;
 
+    const kind = whatsappKind(selectedTemplate);
+    if (kind === 'promotion' && selectedClient.accepts_marketing !== true) {
+      toast.error('El cliente no autorizó mensajes de marketing');
+      return;
+    }
+    if (selectedTemplate === MESSAGE_TEMPLATES.PROMOTION && !customMessage.trim()) {
+      toast.error('Escribe el contenido de la promoción');
+      return;
+    }
+
     setSendingMessage(true);
     try {
-      let message = customMessage;
-      
-      // Generate message based on template
-      if (selectedTemplate === MESSAGE_TEMPLATES.APPOINTMENT_REMINDER) {
-        message = whatsappService.generateReminderMessage({
-          client_name: selectedClient.name,
-          date: 'Próximamente',
-          time: '--:--',
-          service_name: 'Tu servicio',
-          barber_name: 'Tu profesional'
-        });
-      } else if (selectedTemplate === MESSAGE_TEMPLATES.REACTIVATION) {
-        message = whatsappService.generateReactivationMessage(selectedClient.name);
-      } else if (selectedTemplate === MESSAGE_TEMPLATES.PROMOTION) {
-        message = whatsappService.generatePromotionMessage(
-          selectedClient.name,
-          '¡20% de descuento en tu próxima visita!'
-        );
-      }
-
-      const result = await whatsappService.sendWhatsAppMessage(
-        selectedClient.phone,
-        message,
-        selectedTemplate
-      );
-
-      if (result.success) {
+      const { data: result } = await clientAPI.sendWhatsApp(selectedClient.client_id, {
+        organization_id: organizationId, kind,
+        ...(kind === 'promotion' ? { message: customMessage.trim() || getMessagePreview() } : {}),
+      });
+      if (result.accepted) {
         toast.success(
-          result.mock 
-            ? '✅ Mensaje mock enviado (revisa consola)' 
+          result.provider === 'mock'
+            ? '✅ Mensaje registrado (modo prueba)'
             : '✅ Mensaje enviado por WhatsApp'
         );
         setShowMessageModal(false);
         setCustomMessage('');
       }
     } catch (error) {
-      toast.error('Error al enviar mensaje');
+      toast.error(error?.response?.data?.detail || 'Error al enviar mensaje');
       console.error(error);
     } finally {
       setSendingMessage(false);
@@ -256,18 +246,7 @@ const ManagerClients = () => {
   const handleToggleMarketing = async (client) => {
     setTogglingMarketing(client.client_id);
     try {
-      const response = await fetch(
-        `${process.env.REACT_APP_BACKEND_URL}/api/clients/${client.client_id}?accepts_marketing=${!client.accepts_marketing}`,
-        {
-          method: 'PUT',
-          credentials: 'include',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-        }
-      );
-
-      if (response.ok) {
+      await clientAPI.update(client.client_id, { accepts_marketing: !client.accepts_marketing });
         // Update local state
         setClients(clients.map(c => 
           c.client_id === client.client_id 
@@ -279,9 +258,6 @@ const ManagerClients = () => {
             ? 'Notificaciones desactivadas' 
             : 'Notificaciones activadas'
         );
-      } else {
-        throw new Error('Failed to update');
-      }
     } catch (error) {
       console.error('Error toggling marketing:', error);
       toast.error('Error al actualizar preferencias');
@@ -304,16 +280,16 @@ const ManagerClients = () => {
   };
 
   const getMessagePreview = () => {
-    if (customMessage) return customMessage;
-    
     if (!selectedClient) return '';
 
     if (selectedTemplate === MESSAGE_TEMPLATES.APPOINTMENT_REMINDER) {
-      return `🔔 *Recordatorio de Cita*\n\n¡Hola ${selectedClient.name}!\n\nTu cita es próximamente.\nNo faltes! 💈`;
+      return 'Se enviará la fecha, hora y servicio de la próxima cita confirmada del cliente.';
+    } else if (customMessage) {
+      return customMessage;
     } else if (selectedTemplate === MESSAGE_TEMPLATES.REACTIVATION) {
       return `👋 *¡Te extrañamos!*\n\nHola ${selectedClient.name},\n\nHace mucho que no te vemos. ¿Qué tal un nuevo look? 💇‍♂️\n\n¡Te esperamos! ✨`;
     } else if (selectedTemplate === MESSAGE_TEMPLATES.PROMOTION) {
-      return `🎉 *¡Oferta Especial!*\n\nHola ${selectedClient.name},\n\n¡20% de descuento en tu próxima visita!\n\n¡No te lo pierdas! ⏰`;
+      return 'Escribe la promoción que deseas enviar. No se ofrecerá un descuento automáticamente.';
     }
     return '';
   };
@@ -905,20 +881,20 @@ const ManagerClients = () => {
                     {getMessagePreview()}
                   </pre>
                 </div>
-                {whatsappService.IS_MOCK_MODE && (
-                  <div className="mt-3 flex items-start gap-2 text-xs text-yellow-400">
-                    <CheckCircle size={14} className="mt-0.5 flex-shrink-0" />
-                    <span>Modo MOCK activado: El mensaje se mostrará en consola (no se enviará realmente por WhatsApp)</span>
-                  </div>
+                {whatsappKind(selectedTemplate) === 'promotion' && selectedClient.accepts_marketing !== true && (
+                  <p role="alert" className="mt-3 text-sm text-yellow-400">El cliente no autorizó mensajes de marketing.</p>
                 )}
               </div>
 
               {/* Custom Message (Optional) */}
               <div>
                 <label className="block text-sm font-medium text-zinc-400 mb-3">
-                  Mensaje personalizado (opcional)
+                  Mensaje personalizado (obligatorio para promoción)
                 </label>
                 <textarea
+                  aria-label="Mensaje personalizado"
+                  disabled={selectedTemplate === MESSAGE_TEMPLATES.APPOINTMENT_REMINDER}
+                  maxLength={2000}
                   value={customMessage}
                   onChange={(e) => setCustomMessage(e.target.value)}
                   placeholder="Escribe un mensaje personalizado o usa la plantilla..."
@@ -942,7 +918,7 @@ const ManagerClients = () => {
               </button>
               <button
                 onClick={handleSendMessage}
-                disabled={sendingMessage}
+                disabled={sendingMessage || (whatsappKind(selectedTemplate) === 'promotion' && selectedClient.accepts_marketing !== true)}
                 className="flex-1 px-4 py-3 rounded-xl bg-green-500 hover:bg-green-600 text-[var(--app-text-primary)] font-medium transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {sendingMessage ? (

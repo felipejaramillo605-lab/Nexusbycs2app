@@ -2,10 +2,10 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { clientAPI, organizationAPI, marketingAPI, serviceAPI, templateAPI } from '../api';
-import { Send, ArrowLeft, LogOut, Users, MessageSquare, CheckSquare, Loader2, Bell, BellOff, AlertCircle, Mail, MessageCircle, Cake, Gift, Settings2, FileText, Plus, Pencil, Copy, Trash2, X } from 'lucide-react';
+import { Send, ArrowLeft, LogOut, Users, MessageSquare, CheckSquare, Loader2, Bell, BellOff, Mail, MessageCircle, Cake, Gift, Settings2, FileText, Plus, Pencil, Copy, Trash2, X } from 'lucide-react';
 import { AccessibleModal } from '../components/design';
 import { toast } from 'sonner';
-import whatsappService, { MESSAGE_TEMPLATES, VERTICAL_LABELS, generateReactivationMessageFor, generateBirthdayMessage } from '../services/whatsappService';
+import { MESSAGE_TEMPLATES, VERTICAL_LABELS, generateReactivationMessageFor, generateBirthdayMessage, whatsappKind } from '../lib/messagePreviews';
 
 const MarketingCampaigns = () => {
   const { user, logout } = useAuth();
@@ -92,7 +92,7 @@ const MarketingCampaigns = () => {
     setLoadingBirthdays(true);
     try {
       const response = await clientAPI.getUpcomingBirthdays({ organization_id: organizationId, days: 30 });
-      setBirthdayClients(response.data || []);
+      setBirthdayClients(response.data?.upcoming_birthdays || response.data || []);
     } catch (error) {
       toast.error('No fue posible cargar los próximos cumpleaños');
     } finally {
@@ -108,7 +108,7 @@ const MarketingCampaigns = () => {
       const response = await clientAPI.getAll(params);
       
       // Filter clients who accept marketing
-      const marketingClients = response.data.filter(c => c.accepts_marketing);
+      const marketingClients = (response.data?.items || response.data || []).filter(c => c.accepts_marketing === true);
       setClients(marketingClients);
     } catch (error) {
       console.error('Error loading clients:', error);
@@ -228,7 +228,10 @@ const MarketingCampaigns = () => {
     }
   };
 
-  const displayedClients = audience === 'birthdays' ? birthdayClients : clients;
+  const displayedClients = audience === 'birthdays'
+    ? birthdayClients.filter(c => clients.some(client => client.client_id === c.client_id))
+      .map(c => ({ ...c, accepts_marketing: true }))
+    : clients;
 
   const handleToggleClient = (clientId) => {
     setSelectedClients(prev => 
@@ -252,13 +255,13 @@ const MarketingCampaigns = () => {
     const clientName = displayedClients[0]?.name || 'Cliente';
 
     if (selectedTemplate === MESSAGE_TEMPLATES.APPOINTMENT_REMINDER) {
-      return `🔔 *Recordatorio de Cita*\n\n¡Hola ${clientName}!\n\nTu cita es próximamente.\nNo faltes! 💈`;
+      return 'Cada recordatorio usará la próxima cita confirmada del cliente.';
     } else if (selectedTemplate === MESSAGE_TEMPLATES.BIRTHDAY) {
       return generateBirthdayMessage(clientName, organizationName || 'Nexus').replace('\n[BOOKING_LINK]', '');
     } else if (selectedTemplate === MESSAGE_TEMPLATES.REACTIVATION) {
       return generateReactivationMessageFor(clientName, businessType).replace('\n\nAgenda tu cita aquí:\n[BOOKING_LINK]', '');
     } else if (selectedTemplate === MESSAGE_TEMPLATES.PROMOTION) {
-      return `🎉 *¡Oferta Especial!*\n\nHola ${clientName},\n\n¡20% de descuento en tu próxima visita!\n\n¡No te lo pierdas! ⏰`;
+      return '';
     }
     return '';
   };
@@ -266,6 +269,12 @@ const MarketingCampaigns = () => {
   const handleSendCampaign = async () => {
     if (selectedClients.length === 0) {
       toast.error('Selecciona al menos un cliente');
+      return;
+    }
+
+    const recipients = displayedClients.filter(c => selectedClients.includes(c.client_id));
+    if (recipients.length !== selectedClients.length || recipients.some(c => c.accepts_marketing !== true)) {
+      toast.error('Selecciona clientes que hayan autorizado mensajes de marketing');
       return;
     }
 
@@ -294,29 +303,51 @@ const MarketingCampaigns = () => {
 
     setSending(true);
     try {
-      const response = await marketingAPI.sendCampaign({
-        client_ids: selectedClients,
-        message: message,
-        template_type: selectedTemplate,
-        channel: channel,
-        subject: emailSubject || undefined
-      });
-
-      const result = response.data;
+      const result = { whatsapp_sent: 0, whatsapp_failed: 0, email_sent: 0, email_failed: 0, mock: false };
+      if (channel === 'email' || channel === 'both') {
+        const response = await marketingAPI.sendCampaign({
+          client_ids: selectedClients, message, channel: 'email', subject: emailSubject,
+        });
+        result.email_sent = response.data.email_sent || 0;
+        result.email_failed = response.data.email_failed || 0;
+      }
+      if (channel === 'whatsapp' || channel === 'both') {
+        for (const client of recipients) {
+          try {
+            const kind = whatsappKind(selectedTemplate);
+            const { data } = await clientAPI.sendWhatsApp(client.client_id, {
+              organization_id: organizationId, kind,
+              ...(kind === 'promotion' ? { message } : {}),
+            });
+            if (data.accepted) {
+              result.whatsapp_sent += 1;
+              result.mock = result.mock || data.provider === 'mock';
+            } else {
+              result.whatsapp_failed += 1;
+            }
+          } catch (error) {
+            result.whatsapp_failed += 1;
+          }
+        }
+      }
 
       // Build success message
       let successMsg = '✅ Campaña enviada: ';
       const parts = [];
       
       if (result.whatsapp_sent > 0) {
-        parts.push(`${result.whatsapp_sent} WhatsApp${whatsappService.IS_MOCK_MODE ? ' (MOCK)' : ''}`);
+        parts.push(`${result.whatsapp_sent} WhatsApp${result.mock ? ' (modo prueba)' : ''}`);
       }
       if (result.email_sent > 0) {
         parts.push(`${result.email_sent} Emails`);
       }
       
       successMsg += parts.join(', ');
-      toast.success(successMsg);
+      if (parts.length) toast.success(successMsg);
+      if (result.whatsapp_failed || result.email_failed) {
+        toast.error(`No enviados: ${result.whatsapp_failed} WhatsApp, ${result.email_failed} emails. Revisa consentimiento, citas y configuración.`);
+        return;
+      }
 
       // Reset form
       setSelectedClients([]);
@@ -534,12 +565,6 @@ const MarketingCampaigns = () => {
                   {getMessagePreview()}
                 </pre>
               </div>
-              {whatsappService.IS_MOCK_MODE && (
-                <div className="mt-3 flex items-start gap-2 text-xs text-yellow-400">
-                  <AlertCircle size={14} className="mt-0.5 flex-shrink-0" />
-                  <span>Modo MOCK: Los mensajes se mostrarán en consola (no se enviarán por WhatsApp real)</span>
-                </div>
-              )}
             </div>
 
             {/* Custom Message */}
@@ -548,6 +573,8 @@ const MarketingCampaigns = () => {
                 Mensaje personalizado (opcional)
               </label>
               <textarea
+                aria-label="Mensaje de campaña"
+                maxLength={2000}
                 value={customMessage}
                 onChange={(e) => setCustomMessage(e.target.value)}
                 placeholder="Escribe un mensaje personalizado o usa la plantilla..."

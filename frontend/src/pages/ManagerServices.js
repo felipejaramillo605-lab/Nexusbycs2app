@@ -78,7 +78,7 @@ const ManagerServices = () => {
         drop_in_price: newService.drop_in_price === '' ? null : parseFloat(newService.drop_in_price),
         spot_layout: newService.spot_layout.trim() ? newService.spot_layout.split(',').map(s => s.trim()).filter(Boolean) : null,
         short_description: newService.short_description.trim() || null,
-      });
+      }, { org_id: organizationId });
       setIsCreateDialogOpen(false);
       setNewService({ name: '', duration: 30, price: 0, service_type: 'individual', group_capacity: 8, drop_in_price: '', spot_layout: '', short_description: '' });
       loadServices();
