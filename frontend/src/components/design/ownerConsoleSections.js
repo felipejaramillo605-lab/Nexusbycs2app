@@ -52,5 +52,5 @@ export const ownerMobilePrimary = [
   ['/owner', 'Inicio', Home],
   ['/owner/billing', 'Cartera', CreditCard],
   ['/owner/access', 'Accesos', ShieldCheck],
-  ['/owner/platform-branding', 'IT', ServerCog],
+  ['/owner/security-events', 'IT', ServerCog],
 ];
