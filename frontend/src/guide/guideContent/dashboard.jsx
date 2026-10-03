@@ -112,7 +112,7 @@ const manager = {
     { icon: Building2, name: 'Selector de organización', does: 'Cambia la sede o negocio que estás viendo (solo aparece si tienes más de una y eres Owner).', when: 'Cuando administras varias sedes y quieres revisar otra.' },
     { icon: CalendarDays, name: 'Métrica "Citas de hoy"', does: 'Muestra el número de citas del día. Es informativa.', when: 'Para dimensionar la carga del día.' },
     { icon: DollarSign, name: 'Métrica "Ingresos de hoy"', does: 'Muestra el total cobrado hoy (cobros confirmados). Es informativa.', when: 'Para saber cuánto ha entrado en caja hasta el momento.' },
-    { icon: Users, name: 'Métrica "Profesionales activos"', does: 'Cuenta los profesionales con cita hoy. Es informativa.', when: 'Para ver quién está trabajando en el día.' },
+    { icon: Users, name: 'Métrica "Profesionales activos"', does: 'Cuenta los profesionales activos registrados en la organización.', when: 'Para conocer la capacidad disponible del equipo.' },
     { icon: Scissors, name: 'Métrica "Servicios disponibles"', does: 'Cuenta los servicios activos del catálogo. Es informativa.', when: 'Para verificar de un vistazo el tamaño del menú de servicios.' },
     { icon: Clock3, name: 'Filtro de "Agenda de hoy"', does: 'Filtra la lista de citas del día por "Todas" o por un profesional.', when: 'Cuando quieres revisar la agenda de una persona del equipo.' },
     { icon: CalendarDays, name: 'Abrir agenda', does: 'Va al módulo de Agenda y citas.', when: 'Para gestionar citas, filtrarlas o cobrarlas.' },
