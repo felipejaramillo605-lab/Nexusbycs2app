@@ -5,7 +5,7 @@ const mockApi = {
   get: jest.fn(),
   post: jest.fn(),
   put: jest.fn(),
-  interceptors: { response: { use: jest.fn() } },
+  interceptors: { request: { use: jest.fn() }, response: { use: jest.fn() } },
 };
 axios.create.mockReturnValue(mockApi);
 const { ownerPremiumPlanAPI, premiumPlanAPI } = require('./index');

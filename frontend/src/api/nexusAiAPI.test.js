@@ -5,7 +5,7 @@ const mockApi = {
   get: jest.fn(),
   post: jest.fn(),
   put: jest.fn(),
-  interceptors: { response: { use: jest.fn() } },
+  interceptors: { request: { use: jest.fn() }, response: { use: jest.fn() } },
 };
 axios.create.mockReturnValue(mockApi);
 
@@ -32,6 +32,23 @@ describe('nexusAiAPI.streamMessage', () => {
         body: JSON.stringify({ message: 'Hola' }),
       }),
     );
+  });
+
+  test('streams carry the view session header and a read-only block is announced', async () => {
+    window.sessionStorage.setItem('nexus_view_session', JSON.stringify({ view_id: 'ovs_5', organization_id: 'org-1', expires_at: new Date(Date.now() + 60000).toISOString() }));
+    const blocked = jest.fn();
+    window.addEventListener('nexus:view-mode-blocked', blocked);
+    global.fetch.mockResolvedValue({
+      status: 403,
+      clone: () => ({ json: async () => ({ detail: { code: 'VIEW_MODE_READ_ONLY', message: 'bloqueado' } }) }),
+    });
+
+    await nexusAiAPI.streamMessage('conv-1', { message: 'Hola' });
+
+    expect(global.fetch.mock.calls[0][1].headers['X-Nexus-View-Session']).toBe('ovs_5');
+    expect(blocked).toHaveBeenCalledTimes(1);
+    window.removeEventListener('nexus:view-mode-blocked', blocked);
+    window.sessionStorage.clear();
   });
 
   test('emits the shared suspension event on a streamed 402 response', async () => {

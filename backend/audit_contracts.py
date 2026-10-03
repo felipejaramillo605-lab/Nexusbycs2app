@@ -40,7 +40,7 @@ from fastapi import APIRouter, Cookie, Header, HTTPException, Query
 # lets the unified read endpoint group/filter consistently across sources
 # that otherwise agree on almost nothing (field names, whether "reason" is
 # required, whether there's an `entity_type` at all).
-CATEGORIES = {"account", "billing", "fiscal_profile", "capability"}
+CATEGORIES = {"account", "billing", "fiscal_profile", "capability", "support_view"}
 AUDIT_EVENT_CONTRACT = {
     "required": {"category", "event_type", "actor_user_id", "created_at"},
     "optional": {"organization_id", "entity_type", "entity_id", "reason", "previous_value", "new_value", "metadata"},
