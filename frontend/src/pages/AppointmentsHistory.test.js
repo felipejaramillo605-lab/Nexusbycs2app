@@ -4,11 +4,13 @@ import AppointmentsHistory from './AppointmentsHistory';
 
 global.IS_REACT_ACT_ENVIRONMENT = true;
 
+const mockMutate = jest.fn();
+const mockConfirm = jest.fn();
 const mockAppointment = { appointment_id: 'apt-1', client_name: 'Ana Cliente', client_phone: '+57 300 000 0000', date: '2026-09-30', time: '10:00', service_name: 'Corte', barber_name: 'Profesional', service_price: 30000, status: 'confirmed' };
 
 jest.mock('@tanstack/react-query', () => ({
   useQuery: () => ({ data: { items: [mockAppointment], total: 1, total_pages: 1 }, isLoading: false, error: null }),
-  useMutation: () => ({ mutate: jest.fn(), isPending: false }),
+  useMutation: () => ({ mutate: (...args) => mockMutate(...args), isPending: false }),
   useQueryClient: () => ({ invalidateQueries: jest.fn() }),
 }));
 jest.mock('../context/AuthContext', () => ({ useAuth: () => ({ user: { role: 'manager', organization_id: 'org-1' } }) }));
@@ -16,11 +18,11 @@ jest.mock('react-router-dom', () => ({ useNavigate: () => jest.fn(), useSearchPa
 jest.mock('sonner', () => ({ toast: { success: jest.fn(), error: jest.fn(), warning: jest.fn() } }));
 jest.mock('../api', () => ({ appointmentAPI: { getAll: jest.fn(), checkout: jest.fn() } }));
 jest.mock('../components/ui/skeleton', () => ({ TableSkeleton: () => null }));
-jest.mock('../components/design', () => ({ AccessibleModal: ({ children }) => <div>{children}</div> }));
+jest.mock('../components/design', () => ({ AccessibleModal: ({ children }) => <div>{children}</div>, confirmAction: (...args) => mockConfirm(...args) }));
 
 describe('AppointmentsHistory', () => {
   let root;
-  afterEach(async () => { if (root) await act(async () => root.unmount()); document.body.innerHTML = ''; root = null; });
+  afterEach(async () => { jest.clearAllMocks(); if (root) await act(async () => root.unmount()); document.body.innerHTML = ''; root = null; });
 
   test('renders client_name and client_phone returned by the appointments API', async () => {
     const host = document.createElement('div');
@@ -29,5 +31,31 @@ describe('AppointmentsHistory', () => {
     await act(async () => root.render(<AppointmentsHistory />));
     expect(host.textContent).toContain('Ana Cliente');
     expect(host.textContent).toContain('+57 300 000 0000');
+  });
+
+  const clickCancel = async host => {
+    const button = host.querySelector('button[title="Cancelar cita"]');
+    await act(async () => { button.dispatchEvent(new MouseEvent('click', { bubbles: true })); await new Promise(resolve => setTimeout(resolve, 0)); });
+  };
+
+  test('asks for confirmation before cancelling and does nothing if declined', async () => {
+    mockConfirm.mockResolvedValue(false);
+    const host = document.createElement('div');
+    document.body.appendChild(host);
+    root = createRoot(host);
+    await act(async () => root.render(<AppointmentsHistory />));
+    await clickCancel(host);
+    expect(mockConfirm).toHaveBeenCalledTimes(1);
+    expect(mockMutate).not.toHaveBeenCalled();
+  });
+
+  test('cancels the appointment once the user confirms', async () => {
+    mockConfirm.mockResolvedValue(true);
+    const host = document.createElement('div');
+    document.body.appendChild(host);
+    root = createRoot(host);
+    await act(async () => root.render(<AppointmentsHistory />));
+    await clickCancel(host);
+    expect(mockMutate).toHaveBeenCalledWith({ appointmentId: 'apt-1', status: 'cancelled' });
   });
 });

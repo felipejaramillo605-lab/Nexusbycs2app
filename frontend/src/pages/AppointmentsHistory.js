@@ -7,7 +7,7 @@ import { Calendar, Filter, ArrowLeft, ChevronLeft, ChevronRight, CheckCircle, XC
 import { toast } from 'sonner';
 import { TableSkeleton } from '../components/ui/skeleton';
 import { appointmentAPI } from '../api';
-import { AccessibleModal } from '../components/design';
+import { AccessibleModal, confirmAction } from '../components/design';
 import { formatCOP as formatCurrency } from '../lib/currency';
 
 const ITEMS_PER_PAGE = 10;
@@ -76,7 +76,11 @@ const AppointmentsHistory = () => {
     checkoutMutation.mutate({ appointmentId: checkoutAppointment.appointment_id, payload: { ...checkoutForm, discount_amount: discount, tip_amount: tip, notes: checkoutForm.notes.trim(), birthday_code: checkoutForm.birthday_code.trim() || undefined } });
   };
 
-  const handleStatusUpdate = (appointmentId, newStatus) => {
+  const handleStatusUpdate = async (appointmentId, newStatus) => {
+    if (newStatus === 'cancelled') {
+      const accepted = await confirmAction('La cita quedará cancelada y el horario volverá a estar disponible. Esta acción no se puede deshacer desde esta pantalla.', { title: 'Cancelar cita', confirmLabel: 'Cancelar cita', tone: 'danger' });
+      if (!accepted) return;
+    }
     updateStatusMutation.mutate({ appointmentId, status: newStatus });
   };
 
