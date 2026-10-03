@@ -17,6 +17,7 @@ jest.mock('../../context/PlatformBrandingContext', () => ({ usePlatformBranding:
 jest.mock('framer-motion', () => ({ useReducedMotion: () => true }));
 jest.mock('./AdminShell', () => ({ AdminShell: ({ children, organizationName }) => <div data-testid="shell" data-organization-name={organizationName}>{children}</div> }));
 jest.mock('./StaffNav', () => ({ StaffNav: () => null }));
+jest.mock('./ViewModeBanner', () => ({ ViewModeBanner: () => <div data-testid="view-mode-banner" /> }));
 jest.mock('./ConfirmDialogHost', () => ({ ConfirmDialogHost: () => null }));
 jest.mock('../onboarding/OnboardingTour', () => () => null);
 jest.mock('../../portal-templates', () => ({ resolvePremiumPortalTemplate: () => null }));
@@ -40,5 +41,13 @@ describe('RouteExperienceFrame', () => {
     expect(host.querySelector('[data-testid="shell"]').dataset.organizationName).toBe('Empresa Real');
     expect(host.textContent).not.toContain('Servicios');
     expect(mockLoadOrganization).toHaveBeenCalledWith('org-1');
+  });
+
+  test('shows the view mode banner slot for owners only', async () => {
+    const host = document.createElement('div');
+    document.body.appendChild(host);
+    root = createRoot(host);
+    await act(async () => root.render(<RouteExperienceFrame><p>Contenido</p></RouteExperienceFrame>));
+    expect(host.querySelector('[data-testid="view-mode-banner"]')).not.toBeNull();
   });
 });

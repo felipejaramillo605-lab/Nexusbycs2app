@@ -1,5 +1,6 @@
 import axios from 'axios';
 import {localDateString} from '../lib/date';
+import { VIEW_HEADER, clearViewSession, getViewSession } from '../lib/viewMode';
 
 const configuredBackendUrl =
   process.env.REACT_APP_BACKEND_URL;
@@ -39,15 +40,39 @@ const notifySuspendedSubscription = (status, detail) => {
   }
 };
 
+// Owner view mode: every request carries the view session id so the server keeps it read-only.
+api.interceptors.request.use(config => {
+  const session = getViewSession();
+  if (session) config.headers[VIEW_HEADER] = session.view_id;
+  return config;
+});
+
+const notifyViewMode = (status, detail) => {
+  const code = typeof detail === 'object' ? detail?.code : null;
+  if (status === 401 && code === 'VIEW_SESSION_EXPIRED') {
+    clearViewSession();
+    window.dispatchEvent(new CustomEvent('nexus:view-mode-ended'));
+  } else if (status === 403 && ['VIEW_MODE_READ_ONLY', 'VIEW_MODE_BLOCKED', 'VIEW_MODE_WRONG_ORG'].includes(code)) {
+    window.dispatchEvent(new CustomEvent('nexus:view-mode-blocked', { detail: { message: detail?.message } }));
+  }
+};
+
 // NEXUS_7J_SUBSCRIPTION_SUSPENDED_EXPERIENCE
 api.interceptors.response.use(
   response => response,
   error => {
     const detail = error?.response?.data?.detail;
     notifySuspendedSubscription(error?.response?.status, detail);
+    notifyViewMode(error?.response?.status, detail);
     return Promise.reject(error);
   }
 );
+
+export const ownerViewAPI = {
+  start: (organizationId, reason) => api.post('/owner/view-sessions', { organization_id: organizationId, reason }),
+  current: () => api.get('/owner/view-sessions/current'),
+  end: (viewId) => api.delete(`/owner/view-sessions/${viewId}`),
+};
 
 export const authAPI = {
   // Google OAuth (Emergent-managed)
@@ -484,13 +509,14 @@ export const nexusAiAPI = {
       {
         method: 'POST',
         credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...(getViewSession() ? { [VIEW_HEADER]: getViewSession().view_id } : {}) },
         body: JSON.stringify(data),
       },
     );
-    if (response.status === 402) {
+    if ([401, 402, 403].includes(response.status)) {
       const payload = await response.clone().json().catch(() => null);
       notifySuspendedSubscription(response.status, payload?.detail);
+      notifyViewMode(response.status, payload?.detail);
     }
     return response;
   },

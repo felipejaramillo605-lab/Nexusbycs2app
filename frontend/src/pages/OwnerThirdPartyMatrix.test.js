@@ -7,10 +7,14 @@ global.IS_REACT_ACT_ENVIRONMENT = true;
 const mockNavigate = jest.fn();
 const mockList = jest.fn();
 const mockDetail = jest.fn();
+const mockStartView = jest.fn();
+const mockSetViewSession = jest.fn();
 
 jest.mock('react-router-dom', () => ({ useNavigate: () => mockNavigate }), { virtual: true });
 jest.mock('sonner', () => ({ toast: { error: jest.fn() } }));
+jest.mock('../lib/viewMode', () => ({ setViewSession: (...args) => mockSetViewSession(...args) }));
 jest.mock('../api', () => ({
+  ownerViewAPI: { start: (...args) => mockStartView(...args) },
   thirdPartyMatrixAPI: {
     list: (...args) => mockList(...args),
     detail: (...args) => mockDetail(...args),
@@ -19,6 +23,7 @@ jest.mock('../api', () => ({
 jest.mock('../components/design', () => {
   const React = jest.requireActual('react');
   return {
+    AccessibleModal: ({ open, children }) => open ? React.createElement('div', { role: 'dialog' }, children) : null,
     ActionButton: ({ children, icon: _icon, loading: _loading, ...props }) => React.createElement('button', { type: 'button', ...props }, children),
     AnimatedNumber: ({ value }) => value,
     DetailDrawer: ({ open, children }) => open ? React.createElement('div', null, children) : null,
@@ -112,5 +117,30 @@ describe('OwnerThirdPartyMatrix Premium summary', () => {
     const block = host.querySelector('[data-testid="owner-subscription-status"]');
     expect(block.textContent).toContain('Sin configurar');
     expect(block.textContent).toContain('Activo');
+  });
+
+  test('enters read-only view mode only with a real reason, then opens that organization', async () => {
+    mockStartView.mockResolvedValue({ data: { view_id: 'ovs_1', organization_id: 'org-1', organization_name: 'Centro Uno', expires_at: '2099-01-01T00:00:00+00:00' } });
+    await act(async () => root.render(<OwnerThirdPartyMatrix />));
+    await act(async () => {
+      host.querySelector('button').dispatchEvent(new MouseEvent('click', { bubbles: true }));
+      await new Promise(resolve => setTimeout(resolve, 0));
+    });
+    const open = [...host.querySelectorAll('button')].find(button => button.textContent.includes('Ver cuenta (solo lectura)'));
+    await act(async () => open.dispatchEvent(new MouseEvent('click', { bubbles: true })));
+    const dialog = host.ownerDocument.querySelector('[role="dialog"]');
+    expect(dialog.textContent).toContain('No podrás modificar datos');
+    const submit = [...dialog.querySelectorAll('button')].find(button => button.textContent.includes('Entrar en modo visualización'));
+    expect(submit.disabled).toBe(true);
+    await act(async () => {
+      const area = dialog.querySelector('textarea');
+      Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value').set.call(area, 'Revisar reporte de soporte');
+      area.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+    expect(submit.disabled).toBe(false);
+    await act(async () => { dialog.querySelector('form').dispatchEvent(new Event('submit', { bubbles: true, cancelable: true })); });
+    expect(mockStartView).toHaveBeenCalledWith('org-1', 'Revisar reporte de soporte');
+    expect(mockSetViewSession).toHaveBeenCalledWith(expect.objectContaining({ view_id: 'ovs_1' }));
+    expect(mockNavigate).toHaveBeenCalledWith('/manager/dashboard?org_id=org-1');
   });
 });

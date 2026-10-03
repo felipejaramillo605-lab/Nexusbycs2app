@@ -59,6 +59,7 @@ from security_observability import (
     record_security_event,
 )
 from audit_contracts import build_audit_log_router, ensure_audit_log_indexes, record_audit_event
+from owner_view_mode import build_owner_view_router, enforce_view_mode, ensure_view_session_indexes
 from integrity_checks import build_integrity_router
 from owner_delivery_operations import (
     build_delivery_operations_router,
@@ -9201,6 +9202,7 @@ api_router.include_router(build_platform_billing_router(db, get_current_user), t
 api_router.include_router(build_third_party_matrix_router(db, get_current_user), tags=["owner-integrations"])
 api_router.include_router(build_owner_access_sessions_router(db, get_current_user, _owner_account_audit), tags=["owner-access-sessions"])
 api_router.include_router(build_audit_log_router(db, get_current_user), tags=["owner-audit"])
+api_router.include_router(build_owner_view_router(db, get_current_user))
 api_router.include_router(build_integrity_router(db, get_current_user), tags=["owner-integrity"])
 api_router.include_router(build_security_observability_router(db, get_current_user), tags=["owner-security"])
 # NEXUS_8A7S1A_SUPPORT_FOUNDATION_REGISTRATION_V1
@@ -9306,7 +9308,7 @@ app.add_middleware(
     allow_credentials=True,
     allow_origins=list(TRUSTED_ORIGINS),
     allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-    allow_headers=["Content-Type", "Authorization", "Cookie", "X-Session-ID", "X-Request-ID"],
+    allow_headers=["Content-Type", "Authorization", "Cookie", "X-Session-ID", "X-Request-ID", "X-Nexus-View-Session"],
     expose_headers=["Set-Cookie", "Retry-After"],
     max_age=600,
 )
@@ -9316,6 +9318,7 @@ app.add_middleware(
 async def request_security_and_headers(request: Request, call_next):
     try:
         await enforce_request_security(request)
+        await enforce_view_mode(request, db, record_security_event)
         response = await call_next(request)
     except HTTPException as exc:
         response = JSONResponse(
@@ -9395,6 +9398,7 @@ async def create_application_indexes():
     await ensure_platform_capability_indexes(db)
     await ensure_security_observability_indexes(db)
     await ensure_audit_log_indexes(db)
+    await ensure_view_session_indexes(db)
     # NEXUS_CHECKOUT_BACKEND_V1
     await db.transactions.create_index("transaction_id", unique=True)
     await db.transactions.create_index("appointment_id", unique=True, partialFilterExpression={"status": "confirmed"})
