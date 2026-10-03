@@ -35,6 +35,7 @@ const OwnerCapabilityGrants = lazy(() => import('./pages/OwnerCapabilityGrants')
 const OwnerAuditLog = lazy(() => import('./pages/OwnerAuditLog'));
 const OwnerSecurityEvents = lazy(() => import('./pages/OwnerSecurityEvents'));
 const OwnerIntegrityReport = lazy(() => import('./pages/OwnerIntegrityReport'));
+const OwnerMediaIntegrity = lazy(() => import('./pages/OwnerMediaIntegrity'));
 const OwnerThirdPartyMatrix = lazy(() => import('./pages/OwnerThirdPartyMatrix'));
 const OwnerAnnouncements = lazy(() => import('./pages/OwnerAnnouncements'));
 const OwnerSupportInbox = lazy(() => import('./pages/OwnerSupportInbox'));
@@ -160,6 +161,7 @@ function AppRouter() {
         <Route path="/owner/audit-log" element={<ProtectedRoute requiredRole="owner"><Suspense fallback={<PageLoader />}><OwnerAuditLog /></Suspense></ProtectedRoute>} />
         <Route path="/owner/security-events" element={<ProtectedRoute requiredRole="owner"><Suspense fallback={<PageLoader />}><OwnerSecurityEvents /></Suspense></ProtectedRoute>} />
         <Route path="/owner/integrity-report" element={<ProtectedRoute requiredRole="owner"><Suspense fallback={<PageLoader />}><OwnerIntegrityReport /></Suspense></ProtectedRoute>} />
+        <Route path="/owner/media-integrity" element={<ProtectedRoute requiredRole="owner"><Suspense fallback={<PageLoader />}><OwnerMediaIntegrity /></Suspense></ProtectedRoute>} />
         <Route
           path="/owner/access"
           element={
