@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import json
 import uuid
+from collections import OrderedDict
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from typing import Any, Optional
@@ -22,6 +23,7 @@ from pydantic import BaseModel
 import litellm
 
 from inventory_reorder import load_suggestions
+from request_security import rate_limiter
 
 EMERGENT_LLM_KEY = None  # set lazily from os.environ on first use (loaded after dotenv)
 
@@ -163,7 +165,12 @@ def _key():
 # In-memory session cache (single-process deployment). Full transcript is
 # durably stored in Mongo regardless -- this cache only preserves the model's
 # live conversational context between turns without reloading it every call.
-_ACTIVE_CHATS: dict = {}
+_ACTIVE_CHATS: "OrderedDict[str, object]" = OrderedDict()
+MAX_ACTIVE_CHATS = 200
+# One model turn may chain tool calls; cap the rounds so a looping model cannot run (and bill) forever.
+MAX_TOOL_ROUNDS = 6
+MESSAGES_PER_MINUTE = 20
+ROUND_LIMIT_NOTICE = "\n\nPara no extender la consulta de más, me detuve aquí. Si falta algo, pídemelo de nuevo."
 
 GUIDE_TOPICS = [
     {"id": "dashboard", "title": "Inicio", "keywords": ["inicio", "dashboard", "resumen"]},
@@ -418,6 +425,10 @@ def _get_or_create_chat(conversation_id, org):
             .with_tools(TOOL_DEFINITIONS, tool_choice="auto")
         )
         _ACTIVE_CHATS[conversation_id] = chat
+        while len(_ACTIVE_CHATS) > MAX_ACTIVE_CHATS:
+            _ACTIVE_CHATS.popitem(last=False)
+    else:
+        _ACTIVE_CHATS.move_to_end(conversation_id)
     return chat
 
 
@@ -494,6 +505,7 @@ def build_nexus_ai_router(db, get_current_user, require_management_role, resolve
     async def send_message(conversation_id: str, data: NexusAiMessageIn, organization_id: Optional[str] = None, authorization: Optional[str] = Header(None), session_token: Optional[str] = Cookie(None)):
         user = await get_current_user(authorization, session_token)
         org_id, org = await _entitled_org(user, organization_id)
+        await rate_limiter.check(f"nexus_ai:{user.user_id}", MESSAGES_PER_MINUTE, 60)
         conv = await db.nexus_ai_conversations.find_one({"conversation_id": conversation_id, "organization_id": org_id, "user_id": user.user_id})
         if not conv:
             raise HTTPException(status_code=404, detail="Conversation not found")
@@ -508,7 +520,7 @@ def build_nexus_ai_router(db, get_current_user, require_management_role, resolve
             full_text = ""
             user_msg = UserMessage(text=user_text)
             try:
-                while True:
+                for round_number in range(MAX_TOOL_ROUNDS + 1):
                     pending = []
                     async for ev in chat.stream_message(user_msg):
                         if isinstance(ev, TextDelta):
@@ -520,6 +532,10 @@ def build_nexus_ai_router(db, get_current_user, require_management_role, resolve
                         elif isinstance(ev, StreamDone):
                             break
                     if not pending:
+                        break
+                    if round_number >= MAX_TOOL_ROUNDS:
+                        full_text += ROUND_LIMIT_NOTICE
+                        yield f"data: {json.dumps({'delta': ROUND_LIMIT_NOTICE})}\n\n"
                         break
                     for tc in pending:
                         result = await _dispatch_tool(db, org_id, tc.name, tc.arguments or {}, user_id=user.user_id)
