@@ -5,11 +5,12 @@ import BusinessProfile from './BusinessProfile';
 global.IS_REACT_ACT_ENVIRONMENT = true;
 
 const mockGetOrganization = jest.fn();
+const mockUpdateOrganization = jest.fn();
 
 jest.mock('../context/AuthContext', () => ({ useAuth: () => ({ user: { role: 'manager', organization_id: 'org-1' } }) }));
 jest.mock('react-router-dom', () => ({ useNavigate: () => jest.fn(), useSearchParams: () => [new URLSearchParams()] }), { virtual: true });
 jest.mock('sonner', () => ({ toast: { success: jest.fn(), error: jest.fn() } }));
-jest.mock('../api', () => ({ organizationAPI: { get: (...args) => mockGetOrganization(...args) } }));
+jest.mock('../api', () => ({ organizationAPI: { get: (...args) => mockGetOrganization(...args), update: (...args) => mockUpdateOrganization(...args) } }));
 
 async function renderPage() {
   const host = document.createElement('div');
@@ -39,5 +40,16 @@ describe('BusinessProfile', () => {
     const rendered = await renderPage(); root = rendered.root;
     expect(rendered.host.querySelector('[role="alert"]')).toBeNull();
     expect([...rendered.host.querySelectorAll('button')].find(button => button.textContent.includes('Guardar Cambios')).disabled).toBe(false);
+  });
+
+  test('saves through the shared organization API client', async () => {
+    mockGetOrganization.mockResolvedValue({ data: { name: 'Empresa Real', address: 'Calle 1' } });
+    mockUpdateOrganization.mockResolvedValue({ data: {} });
+    const rendered = await renderPage(); root = rendered.root;
+    const form = rendered.host.querySelector('form');
+    await act(async () => { form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true })); await new Promise(resolve => setTimeout(resolve, 0)); });
+    expect(mockUpdateOrganization).toHaveBeenCalledTimes(1);
+    expect(mockUpdateOrganization.mock.calls[0][0]).toBe('org-1');
+    expect(mockUpdateOrganization.mock.calls[0][1].name).toBe('Empresa Real');
   });
 });
