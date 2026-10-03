@@ -9088,6 +9088,15 @@ async def get_public_appointment(appointment_id: str, token: str):
     }
 
 
+from client_whatsapp import build_client_whatsapp_router
+
+api_router.include_router(
+    build_client_whatsapp_router(
+        db, get_current_user, require_management_role, resolve_team_organization, _organization_timezone
+    ),
+    tags=["client-whatsapp"],
+)
+
 # NEXUS_INVENTORY_AUDIT_REGISTRATION_5A_PACKAGE_2_V1
 from inventory_audit import build_inventory_audit_router
 
