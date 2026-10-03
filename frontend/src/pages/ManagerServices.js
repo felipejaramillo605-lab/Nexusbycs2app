@@ -16,6 +16,7 @@ const ManagerServices = () => {
   const [searchParams] = useSearchParams();
   const [services, setServices] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState('');
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [newService, setNewService] = useState({ name: '', duration: 30, price: 0, service_type: 'individual', group_capacity: 8, drop_in_price: '', spot_layout: '', short_description: '' });
@@ -45,12 +46,15 @@ const ManagerServices = () => {
 
   const loadServices = useCallback(async () => {
     if (!organizationId) return;
+    setLoading(true);
+    setLoadError('');
     try {
       const params = { organization_id: organizationId };
       const response = await serviceAPI.getAll(params);
       setServices(response.data);
     } catch (error) {
       console.error('Error loading services:', error);
+      setLoadError('No fue posible cargar los servicios.');
     } finally {
       setLoading(false);
     }
@@ -259,6 +263,10 @@ const ManagerServices = () => {
         <div className="text-[var(--app-text-primary)] text-lg">Cargando...</div>
       </div>
     );
+  }
+
+  if (loadError) {
+    return <div className="min-h-screen nexus-screen flex items-center justify-center p-6"><EmptyState icon={AlertTriangle} title="No pudimos cargar los servicios" description="No se muestran datos vacíos como si fueran el catálogo. Intenta nuevamente." action={<button type="button" onClick={loadServices} className="mt-4 inline-flex items-center gap-2 rounded-xl bg-[var(--app-primary)] px-4 py-2 text-sm font-medium text-[var(--app-text-primary)]">Reintentar</button>}/></div>;
   }
 
   return (

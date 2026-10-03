@@ -220,4 +220,19 @@ describe('OwnerAccessControl sessions', () => {
 
     expect(rendered.host.textContent).not.toContain('Cerrar todas las sesiones');
   });
+
+  test('shows unavailable counters and retries when the access list fails to load', async () => {
+    mockGetUsers.mockRejectedValueOnce(new Error('Unavailable'));
+    mockGetUsers.mockResolvedValueOnce({ data: [staffMember] });
+    const rendered = await renderPage();
+    root = rendered.root;
+
+    expect(rendered.host.textContent).toContain('No disponible');
+    expect(rendered.host.querySelector('[role="alert"]').textContent).toContain('no representan cero usuarios');
+    await openDetail(rendered.host, 'Reintentar');
+
+    expect(mockGetUsers).toHaveBeenCalledTimes(2);
+    expect(rendered.host.querySelector('[role="alert"]')).toBeNull();
+    expect(rendered.host.textContent).toContain('1');
+  });
 });
