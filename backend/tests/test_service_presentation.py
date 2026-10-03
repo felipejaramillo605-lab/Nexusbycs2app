@@ -67,6 +67,8 @@ class PresentationMediaTests(unittest.TestCase):
         self.new = "/api/media/catalog/org_a/new.webp"
         self.write = self.enterContext(patch.object(service_media, "_write_catalog_image", return_value=self.new))
         self.delete = self.enterContext(patch.object(service_media, "_delete_catalog_image"))
+        self.mirror_put = self.enterContext(patch.object(service_media, "mirror_put", new_callable=AsyncMock))
+        self.enterContext(patch.object(service_media, "mirror_delete", new_callable=AsyncMock))
 
     def upload(self, slot="cover", **kwargs):
         return self.client.post(f"/services/service_a/presentation/{slot}",
@@ -101,6 +103,12 @@ class PresentationMediaTests(unittest.TestCase):
         self.assertEqual(self.upload().status_code, 500)
         self.assertEqual(self.services.document["cover_image_url"], self.old)
         self.delete.assert_not_called()
+
+    def test_mirror_failure_reverts_new_service_media(self):
+        self.mirror_put.side_effect = RuntimeError("mirror unavailable")
+        self.assertEqual(self.upload().status_code, 500)
+        self.assertEqual(self.services.document["cover_image_url"], self.old)
+        self.delete.assert_called_once_with(self.new)
 
     def test_failed_gallery_delete_preserves_file(self):
         self.services.document["photos"] = [self.old]

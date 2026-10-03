@@ -19,6 +19,7 @@ from professional_media import (
     _read_limited,
 )
 from image_pipeline import normalize_image_async
+from media_mirror import mirror_delete, mirror_put, mirror_restore
 
 MAX_PRODUCT_PHOTOS = 4
 PUBLIC_PREFIX = "/api/media/catalog"
@@ -62,6 +63,20 @@ def _delete_catalog_image(url: str | None):
     parts = url[len(PUBLIC_PREFIX) + 1 :].split("/")
     if len(parts) == 2 and SAFE_ORG.fullmatch(parts[0]) and SAFE_FILE.fullmatch(parts[1]):
         _safe_catalog_path(parts[0], parts[1]).unlink(missing_ok=True)
+
+
+def _catalog_parts(url: str | None):
+    if not url or not url.startswith(PUBLIC_PREFIX + "/"):
+        return None
+    parts = url[len(PUBLIC_PREFIX) + 1 :].split("/")
+    return parts if len(parts) == 2 and SAFE_ORG.fullmatch(parts[0]) and SAFE_FILE.fullmatch(parts[1]) else None
+
+
+async def delete_catalog_image_mirror(db, url: str | None):
+    parts = _catalog_parts(url)
+    _delete_catalog_image(url)
+    if parts:
+        await mirror_delete(db, "catalog", "/".join(parts))
 
 
 class ProductCreate(BaseModel):
@@ -287,10 +302,15 @@ def build_product_catalog_router(db, get_current_user, require_management_role, 
         new_url = _write_catalog_image(org_id, payload)
         photos.append(new_url)
         now = datetime.now(timezone.utc).isoformat()
-        await db.catalog_products.update_one(
-            {"organization_id": org_id, "product_id": product_id},
-            {"$set": {"photos": photos, "updated_at": now}},
-        )
+        try:
+            await mirror_put(db, "catalog", f"{org_id}/{new_url.rsplit('/', 1)[-1]}", payload, "image/webp")
+            await db.catalog_products.update_one(
+                {"organization_id": org_id, "product_id": product_id},
+                {"$set": {"photos": photos, "updated_at": now}},
+            )
+        except Exception:
+            await delete_catalog_image_mirror(db, new_url)
+            raise HTTPException(500, "Image could not be saved")
         return {"photos": photos, "uploaded": new_url, **metadata}
 
     @router.delete("/catalog/products/{product_id}/photos/{photo_index}", tags=["catalog"])
@@ -311,12 +331,12 @@ def build_product_catalog_router(db, get_current_user, require_management_role, 
         if photo_index < 0 or photo_index >= len(photos):
             raise HTTPException(400, "Invalid photo index")
         removed_url = photos.pop(photo_index)
-        _delete_catalog_image(removed_url)
         now = datetime.now(timezone.utc).isoformat()
         await db.catalog_products.update_one(
             {"organization_id": org_id, "product_id": product_id},
             {"$set": {"photos": photos, "updated_at": now}},
         )
+        await delete_catalog_image_mirror(db, removed_url)
         return {"photos": photos, "deleted": removed_url}
 
     @router.post("/catalog/products/{product_id}/photos/url", tags=["catalog"])
@@ -424,7 +444,7 @@ def build_product_catalog_router(db, get_current_user, require_management_role, 
     @router.get("/media/catalog/{organization_id}/{filename}", tags=["catalog"], include_in_schema=False)
     async def get_catalog_media(organization_id: str, filename: str):
         path = _safe_catalog_path(organization_id, filename)
-        if not path.is_file():
+        if not path.is_file() and not await mirror_restore(db, "catalog", f"{organization_id}/{filename}", path):
             raise HTTPException(status_code=404, detail="Image not found")
         return FileResponse(
             path,
