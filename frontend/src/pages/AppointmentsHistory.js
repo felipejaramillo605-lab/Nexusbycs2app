@@ -254,8 +254,8 @@ const AppointmentsHistory = () => {
                           <div className="text-sm text-zinc-400">{apt.time}</div>
                         </td>
                         <td className="px-6 py-4">
-                          <div className="text-[var(--app-text-primary)]">{apt.customer_name}</div>
-                          <div className="text-sm text-zinc-400">{apt.customer_phone}</div>
+                          <div className="text-[var(--app-text-primary)]">{apt.client_name}</div>
+                          <div className="text-sm text-zinc-400">{apt.client_phone}</div>
                         </td>
                         <td className="px-6 py-4 text-[var(--app-text-primary)]">{apt.service_name}</td>
                         <td className="px-6 py-4 text-[var(--app-text-primary)]">{apt.barber_name}</td>
@@ -303,7 +303,7 @@ const AppointmentsHistory = () => {
                   <div key={apt.appointment_id} className="p-4 space-y-3">
                     <div className="flex items-start justify-between">
                       <div>
-                        <div className="text-[var(--app-text-primary)] font-medium">{apt.customer_name}</div>
+                        <div className="text-[var(--app-text-primary)] font-medium">{apt.client_name}</div>
                         <div className="text-sm text-zinc-400">{apt.date} · {apt.time}</div>
                       </div>
                       {getStatusBadge(apt.status)}
