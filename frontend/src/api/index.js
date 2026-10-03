@@ -93,6 +93,11 @@ export const ownerAPI = {
   updateAccess: (userId, status) => api.put(`/owner/users/${userId}/access`, { access_status: status }),
   recoverOrganizationRole: (userId, data) => api.post(`/owner/users/${userId}/organization-role`, data),
   deleteUser: (userId) => api.delete(`/owner/users/${userId}`),
+  addOwner: (email, reason) => api.post('/owner/owners', { email, reason }),
+  listOwnerInvitations: () => api.get('/owner/owner-invitations'),
+  revokeOwnerInvitation: (invitationId) => api.delete(`/owner/owner-invitations/${invitationId}`),
+  getDeletionImpact: (organizationId) => api.get(`/owner/organizations/${organizationId}/deletion-impact`),
+  deleteOrganization: (organizationId, data) => api.post(`/owner/organizations/${organizationId}/delete`, data),
 };
 
 // NEXUS_OWNER_CONSOLE_SHELL_V1 (plan PR 19/20): backend from #61

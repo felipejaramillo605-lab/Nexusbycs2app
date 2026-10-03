@@ -518,3 +518,13 @@ button,[role="button"]{-webkit-tap-highlight-color:transparent}button:focus-visi
 /* Staff nav: four daily destinations on phones, the rest behind "Más" */
 .nexus-staff-more{display:none}.nexus-staff-more-panel{display:none}
 @media(max-width:700px){.nexus-staff-secondary{display:none!important}.nexus-staff-more{display:flex}.nexus-staff-more-panel{position:fixed;right:.75rem;bottom:calc(4.4rem + env(safe-area-inset-bottom,0px));z-index:60;display:flex;flex-direction:column;gap:.15rem;min-width:11rem;padding:.4rem;border-radius:16px;background:var(--app-surface-elevated);border:1px solid var(--app-border);box-shadow:var(--app-shadow-md)}.nexus-staff-more-panel a,.nexus-staff-more-panel button{flex:none;flex-direction:row;justify-content:flex-start;gap:.6rem;min-height:44px;padding:.55rem .8rem;font-size:.85rem}}
+
+/* NEXUS_MODAL_PANEL_VISIBLE_V1: the default panel of AccessibleModal had no styles, so dialogs using it were invisible */
+.nexus-accessible-modal-panel,
+.nexus-confirm-layer>[role="alertdialog"],
+.nexus-confirm-layer>[role="dialog"]{position:relative;z-index:1;width:min(520px,100%);max-height:calc(100dvh - 2rem);overflow:auto;padding:1.4rem;border:1px solid var(--app-border);border-radius:22px;background:var(--app-surface-elevated);color:var(--app-text-primary);box-shadow:var(--app-shadow-lg)}
+.nexus-accessible-modal-panel h2,.nexus-confirm-layer>[role="alertdialog"] h2,.nexus-confirm-layer>[role="dialog"] h2{margin:0 0 .5rem;font-size:1.3rem}
+.nexus-accessible-modal-panel p,.nexus-confirm-layer>[role="alertdialog"] p{margin:.55rem 0;color:var(--app-text-secondary)}
+.nexus-accessible-modal-panel ul{margin:.5rem 0;padding-left:1.2rem;color:var(--app-text-secondary);list-style:disc}
+.nexus-confirm-layer>.nexus-accessible-modal-backdrop{position:absolute;inset:0;z-index:0;width:100%;height:100%;border:0;border-radius:0;background:var(--app-overlay);backdrop-filter:blur(5px)}
+@media(max-width:560px){.nexus-accessible-modal-panel,.nexus-confirm-layer>[role="alertdialog"],.nexus-confirm-layer>[role="dialog"]{width:100%;border-radius:22px 22px 0 0}}

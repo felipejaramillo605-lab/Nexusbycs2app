@@ -69,7 +69,7 @@ async def process_birthday_alerts(db, *, at=None):
         return summary
 
     orgs = await db.organizations.find(
-        {"notification_settings.birthday_reminders_enabled": {"$ne": False}},
+        {"notification_settings.birthday_reminders_enabled": {"$ne": False}, "deleted_at": None},
         {"_id": 0, "organization_id": 1, "name": 1, "birthday_campaign": 1},
     ).to_list(10000)
 

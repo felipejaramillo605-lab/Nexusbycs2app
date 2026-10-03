@@ -174,6 +174,7 @@ def build_third_party_matrix_router(db, get_current_user):
                 {"organization_id": {"$in": profile_ids}},
             ]}
 
+        query = {"$and": [query, {"deleted_at": None}]}
         organizations = await db.organizations.find(
             query, SAFE_ORGANIZATION_PROJECTION
         ).sort([("name", 1), ("organization_id", 1)]).to_list(5000)

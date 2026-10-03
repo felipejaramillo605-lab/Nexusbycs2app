@@ -60,7 +60,8 @@ async def process_low_stock_alerts(db, *, at=None):
             "$or": [
                 {"notification_settings.low_stock_alert_enabled": True},
                 {"notification_settings.low_stock_alert_whatsapp_enabled": True},
-            ]
+            ],
+            "deleted_at": None,
         },
         {"_id": 0, "organization_id": 1, "name": 1, "notification_settings": 1},
     ).to_list(10000)
