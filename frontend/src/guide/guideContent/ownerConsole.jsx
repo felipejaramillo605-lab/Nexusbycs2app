@@ -167,8 +167,12 @@ const owner = {
       ],
       expected: 'Detectas registros que apuntan a algo que ya no existe (una clase, un profesional, una organización, un proveedor o una orden de compra). El reporte solo informa: la corrección se hace desde la página dueña de ese dato, no desde aquí.',
     },
-  ],
-  buttons: [
+    {
+      id: 'oc10', title: 'Ver una cuenta de organización sin modificarla',
+      substeps: ['En Directorio, elige la organización y pulsa "Ver cuenta (solo lectura)".', 'Escribe el motivo de soporte; la sesión dura 30 minutos.', 'Consulta las pantallas Manager necesarias y usa "Salir" al terminar.'],
+      expected: 'La sesión solo permite lecturas de esa organización; exportaciones y cambios quedan bloqueados y el Owner conserva la auditoría.',
+    },
+  ],  buttons: [
     { icon: Building2, name: 'Ver detalle', does: 'Abre el detalle de una organización en Matriz de terceros.', when: 'Para comprobar datos fiscales, personas y estados.' },
     { icon: RefreshCw, name: 'Actualizar', does: 'Recarga Matriz de terceros, Control de accesos o Administradores de entitlements.', when: 'Después de cambios que puedan haberse realizado en otra sesión.' },
     { icon: Download, name: 'PDF', does: 'Descarga la factura de la fila de la tabla global.', when: 'Cuando ya comprobaste la organización y el número.' },
@@ -235,6 +239,7 @@ const owner = {
     { problem: 'No aparece Revocar o no hay Owners disponibles para otorgar permiso.', fix: 'Revocar se oculta si queda un solo titular. Otorga primero el permiso a otro Owner elegible. El selector solo ofrece Owners aprobados, activos, no eliminados y sin el permiso.' },
     { problem: 'Quiero corregir un dato desde auditoría o desbloquear un evento de seguridad.', fix: 'Ambos registros son estrictamente de solo lectura. Usa la administración correspondiente para cambios autorizados y conserva los datos del evento para la investigación.' },
     { problem: 'No veo eventos después de filtrar.', fix: 'Vuelve a todas las categorías, tipos o severidades y revisa la paginación. Una lista vacía para un filtro no demuestra que nunca haya habido actividad.' },
+    { problem: 'La organización pregunta quién la revisó en modo visualización.', fix: 'La sesión queda solamente en la auditoría Owner; la organización no recibe aviso ni ve ese historial.' },
     { problem: 'Quiero corregir un hallazgo del reporte de integridad desde ahí mismo.', fix: 'El reporte es estrictamente de solo lectura, igual que auditoría y seguridad. Corrige el dato desde la página dueña de esa entidad (organizaciones, facturación o inventario) y vuelve a pulsar "Actualizar" para confirmar.' },
     { problem: 'Un hallazgo sigue apareciendo después de corregir el dato.', fix: 'Pulsa "Actualizar" para recalcular el reporte; no se actualiza solo. Si persiste, verifica que corregiste la organización correcta.' },
   ],

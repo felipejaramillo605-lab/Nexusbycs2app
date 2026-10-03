@@ -149,6 +149,8 @@ const manager = {
     },
   ],
   pitfalls: [
+    { problem: 'En móvil no encuentro una sección del Staff.', fix: 'La barra muestra Citas, Ingresos, Reseñas y Perfil. Entra por Citas, que abre Hoy; las demás opciones están en Más.' },
+    { problem: 'Pulsé cancelar por error.', fix: 'La agenda pide confirmación antes de cancelar. Lee el aviso y confirma solo cuando quieras liberar el horario.' },
     { problem: 'No encuentro un botón para reagendar la cita desde la Agenda.', fix: 'La Agenda no reprograma citas. La reprogramación la hace el cliente desde su portal o desde el enlace de gestión que recibe. Si debes moverla tú, cancélala y comparte el enlace de reservas.' },
     { problem: 'Los "Ingresos de hoy" no suben aunque ya atendimos.', fix: 'El ingreso se registra solo al pulsar "Confirmar cobro" en "Completar y cobrar". Si la cita sigue "Confirmada", todavía no cuenta.' },
     { problem: 'Cancelé una cita por error.', fix: 'La cancelación no se deshace desde la Agenda. Comparte el enlace de reservas para volver a agendar al cliente en el mismo horario si sigue libre.' },
@@ -208,6 +210,8 @@ const owner = {
     },
   ],
   pitfalls: [
+    { problem: 'En móvil no encuentro una sección del Staff.', fix: 'La barra muestra Citas, Ingresos, Reseñas y Perfil. Entra por Citas, que abre Hoy; las demás opciones están en Más.' },
+    { problem: 'Pulsé cancelar por error.', fix: 'La agenda pide confirmación antes de cancelar. Lee el aviso y confirma solo cuando quieras liberar el horario.' },
     { problem: 'Veo citas que no son de la sede que quería revisar.', fix: 'Vuelve a "Inicio", selecciona la sede correcta y entra a "Agenda" desde ahí. La sede activa viaja en el enlace.' },
   ],
   checklist: [
@@ -293,6 +297,8 @@ const staff = {
     },
   ],
   pitfalls: [
+    { problem: 'En móvil no encuentro una sección del Staff.', fix: 'La barra muestra Citas, Ingresos, Reseñas y Perfil. Entra por Citas, que abre Hoy; las demás opciones están en Más.' },
+    { problem: 'Pulsé cancelar por error.', fix: 'La agenda pide confirmación antes de cancelar. Lee el aviso y confirma solo cuando quieras liberar el horario.' },
     { problem: 'No puedo crear ni mover una cita desde "Mis citas".', fix: 'Es correcto: agendar, reprogramar y cobrar lo hace la administración. Tú consultas tus citas y contactas al cliente.' },
     { problem: 'Una cita que atendí sigue apareciendo como "Confirmada".', fix: 'La cita cambia a "Completada" cuando la administración registra el cobro. Si lleva rato sin cambiar, avisa a la administración.' },
     { problem: 'No veo los botones "Llamar" o "Correo".', fix: 'Solo aparecen si la cita tiene registrado el teléfono o el correo del cliente. Si faltan, pídele el dato a la administración.' },
