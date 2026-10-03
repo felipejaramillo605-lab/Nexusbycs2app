@@ -32,15 +32,19 @@ export const api = axios.create({
   timeout: 15000,
 });
 
+const notifySuspendedSubscription = (status, detail) => {
+  const code = typeof detail === 'object' ? detail?.code : null;
+  if (status === 402 && code === 'SUBSCRIPTION_ACCESS_SUSPENDED') {
+    window.dispatchEvent(new CustomEvent('nexus:subscription-suspended', { detail: { code } }));
+  }
+};
+
 // NEXUS_7J_SUBSCRIPTION_SUSPENDED_EXPERIENCE
 api.interceptors.response.use(
   response => response,
   error => {
     const detail = error?.response?.data?.detail;
-    const code = typeof detail === 'object' ? detail?.code : null;
-    if (error?.response?.status === 402 && code === 'SUBSCRIPTION_ACCESS_SUSPENDED') {
-      window.dispatchEvent(new CustomEvent('nexus:subscription-suspended',{detail:{code}}));
-    }
+    notifySuspendedSubscription(error?.response?.status, detail);
     return Promise.reject(error);
   }
 );
@@ -468,6 +472,26 @@ export const nexusAiAPI = {
   getConversations: (params = {}) => api.get('/nexus-ai/conversations', { params }),
   createConversation: (params = {}) => api.post('/nexus-ai/conversations', null, { params }),
   getMessages: (conversationId, params = {}) => api.get(`/nexus-ai/conversations/${conversationId}/messages`, { params }),
+  streamMessage: async (conversationId, data, params = {}) => {
+    const search = new URLSearchParams(
+      Object.entries(params).filter(([, value]) => value !== undefined && value !== null && value !== ''),
+    );
+    const query = search.toString();
+    const response = await fetch(
+      `${API}/nexus-ai/conversations/${conversationId}/messages${query ? `?${query}` : ''}`,
+      {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      },
+    );
+    if (response.status === 402) {
+      const payload = await response.clone().json().catch(() => null);
+      notifySuspendedSubscription(response.status, payload?.detail);
+    }
+    return response;
+  },
 };
 
 // NEXUS_PRODUCT_CATALOG_V10
