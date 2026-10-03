@@ -22,6 +22,7 @@ from pathlib import Path
 from fastapi import APIRouter, Cookie, File, Header, HTTPException, UploadFile
 from fastapi.responses import FileResponse
 from image_pipeline import MAX_UPLOAD_BYTES, MAX_SIDE, MAX_INPUT_PIXELS, read_upload_limited, normalize_image as _normalize_image, normalize_image_async
+from media_mirror import mirror_delete, mirror_put, mirror_restore
 
 MAX_PIXELS = MAX_INPUT_PIXELS
 OUTPUT_SIDE = 1024
@@ -81,10 +82,11 @@ def _write_atomic(payload: bytes) -> tuple[str, Path]:
     return f"{PUBLIC_PREFIX}/{filename}", destination
 
 
-def _delete_managed(value: str | None):
+async def _delete_managed(db, value: str | None):
     filename = managed_filename(value)
     if filename:
         _safe_path(filename).unlink(missing_ok=True)
+        await mirror_delete(db, "platform", filename)
 
 
 def build_platform_branding_router(db, get_current_user):
@@ -115,6 +117,7 @@ def build_platform_branding_router(db, get_current_user):
         new_url, new_path = _write_atomic(payload)
         now = datetime.now(timezone.utc).isoformat()
         try:
+            await mirror_put(db, "platform", new_path.name, payload, "image/webp")
             await db.platform_settings.update_one(
                 {"settings_id": SETTINGS_ID},
                 {"$set": {"platform_logo_url": new_url, "updated_at": now, "updated_by": user.user_id}, "$setOnInsert": {"created_at": now}},
@@ -122,8 +125,9 @@ def build_platform_branding_router(db, get_current_user):
             )
         except Exception:
             new_path.unlink(missing_ok=True)
+            await mirror_delete(db, "platform", new_path.name)
             raise HTTPException(status_code=500, detail="Logo could not be saved")
-        _delete_managed(old_url)
+        await _delete_managed(db, old_url)
         return {"platform_logo_url": new_url, "content_type": "image/webp", **metadata}
 
     @router.delete("/owner/platform-logo", tags=["platform-branding"])
@@ -136,13 +140,13 @@ def build_platform_branding_router(db, get_current_user):
             {"$set": {"platform_logo_url": None, "updated_at": now}},
             upsert=True,
         )
-        _delete_managed(old_url)
+        await _delete_managed(db, old_url)
         return {"platform_logo_url": None}
 
     @router.get("/media/platform/{filename}", include_in_schema=False)
     async def get_platform_media(filename: str):
         path = _safe_path(filename)
-        if not path.is_file():
+        if not path.is_file() and not await mirror_restore(db, "platform", filename, path):
             raise HTTPException(status_code=404, detail="Image not found")
         return FileResponse(path, media_type="image/webp", headers={"Cache-Control": "public, max-age=31536000, immutable", "X-Content-Type-Options": "nosniff"})
 

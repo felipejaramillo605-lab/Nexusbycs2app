@@ -13,6 +13,7 @@ from fastapi import APIRouter, Cookie, File, Header, HTTPException, UploadFile
 from product_catalog import _write_catalog_image, _delete_catalog_image
 from professional_media import _read_limited
 from image_pipeline import normalize_image_async
+from media_mirror import mirror_delete, mirror_put
 
 MAX_SERVICE_PHOTOS = 2
 PRESENTATION_SLOTS = {"cover": "cover_image_url", "banner": "banner_image_url"}
@@ -40,11 +41,12 @@ def build_service_media_router(db, get_current_user, require_management_role, re
         if not result.matched_count:
             raise HTTPException(status_code=409, detail="Las imágenes cambiaron. Actualiza e intenta de nuevo.")
 
-    def cleanup(org_id, url, service):
+    async def cleanup(org_id, url, service):
         references = [*(service.get("photos") or []), *(service.get(key) for key in PRESENTATION_SLOTS.values())]
         if url and url.startswith(f"/api/media/catalog/{org_id}/") and url not in references:
             try:
                 _delete_catalog_image(url)
+                await mirror_delete(db, "catalog", f"{org_id}/{url.rsplit('/', 1)[-1]}")
             except OSError:
                 logging.getLogger(__name__).warning("Unable to remove unused service image")
 
@@ -65,9 +67,14 @@ def build_service_media_router(db, get_current_user, require_management_role, re
         new_url = _write_catalog_image(org_id, payload)
         photos.append(new_url)
         try:
+            await mirror_put(db, "catalog", f"{org_id}/{new_url.rsplit('/', 1)[-1]}", payload, "image/webp")
+        except Exception:
+            await cleanup(org_id, new_url, service)
+            raise HTTPException(status_code=500, detail="Image could not be saved")
+        try:
             await replace_media(org_id, service, {"photos": photos})
         except HTTPException:
-            cleanup(org_id, new_url, service)
+            await cleanup(org_id, new_url, service)
             raise
         return {"photos": photos, "uploaded": new_url, **metadata}
 
@@ -86,7 +93,7 @@ def build_service_media_router(db, get_current_user, require_management_role, re
             raise HTTPException(status_code=400, detail="Invalid photo index")
         removed_url = photos.pop(photo_index)
         await replace_media(org_id, service, {"photos": photos})
-        cleanup(org_id, removed_url, {**service, "photos": photos})
+        await cleanup(org_id, removed_url, {**service, "photos": photos})
         return {"photos": photos, "deleted": removed_url}
 
     @router.post("/services/{service_id}/presentation/{slot}", tags=["services"])
@@ -107,13 +114,18 @@ def build_service_media_router(db, get_current_user, require_management_role, re
         new_url = _write_catalog_image(org_id, payload)
         previous_url = service.get(field)
         try:
+            await mirror_put(db, "catalog", f"{org_id}/{new_url.rsplit('/', 1)[-1]}", payload, "image/webp")
+        except Exception:
+            await cleanup(org_id, new_url, service)
+            raise HTTPException(status_code=500, detail="Image could not be saved")
+        try:
             await replace_media(org_id, service, {field: new_url})
         except HTTPException:
-            cleanup(org_id, new_url, service)
+            await cleanup(org_id, new_url, service)
             raise
         # A transport failure has an uncertain commit outcome: retain files in
         # that case instead of potentially deleting an image now in use.
-        cleanup(org_id, previous_url, {**service, field: new_url})
+        await cleanup(org_id, previous_url, {**service, field: new_url})
         return {field: new_url, "slot": slot, **metadata}
 
     return router

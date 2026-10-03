@@ -16,6 +16,7 @@ from pathlib import Path
 from fastapi import APIRouter, Cookie, File, Header, HTTPException, Query, UploadFile
 from fastapi.responses import FileResponse
 from image_pipeline import MAX_UPLOAD_BYTES, MAX_SIDE, MAX_INPUT_PIXELS, read_upload_limited, normalize_image as _normalize_image, normalize_image_async
+from media_mirror import mirror_delete, mirror_put, mirror_restore
 
 MAX_PIXELS = MAX_INPUT_PIXELS
 OUTPUT_SIDE = 1024
@@ -77,10 +78,11 @@ def _write_atomic(organization_id: str, payload: bytes) -> tuple[str, Path]:
     return f"{PUBLIC_PREFIX}/{organization_id}/{filename}", destination
 
 
-def _delete_managed(value: str | None):
+async def _delete_managed(db, value: str | None):
     parts = managed_parts(value)
     if parts:
         _safe_path(*parts).unlink(missing_ok=True)
+        await mirror_delete(db, "organizations", "/".join(parts))
 
 
 def build_organization_media_router(db, get_current_user, require_management_role, resolve_team_organization):
@@ -104,13 +106,15 @@ def build_organization_media_router(db, get_current_user, require_management_rol
         new_url, new_path = _write_atomic(real_org_id, payload)
         now = datetime.now(timezone.utc).isoformat()
         try:
+            await mirror_put(db, "organizations", f"{real_org_id}/{new_path.name}", payload, "image/webp")
             result = await db.organizations.update_one({"organization_id": real_org_id}, {"$set": {"logo_url": new_url, "updated_at": now}})
             if result.matched_count != 1:
                 raise RuntimeError("organization logo update conflict")
         except Exception:
             new_path.unlink(missing_ok=True)
+            await mirror_delete(db, "organizations", f"{real_org_id}/{new_path.name}")
             raise HTTPException(status_code=500, detail="Logo could not be saved")
-        _delete_managed(old_url)
+        await _delete_managed(db, old_url)
         return {"logo_url": new_url, "content_type": "image/webp", **metadata}
 
     @router.delete("/organizations/{organization_id}/logo", tags=["organizations"])
@@ -123,13 +127,13 @@ def build_organization_media_router(db, get_current_user, require_management_rol
         result = await db.organizations.update_one({"organization_id": real_org_id}, {"$set": {"logo_url": None, "updated_at": now}})
         if result.matched_count != 1:
             raise HTTPException(status_code=500, detail="Logo could not be deleted")
-        _delete_managed(old_url)
+        await _delete_managed(db, old_url)
         return {"logo_url": None}
 
     @router.get("/media/organizations/{organization_id}/{filename}", include_in_schema=False)
     async def get_organization_media(organization_id: str, filename: str):
         path = _safe_path(organization_id, filename)
-        if not path.is_file():
+        if not path.is_file() and not await mirror_restore(db, "organizations", f"{organization_id}/{filename}", path):
             raise HTTPException(status_code=404, detail="Image not found")
         return FileResponse(path, media_type="image/webp", headers={"Cache-Control": "public, max-age=31536000, immutable", "X-Content-Type-Options": "nosniff"})
 

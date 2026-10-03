@@ -18,6 +18,7 @@ from fastapi.responses import FileResponse
 
 from organization_media import SAFE_ORG
 from image_pipeline import MAX_UPLOAD_BYTES, is_heif_or_avif_container, normalize_image_async
+from media_mirror import mirror_delete, mirror_put, mirror_restore
 
 MAX_VIDEO_BYTES = 20 * 1024 * 1024
 MAX_VIDEO_SECONDS = 15.0
@@ -174,9 +175,11 @@ def _write_atomic(organization_id: str, payload: bytes, extension: str) -> tuple
     return f"{PUBLIC_PREFIX}/{organization_id}/{filename}", destination
 
 
-def _delete_managed(value: str | None):
+async def _delete_managed(db, value: str | None):
     parts = managed_parts(value)
-    if parts: _safe_path(*parts).unlink(missing_ok=True)
+    if parts:
+        _safe_path(*parts).unlink(missing_ok=True)
+        await mirror_delete(db, "portal-backgrounds", "/".join(parts))
 
 
 def build_organization_background_media_router(db, get_current_user, require_management_role, resolve_team_organization):
@@ -196,23 +199,26 @@ def build_organization_background_media_router(db, get_current_user, require_man
         payload, extension, duration, kind = await prepare_background_upload(source)
         new_url, path = _write_atomic(org["organization_id"], payload, extension)
         try:
+            await mirror_put(db, "portal-backgrounds", f"{org['organization_id']}/{path.name}", payload, {"webp": "image/webp", "mp4": "video/mp4", "webm": "video/webm"}[extension])
             await db.organizations.update_one({"organization_id": org["organization_id"]}, {"$set": {"portal_background_type": kind, "portal_background_url": new_url, "updated_at": datetime.now(timezone.utc).isoformat()}})
         except Exception:
-            path.unlink(missing_ok=True); raise HTTPException(status_code=500, detail="Background could not be saved")
-        _delete_managed(org.get("portal_background_url"))
+            path.unlink(missing_ok=True)
+            await mirror_delete(db, "portal-backgrounds", f"{org['organization_id']}/{path.name}")
+            raise HTTPException(status_code=500, detail="Background could not be saved")
+        await _delete_managed(db, org.get("portal_background_url"))
         return {"portal_background_type": kind, "portal_background_url": new_url, "duration_seconds": duration}
 
     @router.delete("/organizations/{organization_id}/portal-background", tags=["organizations"])
     async def delete_background(organization_id: str, authorization: str | None = Header(None), session_token: str | None = Cookie(None)):
         org = await target(await get_current_user(authorization, session_token), organization_id)
         await db.organizations.update_one({"organization_id": org["organization_id"]}, {"$set": {"portal_background_type": "none", "portal_background_url": None, "updated_at": datetime.now(timezone.utc).isoformat()}})
-        _delete_managed(org.get("portal_background_url"))
+        await _delete_managed(db, org.get("portal_background_url"))
         return {"portal_background_type": "none", "portal_background_url": None}
 
     @router.get("/media/portal-backgrounds/{organization_id}/{filename}", include_in_schema=False)
     async def get_background(organization_id: str, filename: str):
         path = _safe_path(organization_id, filename)
-        if not path.is_file(): raise HTTPException(status_code=404, detail="Background media not found")
+        if not path.is_file() and not await mirror_restore(db, "portal-backgrounds", f"{organization_id}/{filename}", path): raise HTTPException(status_code=404, detail="Background media not found")
         media_type = {".webp": "image/webp", ".mp4": "video/mp4", ".webm": "video/webm"}[path.suffix]
         return FileResponse(path, media_type=media_type, headers={"Cache-Control": "public, max-age=31536000, immutable", "X-Content-Type-Options": "nosniff"})
 

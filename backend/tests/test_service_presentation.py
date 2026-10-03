@@ -67,6 +67,8 @@ class PresentationMediaTests(unittest.TestCase):
         self.new = "/api/media/catalog/org_a/new.webp"
         self.write = self.enterContext(patch.object(service_media, "_write_catalog_image", return_value=self.new))
         self.delete = self.enterContext(patch.object(service_media, "_delete_catalog_image"))
+        self.enterContext(patch.object(service_media, "mirror_put", new_callable=AsyncMock))
+        self.enterContext(patch.object(service_media, "mirror_delete", new_callable=AsyncMock))
 
     def upload(self, slot="cover", **kwargs):
         return self.client.post(f"/services/service_a/presentation/{slot}",
