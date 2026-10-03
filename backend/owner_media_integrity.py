@@ -9,7 +9,7 @@ from fastapi import APIRouter, Cookie, Header, HTTPException
 from media_mirror import ALLOWED_NAMESPACES
 from organization_background_media import managed_parts as background_parts, media_root as background_root
 from organization_media import managed_parts as organization_parts, media_root as organization_root
-from platform_branding import managed_filename as platform_filename, media_root as platform_root
+from platform_branding import SETTINGS_ID, managed_filename as platform_filename, media_root as platform_root
 from product_catalog import _catalog_parts, _safe_catalog_path
 from professional_media import managed_parts as professional_parts, media_root as professional_root
 
@@ -60,7 +60,7 @@ async def _check(db, findings, kind, organization_id, entity_id, url):
 
 async def build_report(db):
     findings = []
-    platform = await db.platform_settings.find_one({}, {"_id": 0, "platform_logo_url": 1})
+    platform = await db.platform_settings.find_one({"settings_id": SETTINGS_ID}, {"_id": 0, "platform_logo_url": 1})
     if platform:
         await _check(db, findings, "platform_logo", None, "platform_settings", platform.get("platform_logo_url"))
     organizations = await db.organizations.find({}, {"_id": 0, "organization_id": 1, "logo_url": 1, "portal_background_url": 1}).to_list(MAX_FINDINGS + 1)
@@ -71,13 +71,12 @@ async def build_report(db):
     for row in services:
         for url in [*(row.get("photos") or []), row.get("cover_image_url"), row.get("banner_image_url")]:
             await _check(db, findings, "service_image", row.get("organization_id"), row.get("service_id"), url)
-    professionals = await db.barbers.find({}, {"_id": 0, "organization_id": 1, "barber_id": 1, "photo": 1, "photo_url": 1, "avatar_url": 1}).to_list(MAX_FINDINGS + 1)
+    professionals = await db.barbers.find({}, {"_id": 0, "organization_id": 1, "barber_id": 1, "avatar": 1}).to_list(MAX_FINDINGS + 1)
     for row in professionals:
-        for url in (row.get("photo"), row.get("photo_url"), row.get("avatar_url")):
-            await _check(db, findings, "professional_photo", row.get("organization_id"), row.get("barber_id"), url)
-    catalog = await db.catalog.find({}, {"_id": 0, "organization_id": 1, "product_id": 1, "photos": 1, "image_url": 1}).to_list(MAX_FINDINGS + 1)
+        await _check(db, findings, "professional_photo", row.get("organization_id"), row.get("barber_id"), row.get("avatar"))
+    catalog = await db.catalog_products.find({}, {"_id": 0, "organization_id": 1, "product_id": 1, "photos": 1}).to_list(MAX_FINDINGS + 1)
     for row in catalog:
-        for url in [*(row.get("photos") or []), row.get("image_url")]:
+        for url in row.get("photos") or []:
             await _check(db, findings, "catalog_image", row.get("organization_id"), row.get("product_id"), url)
     return {
         "generated_at": datetime.now(timezone.utc).isoformat(),
