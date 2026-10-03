@@ -1,11 +1,21 @@
-import React from 'react';
-import { CalendarDays, LogOut, MessageSquareText, ShieldCheck, UserRound, WalletCards, BookOpen } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
+import { CalendarDays, LogOut, MessageSquareText, MoreHorizontal, ShieldCheck, UserRound, WalletCards, BookOpen } from 'lucide-react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 
+// On phones the bar keeps the four daily destinations and folds the rest into "Más"
+// (seven ~53px buttons at 375px were too cramped to tap reliably).
 export function StaffNav() {
   const { logout } = useAuth();
   const navigate = useNavigate();
+  const [moreOpen, setMoreOpen] = useState(false);
+
+  useEffect(() => {
+    if (!moreOpen) return undefined;
+    const onKey = (event) => { if (event.key === 'Escape') setMoreOpen(false); };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [moreOpen]);
 
   const signOut = async () => {
     await logout();
@@ -13,14 +23,30 @@ export function StaffNav() {
   };
 
   return (
-    <nav className="nexus-staff-nav">
-      <NavLink to="/staff/profile"><UserRound size={18} /><span>Perfil</span></NavLink>
+    <nav className="nexus-staff-nav" aria-label="Navegación del profesional">
       <NavLink to="/staff/appointments"><CalendarDays size={18} /><span>Citas</span></NavLink>
       <NavLink to="/staff/income"><WalletCards size={18} /><span>Ingresos</span></NavLink>
       <NavLink to="/staff/reviews"><MessageSquareText size={18} /><span>Reseñas</span></NavLink>
-      <NavLink to="/staff/guia"><BookOpen size={18} /><span>Guía</span></NavLink>
-      <NavLink to="/account/privacy"><ShieldCheck size={18} /><span>Cuenta</span></NavLink>
-      <button onClick={signOut}><LogOut size={18} /><span>Salir</span></button>
+      <NavLink to="/staff/profile"><UserRound size={18} /><span>Perfil</span></NavLink>
+      <NavLink to="/staff/guia" className="nexus-staff-secondary"><BookOpen size={18} /><span>Guía</span></NavLink>
+      <NavLink to="/account/privacy" className="nexus-staff-secondary"><ShieldCheck size={18} /><span>Cuenta</span></NavLink>
+      <button type="button" onClick={signOut} className="nexus-staff-secondary"><LogOut size={18} /><span>Salir</span></button>
+      <button
+        type="button"
+        className="nexus-staff-more"
+        aria-haspopup="menu"
+        aria-expanded={moreOpen}
+        onClick={() => setMoreOpen((open) => !open)}
+      >
+        <MoreHorizontal size={18} /><span>Más</span>
+      </button>
+      {moreOpen && (
+        <div className="nexus-staff-more-panel" role="menu" data-testid="staff-more-panel">
+          <NavLink to="/staff/guia" role="menuitem" onClick={() => setMoreOpen(false)}><BookOpen size={18} /><span>Guía</span></NavLink>
+          <NavLink to="/account/privacy" role="menuitem" onClick={() => setMoreOpen(false)}><ShieldCheck size={18} /><span>Cuenta</span></NavLink>
+          <button type="button" role="menuitem" onClick={signOut}><LogOut size={18} /><span>Salir</span></button>
+        </div>
+      )}
     </nav>
   );
 }
