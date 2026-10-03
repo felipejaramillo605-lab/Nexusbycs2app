@@ -11,7 +11,8 @@ jest.mock('react-router-dom', () => ({
   useLocation: () => ({ pathname: '/manager/services' }),
   useSearchParams: () => [new URLSearchParams('?org_id=org-1')],
 }), { virtual: true });
-jest.mock('../../context/AuthContext', () => ({ useAuth: () => ({ user: { role: 'owner' } }) }));
+let mockUser = { role: 'owner' };
+jest.mock('../../context/AuthContext', () => ({ useAuth: () => ({ user: mockUser }) }));
 jest.mock('../../context/OrganizationContext', () => ({ useOrganization: () => ({ organization: mockOrganization, loadOrganization: mockLoadOrganization }) }));
 jest.mock('../../context/PlatformBrandingContext', () => ({ usePlatformBranding: () => ({ platformLogoUrl: null }) }));
 jest.mock('framer-motion', () => ({ useReducedMotion: () => true }));
@@ -30,6 +31,8 @@ describe('RouteExperienceFrame', () => {
     document.body.innerHTML = '';
     root = null;
     mockLoadOrganization.mockClear();
+    mockUser = { role: 'owner' };
+    mockOrganization = { organization_id: 'org-1', name: 'Empresa Real' };
   });
 
   test('shows the real organization name when an owner operates a manager route', async () => {
@@ -49,5 +52,15 @@ describe('RouteExperienceFrame', () => {
     root = createRoot(host);
     await act(async () => root.render(<RouteExperienceFrame><p>Contenido</p></RouteExperienceFrame>));
     expect(host.querySelector('[data-testid="view-mode-banner"]')).not.toBeNull();
+  });
+
+  test('does not crash while the session is still loading (no user, no organization)', async () => {
+    mockUser = null;
+    mockOrganization = null;
+    const host = document.createElement('div');
+    document.body.appendChild(host);
+    root = createRoot(host);
+    await act(async () => root.render(<RouteExperienceFrame><p>Contenido</p></RouteExperienceFrame>));
+    expect(host.querySelector('[data-testid="shell"]').dataset.organizationName).toBe('Servicios');
   });
 });
