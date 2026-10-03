@@ -145,6 +145,7 @@ const manager = {
     },
   ],
   pitfalls: [
+    { problem: 'Quiero enviar una promoción por WhatsApp.', fix: 'Los mensajes salen desde el servidor y una promoción requiere consentimiento del cliente; el recordatorio usa su próxima cita real.' },
     { problem: 'No encuentro dónde crear o editar un cliente.', fix: 'El directorio no tiene formulario para agregar clientes: se crean automáticamente cuando la persona reserva. Para corregir un dato, pídele al cliente que lo actualice al reservar o desde su portal.' },
     { problem: 'Un cliente aparece dos veces.', fix: 'Suele pasar cuando reservó con teléfonos o correos distintos. No hay unión de fichas desde esta pantalla; usa la búsqueda por teléfono para trabajar con la ficha que tenga el historial más completo.' },
     { problem: 'El cliente no tiene teléfono ni correo y no puedo escribirle.', fix: 'Esos datos vienen de lo que la persona puso al reservar. Pídeselos en el local y que reserve la próxima vez con esa información.' },
@@ -205,6 +206,7 @@ const owner = {
     },
   ],
   pitfalls: [
+    { problem: 'Quiero enviar una promoción por WhatsApp.', fix: 'Los mensajes salen desde el servidor y una promoción requiere consentimiento del cliente; el recordatorio usa su próxima cita real.' },
     { problem: 'Veo clientes que no son de la sede que quería.', fix: 'Vuelve a "Inicio", selecciona la sede correcta y entra a "Clientes" desde ahí.' },
   ],
   checklist: [
@@ -263,6 +265,7 @@ const staff = {
     },
   ],
   pitfalls: [
+    { problem: 'Quiero enviar una promoción por WhatsApp.', fix: 'Los mensajes salen desde el servidor y una promoción requiere consentimiento del cliente; el recordatorio usa su próxima cita real.' },
     { problem: 'No puedo editar los datos de un cliente.', fix: 'Es correcto: como profesional solo consultas la información del cliente dentro de la cita. Cualquier cambio lo hace la administración.' },
     { problem: 'No veo el historial completo del cliente.', fix: 'El historial general de clientes es un módulo de la administración. Tú ves solo los datos de la cita que vas a atender.' },
   ],
