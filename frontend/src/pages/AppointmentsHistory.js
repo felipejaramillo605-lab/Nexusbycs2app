@@ -50,21 +50,7 @@ const AppointmentsHistory = () => {
 
   // Mutation for updating appointment status
   const updateStatusMutation = useMutation({
-    mutationFn: async ({ appointmentId, status }) => {
-      const response = await fetch(
-        `${process.env.REACT_APP_BACKEND_URL}/api/appointments/${appointmentId}/status?status=${status}`,
-        {
-          method: 'PUT',
-          credentials: 'include',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-        }
-      );
-      
-      if (!response.ok) throw new Error('Failed to update status');
-      return response.json();
-    },
+    mutationFn: async ({ appointmentId, status }) => (await appointmentAPI.updateStatus(appointmentId, status)).data,
     onSuccess: (data, variables) => {
       queryClient.invalidateQueries({ queryKey: ['appointments'] });
       queryClient.invalidateQueries({ queryKey: ['statistics'] });

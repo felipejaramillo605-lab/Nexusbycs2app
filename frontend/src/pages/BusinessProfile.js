@@ -77,23 +77,8 @@ const BusinessProfile = () => {
     setSaving(true);
 
     try {
-      const response = await fetch(
-        `${process.env.REACT_APP_BACKEND_URL}/api/organizations/${organizationId}`,
-        {
-          method: 'PUT',
-          credentials: 'include',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(formData),
-        }
-      );
-
-      if (response.ok) {
-        toast.success('Perfil actualizado correctamente');
-      } else {
-        throw new Error('Failed to update');
-      }
+      await organizationAPI.update(organizationId, formData);
+      toast.success('Perfil actualizado correctamente');
     } catch (error) {
       console.error('Error updating profile:', error);
       toast.error('Error al actualizar el perfil');

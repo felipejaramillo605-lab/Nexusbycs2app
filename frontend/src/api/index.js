@@ -287,6 +287,7 @@ export const appointmentAPI = {
   // NEXUS_CHECKOUT_BACKEND_V1
   checkout: (appointmentId, data) => api.post(`/appointments/${appointmentId}/checkout`, data),
   getTransaction: (appointmentId) => api.get(`/appointments/${appointmentId}/transaction`),
+  updateStatus: (appointmentId, status) => api.put(`/appointments/${appointmentId}/status`, null, { params: { status } }),
 };
 
 export const clientAPI = {
