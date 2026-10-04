@@ -6,6 +6,7 @@ from typing import Literal, Optional
 import uuid
 
 from pymongo.errors import DuplicateKeyError
+from decision_engine import decide
 
 from fastapi import APIRouter, Cookie, Header, HTTPException, Query
 from pydantic import BaseModel, Field
@@ -27,6 +28,10 @@ class SupportConversationCreate(BaseModel):
     idempotency_key: str = Field(min_length=8, max_length=200)
 
 
+class SupportDecisionSuggestionRequest(BaseModel):
+    subject: str = Field(min_length=1, max_length=160)
+    initial_message: str = Field(min_length=1, max_length=4000)
+
 class SupportMessageCreate(BaseModel):
     body: str = Field(min_length=1, max_length=4000)
     idempotency_key: str = Field(min_length=8, max_length=200)
@@ -45,6 +50,12 @@ class SupportPriorityUpdate(BaseModel):
     priority: Literal["low", "normal", "high", "urgent"]
     expected_version: int = Field(ge=1)
 
+
+def normalize_support_suggestion(choice: dict | None) -> dict:
+    choice = choice or {}
+    category = {"technical": "peticion", "billing": "reclamo", "general": "otro"}.get(choice.get("category"), "otro")
+    priority = choice.get("priority") if choice.get("priority") in {"low", "normal", "high"} else "high" if choice.get("priority") == "urgent" else "normal"
+    return {"category": category, "priority": priority}
 
 def now_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
@@ -148,6 +159,23 @@ def build_support_center_router(db, get_current_user, require_management_role, r
         pages = max(1, (total + page_size - 1) // page_size)
         return {"items": items, "page": page, "page_size": page_size, "total": total, "total_pages": pages, "has_next": page < pages, "has_previous": page > 1}
 
+    @router.post("/support/decision-suggestion")
+    async def support_decision_suggestion(
+        data: SupportDecisionSuggestionRequest,
+        organization_id: Optional[str] = Query(None),
+        authorization: Optional[str] = Header(None),
+        session_token: Optional[str] = Cookie(None),
+    ):
+        user = await actor(authorization, session_token)
+        org_id = await organization_actor(user, organization_id)
+        result = await decide(
+            db, actor_user_id=user.user_id, organization_id=org_id, kind="support",
+            text=f"{data.subject.strip()}\n{data.initial_message.strip()}",
+        )
+        choice = result.get("choice") if isinstance(result.get("choice"), dict) else {}
+        category = {"technical": "peticion", "billing": "reclamo", "general": "otro"}.get(choice.get("category"), "otro")
+        priority = choice.get("priority") if choice.get("priority") in {"low", "normal", "high"} else "high" if choice.get("priority") == "urgent" else "normal"
+        return {"suggestion": {"category": category, "priority": priority}, "confidence": result.get("confidence"), "provider": result.get("provider"), "automatic": False}
     @router.post("/support/conversations")
     async def create_support_conversation(
         data: SupportConversationCreate,

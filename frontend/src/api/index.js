@@ -126,6 +126,7 @@ export const supportAPI = {
   ownerGet: (conversationId) => api.get(`/owner/support/conversations/${conversationId}`),
   ownerSendMessage: (conversationId, data) => api.post(`/owner/support/conversations/${conversationId}/messages`, data),
   list: (params = {}) => api.get('/support/conversations', { params }),
+  suggest: (data, params = {}) => api.post('/support/decision-suggestion', data, { params }),
   create: (data, params = {}) => api.post('/support/conversations', data, { params }),
   get: (conversationId) => api.get(`/support/conversations/${conversationId}`),
   sendMessage: (conversationId, data) => api.post(`/support/conversations/${conversationId}/messages`, data),
