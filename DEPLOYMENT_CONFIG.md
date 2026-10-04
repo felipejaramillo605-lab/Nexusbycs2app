@@ -23,6 +23,11 @@ SMTP_PASSWORD=<configurado>
 SMTP_FROM_EMAIL=<configurado>
 SMTP_FROM_NAME="Nexus by CS2"
 
+# Almacenamiento durable de medios (Cloudflare R2, opcional; sin estas variables se usa solo el espejo en MongoDB)
+R2_ACCOUNT_ID=<configurado>
+R2_BUCKET=<configurado>
+R2_ACCESS_KEY_ID=<configurado>
+R2_SECRET_ACCESS_KEY=<configurado>
 # Resend (opcional; sin estas variables todo el correo sale por SMTP como hoy)
 EMAIL_PROVIDER=resend
 RESEND_API_KEY=<configurado>

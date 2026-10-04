@@ -6,7 +6,8 @@ from pathlib import Path
 
 from fastapi import APIRouter, Cookie, Header, HTTPException
 
-from media_mirror import ALLOWED_NAMESPACES
+import object_storage
+from media_mirror import ALLOWED_NAMESPACES, backfill_to_object_storage
 from organization_background_media import managed_parts as background_parts, media_root as background_root
 from organization_media import managed_parts as organization_parts, media_root as organization_root
 from platform_branding import SETTINGS_ID, managed_filename as platform_filename, media_root as platform_root
@@ -39,7 +40,12 @@ async def _mirror_exists(db, namespace, key):
     if namespace not in ALLOWED_NAMESPACES:
         return False
     doc = await db.media_blobs.find_one({"namespace": namespace, "key": key}, {"_id": 0, "data": 1})
-    return bool(doc and doc.get("data"))
+    if doc and doc.get("data"):
+        return True
+    try:
+        return bool(await object_storage.get_object(namespace, key))
+    except Exception:
+        return False
 
 
 async def _check(db, findings, kind, organization_id, entity_id, url):
@@ -95,5 +101,12 @@ def build_owner_media_integrity_router(db, get_current_user):
         if user.role != "owner" or user.access_status != "approved":
             raise HTTPException(status_code=403, detail="Owner access required")
         return await build_report(db)
+
+    @router.post("/backfill-object-storage")
+    async def backfill(authorization: str | None = Header(None), session_token: str | None = Cookie(None)):
+        user = await get_current_user(authorization, session_token)
+        if user.role != "owner" or user.access_status != "approved":
+            raise HTTPException(status_code=403, detail="Owner access required")
+        return await backfill_to_object_storage(db)
 
     return router
