@@ -23,6 +23,11 @@ SMTP_PASSWORD=<configurado>
 SMTP_FROM_EMAIL=<configurado>
 SMTP_FROM_NAME="Nexus by CS2"
 
+# Resend (opcional; sin estas variables todo el correo sale por SMTP como hoy)
+EMAIL_PROVIDER=resend
+RESEND_API_KEY=<configurado>
+RESEND_FROM_EMAIL=<remitente verificado, p. ej. no-reply@mail.nexusbycs2.com>
+
 # LLM Key
 EMERGENT_LLM_KEY=<configurado>
 

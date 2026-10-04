@@ -3,6 +3,7 @@ from email.message import EmailMessage
 from typing import Optional
 import logging, os, smtplib, ssl, uuid
 from pymongo.errors import DuplicateKeyError
+from email_providers import resend_enabled, send_via_resend
 
 logger = logging.getLogger(__name__)
 
@@ -44,6 +45,12 @@ def _message(invoice, event_type):
     return subject,text,html
 
 def send_invoice_email(invoice, recipient, cc, event_type, pdf_bytes):
+    if resend_enabled():
+        subject,text,html=_message(invoice,event_type)
+        name=f"{invoice.get('invoice_number',invoice['invoice_id'])}.pdf"
+        accepted,_=send_via_resend(recipient,subject,html,text,cc=cc,attachments=[(name,pdf_bytes,"application/pdf")])
+        if accepted: return True, None
+        logger.warning("invoice_resend_fallback_to_smtp")
     required=[os.getenv("SMTP_HOST"),os.getenv("SMTP_USER"),os.getenv("SMTP_PASSWORD"),os.getenv("SMTP_FROM_EMAIL")]
     if not all(required): return False, "smtp_not_configured"
     msg=EmailMessage(); subject,text,html=_message(invoice,event_type)
