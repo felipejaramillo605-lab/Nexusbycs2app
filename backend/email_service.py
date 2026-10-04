@@ -15,6 +15,8 @@ from pathlib import Path
 from urllib.parse import quote
 from html import escape
 
+from email_providers import resend_enabled, send_via_resend
+
 # NEXUS_EMAIL_LIQUID_GLASS_V1: shell claro compartido por todos los correos --
 # reemplaza el fondo negro/gradiente oscuro que tenía cada método aquí abajo.
 from appointment_email_templates import (
@@ -167,7 +169,12 @@ class EmailService:
             return ""
         
     def _send_email(self, to_email: str, subject: str, html_body: str, text_body: Optional[str] = None) -> bool:
-        """Send email via SMTP"""
+        """Send via Resend when enabled (SMTP is the automatic fallback), otherwise via SMTP"""
+        if resend_enabled():
+            accepted, _ = send_via_resend(to_email, subject, html_body, text_body, from_name=self.from_name)
+            if accepted:
+                return True
+            logger.warning("email_resend_fallback_to_smtp")
         try:
             # Create message
             msg = MIMEMultipart('alternative')
