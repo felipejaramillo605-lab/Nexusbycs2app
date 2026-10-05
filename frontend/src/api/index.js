@@ -212,6 +212,11 @@ export const ownerIntegrityAPI = {
 
 export const ownerMediaIntegrityAPI = { getReport: () => api.get('/owner/media/integrity') };
 
+export const ownerConnectorsAPI = {
+  getStatus: () => api.get('/owner/connectors/status'),
+  getEmailEvents: () => api.get('/owner/email-events'),
+};
+
 // NEXUS_OWNER_CONSOLE_SHELL_V1 (plan PR 22): read side of security_events --
 // record_security_event() (backend) has written to this collection since it
 // was first built; nothing ever read it back until this.

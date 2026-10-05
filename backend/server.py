@@ -66,6 +66,7 @@ from owner_account_management import (
     enforce_organization_active,
 )
 from resend_webhooks import build_resend_webhook_router, ensure_email_event_indexes
+from owner_connector_status import build_connector_status_router
 from integrity_checks import build_integrity_router
 from owner_media_integrity import build_owner_media_integrity_router
 from owner_delivery_operations import (
@@ -9215,6 +9216,7 @@ api_router.include_router(build_audit_log_router(db, get_current_user), tags=["o
 api_router.include_router(build_owner_view_router(db, get_current_user))
 api_router.include_router(build_owner_account_router(db, get_current_user))
 api_router.include_router(build_resend_webhook_router(db, get_current_user))
+api_router.include_router(build_connector_status_router(get_current_user))
 api_router.include_router(build_integrity_router(db, get_current_user), tags=["owner-integrity"])
 api_router.include_router(build_owner_media_integrity_router(db, get_current_user), tags=["owner-media-integrity"])
 api_router.include_router(build_security_observability_router(db, get_current_user), tags=["owner-security"])
