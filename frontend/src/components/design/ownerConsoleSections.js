@@ -1,4 +1,4 @@
-import { ImageOff, Plug, Scale, BookOpen, Building2, CreditCard, Home, KeyRound, LifeBuoy, Megaphone, Receipt, ScrollText, ServerCog, ShieldAlert, ShieldCheck, ShieldQuestion, Sparkles, UserPlus } from 'lucide-react';
+import { Eraser, FileText, ImageOff, Plug, Scale, BookOpen, Building2, CreditCard, Home, KeyRound, LifeBuoy, Megaphone, Receipt, ScrollText, ServerCog, ShieldAlert, ShieldCheck, ShieldQuestion, Sparkles, UserPlus } from 'lucide-react';
 
 // NEXUS_OWNER_CONSOLE_SHELL_V1 (plan PR 7): Owner's own navigation registry,
 // separate from `adminSections` (Manager's operational menu). Only reused
@@ -44,6 +44,8 @@ export const ownerConsoleSections = [
       ['/owner/media-integrity', 'Integridad de medios', ImageOff],
       ['/owner/connectors', 'Conectores', Plug],
       ['/owner/legal-profile', 'Datos legales', Scale],
+      ['/owner/legal-documents', 'Documentos legales', FileText],
+      ['/owner/retention', 'Retención de datos', Eraser],
     ],
   },
   { label: 'Ayuda', items: [['/owner/guia', 'Guía del Owner', BookOpen]] },

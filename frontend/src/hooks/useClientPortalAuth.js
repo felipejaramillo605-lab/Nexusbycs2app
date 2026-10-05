@@ -14,6 +14,7 @@ export function useClientPortalAuth() {
   const [birthday, setBirthday] = useState('');
   const [showPin, setShowPin] = useState(false);
   const [marketingConsent, setMarketingConsent] = useState(false);
+  const [termsAccepted, setTermsAccepted] = useState(false);
   const [loading, setLoading] = useState(false);
   const [organizationName, setOrganizationName] = useState('');
   const [organization, setOrganization] = useState(null);
@@ -64,6 +65,10 @@ export function useClientPortalAuth() {
       toast.error('El PIN debe ser exactamente 4 dígitos');
       return;
     }
+    if (!termsAccepted) {
+      toast.error('Debes aceptar la Política de Privacidad y los Términos');
+      return;
+    }
 
     setLoading(true);
     try {
@@ -73,6 +78,7 @@ export function useClientPortalAuth() {
         name: name.trim(),
         pin,
         marketing_consent: marketingConsent,
+        terms_accepted: termsAccepted,
         birthday: birthday || undefined,
       });
       toast.success('¡Cuenta creada exitosamente!');
@@ -104,6 +110,8 @@ export function useClientPortalAuth() {
     setShowPin,
     marketingConsent,
     setMarketingConsent,
+    termsAccepted,
+    setTermsAccepted,
     loading,
     organizationName,
     organization,

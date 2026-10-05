@@ -21,13 +21,31 @@ from pydantic import BaseModel, Field
 from audit_contracts import record_audit_event
 
 SETTINGS_ID = "legal_profile"
+VERSION_SETTINGS_ID = "legal_version"
+DOCUMENT_TITLES = {
+    "terminos": "Términos de servicio",
+    "contrato-transmision": "Contrato de transmisión de datos",
+    "uso-aceptable-ia": "Uso aceptable e inteligencia artificial",
+}
 PUBLIC_FIELDS = ("full_name", "municipality", "email", "phone")
 PRIVATE_FIELDS = ("document_type", "document_number", "full_address")
 EMAIL_PATTERN = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 
 
 def current_version() -> str:
-    return os.getenv("LEGAL_DOCS_VERSION", "2.0-borrador").strip() or "2.0-borrador"
+    return os.getenv("LEGAL_DOCS_VERSION", "2.0").strip() or "2.0"
+
+
+async def get_version(db) -> str:
+    """Version vigente: la que el Owner publico (si existe) o, si no, la del entorno."""
+    doc = await db.platform_settings.find_one({"settings_id": VERSION_SETTINGS_ID}, {"_id": 0})
+    return (doc or {}).get("version") or current_version()
+
+
+class LegalDocumentIn(BaseModel):
+    title: str = Field(min_length=3, max_length=160)
+    body_md: str = Field(min_length=20, max_length=60000)
+    publish_new_version: bool = False
 
 
 class LegalProfileIn(BaseModel):
@@ -72,8 +90,8 @@ def build_legal_router(db, get_current_user):
     async def responsible(authorization: str | None = Header(None), session_token: str | None = Cookie(None)):
         user = await _user(authorization, session_token)
         profile = await _profile()
-        version = current_version()
-        accepted = user.role == "owner" or bool(
+        version = await get_version(db)
+        accepted = bool(
             await db.legal_acceptances.find_one({"user_id": user.user_id, "version": version}, {"_id": 0, "user_id": 1})
         )
         body = {
@@ -83,7 +101,7 @@ def build_legal_router(db, get_current_user):
             "public": {field: profile.get(field) for field in PUBLIC_FIELDS},
             "private": None,
         }
-        if accepted and profile:
+        if (accepted or user.role == "owner") and profile:
             body["private"] = {field: profile.get(field) for field in PRIVATE_FIELDS}
         return body
 
@@ -95,7 +113,7 @@ def build_legal_router(db, get_current_user):
         session_token: str | None = Cookie(None),
     ):
         user = await _user(authorization, session_token)
-        version = current_version()
+        version = await get_version(db)
         if data.version != version:
             raise HTTPException(status_code=409, detail="La versión del contrato cambió; recarga la página")
         existing = await db.legal_acceptances.find_one({"user_id": user.user_id, "version": version}, {"_id": 0})
@@ -126,12 +144,120 @@ def build_legal_router(db, get_current_user):
         )
         return {"accepted": True, "already": False, "accepted_at": now, "version": version}
 
+    async def _documents():
+        found = {}
+        for key, default_title in DOCUMENT_TITLES.items():
+            doc = await db.legal_documents.find_one({"key": key}, {"_id": 0})
+            found[key] = (
+                {
+                    "title": doc.get("title") or default_title,
+                    "body_md": doc["body_md"],
+                    "updated_at": doc.get("updated_at"),
+                }
+                if doc
+                else None
+            )
+        return found
+
+    @router.get("/legal/status", tags=["legal"])
+    async def status(authorization: str | None = Header(None), session_token: str | None = Cookie(None)):
+        user = await _user(authorization, session_token)
+        version = await get_version(db)
+        accepted = bool(
+            await db.legal_acceptances.find_one({"user_id": user.user_id, "version": version}, {"_id": 0, "user_id": 1})
+        )
+        return {"accepted": accepted, "version": version}
+
+    @router.get("/legal/documents", tags=["legal"])
+    async def documents(authorization: str | None = Header(None), session_token: str | None = Cookie(None)):
+        await _user(authorization, session_token)
+        return {"version": await get_version(db), "documents": await _documents()}
+
+    @router.get("/owner/legal-documents", tags=["owner-legal"])
+    async def owner_documents(authorization: str | None = Header(None), session_token: str | None = Cookie(None)):
+        await _owner(authorization, session_token)
+        return {"version": await get_version(db), "titles": DOCUMENT_TITLES, "documents": await _documents()}
+
+    @router.put("/owner/legal-documents/{key}", tags=["owner-legal"])
+    async def save_document(
+        key: str,
+        data: LegalDocumentIn,
+        authorization: str | None = Header(None),
+        session_token: str | None = Cookie(None),
+    ):
+        owner = await _owner(authorization, session_token)
+        if key not in DOCUMENT_TITLES:
+            raise HTTPException(status_code=404, detail="Documento desconocido")
+        now = datetime.now(timezone.utc)
+        previous = await get_version(db)
+        version = previous
+        if data.publish_new_version:
+            version = now.strftime("%Y.%m.%d-%H%M")
+            await db.platform_settings.update_one(
+                {"settings_id": VERSION_SETTINGS_ID},
+                {"$set": {"settings_id": VERSION_SETTINGS_ID, "version": version, "updated_at": now.isoformat()}},
+                upsert=True,
+            )
+        body = data.body_md.replace("\r\n", "\n")
+        document = {
+            "key": key,
+            "title": data.title.strip(),
+            "body_md": body,
+            "version": version,
+            "updated_at": now.isoformat(),
+            "updated_by": owner.user_id,
+        }
+        await db.legal_documents.update_one({"key": key}, {"$set": document}, upsert=True)
+        revision_id = "lrev_" + uuid.uuid4().hex
+        await db.legal_document_revisions.insert_one(
+            {
+                "revision_id": revision_id,
+                "key": key,
+                "version": version,
+                "title": document["title"],
+                "body_md": body,
+                "sha256": hashlib.sha256(body.encode()).hexdigest(),
+                "edited_by": owner.user_id,
+                "edited_at": now.isoformat(),
+            }
+        )
+        await record_audit_event(
+            db,
+            category="account",
+            event_type="legal_document_updated",
+            actor_user_id=owner.user_id,
+            entity_type="legal_document",
+            entity_id=key,
+            previous_value={"version": previous},
+            new_value={"version": version, "new_version_published": data.publish_new_version},
+        )
+        return {"saved": True, "version": version, "revision_id": revision_id}
+
+    @router.delete("/owner/legal-documents/{key}", tags=["owner-legal"])
+    async def restore_document(
+        key: str, authorization: str | None = Header(None), session_token: str | None = Cookie(None)
+    ):
+        owner = await _owner(authorization, session_token)
+        if key not in DOCUMENT_TITLES:
+            raise HTTPException(status_code=404, detail="Documento desconocido")
+        await db.legal_documents.delete_one({"key": key})
+        await record_audit_event(
+            db,
+            category="account",
+            event_type="legal_document_restored_default",
+            actor_user_id=owner.user_id,
+            entity_type="legal_document",
+            entity_id=key,
+        )
+        return {"restored": True}
+
     @router.get("/owner/legal-profile", tags=["owner-legal"])
     async def get_profile(authorization: str | None = Header(None), session_token: str | None = Cookie(None)):
         await _owner(authorization, session_token)
         profile = await _profile()
-        total = await db.legal_acceptances.count_documents({"version": current_version()})
-        return {"version": current_version(), "profile": profile or None, "acceptances_current_version": total}
+        version = await get_version(db)
+        total = await db.legal_acceptances.count_documents({"version": version})
+        return {"version": version, "profile": profile or None, "acceptances_current_version": total}
 
     @router.put("/owner/legal-profile", tags=["owner-legal"])
     async def put_profile(

@@ -229,7 +229,7 @@ class TestClientPortalMe:
         reg = s.post(f"{BASE_URL}/api/public/clients/register", json={
             "phone": phone, "organization_id": ORG_ID,
             "name": "Portal LP Test", "pin": "1234",
-            "email": "portallp@example.com", "marketing_consent": False,
+            "email": "portallp@example.com", "marketing_consent": False, "terms_accepted": True, "terms_accepted": True,
         }, timeout=15)
         assert reg.status_code in (200, 201), reg.text
         # Login (PIN)

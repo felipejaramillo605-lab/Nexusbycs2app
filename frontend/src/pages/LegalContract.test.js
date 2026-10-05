@@ -6,13 +6,21 @@ global.IS_REACT_ACT_ENVIRONMENT = true;
 
 const mockGet = jest.fn();
 const mockAccept = jest.fn();
+const mockDocuments = jest.fn();
+const mockNavigate = jest.fn();
 
 jest.mock('../api', () => ({
   legalAPI: {
     getResponsible: (...args) => mockGet(...args),
     accept: (...args) => mockAccept(...args),
+    getDocuments: (...args) => mockDocuments(...args),
   },
 }));
+jest.mock('../context/AuthContext', () => ({ useAuth: () => ({ user: { role: 'manager' } }) }));
+jest.mock('react-router-dom', () => ({
+  useNavigate: () => mockNavigate,
+  useLocation: () => ({ state: { from: '/dashboard' } }),
+}), { virtual: true });
 jest.mock('sonner', () => ({ toast: { success: jest.fn(), error: jest.fn() } }));
 jest.mock('react-markdown', () => {
   const React = jest.requireActual('react');
@@ -46,6 +54,7 @@ async function mount() {
 }
 
 beforeEach(() => {
+  mockDocuments.mockResolvedValue({ data: { documents: {} } });
   global.fetch = jest.fn().mockResolvedValue({ ok: true, text: async () => 'CC {{CC_RESPONSABLE}} · {{DIRECCION_COMPLETA}}' });
 });
 
@@ -60,7 +69,7 @@ test('hides the identity document and address until the contract is accepted', a
   await mount();
   const text = container.textContent;
   expect(text).toContain('+57 323 907 0485');
-  expect(text).toContain('Visible tras aceptar');
+  expect(text).toContain('visibles tras aceptar');
   expect(text).not.toContain('9876543210');
   expect(text).not.toContain('Calle Secreta 1');
   expect(container.querySelector('input[type=checkbox]')).not.toBeNull();
@@ -89,9 +98,26 @@ test('the accept button stays disabled until the box is checked, then posts the 
     button.click();
   });
   expect(mockAccept).toHaveBeenCalledWith('2.0', null);
+  expect(mockNavigate).toHaveBeenCalledWith('/dashboard', { replace: true });
+});
+
+test('a document edited by the Owner replaces the base text', async () => {
+  mockGet.mockResolvedValue({ data: { version: '2.0', accepted: true, public: PUBLIC, private: null } });
+  mockDocuments.mockResolvedValue({ data: { documents: { terminos: { title: 'T', body_md: 'TEXTO DEL ABOGADO' } } } });
+  await mount();
+  expect(container.textContent).toContain('TEXTO DEL ABOGADO');
 });
 
 test('placeholders are replaced only when private data exists', () => {
   expect(fillPlaceholders('{{CC_RESPONSABLE}}|{{DIRECCION_COMPLETA}}', null)).toBe('(visible tras aceptar)|(visible tras aceptar)');
   expect(fillPlaceholders('{{CC_RESPONSABLE}}|{{DIRECCION_COMPLETA}}', SECRET)).toBe('9876543210|Calle Secreta 1');
+});
+
+test('the identification data is the last block of the page, in small print', async () => {
+  mockGet.mockResolvedValue({ data: { version: '2.0', accepted: true, public: PUBLIC, private: SECRET } });
+  await mount();
+  const block = container.querySelector('[data-testid="legal-identification"]');
+  expect(block.textContent).toContain('9876543210');
+  expect(block.nextElementSibling).toBeNull();
+  expect(block.className).toContain('text-[11px]');
 });

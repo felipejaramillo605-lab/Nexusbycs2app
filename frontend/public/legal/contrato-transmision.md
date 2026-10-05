@@ -1,9 +1,9 @@
 # Contrato y Anexo de Transmisión de Datos Personales — Nexus by CS2 (v2)
 
-> **BORRADOR PENDIENTE DE REVISIÓN LEGAL.** Versión 2.0-borrador · 2026-10-05. Se acepta electrónicamente al registrar la organización, junto con los Términos (documento 02). Fundamento: Ley 1581 de 2012, Decreto 1377 de 2013 (compilado en el Decreto 1074 de 2015, arts. 2.2.2.25.5.1 y 2.2.2.25.5.2 sobre transmisiones).
+> **Versión 2.0** · vigente desde el 5 de octubre de 2026. Se acepta electrónicamente al registrar la organización, junto con los Términos (documento 02). Fundamento: Ley 1581 de 2012, Decreto 1377 de 2013 (compilado en el Decreto 1074 de 2015, arts. 2.2.2.25.5.1 y 2.2.2.25.5.2 sobre transmisiones).
 
 **Partes**
-- **Encargado:** Felipe Jaramillo Parra, persona natural, actividad comercial bajo el nombre "Nexus by CS2". Identificación: C.C. **{{CC_RESPONSABLE}}** · Dirección: **{{DIRECCION_COMPLETA}}** · Correo: nexusbycs2@gmail.com · Teléfono: +57 323 907 0485.
+- **Encargado:** Felipe Jaramillo Parra, persona natural, actividad comercial bajo el nombre "Nexus by CS2". Identificación y dirección: ver «Datos de identificación del Encargado» al final de esta página · Correo: nexusbycs2@gmail.com · Teléfono: +57 323 907 0485.
 - **Responsable:** el Negocio que se registra (los datos de identificación del Negocio constan en el registro de su organización).
 
 ## 1. Objeto y alcance
@@ -52,7 +52,7 @@ Mientras esté vigente el contrato de servicio y hasta la supresión de los dato
 La aceptación electrónica se registra con versión, huella (hash) del documento, usuario, organización, fecha y hora e IP. El texto vigente puede descargarse desde la cuenta.
 
 ## 14. Acceso a los datos de identificación del Encargado
-Por seguridad, el documento de identidad y la dirección completa del Encargado **no se publican**: se muestran en este contrato, dentro de la cuenta, **solo a usuarios registrados que lo han aceptado**. Los canales de atención de solicitudes (correo y teléfono) sí son públicos.
+Por seguridad, el documento de identidad y la dirección completa del Encargado **no se publican**: se muestran al final de esta página, en letra pequeña, **solo a usuarios registrados que han aceptado el contrato**. Los canales de atención de solicitudes (correo y teléfono) sí son públicos.
 
 ## 15. Legislación y fuero
 Ley colombiana; conciliación previa; jurisdicción del domicilio del Encargado, sin perjuicio de las competencias de la SIC.

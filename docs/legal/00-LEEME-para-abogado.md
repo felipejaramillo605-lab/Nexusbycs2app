@@ -1,6 +1,6 @@
-# Paquete legal de Nexus by CS2 — BORRADOR para revisión de abogado
+# Paquete legal de Nexus by CS2 — versión 2.0
 
-> **Estado:** BORRADOR NO VINCULANTE. Redactado por Claude (apoyo técnico) el 2026-10-05. **No es asesoría legal.** Ningún documento de esta carpeta debe presentarse como definitivo hasta que un abogado colombiano especialista en protección de datos y contratos lo revise y lo firme.
+> **Estado:** versión 2.0, vigente desde el 5 de octubre de 2026, revisada por el abogado del Prestador. Los textos son editables desde el panel Owner (Documentos legales); un cambio de fondo se publica como nueva versión y obliga a aceptar de nuevo.
 > **Datos del Responsable que se usan como marcador:** `{{CC_RESPONSABLE}}` y `{{DIRECCION_COMPLETA}}` **no están en el repositorio**: se cargan desde el panel Owner y solo se muestran a usuarios registrados que aceptan el contrato (ver `03-contrato-transmision-datos.md`, cláusula 14).
 
 ## Responsable (identificación pública)
@@ -13,13 +13,13 @@
 ## Índice
 | # | Documento | Para quién | Estado |
 |---|---|---|---|
-| 01 | Política de Tratamiento de Datos Personales v2 | Público (clientes finales, usuarios) | Borrador |
-| 02 | Términos y Condiciones de Servicio v2 | Negocios (Owners/Managers) | Borrador |
-| 03 | Contrato y Anexo de Transmisión de Datos (DPA) | Negocios, al registrarse | Borrador |
-| 04 | Manual interno de Políticas y Procedimientos | Interno (Decreto 1377/2013) | Borrador |
-| 05 | Protocolo de Incidentes de Seguridad | Interno | Borrador |
-| 06 | Política de Uso Aceptable y de Inteligencia Artificial | Negocios y público | Borrador |
-| 07 | Retención, supresión y subencargados | Interno y público (resumen) | Borrador |
+| 01 | Política de Tratamiento de Datos Personales v2 | Público (clientes finales, usuarios) | Vigente |
+| 02 | Términos y Condiciones de Servicio v2 | Negocios (Owners/Managers) | Vigente |
+| 03 | Contrato y Anexo de Transmisión de Datos (DPA) | Negocios, al registrarse | Vigente |
+| 04 | Manual interno de Políticas y Procedimientos | Interno (Decreto 1377/2013) | Vigente |
+| 05 | Protocolo de Incidentes de Seguridad | Interno | Vigente |
+| 06 | Política de Uso Aceptable y de Inteligencia Artificial | Negocios y público | Vigente |
+| 07 | Retención, supresión y subencargados | Interno y público (resumen) | Vigente |
 | 08 | Operar como persona natural y cuándo crear una sociedad | Fundador | Informe |
 
 ## Decisiones de diseño que el abogado debe validar
