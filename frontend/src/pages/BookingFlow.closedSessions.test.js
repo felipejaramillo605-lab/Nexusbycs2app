@@ -68,3 +68,16 @@ test('open sessions stay selectable next to the closed ones', async () => {
   expect(buttons).toHaveLength(2);
   expect(buttons.filter((b) => b.disabled)).toHaveLength(1);
 });
+
+test('a group class with a booking window explains it: farther sessions must wait until that time is left', async () => {
+  const closed = { class_session_id: 'c1', time: '10:00', open_for_booking: false, booking_opens_on: '2026-10-06', booking_window_days: 1 };
+  await mount({ classSessions: [closed], closedSessions: [closed], selectedService: { name: 'Pilates', price: 25000, duration: 60, booking_window_days: 1 } });
+  const notice = container.querySelector('[data-testid="booking-window-notice"]');
+  expect(notice.textContent).toContain('24 horas de anticipación');
+  expect(notice.textContent).toContain('vuelve cuando falte ese tiempo');
+});
+
+test('no notice when the class has no booking window', async () => {
+  await mount({ classSessions: [{ class_session_id: 'o1', time: '09:00', open_for_booking: true }], slots: ['o1'], groupSessionById: () => ({ time: '09:00' }) });
+  expect(container.querySelector('[data-testid="booking-window-notice"]')).toBeNull();
+});
