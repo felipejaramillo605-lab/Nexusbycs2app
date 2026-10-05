@@ -36,7 +36,9 @@ def test_the_error_is_structured_in_spanish_and_says_when_it_opens():
     error = server._class_not_open_error({"date": "2099-10-08"}, {"booking_window_days": 2})
     assert error.status_code == 409
     assert error.detail["code"] == "CLASS_NOT_OPEN_YET" and error.detail["opens_on"] == "2099-10-06"
-    assert error.detail["message"] == "Las reservas de esta clase abren el 06/10/2099."
+    assert error.detail["message"] == (
+        "Esta clase solo se puede reservar con 2 días de anticipación: las reservas abren el 06/10/2099."
+    )
 
 
 class Cursor:
@@ -96,3 +98,22 @@ def test_class_booking_conflicts_are_structured_and_in_spanish():
     assert "You already have a spot in this class" not in source and "This class is full" not in source
     assert source.count('_class_conflict("CLASS_ALREADY_BOOKED"') + source.count('"CLASS_ALREADY_BOOKED",') >= 2
     assert source.count('_class_conflict("CLASS_FULL"') == 2
+
+
+def test_the_not_open_message_explains_the_advance_window_in_hours_or_days():
+    day = server._class_not_open_error({"date": "2099-10-08"}, {"booking_window_days": 1})
+    assert day.detail["window_days"] == 1
+    assert day.detail["message"] == (
+        "Esta clase solo se puede reservar con 24 horas de anticipación: las reservas abren el 07/10/2099."
+    )
+    week = server._class_not_open_error({"date": "2099-10-20"}, {"booking_window_days": 7})
+    assert "con 7 días de anticipación" in week.detail["message"] and week.detail["opens_on"] == "2099-10-13"
+
+
+def test_the_portal_class_list_also_reports_the_window():
+    source = (Path(__file__).resolve().parents[1] / "server.py").read_text(encoding="utf-8")
+    start = source.index("async def list_portal_class_sessions")
+    end = start + 6000
+    body = source[start:end]
+    for field in ('"booking_window_days"', '"open_for_booking"', '"booking_opens_on"'):
+        assert field in body, field
