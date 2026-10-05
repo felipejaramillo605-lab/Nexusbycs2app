@@ -219,3 +219,10 @@ def test_a_reminder_for_a_real_appointment_is_not_advertising_and_ignores_the_wi
     monkeypatch.setattr(client_whatsapp, "marketing_allowed", lambda *args, **kwargs: False)
     result = post(app, {"kind": "reminder", "organization_id": "org-a"})
     assert result.status_code != 409
+
+
+def test_an_operational_notice_is_not_advertising_and_ignores_the_window(monkeypatch):
+    app, _, sender = setup(monkeypatch)
+    monkeypatch.setattr(client_whatsapp, "marketing_allowed", lambda *args, **kwargs: False)
+    result = post(app, {"kind": "operational_notice", "message": "Cerramos temprano"})
+    assert result.status_code != 409

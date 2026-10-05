@@ -96,3 +96,39 @@ def test_campaigns_are_blocked_outside_the_window_and_consent_defaults_to_false(
         n.value.value for n in client_model.body if isinstance(n, ast.AnnAssign) and n.target.id == "accepts_marketing"
     )
     assert default is False
+
+
+# Festivos de Colombia 2027 (Ley 51 de 1983; trasladados al lunes; Semana Santa desde la Pascua del 28-mar).
+HOLIDAYS_2027 = {
+    date(2027, 1, 1), date(2027, 1, 11), date(2027, 3, 22), date(2027, 3, 25), date(2027, 3, 26),
+    date(2027, 5, 1), date(2027, 5, 10), date(2027, 5, 31), date(2027, 6, 7), date(2027, 7, 5), date(2027, 7, 20),
+    date(2027, 8, 7), date(2027, 8, 16), date(2027, 10, 18), date(2027, 11, 1), date(2027, 11, 15),
+    date(2027, 12, 8), date(2027, 12, 25),
+}  # fmt: skip
+
+
+def test_the_computed_holidays_match_the_expected_2027_calendar():
+    assert set(subject.colombian_holidays(2027)) == HOLIDAYS_2027
+
+
+def test_year_change_new_years_day_is_closed_and_the_next_window_is_saturday_2_january():
+    assert subject.marketing_allowed(at(2026, 12, 31, 10, 0))  # jueves habil
+    assert not subject.marketing_allowed(at(2027, 1, 1, 10, 0))  # viernes festivo
+    assert subject.next_allowed(at(2026, 12, 31, 20, 0)) == at(2027, 1, 2, 8, 0)  # 31-dic noche -> sabado 2-ene
+    assert not subject.marketing_allowed(at(2027, 1, 3, 11, 0))  # domingo
+    assert subject.next_allowed(at(2027, 1, 3, 11, 0)) == at(2027, 1, 4, 7, 0)  # lunes 4 no es festivo
+
+
+def test_a_holiday_that_moves_to_monday_blocks_that_monday_and_not_the_original_day():
+    assert not subject.marketing_allowed(at(2027, 10, 18, 11, 0))  # Dia de la Raza trasladado
+    assert subject.marketing_allowed(at(2027, 10, 12, 11, 0))  # el 12 cae martes y ya no es festivo
+
+
+def test_only_the_whatsapp_promotion_and_campaign_paths_use_the_marketing_window():
+    """Recordatorios, confirmaciones y avisos operativos (correo o WhatsApp) no deben depender de la ventana."""
+    importers = sorted(
+        path.name
+        for path in Path(__file__).resolve().parents[1].glob("*.py")
+        if "marketing_window" in path.read_text(encoding="utf-8") and path.name != "marketing_window.py"
+    )
+    assert importers == ["client_whatsapp.py", "server.py"]
