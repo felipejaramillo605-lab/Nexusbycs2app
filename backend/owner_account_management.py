@@ -69,6 +69,18 @@ async def enforce_organization_active(request: Request, db):
         raise HTTPException(status_code=404, detail="Organization not found")
 
 
+async def assert_organization_active(db, organization_id):
+    """404 when the organization was archived (covers client sessions, tokens and body/query ids)."""
+    if not organization_id:
+        return
+    deleted = await db.organizations.find_one(
+        {"organization_id": organization_id, "deleted_at": {"$exists": True, "$ne": None}},
+        {"_id": 0, "organization_id": 1},
+    )
+    if deleted:
+        raise HTTPException(status_code=404, detail="Organization not found")
+
+
 def build_owner_account_router(db, get_current_user):
     router = APIRouter()
 
@@ -282,7 +294,7 @@ def build_owner_account_router(db, get_current_user):
             {"organization_id": organization_id}, {"$set": {"active": False, "updated_at": now}}
         )
         await db.organizations.update_one(
-            {"organization_id": organization_id},
+            {"organization_id": organization_id, "deleted_at": {"$in": [None]}},
             {
                 "$set": {
                     "deleted_at": now,
