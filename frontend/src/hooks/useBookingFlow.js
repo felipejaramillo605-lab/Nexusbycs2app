@@ -139,7 +139,8 @@ export function useBookingFlow() {
         const nextSessions = (response.data || []).filter(
           (session) => session.barber_id === selectedBarber.barber_id && session.spots_available > 0,
         );
-        const nextSlots = nextSessions.map((session) => session.class_session_id);
+        // Las sesiones cuyas reservas aun no abren se muestran deshabilitadas (no son seleccionables).
+        const nextSlots = nextSessions.filter((session) => session.open_for_booking !== false).map((session) => session.class_session_id);
         setClassSessions(nextSessions);
         setSlots(nextSlots);
         setSelectedClassSession((current) => (
@@ -306,6 +307,7 @@ export function useBookingFlow() {
     selectedTime,
     slots,
     classSessions,
+    closedSessions: classSessions.filter((session) => session.open_for_booking === false),
     selectedClassSession,
     availabilityMeta,
     loadingSlots,
