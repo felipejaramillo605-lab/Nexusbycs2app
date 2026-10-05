@@ -219,6 +219,16 @@ export const legalAPI = {
   accept: (version, documentHash) => api.post('/legal/accept', { version, document_hash: documentHash || null }),
   ownerGetProfile: () => api.get('/owner/legal-profile'),
   ownerSaveProfile: (data) => api.put('/owner/legal-profile', data),
+  getStatus: () => api.get('/legal/status'),
+  getDocuments: () => api.get('/legal/documents'),
+  ownerGetDocuments: () => api.get('/owner/legal-documents'),
+  ownerSaveDocument: (key, data) => api.put(`/owner/legal-documents/${key}`, data),
+  ownerRestoreDocument: (key) => api.delete(`/owner/legal-documents/${key}`),
+};
+
+export const retentionAPI = {
+  plan: () => api.get('/owner/retention/plan'),
+  run: (confirmation) => api.post('/owner/retention/run', { confirmation }),
 };
 
 export const ownerConnectorsAPI = {
