@@ -52,4 +52,14 @@ describe('BusinessProfile', () => {
     expect(mockUpdateOrganization.mock.calls[0][0]).toBe('org-1');
     expect(mockUpdateOrganization.mock.calls[0][1].name).toBe('Empresa Real');
   });
+
+  test('switching to grooming for pets saves its matching portal theme', async () => {
+    mockGetOrganization.mockResolvedValue({ data: { name: 'Patitas', business_type: 'barbershop', client_portal_theme: 'classic' } });
+    mockUpdateOrganization.mockResolvedValue({ data: {} });
+    const rendered = await renderPage(); root = rendered.root;
+    const select = rendered.host.querySelector('[data-testid="business-type-select"]');
+    await act(async () => { select.value = 'pet_grooming'; select.dispatchEvent(new Event('change', { bubbles: true })); });
+    await act(async () => { rendered.host.querySelector('form').dispatchEvent(new Event('submit', { bubbles: true, cancelable: true })); await new Promise(resolve => setTimeout(resolve, 0)); });
+    expect(mockUpdateOrganization).toHaveBeenLastCalledWith('org-1', expect.objectContaining({ business_type: 'pet_grooming', client_portal_theme: 'pet-care' }));
+  });
 });

@@ -5,13 +5,21 @@ import cyberpunk from './cyberpunk';
 import underground from './underground';
 import neutral from './neutral';
 import minimalist_purple from './minimalist_purple';
+import nailStudio from './nail-studio';
+import bloomGarden from './bloom-garden';
+import wellness from './wellness';
+import movement from './movement';
+import clinical from './clinical';
+import petCare from './pet-care';
 
 export const STANDARD_TEMPLATE_KEYS = Object.freeze([
   'classic', 'feminine', 'professional', 'cyberpunk', 'underground', 'neutral', 'minimalist_purple',
+  'nail-studio', 'bloom-garden', 'wellness', 'movement', 'clinical', 'pet-care',
 ]);
 
 export const CLIENT_PORTAL_THEMES = Object.freeze({
   classic, feminine, professional, cyberpunk, underground, neutral, minimalist_purple,
+  'nail-studio': nailStudio, 'bloom-garden': bloomGarden, wellness, movement, clinical, 'pet-care': petCare,
 });
 
 export const getThemeColors = (themeKey = 'classic') => (

@@ -3,12 +3,13 @@ import React, { useEffect, useState, useCallback } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { serviceAPI, organizationAPI, inventoryAPI } from '../api';
-import { Plus, Trash2, ArrowLeft, Scissors, Edit2, FlaskConical, AlertTriangle, ShieldCheck, X, ImagePlus, Users, CalendarClock, Image as ImageIcon } from 'lucide-react';
+import { Plus, Trash2, ArrowLeft, Edit2, FlaskConical, AlertTriangle, ShieldCheck, X, ImagePlus, Users, CalendarClock, Image as ImageIcon } from 'lucide-react';
 import { MANAGER } from '../constants/testIds';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '../components/ui/dialog';
 import { toast } from 'sonner';
 import { confirmAction, DetailDrawer, EmptyState } from '../components/design';
 import { formatCOP as money } from '../lib/currency';
+import { getBusinessProfile } from '../lib/businessProfiles';
 
 const ManagerServices = () => {
   const navigate = useNavigate();
@@ -22,6 +23,7 @@ const ManagerServices = () => {
   const [newService, setNewService] = useState({ name: '', duration: 30, price: 0, service_type: 'individual', group_capacity: 8, drop_in_price: '', spot_layout: '', short_description: '' });
   const [editingService, setEditingService] = useState(null);
   const [organizationName, setOrganizationName] = useState('');
+  const [businessType, setBusinessType] = useState('barbershop');
   const [recipeService, setRecipeService] = useState(null);
   const [recipe, setRecipe] = useState(null);
   const [inventory, setInventory] = useState([]);
@@ -38,11 +40,16 @@ const ManagerServices = () => {
     try {
       const orgsRes = await organizationAPI.getAll();
       const org = orgsRes.data.find(o => o.organization_id === organizationId);
-      if (org) setOrganizationName(org.name);
+      if (org) {
+        setOrganizationName(org.name);
+        setBusinessType(org.business_type || 'barbershop');
+      }
     } catch (error) {
       console.error('Error loading organization:', error);
     }
   }, [organizationId]);
+
+  const ServiceIcon = getBusinessProfile(businessType).serviceIcon;
 
   const loadServices = useCallback(async () => {
     if (!organizationId) return;
@@ -287,7 +294,7 @@ const ManagerServices = () => {
             </button>
             <div className="flex items-center gap-4">
               <div className="w-12 h-12 rounded-xl bg-[var(--app-primary)] flex items-center justify-center">
-                <Scissors size={24} strokeWidth={1.5} />
+                <ServiceIcon size={24} strokeWidth={1.5} />
               </div>
               <div>
                 <h1 className="text-4xl font-light tracking-tight text-[var(--app-text-primary)]" style={{ fontFamily: 'Outfit, sans-serif' }}>
@@ -623,7 +630,7 @@ const ManagerServices = () => {
             >
               <div className="flex items-start justify-between mb-4">
                 <div className="w-12 h-12 rounded-xl bg-[var(--app-primary)]/20 flex items-center justify-center overflow-hidden">
-                  {service.photos?.[0] ? <img src={service.photos[0]} alt="" className="w-full h-full object-cover" /> : <Scissors size={24} strokeWidth={1.5} className="text-[var(--app-primary)]" />}
+                  {service.photos?.[0] ? <img src={service.photos[0]} alt="" className="w-full h-full object-cover" /> : <ServiceIcon size={24} strokeWidth={1.5} className="text-[var(--app-primary)]" />}
                 </div>
                 <div className="flex items-center gap-2">
                   <button
@@ -677,7 +684,7 @@ const ManagerServices = () => {
 
         {services.length === 0 && (
           <EmptyState
-            icon={Scissors}
+            icon={ServiceIcon}
             title="Aún no hay servicios"
             description="Crea tu primer servicio para comenzar a recibir reservas."
             action={<button type="button" onClick={() => setIsCreateDialogOpen(true)} className="mt-4 inline-flex items-center gap-2 rounded-xl bg-[var(--app-primary)] px-4 py-2 text-sm font-medium text-[var(--app-text-primary)] transition-colors hover:bg-[var(--app-primary-hover)]"><Plus size={16} /> Crear servicio</button>}

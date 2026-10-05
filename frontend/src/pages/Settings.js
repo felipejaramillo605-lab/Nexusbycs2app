@@ -57,6 +57,7 @@ const Settings = () => {
     address: '',
     phone: '',
     client_portal_theme: 'classic',
+    business_type: 'barbershop',
     portal_template: 'classic',
     premium_templates_contracted: false,
     logo_url: '',
@@ -118,6 +119,7 @@ const Settings = () => {
           address: data.address || '',
           phone: data.phone || '',
           client_portal_theme: data.client_portal_theme || 'classic',
+          business_type: data.business_type || 'barbershop',
           portal_template: data.portal_template || 'classic',
           premium_templates_contracted: data.premium_templates_contracted ?? false,
           logo_url: data.logo_url || '',
@@ -1070,6 +1072,7 @@ const Settings = () => {
             <PortalThemeSelector
               organizationId={organizationId}
               currentTheme={profileData.client_portal_theme || 'classic'}
+              businessType={profileData.business_type}
               onThemeChange={(theme) => {
                 setProfileData(current => ({ ...current, client_portal_theme: theme }));
               }}
