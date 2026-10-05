@@ -9,6 +9,7 @@ import logging
 from typing import Optional
 
 from fastapi import APIRouter, Cookie, File, Header, HTTPException, UploadFile
+from media_rights import require_media_rights
 
 from product_catalog import _write_catalog_image, _delete_catalog_image
 from professional_media import _read_limited
@@ -60,6 +61,7 @@ def build_service_media_router(db, get_current_user, require_management_role, re
     ):
         user = await get_current_user(authorization, session_token)
         org_id, service = await management_service(user, organization_id, service_id)
+        await require_media_rights(db, user)
         photos = list(service.get("photos") or [])
         if len(photos) >= MAX_SERVICE_PHOTOS:
             raise HTTPException(status_code=400, detail=f"Máximo {MAX_SERVICE_PHOTOS} imágenes por servicio. Elimina una primero.")

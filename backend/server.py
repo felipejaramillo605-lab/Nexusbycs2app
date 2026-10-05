@@ -72,6 +72,7 @@ from resend_webhooks import build_resend_webhook_router, ensure_email_event_inde
 from owner_connector_status import build_connector_status_router, ensure_connector_rate_limit_indexes
 from legal_profile import build_legal_router, ensure_legal_indexes
 from data_retention import build_retention_router
+from media_rights import build_media_rights_router
 from marketing_window import blocked_message as marketing_blocked_message, marketing_allowed
 from integrity_checks import build_integrity_router
 from owner_media_integrity import build_owner_media_integrity_router
@@ -9336,6 +9337,7 @@ api_router.include_router(build_resend_webhook_router(db, get_current_user))
 api_router.include_router(build_connector_status_router(get_current_user, db))
 api_router.include_router(build_legal_router(db, get_current_user))
 api_router.include_router(build_retention_router(db, get_current_user))
+api_router.include_router(build_media_rights_router(db, get_current_user))
 api_router.include_router(build_integrity_router(db, get_current_user), tags=["owner-integrity"])
 api_router.include_router(build_owner_media_integrity_router(db, get_current_user), tags=["owner-media-integrity"])
 api_router.include_router(build_security_observability_router(db, get_current_user), tags=["owner-security"])

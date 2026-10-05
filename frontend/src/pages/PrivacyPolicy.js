@@ -405,6 +405,54 @@ export default function PrivacyPolicy() {
             </p>
           </section>
 
+          {/* --- 9 bis. Imagenes --- */}
+          <section className="mb-8">
+            <h2 className="text-2xl font-bold mb-4 text-white border-b border-white/10 pb-2">
+              9 bis. Imagenes y autorizacion de uso
+            </h2>
+            <p className="text-zinc-300 mb-4">
+              Las imagenes que sube un negocio (logos, fondos, fotos de servicios, de productos o de sus profesionales)
+              se tratan solo para prestar el servicio. Quien las sube declara que tiene derecho a usarlas y que cuenta
+              con la autorizacion de las personas que aparezcan en ellas para publicar su imagen en Nexus y en el
+              portal del negocio; la plataforma pide esta declaracion con una casilla antes de la primera subida y
+              guarda la fecha y la version aceptada. Quien aparece en una imagen puede pedir su retiro escribiendo a
+              nexusbycs2@gmail.com.
+            </p>
+          </section>
+
+          {/* --- 10 bis. Inteligencia artificial --- */}
+          <section className="mb-8">
+            <h2 className="text-2xl font-bold mb-4 text-white border-b border-white/10 pb-2">
+              10 bis. Inteligencia artificial
+            </h2>
+            <p className="text-zinc-300 mb-4">
+              Nexus incluye un asistente de inteligencia artificial (Nexus AI) para duenos y administradores, que
+              responde consultas sobre su propio negocio. Al proveedor del modelo enviamos solo el texto minimo
+              necesario y, en las funciones que usen datos de clientes finales, enmascarado (sin correos, telefonos,
+              documentos ni direcciones); esas funciones estan apagadas por defecto y cada negocio decide si las
+              activa. La IA solo sugiere: una persona decide, y nunca se usa para tomar decisiones automaticas sobre
+              cobros, accesos, bloqueos, precios o disponibilidad de citas. Nexus no usa tus datos para entrenar
+              modelos propios y exige a sus proveedores no usarlos para entrenar los suyos. Los proveedores aparecen
+              en la lista de terceros de la seccion 4.
+            </p>
+          </section>
+
+          {/* --- 10 ter. Usuarios en EE. UU. --- */}
+          <section className="mb-8">
+            <h2 className="text-2xl font-bold mb-4 text-white border-b border-white/10 pb-2">
+              10 ter. Usuarios en EE. UU.
+            </h2>
+            <p className="text-zinc-300 mb-4">
+              Nexus esta disenado para Colombia. Si prestamos el servicio a negocios en EE. UU.: no vendemos datos
+              personales ni los compartimos para publicidad; no usamos analitica ni pixeles publicitarios de
+              terceros; puedes pedir acceso, correccion, eliminacion y copia de tus datos en nexusbycs2@gmail.com o al
+              +57 323 907 0485, sin discriminacion por ejercer esos derechos; los mensajes de marketing solo se envian
+              con consentimiento previo y expreso, que puedes retirar en cualquier momento; el servicio es para
+              mayores de 18 anos y, si detectamos datos de un menor de 13 anos sin autorizacion verificable, los
+              eliminaremos. Este aviso se revisara con asesoria local antes de operar en EE. UU.
+            </p>
+          </section>
+
           {/* --- 11. Cambios a esta politica --- */}
           <section className="mb-8">
             <h2 className="text-2xl font-bold mb-4 text-white border-b border-white/10 pb-2">

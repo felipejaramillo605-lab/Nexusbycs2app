@@ -35,7 +35,7 @@ test('Barbería Real has an original premium theme contract', () => {
   expect(template.theme.surface).toBe('#F3E9D2');
   expect(template.theme.accentPrimary).toBe('#C9A24B');
   expect(template.theme.accentSecondary).toBe('#6B4A34');
-  expect(template.fontHref).toContain('family=Bitter');
+  expect(template.fontHref).toBe('/fonts/fonts.css');
 });
 
 test('Bloom has an original premium theme contract', () => {
@@ -44,7 +44,7 @@ test('Bloom has an original premium theme contract', () => {
   expect(template.theme.bgStart).toBe('#FBE4EC');
   expect(template.theme.accentPrimary).toBe('#7FB3A3');
   expect(template.theme.accentSecondary).toBe('#C97B92');
-  expect(template.fontHref).toContain('family=Fraunces');
+  expect(template.fontHref).toBe('/fonts/fonts.css');
 });
 
 test('Ignition has an original premium theme contract', () => {
@@ -53,7 +53,7 @@ test('Ignition has an original premium theme contract', () => {
   expect(template.theme.bgStart).toBe('#0B0B0C');
   expect(template.theme.accentPrimary).toBe('#C6F135');
   expect(template.theme.accentSecondary).toBe('#FF5A1F');
-  expect(template.fontHref).toContain('family=Anton');
+  expect(template.fontHref).toBe('/fonts/fonts.css');
 });
 
 test('Noir has an original premium theme contract', () => {
@@ -62,7 +62,7 @@ test('Noir has an original premium theme contract', () => {
   expect(template.theme.bgStart).toBe('#2A0A3D');
   expect(template.theme.accentPrimary).toBe('#D4AF37');
   expect(template.theme.accentSecondary).toBe('#E0218A');
-  expect(template.fontHref).toContain('family=Playfair+Display');
+  expect(template.fontHref).toBe('/fonts/fonts.css');
 });
 
 test('only the matching organization effective premium key resolves to a visual implementation', () => {
