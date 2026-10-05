@@ -3690,6 +3690,10 @@ def _class_booking_window(session: dict, service: Optional[dict], today=None):
     return (today or datetime.now(timezone.utc).date()) >= opens_on, opens_on.isoformat()
 
 
+def _class_conflict(code: str, message: str) -> HTTPException:
+    return HTTPException(status_code=409, detail={"code": code, "message": message})
+
+
 def _class_not_open_error(session: dict, service: Optional[dict]) -> HTTPException:
     _, opens_on = _class_booking_window(session, service)
     year, month, day = opens_on.split("-")
@@ -3755,7 +3759,7 @@ async def book_class_session_from_portal(
                 {"membership_id": membership["membership_id"]},
                 {"$inc": {f"usage_counts.{session['service_id']}": -1}},
             )
-        raise HTTPException(status_code=409, detail="This class is full")
+        raise _class_conflict("CLASS_FULL", "Esta clase ya no tiene cupos disponibles.")
 
     async def _rollback():
         await db.class_sessions.update_one({"class_session_id": class_session_id}, {"$inc": {"booked_count": -1}})
@@ -3795,7 +3799,10 @@ async def book_class_session_from_portal(
         await db.class_bookings.insert_one(booking.copy())
     except Exception:
         await _rollback()
-        raise HTTPException(status_code=409, detail="You already have a spot in this class")
+        raise _class_conflict(
+            "CLASS_ALREADY_BOOKED",
+            "Ya tienes un cupo en esta clase. Revisa tu correo de confirmación o elige otra sesión.",
+        )
 
     booking.pop("_id", None)
     await _send_class_booking_confirmation(db, organization_id=org_id, session=session, service=service, booking=booking)
@@ -3982,7 +3989,7 @@ async def book_class_session(org_id: str, class_session_id: str, data: ClassBook
         {"$inc": {"booked_count": 1}},
     )
     if result.modified_count == 0:
-        raise HTTPException(status_code=409, detail="This class is full")
+        raise _class_conflict("CLASS_FULL", "Esta clase ya no tiene cupos disponibles.")
 
     try:
         spot_label = await _validate_and_claim_spot(db, class_session_id, service, data.spot_label)
@@ -4018,7 +4025,10 @@ async def book_class_session(org_id: str, class_session_id: str, data: ClassBook
         # ya reservado (índice único sesión+teléfono, o spot ya tomado en la
         # condición de carrera) -- revertir el cupo tomado
         await db.class_sessions.update_one({"class_session_id": class_session_id}, {"$inc": {"booked_count": -1}})
-        raise HTTPException(status_code=409, detail="You already have a spot in this class")
+        raise _class_conflict(
+            "CLASS_ALREADY_BOOKED",
+            "Ya tienes un cupo en esta clase. Revisa tu correo de confirmación o elige otra sesión.",
+        )
     booking.pop("_id", None)
     await _send_class_booking_confirmation(db, organization_id=org_id, session=session, service=service, booking=booking)
     return booking
