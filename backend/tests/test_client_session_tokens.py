@@ -15,7 +15,7 @@ from pathlib import Path
 
 import bcrypt
 from fastapi import HTTPException
-from unittest.mock import patch
+from unittest.mock import AsyncMock, patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 import server
@@ -129,7 +129,11 @@ class TestClientSessionTokenHash:
         self.client_doc = _registered_client()
         self.clients = MemoryCollection([self.client_doc])
         self.sessions = MemoryCollection()
-        self.database = SimpleNamespace(clients=self.clients, client_sessions=self.sessions)
+        self.database = SimpleNamespace(
+            clients=self.clients,
+            client_sessions=self.sessions,
+            organizations=SimpleNamespace(find_one=AsyncMock(return_value=None)),
+        )
         self._patch = patch.object(server, "db", self.database)
         self._patch.start()
 

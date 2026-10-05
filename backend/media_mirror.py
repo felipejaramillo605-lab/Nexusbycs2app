@@ -19,7 +19,7 @@ logger = logging.getLogger(__name__)
 
 # MongoDB rejects documents over 16 MB (BSON limit); stay below it with headroom for metadata.
 MAX_MIRROR_BYTES = 15 * 1024 * 1024
-ALLOWED_NAMESPACES = {"platform", "organizations", "professionals", "catalog", "portal-backgrounds"}
+ALLOWED_NAMESPACES = object_storage.ALLOWED_NAMESPACES
 
 
 def _validate(namespace: str, relative_key: str, payload: bytes | None = None, check_size: bool = True) -> None:
