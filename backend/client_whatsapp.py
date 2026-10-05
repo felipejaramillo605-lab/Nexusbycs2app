@@ -11,6 +11,7 @@ from fastapi import APIRouter, Cookie, Header, HTTPException
 from pydantic import BaseModel, ConfigDict, Field
 
 import whatsapp_service
+from marketing_window import blocked_message as marketing_blocked_message, marketing_allowed
 
 
 class ClientWhatsAppRequest(BaseModel):
@@ -43,6 +44,9 @@ def build_client_whatsapp_router(
             raise HTTPException(404, "Cliente no encontrado en esta organización")
         if data.kind == "promotion" and client.get("accepts_marketing") is not True:
             raise HTTPException(403, "El cliente no autorizó mensajes de marketing")
+        if data.kind == "promotion" and not marketing_allowed():
+            # Ley 2300 de 2023: horario y dias habiles para publicidad (los recordatorios no son publicidad).
+            raise HTTPException(409, marketing_blocked_message())
         if not client.get("phone"):
             raise HTTPException(400, "El cliente no tiene un teléfono registrado")
 

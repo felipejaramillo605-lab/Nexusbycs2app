@@ -398,14 +398,14 @@ export default function TermsOfService() {
                 <Phone size={16} className="text-purple-400 flex-shrink-0" />
                 <div>
                   <p className="text-xs text-zinc-500">Telefono</p>
-                  <a href="tel:+573103705753" className="text-sm text-purple-400 hover:underline">+57 310 370 5753</a>
+                  <a href="tel:+573239070485" className="text-sm text-purple-400 hover:underline">+57 323 907 0485</a>
                 </div>
               </div>
               <div className="flex items-center gap-3">
                 <MapPin size={16} className="text-purple-400 flex-shrink-0" />
                 <div>
                   <p className="text-xs text-zinc-500">Direccion</p>
-                  <p className="text-sm text-zinc-300">Cr 51 #96 sur 50, La Estrella, Antioquia, Colombia</p>
+                  <p className="text-sm text-zinc-300">La Estrella, Antioquia, Colombia</p>
                 </div>
               </div>
               <div className="pt-3 border-t border-white/10">
