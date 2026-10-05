@@ -536,3 +536,5 @@ button,[role="button"]{-webkit-tap-highlight-color:transparent}button:focus-visi
 .nexus-media-rights-check input{flex:0 0 auto;width:24px;height:24px;margin-top:.1rem;accent-color:var(--app-primary)}
 .nexus-media-rights-actions{display:flex;justify-content:flex-end;gap:.65rem;margin-top:1.25rem}
 @media(max-width:560px){.nexus-media-rights-layer{place-items:end center;padding:0}.nexus-media-rights-panel{width:100%;border-radius:22px 22px 0 0;padding-bottom:calc(1.4rem + env(safe-area-inset-bottom,0px))}.nexus-media-rights-actions{flex-direction:column-reverse}.nexus-media-rights-actions .nexus-action-button{width:100%}}
+/* NEXUS_CLASS_NOT_OPEN_YET_V1: sesiones cuyas reservas aun no abren */
+.nexus-slots button.is-closed,.nexus-slots button.is-closed:hover{opacity:.5;cursor:not-allowed;border-style:dashed}
