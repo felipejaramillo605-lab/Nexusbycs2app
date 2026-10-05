@@ -75,3 +75,61 @@ def test_configured_connectors_are_reported_without_leaking_secrets(monkeypatch)
 
 def test_only_an_approved_owner_can_read_it():
     assert client(role="manager").get("/api/owner/connectors/status").status_code == 403
+
+
+class _Mailer:
+    def __init__(self, ok=True):
+        self.calls = []
+        self.ok = ok
+
+    def _send_email(self, to, subject, html, text=None):
+        self.calls.append(to)
+        return self.ok
+
+
+def _client_with_user(email="felipe@example.com", role="owner", user_id="owner_1"):
+    async def current_user(*_):
+        return SimpleNamespace(role=role, access_status="approved", user_id=user_id, email=email)
+
+    app = FastAPI()
+    app.include_router(subject.build_connector_status_router(current_user), prefix="/api")
+    return TestClient(app)
+
+
+def test_test_email_goes_only_to_the_signed_in_owner_through_resend(monkeypatch):
+    sent = []
+    monkeypatch.setenv("EMAIL_PROVIDER", "resend")
+    monkeypatch.setenv("RESEND_API_KEY", "re_x")
+    monkeypatch.setenv("RESEND_FROM_EMAIL", "no-reply@mail.nexusbycs2.com")
+    monkeypatch.setattr(subject.email_providers, "send_via_resend", lambda to, *a, **k: sent.append(to) or (True, None))
+    body = _client_with_user().post("/api/owner/connectors/test-email").json()
+    assert sent == ["felipe@example.com"]
+    assert body == {"sent": True, "provider": "resend", "resend_error": None, "recipient": "f***@example.com"}
+
+
+def test_test_email_falls_back_to_smtp_and_reports_the_resend_error(monkeypatch):
+    mailer = _Mailer()
+    monkeypatch.setenv("EMAIL_PROVIDER", "resend")
+    monkeypatch.setenv("RESEND_API_KEY", "re_x")
+    monkeypatch.setenv("RESEND_FROM_EMAIL", "no-reply@mail.nexusbycs2.com")
+    monkeypatch.setattr(subject.email_providers, "send_via_resend", lambda *a, **k: (False, "http_403"))
+    import email_service as email_module
+
+    monkeypatch.setattr(email_module, "email_service", mailer)
+    body = _client_with_user().post("/api/owner/connectors/test-email").json()
+    assert mailer.calls == ["felipe@example.com"]
+    assert body["sent"] is True and body["provider"] == "smtp_fallback" and body["resend_error"] == "http_403"
+
+
+def test_test_email_is_owner_only_and_rate_limited():
+    assert _client_with_user(role="manager").post("/api/owner/connectors/test-email").status_code == 403
+    import email_service as email_module
+
+    client = _client_with_user(email="limit@example.com", user_id="owner_rate_limit")
+    original = email_module.email_service
+    email_module.email_service = _Mailer()
+    try:
+        statuses = [client.post("/api/owner/connectors/test-email").status_code for _ in range(7)]
+    finally:
+        email_module.email_service = original
+    assert statuses[:5] == [200] * 5 and 429 in statuses[5:]

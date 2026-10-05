@@ -6,11 +6,13 @@ global.IS_REACT_ACT_ENVIRONMENT = true;
 
 const mockStatus = jest.fn();
 const mockEvents = jest.fn();
+const mockTest = jest.fn();
 
 jest.mock('../api', () => ({
   ownerConnectorsAPI: {
     getStatus: (...args) => mockStatus(...args),
     getEmailEvents: (...args) => mockEvents(...args),
+    sendTestEmail: (...args) => mockTest(...args),
   },
 }));
 jest.mock('../components/design', () => {
@@ -88,4 +90,34 @@ test('shows an error with retry when the status cannot be loaded', async () => {
   mockEvents.mockResolvedValue({ data: {} });
   await mount();
   expect(container.querySelector('[role="alert"]').textContent).toContain('No disponible');
+});
+
+test('sends a test email to the signed-in Owner and reports the provider used', async () => {
+  mockStatus.mockResolvedValue({ data: OFF });
+  mockEvents.mockResolvedValue({ data: { window_days: 7, counts: {}, suppressed: [] } });
+  mockTest.mockResolvedValue({ data: { sent: true, provider: 'resend', resend_error: null, recipient: 'f***@example.com' } });
+  await mount();
+  const button = [...container.querySelectorAll('button')].find((b) => b.textContent.includes('Enviar correo de prueba'));
+  await act(async () => {
+    button.click();
+  });
+  expect(mockTest).toHaveBeenCalledTimes(1);
+  expect(container.querySelector('[role="status"]').textContent).toContain('f***@example.com por Resend');
+});
+
+test('explains a failed test email and the rate limit', async () => {
+  mockStatus.mockResolvedValue({ data: OFF });
+  mockEvents.mockResolvedValue({ data: { window_days: 7, counts: {}, suppressed: [] } });
+  mockTest.mockResolvedValueOnce({ data: { sent: false, provider: null, resend_error: 'http_403', recipient: 'f***@example.com' } });
+  mockTest.mockRejectedValueOnce({ response: { status: 429 } });
+  await mount();
+  const button = () => [...container.querySelectorAll('button')].find((b) => b.textContent.includes('Enviar correo de prueba'));
+  await act(async () => {
+    button().click();
+  });
+  expect(container.querySelector('[role="status"]').textContent).toContain('Resend: http_403');
+  await act(async () => {
+    button().click();
+  });
+  expect(container.querySelector('[role="status"]').textContent).toContain('Demasiadas pruebas');
 });
