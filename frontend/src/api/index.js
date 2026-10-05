@@ -444,6 +444,7 @@ export const settlementAPI = {
 export const staffAppointmentAPI = {
   getAll: (params = {}) => api.get('/staff/appointments', { params }),
   getSummary: (params = {}) => api.get('/staff/appointments/summary', { params }),
+  createWalkin: (data) => api.post('/staff/appointments', data),
 };
 
 // NEXUS_STAFF_INCOME_BACKEND_V1

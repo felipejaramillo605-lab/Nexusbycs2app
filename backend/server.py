@@ -11,7 +11,7 @@ from slowapi.errors import RateLimitExceeded
 import os
 import logging
 from pathlib import Path
-from pydantic import BaseModel, Field, ConfigDict, EmailStr
+from pydantic import BaseModel, Field, ConfigDict, EmailStr, field_validator
 from typing import List, Optional, Literal
 import uuid
 from datetime import datetime, timezone, timedelta
@@ -631,12 +631,27 @@ class AppointmentCreate(BaseModel):
     barber_id: str
     client_name: str = Field(..., max_length=100)
     client_phone: str = Field(..., max_length=32)
-    client_email: EmailStr  # Use EmailStr for validation
+    client_email: Optional[EmailStr] = None
     date: str
     time: str
     marketing_consent: bool = False  # TCPA/Ley 1581 compliance
     # NEXUS_PRODUCT_CATALOG_V11: optional cart carried over from the client portal.
     cart_items: Optional[List[dict]] = None
+
+
+class StaffWalkinAppointmentCreate(BaseModel):
+    service_id: str
+    client_name: str = Field(..., min_length=1, max_length=100)
+    client_phone: str = Field(..., min_length=4, max_length=32)
+    client_email: Optional[EmailStr] = None
+    date: str
+    time: str
+
+    @field_validator("client_email", mode="before")
+    @classmethod
+    def blank_email_is_none(cls, value):
+        # El formulario envia '' cuando el cliente no da correo: es opcional, no un correo invalido.
+        return None if isinstance(value, str) and not value.strip() else value
 
 
 class AppointmentRescheduleRequest(BaseModel):
@@ -6431,6 +6446,54 @@ async def get_my_staff_appointments(
     return await enrich_staff_appointments(items, barber["organization_id"])
 
 
+@api_router.post("/staff/appointments", tags=["staff-portal"])
+@limiter.limit("30/hour")
+async def create_staff_walkin_appointment(
+    request: Request,
+    data: StaffWalkinAppointmentCreate,
+    authorization: Optional[str] = Header(None),
+    session_token: Optional[str] = Cookie(None),
+):
+    """Create a walk-in booking only in the authenticated professional's agenda."""
+    current_user = await get_current_user(authorization, session_token)
+    barber = await resolve_current_staff_barber(current_user)
+    organization_id, barber_id = barber["organization_id"], barber["barber_id"]
+    phone = sanitize_phone(data.client_phone)
+    existing_client = await db.clients.find_one(
+        {"organization_id": organization_id, "phone": phone}, {"_id": 0, "client_id": 1}
+    )
+    public_data = AppointmentCreate(
+        service_id=data.service_id,
+        barber_id=barber_id,
+        client_name=data.client_name,
+        client_phone=phone,
+        client_email=data.client_email,
+        date=data.date,
+        time=data.time,
+        marketing_consent=False,
+    )
+    # Reuse the exact public booking implementation without its IP-only limit.
+    # The staff route has its own authenticated per-user limit above.
+    creator = getattr(create_public_appointment, "__wrapped__", create_public_appointment)
+    appointment = await creator(organization_id, public_data, request)
+    client_update = {"source": "staff_walkin", "created_by": current_user.user_id}
+    if not existing_client:
+        client_update.update({"is_registered": False, "accepts_marketing": False, "pin_hash": None})
+    await db.clients.update_one({"organization_id": organization_id, "phone": phone}, {"$set": client_update})
+    await record_audit_event(
+        db,
+        category="appointments",
+        event_type="staff_walkin_appointment_created",
+        actor_user_id=current_user.user_id,
+        organization_id=organization_id,
+        entity_type="appointment",
+        entity_id=appointment["appointment_id"],
+        previous_value=None,
+        new_value={"barber_id": barber_id, "client_id": (existing_client or {}).get("client_id")},
+    )
+    return appointment
+
+
 @api_router.get("/staff/appointments/summary", tags=["staff-portal"])
 async def get_my_staff_appointments_summary(
     start_date: Optional[str] = None,
@@ -8862,7 +8925,8 @@ async def create_public_appointment(org_id: str, data: AppointmentCreate, reques
         "barber_id": data.barber_id,
         "client_name": data.client_name.strip()[:100],  # Limit length
         "client_phone": sanitized_phone,
-        "client_email": data.client_email,
+        # Appointment.client_email es texto: sin correo se guarda vacio (cita presencial sin correo).
+        "client_email": data.client_email or "",
         "date": data.date,
         "time": data.time,
         "status": "confirmed",
