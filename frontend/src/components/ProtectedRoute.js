@@ -7,12 +7,12 @@ import SubscriptionSuspended from './billing/SubscriptionSuspended';
 
 const LEGAL_PATH = '/legal/contrato';
 
-// Aceptar el contrato vigente es obligatorio para usar la plataforma (Owner exento). Si la consulta falla
+// Aceptar el contrato vigente es obligatorio para usar la plataforma (todos los roles). Si la consulta falla
 // (red), se deja pasar para no bloquear a nadie por un error ajeno al contrato.
 function useLegalAccepted(user) {
   const [state, setState] = useState('checking');
   const userId = user?.user_id;
-  const exempt = !user || user.role === 'owner' || user.access_status !== 'approved';
+  const exempt = !user || user.access_status !== 'approved';
   useEffect(() => {
     if (exempt) return undefined;
     let alive = true;

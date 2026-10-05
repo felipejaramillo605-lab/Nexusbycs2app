@@ -1,6 +1,6 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, FileText, Mail, Phone, MapPin, AlertTriangle, Shield, Scale, Users, CreditCard, Ban, Clock, Gavel, RefreshCw, Database, BookOpen } from 'lucide-react';
+import { ArrowLeft, FileText, Mail, Phone, MapPin, Shield, Scale, Users, CreditCard, Ban, Clock, Gavel, RefreshCw, Database, BookOpen } from 'lucide-react';
 
 export default function TermsOfService() {
   const navigate = useNavigate();
@@ -30,36 +30,30 @@ export default function TermsOfService() {
       <main className="max-w-4xl mx-auto px-4 py-8">
         <div className="prose prose-invert max-w-none">
 
-          {/* Banner de borrador */}
-          <div className="bg-amber-500/10 border border-amber-500/30 rounded-lg p-4 mb-8 flex gap-3">
-            <AlertTriangle size={20} className="text-amber-400 flex-shrink-0 mt-0.5" />
-            <div>
-              <p className="text-sm text-amber-200 font-semibold mb-1">
-                BORRADOR PENDIENTE DE REVISION LEGAL
-              </p>
-              <p className="text-sm text-amber-200/80">
-                Este documento describe las condiciones bajo las que Felipe Jaramillo Parra ("Nexus by CS2")
-                ofrece la plataforma a duenos y administradores de negocio. Antes de tratarlo como vinculante
-                frente a terceros, debe ser revisado y aprobado por un abogado, especialmente para operacion
-                en Colombia (Ley 1480 de 2011 — Estatuto del Consumidor, Codigo de Comercio) y, si aplica,
-                en Florida, EE.UU.
-              </p>
-            </div>
-          </div>
-
           {/* --- 1. Que es Nexus --- */}
           <section className="mb-8">
-            <p className="text-sm text-zinc-400 mb-4">Ultima actualizacion: agosto de 2026</p>
+            <p className="text-sm text-zinc-400 mb-4">Version 2.0 - Ultima actualizacion: octubre de 2026</p>
             <h2 className="text-2xl font-bold mb-4 text-white border-b border-white/10 pb-2">
               1. Objeto y definiciones
             </h2>
             <p className="text-zinc-300 mb-4">
-              Nexus by CS2 ("Nexus", "nosotros", "la Plataforma") es una plataforma de software como servicio
-              (SaaS) desarrollada y operada por Felipe Jaramillo Parra, con domicilio en La Estrella, Antioquia,
-              Colombia, disenada para la gestion integral de negocios y organizaciones de servicios: agenda de
-              citas, gestion de clientes, inventario, facturacion, comunicaciones y portal de reservas para
-              clientes finales.
+              Nexus by CS2 ("Nexus", "nosotros", "la Plataforma") es una solucion de software como servicio (SaaS)
+              para pequenas y medianas empresas, desarrollada y operada por Felipe Jaramillo Parra, creador de CS2,
+              iniciativa comercial dedicada a las redes sociales, el community management y el desarrollo de programas
+              de software, con domicilio en La Estrella, Antioquia, Colombia. Nexus permite gestionar citas y agenda,
+              clientes, salarios y porcentajes de comision del equipo, inventarios, comunicaciones y un portal de
+              reservas para clientes finales.
             </p>
+            <div className="bg-white/5 border border-white/10 rounded-lg p-4 mb-4">
+              <h3 className="text-base font-semibold text-white mb-2">Alcance: lo que Nexus no es</h3>
+              <p className="text-sm text-zinc-400">
+                Nexus no es un software contable, tributario ni de facturacion electronica y no incurre en temas
+                tributarios. Las liquidaciones, comisiones y calculos de pago que genera son herramientas internas de
+                control y gestion del Negocio: no constituyen soporte fiscal, contable, laboral ni de nomina
+                electronica y no sustituyen a un contador. El Negocio es el unico responsable de sus obligaciones
+                tributarias, laborales y de seguridad social.
+              </p>
+            </div>
             <p className="text-zinc-300 mb-4">
               Al crear una cuenta como dueno o administrador ("tu", "el Negocio", "el Usuario"), aceptas
               estos Terminos de Servicio (en adelante "los Terminos") en su totalidad. Si no estas de acuerdo

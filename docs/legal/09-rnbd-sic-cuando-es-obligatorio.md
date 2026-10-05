@@ -1,6 +1,6 @@
 # 09 - Registro Nacional de Bases de Datos (RNBD, SIC): cuando es obligatorio
 
-> **BORRADOR - apoyo tecnico, no asesoria legal.** Investigacion documental con corte 2026-10-05. Debe ser revisada por un abogado antes de tomar decisiones.
+> **Documento interno de investigación (apoyo técnico, no asesoría legal).** Corte 2026-10-05. Sirve de base para la hoja de ruta; un abogado debe confirmar las conclusiones antes de decidir.
 
 Contexto: Nexus by CS2 (SaaS de agendamiento/gestion para barberias y salones) operado por Felipe Jaramillo Parra como **persona natural comerciante** (matricula mercantil), La Estrella, Antioquia. Nexus es Responsable de los datos de sus usuarios (negocios) y Encargado de los datos de los clientes finales de cada negocio. Hoy sin ingresos relevantes.
 
@@ -107,4 +107,4 @@ Hoy, **Nexus no esta obligado a inscribir** bases de datos en el RNBD: (i) el um
 - [ ] **Datos sensibles o de menores** (fotos, salud/piel, biometria): reforzar controles y reevaluar riesgo de sanciones.
 - [ ] **Incidente de seguridad** o requerimiento de la SIC: ejecutar protocolo (doc 05), reportar en 15 dias habiles.
 - [ ] **Integracion WhatsApp Business / terceros / transferencia internacional:** actualizar politica, contratos y subencargados (doc 07).
-- [ ] **Contratar abogado** para validar este borrador antes de lanzamiento comercial o primeros ingresos relevantes.
+- [ ] **Contratar abogado** para validar este informe antes de lanzamiento comercial o primeros ingresos relevantes.

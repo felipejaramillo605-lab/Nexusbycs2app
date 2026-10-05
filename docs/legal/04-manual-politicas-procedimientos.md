@@ -1,6 +1,6 @@
 # Manual interno de Políticas y Procedimientos de Protección de Datos — Nexus by CS2 (v1)
 
-> **BORRADOR PENDIENTE DE REVISIÓN LEGAL.** 2026-10-05. Documento interno exigido por el Decreto 1377 de 2013 (art. 13, compilado). Responsable de su aplicación: Felipe Jaramillo Parra. Canal de atención de titulares: nexusbycs2@gmail.com · +57 323 907 0485.
+> **Versión 2.0** · vigente desde el 5 de octubre de 2026. Documento interno exigido por el Decreto 1377 de 2013 (art. 13, compilado). Responsable de su aplicación: Felipe Jaramillo Parra. Canal de atención de titulares: nexusbycs2@gmail.com · +57 323 907 0485.
 
 ## 1. Principios que se aplican
 Legalidad, finalidad, libertad (consentimiento), veracidad, transparencia, acceso y circulación restringida, seguridad y confidencialidad (Ley 1581, art. 4). Además: **minimización** (solo los datos necesarios), **responsabilidad demostrada** (poder probar lo que se hace) y **privacidad desde el diseño**.

@@ -65,10 +65,16 @@ test('the contract page itself is never redirected', async () => {
   expect(container.textContent).toBe('CONTENIDO');
 });
 
-test('the owner is exempt and does not even query the status', async () => {
+test('a new owner must accept too', async () => {
   mockUser = { user_id: 'u0', role: 'owner', access_status: 'approved' };
+  mockStatus.mockResolvedValue({ data: { accepted: false, version: '2.0' } });
   await mount();
-  expect(container.textContent).toBe('CONTENIDO');
+  expect(container.textContent).toBe('REDIRECT:/legal/contrato');
+});
+
+test('a user pending approval is not asked yet', async () => {
+  mockUser = { user_id: 'u9', role: 'manager', access_status: 'pending' };
+  await mount();
   expect(mockStatus).not.toHaveBeenCalled();
 });
 

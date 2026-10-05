@@ -7,7 +7,7 @@ import { useClientPortalAuth } from '../hooks/useClientPortalAuth';
 export default function ClientPortalAuth() {
   const {
     orgId, mode, setMode, phone, setPhone, name, setName, pin, setPin, birthday,
-    setBirthday, showPin, setShowPin, marketingConsent, setMarketingConsent, loading,
+    setBirthday, showPin, setShowPin, marketingConsent, setMarketingConsent, termsAccepted, setTermsAccepted, loading,
     organizationName, organization, handleLogin, handleRegister,
   } = useClientPortalAuth();
   return (
@@ -146,6 +146,26 @@ export default function ClientPortalAuth() {
             )}
           </div>
 
+          {/* Aceptacion obligatoria de politica y terminos (only for register) */}
+          {mode === 'register' && (
+            <div className="bg-[var(--app-surface-solid)] border border-[var(--app-border)] rounded-xl p-4">
+              <label className="flex items-start gap-3 cursor-pointer">
+                <input
+                  data-testid="portal-terms-checkbox"
+                  type="checkbox"
+                  checked={termsAccepted}
+                  onChange={(e) => setTermsAccepted(e.target.checked)}
+                  className="mt-0.5 w-4 h-4 rounded accent-[var(--app-primary)]"
+                />
+                <p className="text-sm text-[var(--app-text-secondary)]">
+                  Acepto la{' '}
+                  <a href="/privacy-policy" target="_blank" rel="noopener noreferrer" className="underline">Política de Privacidad</a>{' '}y los{' '}
+                  <a href="/terms-of-service" target="_blank" rel="noopener noreferrer" className="underline">Términos de uso</a>
+                </p>
+              </label>
+            </div>
+          )}
+
           {/* Marketing Consent (only for register) */}
           {mode === 'register' && (
             <div className="bg-[var(--app-surface-solid)] border border-[var(--app-border)] rounded-xl p-4">
@@ -173,7 +193,7 @@ export default function ClientPortalAuth() {
           <button
             data-testid={mode === 'login' ? 'portal-login-submit' : 'portal-register-submit'}
             type="submit"
-            disabled={loading}
+            disabled={loading || (mode === 'register' && !termsAccepted)}
             className="w-full py-3 bg-gradient-to-r from-[var(--app-primary)] to-[var(--app-primary-hover)] hover:opacity-90 text-white font-medium rounded-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
           >
             {loading ? (

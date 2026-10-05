@@ -1,6 +1,6 @@
 # Contrato y Anexo de Transmisión de Datos Personales — Nexus by CS2 (v2)
 
-> **BORRADOR PENDIENTE DE REVISIÓN LEGAL.** Versión 2.0-borrador · 2026-10-05. Se acepta electrónicamente al registrar la organización, junto con los Términos (documento 02). Fundamento: Ley 1581 de 2012, Decreto 1377 de 2013 (compilado en el Decreto 1074 de 2015, arts. 2.2.2.25.5.1 y 2.2.2.25.5.2 sobre transmisiones).
+> **Versión 2.0** · vigente desde el 5 de octubre de 2026. Se acepta electrónicamente al registrar la organización, junto con los Términos (documento 02). Fundamento: Ley 1581 de 2012, Decreto 1377 de 2013 (compilado en el Decreto 1074 de 2015, arts. 2.2.2.25.5.1 y 2.2.2.25.5.2 sobre transmisiones).
 
 **Partes**
 - **Encargado:** Felipe Jaramillo Parra, persona natural, actividad comercial bajo el nombre "Nexus by CS2". Identificación: C.C. **{{CC_RESPONSABLE}}** · Dirección: **{{DIRECCION_COMPLETA}}** · Correo: nexusbycs2@gmail.com · Teléfono: +57 323 907 0485.

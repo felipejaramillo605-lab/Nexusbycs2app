@@ -166,7 +166,7 @@ def test_only_an_owner_can_edit_the_profile_and_it_is_validated():
 def test_the_owner_always_sees_the_private_data_and_the_audit_never_stores_it():
     client, db = seeded()
     mine = client.get("/api/legal/responsible", headers=auth("owner")).json()
-    assert mine["accepted"] is True and mine["private"]["full_address"] == SECRET_ADDRESS
+    assert mine["accepted"] is False and mine["private"]["full_address"] == SECRET_ADDRESS
     assert SECRET_ID not in json.dumps(db.platform_audit_log.docs, default=str)
     assert SECRET_ADDRESS not in json.dumps(db.platform_audit_log.docs, default=str)
     detail = client.get("/api/owner/legal-profile", headers=auth("owner")).json()
@@ -245,7 +245,7 @@ def test_publishing_a_new_version_forces_everyone_to_accept_again():
     assert saved["version"] != version
     status = client.get("/api/legal/status", headers=auth("manager_a")).json()
     assert status["accepted"] is False and status["version"] == saved["version"]
-    assert client.get("/api/legal/status", headers=auth("owner")).json()["accepted"] is True
+    assert client.get("/api/legal/status", headers=auth("owner")).json()["accepted"] is False
     stale = client.post("/api/legal/accept", json={"version": version}, headers=auth("manager_b"))
     assert stale.status_code == 409
 

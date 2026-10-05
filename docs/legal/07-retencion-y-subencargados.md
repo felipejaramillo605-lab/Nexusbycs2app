@@ -1,6 +1,6 @@
 # Retención, supresión y subencargados — Nexus by CS2 (v1)
 
-> **BORRADOR PENDIENTE DE REVISIÓN LEGAL.** 2026-10-05. Estos plazos son **propuestas técnicas**; el abogado y el contador deben validarlos (especialmente los soportes contables, que dependen del negocio Responsable).
+> **Versión 2.0** · vigente desde el 5 de octubre de 2026. Los soportes contables que cada negocio deba conservar dependen del negocio Responsable y de su contador.
 
 ## 1. Tabla de retención propuesta
 | Dato / colección | Plazo propuesto | Evento que inicia | Qué pasa al vencer |

@@ -802,6 +802,8 @@ class ClientRegisterRequest(BaseModel):
     pin: str = Field(..., max_length=4)  # 4-digit numeric PIN
     email: Optional[EmailStr] = None  # Use EmailStr for validation
     marketing_consent: bool = False
+    # Aceptacion obligatoria de la Politica de Privacidad y los Terminos para tener cuenta (Ley 1581 / Ley 527).
+    terms_accepted: bool = False
     # NEXUS_CLIENT_BIRTHDAY_V1: "YYYY-MM-DD", optional, same format as Client.birthday.
     birthday: Optional[str] = Field(default=None, max_length=10)
 
@@ -7348,6 +7350,10 @@ async def register_client_with_pin(data: ClientRegisterRequest, request: Request
     upgrades them to registered account. Otherwise creates new client.
     """
     await assert_organization_active(db, data.organization_id)
+    if not data.terms_accepted:
+        raise HTTPException(
+            status_code=400, detail="Debes aceptar la Política de Privacidad y los Términos para crear tu cuenta"
+        )
     # Validate PIN format (exactly 4 digits)
     import re
 
@@ -7382,6 +7388,8 @@ async def register_client_with_pin(data: ClientRegisterRequest, request: Request
                     "email": data.email if data.email else existing.get("email"),
                     "pin_hash": pin_hash,
                     "is_registered": True,
+                    "terms_accepted_at": now,
+                    "terms_accepted_ip": request.client.host if request.client else None,
                     "accepts_marketing": data.marketing_consent,
                     "marketing_consent_given_at": now if data.marketing_consent else None,
                     "marketing_consent_ip": (
@@ -7409,6 +7417,8 @@ async def register_client_with_pin(data: ClientRegisterRequest, request: Request
             "email": data.email,
             "pin_hash": pin_hash,
             "is_registered": True,
+            "terms_accepted_at": now,
+            "terms_accepted_ip": request.client.host if request.client else None,
             "accepts_marketing": data.marketing_consent,
             "marketing_consent_given_at": now if data.marketing_consent else None,
             "marketing_consent_ip": request.client.host if (request.client and data.marketing_consent) else None,

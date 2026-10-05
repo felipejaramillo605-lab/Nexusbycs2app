@@ -33,7 +33,7 @@ EMAIL_PATTERN = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 
 
 def current_version() -> str:
-    return os.getenv("LEGAL_DOCS_VERSION", "2.0-borrador").strip() or "2.0-borrador"
+    return os.getenv("LEGAL_DOCS_VERSION", "2.0").strip() or "2.0"
 
 
 async def get_version(db) -> str:
@@ -91,7 +91,7 @@ def build_legal_router(db, get_current_user):
         user = await _user(authorization, session_token)
         profile = await _profile()
         version = await get_version(db)
-        accepted = user.role == "owner" or bool(
+        accepted = bool(
             await db.legal_acceptances.find_one({"user_id": user.user_id, "version": version}, {"_id": 0, "user_id": 1})
         )
         body = {
@@ -101,7 +101,7 @@ def build_legal_router(db, get_current_user):
             "public": {field: profile.get(field) for field in PUBLIC_FIELDS},
             "private": None,
         }
-        if accepted and profile:
+        if (accepted or user.role == "owner") and profile:
             body["private"] = {field: profile.get(field) for field in PRIVATE_FIELDS}
         return body
 
@@ -163,7 +163,7 @@ def build_legal_router(db, get_current_user):
     async def status(authorization: str | None = Header(None), session_token: str | None = Cookie(None)):
         user = await _user(authorization, session_token)
         version = await get_version(db)
-        accepted = user.role == "owner" or bool(
+        accepted = bool(
             await db.legal_acceptances.find_one({"user_id": user.user_id, "version": version}, {"_id": 0, "user_id": 1})
         )
         return {"accepted": accepted, "version": version}
