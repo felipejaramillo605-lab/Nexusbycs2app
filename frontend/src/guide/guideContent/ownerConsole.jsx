@@ -182,6 +182,11 @@ const owner = {
       substeps: ['Desde el Directorio, abre "Eliminar organización" y revisa el impacto informado.', 'Escribe el nombre exacto de la organización y un motivo antes de confirmar.', 'Si existe una cuenta Owner vinculada, corrige esa vinculación primero; la eliminación se bloquea hasta resolverla.'],
       expected: 'La organización se archiva, sus miembros pierden acceso y los registros se conservan para auditoría.',
     },
+    {
+      id: 'oc13', title: 'Copiar medios al almacenamiento durable',
+      substeps: ['Abre "Integridad de medios" en IT y auditoría.', 'Pulsa "Copiar medios a almacenamiento durable" y confirma la operación.', 'Revisa los contadores de copiados y errores. Si aparece "Almacenamiento durable no configurado", solicita al equipo técnico configurar R2 antes de reintentar.'],
+      expected: 'Las copias existentes se preservan y los medios disponibles se copian al almacenamiento durable.',
+    },
   ],
   buttons: [
     { icon: Building2, name: 'Ver detalle', does: 'Abre el detalle de una organización en Matriz de terceros.', when: 'Para comprobar datos fiscales, personas y estados.' },

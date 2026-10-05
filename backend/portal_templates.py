@@ -8,6 +8,12 @@ STANDARD_TEMPLATE_KEYS = (
     "underground",
     "neutral",
     "minimalist_purple",
+    "nail-studio",
+    "bloom-garden",
+    "wellness",
+    "movement",
+    "clinical",
+    "pet-care",
 )
 
 PREMIUM_TEMPLATE_KEYS = (

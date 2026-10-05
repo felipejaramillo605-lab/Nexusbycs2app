@@ -98,6 +98,7 @@ export const ownerAPI = {
   revokeOwnerInvitation: (invitationId) => api.delete(`/owner/owner-invitations/${invitationId}`),
   getDeletionImpact: (organizationId) => api.get(`/owner/organizations/${organizationId}/deletion-impact`),
   deleteOrganization: (organizationId, data) => api.post(`/owner/organizations/${organizationId}/delete`, data),
+  backfillObjectStorage: () => api.post('/owner/media/backfill-object-storage'),
 };
 
 // NEXUS_OWNER_CONSOLE_SHELL_V1 (plan PR 19/20): backend from #61
@@ -247,6 +248,10 @@ export const organizationAPI = {
   deleteLogo: (organizationId) => api.delete(`/organizations/${organizationId}/logo`),
   uploadPortalBackground: (organizationId, file, onUploadProgress) => { const data = new FormData(); data.append('file', file); return api.post(`/organizations/${organizationId}/portal-background`, data, { onUploadProgress }); },
   deletePortalBackground: (organizationId) => api.delete(`/organizations/${organizationId}/portal-background`),
+};
+
+export const customerRiskAPI = {
+  list: (params = {}) => api.get('/customer-risk', { params }),
 };
 
 // NEXUS_PLATFORM_BRANDING_V1: the Nexus PLATFORM's own logo (owner-only,

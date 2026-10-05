@@ -5,6 +5,7 @@ import { useAuth } from '../context/AuthContext';
 import { ArrowLeft, Save, Building, MapPin, Clock, Phone, MessageSquare, Loader2, Star, Sparkles } from 'lucide-react';
 import { toast } from 'sonner';
 import { organizationAPI } from '../api';
+import { BUSINESS_TYPE_OPTIONS, getBusinessProfile, shouldApplyRecommendedTheme } from '../lib/businessProfiles';
 
 const BusinessProfile = () => {
   const { user } = useAuth();
@@ -15,6 +16,7 @@ const BusinessProfile = () => {
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [portalThemeNotice, setPortalThemeNotice] = useState('');
   const [formData, setFormData] = useState({
     name: '',
     address: '',
@@ -23,17 +25,9 @@ const BusinessProfile = () => {
     whatsapp_link: '',
     review_link: '',
     business_type: 'barbershop',
+    client_portal_theme: 'classic',
     review_request_settings: { enabled: false, channels: { email: false, whatsapp: false } },
   });
-
-  // NEXUS_MARKETING_VERTICALS_V1
-  const BUSINESS_TYPES = [
-    { value: 'barbershop', label: 'Barbería' },
-    { value: 'hair_salon', label: 'Peluquería' },
-    { value: 'nail_spa', label: 'Spa de uñas' },
-    { value: 'lash_spa', label: 'Spa de pestañas' },
-    { value: 'beauty_salon', label: 'Salón de belleza' },
-  ];
 
   const loadOrganization = useCallback(async () => {
     if (!organizationId) return;
@@ -50,6 +44,7 @@ const BusinessProfile = () => {
         whatsapp_link: data.whatsapp_link || '',
         review_link: data.review_link || '',
         business_type: data.business_type || 'barbershop',
+        client_portal_theme: data.client_portal_theme || 'classic',
         review_request_settings: {
           enabled: data.review_request_settings?.enabled || false,
           channels: {
@@ -157,12 +152,18 @@ const BusinessProfile = () => {
             <select
               data-testid="business-type-select"
               value={formData.business_type}
-              onChange={(e) => setFormData({ ...formData, business_type: e.target.value })}
+              onChange={(e) => {
+                const business_type = e.target.value;
+                const updateTheme = shouldApplyRecommendedTheme(formData.client_portal_theme, formData.business_type);
+                setFormData({ ...formData, business_type, ...(updateTheme ? { client_portal_theme: getBusinessProfile(business_type).recommendedThemes[0] } : {}) });
+                setPortalThemeNotice(updateTheme ? `Se aplicará el tema recomendado: ${getBusinessProfile(business_type).recommendedThemes[0]}.` : 'Tu portal conserva el tema actual.');
+              }}
               className="w-full px-4 py-3 bg-white/5 border border-[var(--app-border)] rounded-xl text-[var(--app-text-primary)] focus:border-[var(--app-primary)] focus:ring-2 focus:ring-[var(--app-primary)]/20 outline-none transition-all"
             >
-              {BUSINESS_TYPES.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
+              {BUSINESS_TYPE_OPTIONS.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
             </select>
-            <p className="text-xs text-zinc-500 mt-2">Personaliza las campañas de Marketing sugeridas para tu tipo de negocio.</p>
+            <p className="text-xs text-zinc-500 mt-2">Personaliza las campañas. Nexus solo cambia un tema predeterminado o recomendado; conserva cualquier tema elegido por ti.</p>
+            {portalThemeNotice && <p role="status" className="text-xs text-[var(--app-primary)] mt-1">{portalThemeNotice}</p>}
           </div>
 
           {/* Address */}

@@ -1,0 +1,962 @@
+[
+  {
+    "id": "support-0",
+    "text": "Consulta: La app no funciona y aparece error al guardar",
+    "label": {
+      "category": "technical",
+      "priority": "normal"
+    }
+  },
+  {
+    "id": "support-1",
+    "text": "Consulta: Parce, quedó caído el acceso al calendario Mi correo es ana.perez@example.com.",
+    "label": {
+      "category": "technical",
+      "priority": "normal"
+    }
+  },
+  {
+    "id": "support-2",
+    "text": "Consulta: No me deja entrar, sale falla 500 CC 1.234.567.890, por favor ayuden.",
+    "label": {
+      "category": "technical",
+      "priority": "normal"
+    }
+  },
+  {
+    "id": "support-3",
+    "text": "Consulta: El sistema se congela al abrir reservas jaja, buenísimo que ahora nada cargue 🙃",
+    "label": {
+      "category": "technical",
+      "priority": "normal"
+    }
+  },
+  {
+    "id": "support-4",
+    "text": "Consulta: La app no funciona y aparece error al guardar También necesito saber el cobro, pero primero resuelvan esto.",
+    "label": {
+      "category": "technical",
+      "priority": "normal"
+    }
+  },
+  {
+    "id": "support-5",
+    "text": "Consulta: Parce, quedó caído el acceso al calendario Tengo cita en Calle 72 # 10-34.",
+    "label": {
+      "category": "technical",
+      "priority": "normal"
+    }
+  },
+  {
+    "id": "support-6",
+    "text": "Consulta: No me deja entrar, sale falla 500 perdón la ortogrfía, no funsiona.",
+    "label": {
+      "category": "technical",
+      "priority": "normal"
+    }
+  },
+  {
+    "id": "support-7",
+    "text": "Consulta: El sistema se congela al abrir reservas Mi placa es ABC123 y el sistema falló.",
+    "label": {
+      "category": "technical",
+      "priority": "normal"
+    }
+  },
+  {
+    "id": "support-8",
+    "text": "Consulta: La app no funciona y aparece error al guardar Es para hoy, gracias.",
+    "label": {
+      "category": "technical",
+      "priority": "normal"
+    }
+  },
+  {
+    "id": "support-9",
+    "text": "Consulta: Parce, quedó caído el acceso al calendario No compartan este dato: 300 123 4567.",
+    "label": {
+      "category": "technical",
+      "priority": "normal"
+    }
+  },
+  {
+    "id": "support-10",
+    "text": "Hay una falla importante: La app no funciona y aparece error al guardar",
+    "label": {
+      "category": "technical",
+      "priority": "high"
+    }
+  },
+  {
+    "id": "support-11",
+    "text": "Hay una falla importante: Parce, quedó caído el acceso al calendario Mi correo es ana.perez@example.com.",
+    "label": {
+      "category": "technical",
+      "priority": "high"
+    }
+  },
+  {
+    "id": "support-12",
+    "text": "Hay una falla importante: No me deja entrar, sale falla 500 CC 1.234.567.890, por favor ayuden.",
+    "label": {
+      "category": "technical",
+      "priority": "high"
+    }
+  },
+  {
+    "id": "support-13",
+    "text": "Hay una falla importante: El sistema se congela al abrir reservas jaja, buenísimo que ahora nada cargue 🙃",
+    "label": {
+      "category": "technical",
+      "priority": "high"
+    }
+  },
+  {
+    "id": "support-14",
+    "text": "Hay una falla importante: La app no funciona y aparece error al guardar También necesito saber el cobro, pero primero resuelvan esto.",
+    "label": {
+      "category": "technical",
+      "priority": "high"
+    }
+  },
+  {
+    "id": "support-15",
+    "text": "Hay una falla importante: Parce, quedó caído el acceso al calendario Tengo cita en Calle 72 # 10-34.",
+    "label": {
+      "category": "technical",
+      "priority": "high"
+    }
+  },
+  {
+    "id": "support-16",
+    "text": "Hay una falla importante: No me deja entrar, sale falla 500 perdón la ortogrfía, no funsiona.",
+    "label": {
+      "category": "technical",
+      "priority": "high"
+    }
+  },
+  {
+    "id": "support-17",
+    "text": "Hay una falla importante: El sistema se congela al abrir reservas Mi placa es ABC123 y el sistema falló.",
+    "label": {
+      "category": "technical",
+      "priority": "high"
+    }
+  },
+  {
+    "id": "support-18",
+    "text": "Hay una falla importante: La app no funciona y aparece error al guardar Es para hoy, gracias.",
+    "label": {
+      "category": "technical",
+      "priority": "high"
+    }
+  },
+  {
+    "id": "support-19",
+    "text": "Hay una falla importante: Parce, quedó caído el acceso al calendario No compartan este dato: 300 123 4567.",
+    "label": {
+      "category": "technical",
+      "priority": "high"
+    }
+  },
+  {
+    "id": "support-20",
+    "text": "URGENTE, estoy bloqueado: La app no funciona y aparece error al guardar",
+    "label": {
+      "category": "technical",
+      "priority": "urgent"
+    }
+  },
+  {
+    "id": "support-21",
+    "text": "URGENTE, estoy bloqueado: Parce, quedó caído el acceso al calendario Mi correo es ana.perez@example.com.",
+    "label": {
+      "category": "technical",
+      "priority": "urgent"
+    }
+  },
+  {
+    "id": "support-22",
+    "text": "URGENTE, estoy bloqueado: No me deja entrar, sale falla 500 CC 1.234.567.890, por favor ayuden.",
+    "label": {
+      "category": "technical",
+      "priority": "urgent"
+    }
+  },
+  {
+    "id": "support-23",
+    "text": "URGENTE, estoy bloqueado: El sistema se congela al abrir reservas jaja, buenísimo que ahora nada cargue 🙃",
+    "label": {
+      "category": "technical",
+      "priority": "urgent"
+    }
+  },
+  {
+    "id": "support-24",
+    "text": "URGENTE, estoy bloqueado: La app no funciona y aparece error al guardar También necesito saber el cobro, pero primero resuelvan esto.",
+    "label": {
+      "category": "technical",
+      "priority": "urgent"
+    }
+  },
+  {
+    "id": "support-25",
+    "text": "URGENTE, estoy bloqueado: Parce, quedó caído el acceso al calendario Tengo cita en Calle 72 # 10-34.",
+    "label": {
+      "category": "technical",
+      "priority": "urgent"
+    }
+  },
+  {
+    "id": "support-26",
+    "text": "URGENTE, estoy bloqueado: No me deja entrar, sale falla 500 perdón la ortogrfía, no funsiona.",
+    "label": {
+      "category": "technical",
+      "priority": "urgent"
+    }
+  },
+  {
+    "id": "support-27",
+    "text": "URGENTE, estoy bloqueado: El sistema se congela al abrir reservas Mi placa es ABC123 y el sistema falló.",
+    "label": {
+      "category": "technical",
+      "priority": "urgent"
+    }
+  },
+  {
+    "id": "support-28",
+    "text": "URGENTE, estoy bloqueado: La app no funciona y aparece error al guardar Es para hoy, gracias.",
+    "label": {
+      "category": "technical",
+      "priority": "urgent"
+    }
+  },
+  {
+    "id": "support-29",
+    "text": "URGENTE, estoy bloqueado: Parce, quedó caído el acceso al calendario No compartan este dato: 300 123 4567.",
+    "label": {
+      "category": "technical",
+      "priority": "urgent"
+    }
+  },
+  {
+    "id": "support-30",
+    "text": "No es urgente, pero: La app no funciona y aparece error al guardar",
+    "label": {
+      "category": "technical",
+      "priority": "normal"
+    }
+  },
+  {
+    "id": "support-31",
+    "text": "No es urgente, pero: Parce, quedó caído el acceso al calendario Mi correo es ana.perez@example.com.",
+    "label": {
+      "category": "technical",
+      "priority": "normal"
+    }
+  },
+  {
+    "id": "support-32",
+    "text": "No es urgente, pero: No me deja entrar, sale falla 500 CC 1.234.567.890, por favor ayuden.",
+    "label": {
+      "category": "technical",
+      "priority": "normal"
+    }
+  },
+  {
+    "id": "support-33",
+    "text": "No es urgente, pero: El sistema se congela al abrir reservas jaja, buenísimo que ahora nada cargue 🙃",
+    "label": {
+      "category": "technical",
+      "priority": "normal"
+    }
+  },
+  {
+    "id": "support-34",
+    "text": "No es urgente, pero: La app no funciona y aparece error al guardar También necesito saber el cobro, pero primero resuelvan esto.",
+    "label": {
+      "category": "technical",
+      "priority": "normal"
+    }
+  },
+  {
+    "id": "support-35",
+    "text": "No es urgente, pero: Parce, quedó caído el acceso al calendario Tengo cita en Calle 72 # 10-34.",
+    "label": {
+      "category": "technical",
+      "priority": "normal"
+    }
+  },
+  {
+    "id": "support-36",
+    "text": "No es urgente, pero: No me deja entrar, sale falla 500 perdón la ortogrfía, no funsiona.",
+    "label": {
+      "category": "technical",
+      "priority": "normal"
+    }
+  },
+  {
+    "id": "support-37",
+    "text": "No es urgente, pero: El sistema se congela al abrir reservas Mi placa es ABC123 y el sistema falló.",
+    "label": {
+      "category": "technical",
+      "priority": "normal"
+    }
+  },
+  {
+    "id": "support-38",
+    "text": "No es urgente, pero: La app no funciona y aparece error al guardar Es para hoy, gracias.",
+    "label": {
+      "category": "technical",
+      "priority": "normal"
+    }
+  },
+  {
+    "id": "support-39",
+    "text": "No es urgente, pero: Parce, quedó caído el acceso al calendario No compartan este dato: 300 123 4567.",
+    "label": {
+      "category": "technical",
+      "priority": "normal"
+    }
+  },
+  {
+    "id": "support-40",
+    "text": "Consulta: La factura tiene un cobro duplicado",
+    "label": {
+      "category": "billing",
+      "priority": "normal"
+    }
+  },
+  {
+    "id": "support-41",
+    "text": "Consulta: Me cobraron el plan y no veo el pago Mi correo es ana.perez@example.com.",
+    "label": {
+      "category": "billing",
+      "priority": "normal"
+    }
+  },
+  {
+    "id": "support-42",
+    "text": "Consulta: Necesito revisar el precio de la suscripción CC 1.234.567.890, por favor ayuden.",
+    "label": {
+      "category": "billing",
+      "priority": "normal"
+    }
+  },
+  {
+    "id": "support-43",
+    "text": "Consulta: El recibo llegó con un valor incorrecto jaja, buenísimo que ahora nada cargue 🙃",
+    "label": {
+      "category": "billing",
+      "priority": "normal"
+    }
+  },
+  {
+    "id": "support-44",
+    "text": "Consulta: La factura tiene un cobro duplicado También necesito saber el cobro, pero primero resuelvan esto.",
+    "label": {
+      "category": "billing",
+      "priority": "normal"
+    }
+  },
+  {
+    "id": "support-45",
+    "text": "Consulta: Me cobraron el plan y no veo el pago Tengo cita en Calle 72 # 10-34.",
+    "label": {
+      "category": "billing",
+      "priority": "normal"
+    }
+  },
+  {
+    "id": "support-46",
+    "text": "Consulta: Necesito revisar el precio de la suscripción perdón la ortogrfía, no funsiona.",
+    "label": {
+      "category": "billing",
+      "priority": "normal"
+    }
+  },
+  {
+    "id": "support-47",
+    "text": "Consulta: El recibo llegó con un valor incorrecto Mi placa es ABC123 y el sistema falló.",
+    "label": {
+      "category": "billing",
+      "priority": "normal"
+    }
+  },
+  {
+    "id": "support-48",
+    "text": "Consulta: La factura tiene un cobro duplicado Es para hoy, gracias.",
+    "label": {
+      "category": "billing",
+      "priority": "normal"
+    }
+  },
+  {
+    "id": "support-49",
+    "text": "Consulta: Me cobraron el plan y no veo el pago No compartan este dato: 300 123 4567.",
+    "label": {
+      "category": "billing",
+      "priority": "normal"
+    }
+  },
+  {
+    "id": "support-50",
+    "text": "Hay una falla importante: La factura tiene un cobro duplicado",
+    "label": {
+      "category": "billing",
+      "priority": "high"
+    }
+  },
+  {
+    "id": "support-51",
+    "text": "Hay una falla importante: Me cobraron el plan y no veo el pago Mi correo es ana.perez@example.com.",
+    "label": {
+      "category": "billing",
+      "priority": "high"
+    }
+  },
+  {
+    "id": "support-52",
+    "text": "Hay una falla importante: Necesito revisar el precio de la suscripción CC 1.234.567.890, por favor ayuden.",
+    "label": {
+      "category": "billing",
+      "priority": "high"
+    }
+  },
+  {
+    "id": "support-53",
+    "text": "Hay una falla importante: El recibo llegó con un valor incorrecto jaja, buenísimo que ahora nada cargue 🙃",
+    "label": {
+      "category": "billing",
+      "priority": "high"
+    }
+  },
+  {
+    "id": "support-54",
+    "text": "Hay una falla importante: La factura tiene un cobro duplicado También necesito saber el cobro, pero primero resuelvan esto.",
+    "label": {
+      "category": "billing",
+      "priority": "high"
+    }
+  },
+  {
+    "id": "support-55",
+    "text": "Hay una falla importante: Me cobraron el plan y no veo el pago Tengo cita en Calle 72 # 10-34.",
+    "label": {
+      "category": "billing",
+      "priority": "high"
+    }
+  },
+  {
+    "id": "support-56",
+    "text": "Hay una falla importante: Necesito revisar el precio de la suscripción perdón la ortogrfía, no funsiona.",
+    "label": {
+      "category": "billing",
+      "priority": "high"
+    }
+  },
+  {
+    "id": "support-57",
+    "text": "Hay una falla importante: El recibo llegó con un valor incorrecto Mi placa es ABC123 y el sistema falló.",
+    "label": {
+      "category": "billing",
+      "priority": "high"
+    }
+  },
+  {
+    "id": "support-58",
+    "text": "Hay una falla importante: La factura tiene un cobro duplicado Es para hoy, gracias.",
+    "label": {
+      "category": "billing",
+      "priority": "high"
+    }
+  },
+  {
+    "id": "support-59",
+    "text": "Hay una falla importante: Me cobraron el plan y no veo el pago No compartan este dato: 300 123 4567.",
+    "label": {
+      "category": "billing",
+      "priority": "high"
+    }
+  },
+  {
+    "id": "support-60",
+    "text": "URGENTE, estoy bloqueado: La factura tiene un cobro duplicado",
+    "label": {
+      "category": "billing",
+      "priority": "urgent"
+    }
+  },
+  {
+    "id": "support-61",
+    "text": "URGENTE, estoy bloqueado: Me cobraron el plan y no veo el pago Mi correo es ana.perez@example.com.",
+    "label": {
+      "category": "billing",
+      "priority": "urgent"
+    }
+  },
+  {
+    "id": "support-62",
+    "text": "URGENTE, estoy bloqueado: Necesito revisar el precio de la suscripción CC 1.234.567.890, por favor ayuden.",
+    "label": {
+      "category": "billing",
+      "priority": "urgent"
+    }
+  },
+  {
+    "id": "support-63",
+    "text": "URGENTE, estoy bloqueado: El recibo llegó con un valor incorrecto jaja, buenísimo que ahora nada cargue 🙃",
+    "label": {
+      "category": "billing",
+      "priority": "urgent"
+    }
+  },
+  {
+    "id": "support-64",
+    "text": "URGENTE, estoy bloqueado: La factura tiene un cobro duplicado También necesito saber el cobro, pero primero resuelvan esto.",
+    "label": {
+      "category": "billing",
+      "priority": "urgent"
+    }
+  },
+  {
+    "id": "support-65",
+    "text": "URGENTE, estoy bloqueado: Me cobraron el plan y no veo el pago Tengo cita en Calle 72 # 10-34.",
+    "label": {
+      "category": "billing",
+      "priority": "urgent"
+    }
+  },
+  {
+    "id": "support-66",
+    "text": "URGENTE, estoy bloqueado: Necesito revisar el precio de la suscripción perdón la ortogrfía, no funsiona.",
+    "label": {
+      "category": "billing",
+      "priority": "urgent"
+    }
+  },
+  {
+    "id": "support-67",
+    "text": "URGENTE, estoy bloqueado: El recibo llegó con un valor incorrecto Mi placa es ABC123 y el sistema falló.",
+    "label": {
+      "category": "billing",
+      "priority": "urgent"
+    }
+  },
+  {
+    "id": "support-68",
+    "text": "URGENTE, estoy bloqueado: La factura tiene un cobro duplicado Es para hoy, gracias.",
+    "label": {
+      "category": "billing",
+      "priority": "urgent"
+    }
+  },
+  {
+    "id": "support-69",
+    "text": "URGENTE, estoy bloqueado: Me cobraron el plan y no veo el pago No compartan este dato: 300 123 4567.",
+    "label": {
+      "category": "billing",
+      "priority": "urgent"
+    }
+  },
+  {
+    "id": "support-70",
+    "text": "No es urgente, pero: La factura tiene un cobro duplicado",
+    "label": {
+      "category": "billing",
+      "priority": "normal"
+    }
+  },
+  {
+    "id": "support-71",
+    "text": "No es urgente, pero: Me cobraron el plan y no veo el pago Mi correo es ana.perez@example.com.",
+    "label": {
+      "category": "billing",
+      "priority": "normal"
+    }
+  },
+  {
+    "id": "support-72",
+    "text": "No es urgente, pero: Necesito revisar el precio de la suscripción CC 1.234.567.890, por favor ayuden.",
+    "label": {
+      "category": "billing",
+      "priority": "normal"
+    }
+  },
+  {
+    "id": "support-73",
+    "text": "No es urgente, pero: El recibo llegó con un valor incorrecto jaja, buenísimo que ahora nada cargue 🙃",
+    "label": {
+      "category": "billing",
+      "priority": "normal"
+    }
+  },
+  {
+    "id": "support-74",
+    "text": "No es urgente, pero: La factura tiene un cobro duplicado También necesito saber el cobro, pero primero resuelvan esto.",
+    "label": {
+      "category": "billing",
+      "priority": "normal"
+    }
+  },
+  {
+    "id": "support-75",
+    "text": "No es urgente, pero: Me cobraron el plan y no veo el pago Tengo cita en Calle 72 # 10-34.",
+    "label": {
+      "category": "billing",
+      "priority": "normal"
+    }
+  },
+  {
+    "id": "support-76",
+    "text": "No es urgente, pero: Necesito revisar el precio de la suscripción perdón la ortogrfía, no funsiona.",
+    "label": {
+      "category": "billing",
+      "priority": "normal"
+    }
+  },
+  {
+    "id": "support-77",
+    "text": "No es urgente, pero: El recibo llegó con un valor incorrecto Mi placa es ABC123 y el sistema falló.",
+    "label": {
+      "category": "billing",
+      "priority": "normal"
+    }
+  },
+  {
+    "id": "support-78",
+    "text": "No es urgente, pero: La factura tiene un cobro duplicado Es para hoy, gracias.",
+    "label": {
+      "category": "billing",
+      "priority": "normal"
+    }
+  },
+  {
+    "id": "support-79",
+    "text": "No es urgente, pero: Me cobraron el plan y no veo el pago No compartan este dato: 300 123 4567.",
+    "label": {
+      "category": "billing",
+      "priority": "normal"
+    }
+  },
+  {
+    "id": "support-80",
+    "text": "Consulta: ¿Cómo creo un nuevo servicio?",
+    "label": {
+      "category": "general",
+      "priority": "normal"
+    }
+  },
+  {
+    "id": "support-81",
+    "text": "Consulta: Quiero conocer las opciones del portal Mi correo es ana.perez@example.com.",
+    "label": {
+      "category": "general",
+      "priority": "normal"
+    }
+  },
+  {
+    "id": "support-82",
+    "text": "Consulta: Necesito ayuda para configurar horarios CC 1.234.567.890, por favor ayuden.",
+    "label": {
+      "category": "general",
+      "priority": "normal"
+    }
+  },
+  {
+    "id": "support-83",
+    "text": "Consulta: ¿Dónde veo el reporte mensual? jaja, buenísimo que ahora nada cargue 🙃",
+    "label": {
+      "category": "general",
+      "priority": "normal"
+    }
+  },
+  {
+    "id": "support-84",
+    "text": "Consulta: ¿Cómo creo un nuevo servicio? También necesito saber el cobro, pero primero resuelvan esto.",
+    "label": {
+      "category": "general",
+      "priority": "normal"
+    }
+  },
+  {
+    "id": "support-85",
+    "text": "Consulta: Quiero conocer las opciones del portal Tengo cita en Calle 72 # 10-34.",
+    "label": {
+      "category": "general",
+      "priority": "normal"
+    }
+  },
+  {
+    "id": "support-86",
+    "text": "Consulta: Necesito ayuda para configurar horarios perdón la ortogrfía, no funsiona.",
+    "label": {
+      "category": "general",
+      "priority": "normal"
+    }
+  },
+  {
+    "id": "support-87",
+    "text": "Consulta: ¿Dónde veo el reporte mensual? Mi placa es ABC123 y el sistema falló.",
+    "label": {
+      "category": "general",
+      "priority": "normal"
+    }
+  },
+  {
+    "id": "support-88",
+    "text": "Consulta: ¿Cómo creo un nuevo servicio? Es para hoy, gracias.",
+    "label": {
+      "category": "general",
+      "priority": "normal"
+    }
+  },
+  {
+    "id": "support-89",
+    "text": "Consulta: Quiero conocer las opciones del portal No compartan este dato: 300 123 4567.",
+    "label": {
+      "category": "general",
+      "priority": "normal"
+    }
+  },
+  {
+    "id": "support-90",
+    "text": "Hay una falla importante: ¿Cómo creo un nuevo servicio?",
+    "label": {
+      "category": "general",
+      "priority": "high"
+    }
+  },
+  {
+    "id": "support-91",
+    "text": "Hay una falla importante: Quiero conocer las opciones del portal Mi correo es ana.perez@example.com.",
+    "label": {
+      "category": "general",
+      "priority": "high"
+    }
+  },
+  {
+    "id": "support-92",
+    "text": "Hay una falla importante: Necesito ayuda para configurar horarios CC 1.234.567.890, por favor ayuden.",
+    "label": {
+      "category": "general",
+      "priority": "high"
+    }
+  },
+  {
+    "id": "support-93",
+    "text": "Hay una falla importante: ¿Dónde veo el reporte mensual? jaja, buenísimo que ahora nada cargue 🙃",
+    "label": {
+      "category": "general",
+      "priority": "high"
+    }
+  },
+  {
+    "id": "support-94",
+    "text": "Hay una falla importante: ¿Cómo creo un nuevo servicio? También necesito saber el cobro, pero primero resuelvan esto.",
+    "label": {
+      "category": "general",
+      "priority": "high"
+    }
+  },
+  {
+    "id": "support-95",
+    "text": "Hay una falla importante: Quiero conocer las opciones del portal Tengo cita en Calle 72 # 10-34.",
+    "label": {
+      "category": "general",
+      "priority": "high"
+    }
+  },
+  {
+    "id": "support-96",
+    "text": "Hay una falla importante: Necesito ayuda para configurar horarios perdón la ortogrfía, no funsiona.",
+    "label": {
+      "category": "general",
+      "priority": "high"
+    }
+  },
+  {
+    "id": "support-97",
+    "text": "Hay una falla importante: ¿Dónde veo el reporte mensual? Mi placa es ABC123 y el sistema falló.",
+    "label": {
+      "category": "general",
+      "priority": "high"
+    }
+  },
+  {
+    "id": "support-98",
+    "text": "Hay una falla importante: ¿Cómo creo un nuevo servicio? Es para hoy, gracias.",
+    "label": {
+      "category": "general",
+      "priority": "high"
+    }
+  },
+  {
+    "id": "support-99",
+    "text": "Hay una falla importante: Quiero conocer las opciones del portal No compartan este dato: 300 123 4567.",
+    "label": {
+      "category": "general",
+      "priority": "high"
+    }
+  },
+  {
+    "id": "support-100",
+    "text": "URGENTE, estoy bloqueado: ¿Cómo creo un nuevo servicio?",
+    "label": {
+      "category": "general",
+      "priority": "urgent"
+    }
+  },
+  {
+    "id": "support-101",
+    "text": "URGENTE, estoy bloqueado: Quiero conocer las opciones del portal Mi correo es ana.perez@example.com.",
+    "label": {
+      "category": "general",
+      "priority": "urgent"
+    }
+  },
+  {
+    "id": "support-102",
+    "text": "URGENTE, estoy bloqueado: Necesito ayuda para configurar horarios CC 1.234.567.890, por favor ayuden.",
+    "label": {
+      "category": "general",
+      "priority": "urgent"
+    }
+  },
+  {
+    "id": "support-103",
+    "text": "URGENTE, estoy bloqueado: ¿Dónde veo el reporte mensual? jaja, buenísimo que ahora nada cargue 🙃",
+    "label": {
+      "category": "general",
+      "priority": "urgent"
+    }
+  },
+  {
+    "id": "support-104",
+    "text": "URGENTE, estoy bloqueado: ¿Cómo creo un nuevo servicio? También necesito saber el cobro, pero primero resuelvan esto.",
+    "label": {
+      "category": "general",
+      "priority": "urgent"
+    }
+  },
+  {
+    "id": "support-105",
+    "text": "URGENTE, estoy bloqueado: Quiero conocer las opciones del portal Tengo cita en Calle 72 # 10-34.",
+    "label": {
+      "category": "general",
+      "priority": "urgent"
+    }
+  },
+  {
+    "id": "support-106",
+    "text": "URGENTE, estoy bloqueado: Necesito ayuda para configurar horarios perdón la ortogrfía, no funsiona.",
+    "label": {
+      "category": "general",
+      "priority": "urgent"
+    }
+  },
+  {
+    "id": "support-107",
+    "text": "URGENTE, estoy bloqueado: ¿Dónde veo el reporte mensual? Mi placa es ABC123 y el sistema falló.",
+    "label": {
+      "category": "general",
+      "priority": "urgent"
+    }
+  },
+  {
+    "id": "support-108",
+    "text": "URGENTE, estoy bloqueado: ¿Cómo creo un nuevo servicio? Es para hoy, gracias.",
+    "label": {
+      "category": "general",
+      "priority": "urgent"
+    }
+  },
+  {
+    "id": "support-109",
+    "text": "URGENTE, estoy bloqueado: Quiero conocer las opciones del portal No compartan este dato: 300 123 4567.",
+    "label": {
+      "category": "general",
+      "priority": "urgent"
+    }
+  },
+  {
+    "id": "support-110",
+    "text": "No es urgente, pero: ¿Cómo creo un nuevo servicio?",
+    "label": {
+      "category": "general",
+      "priority": "normal"
+    }
+  },
+  {
+    "id": "support-111",
+    "text": "No es urgente, pero: Quiero conocer las opciones del portal Mi correo es ana.perez@example.com.",
+    "label": {
+      "category": "general",
+      "priority": "normal"
+    }
+  },
+  {
+    "id": "support-112",
+    "text": "No es urgente, pero: Necesito ayuda para configurar horarios CC 1.234.567.890, por favor ayuden.",
+    "label": {
+      "category": "general",
+      "priority": "normal"
+    }
+  },
+  {
+    "id": "support-113",
+    "text": "No es urgente, pero: ¿Dónde veo el reporte mensual? jaja, buenísimo que ahora nada cargue 🙃",
+    "label": {
+      "category": "general",
+      "priority": "normal"
+    }
+  },
+  {
+    "id": "support-114",
+    "text": "No es urgente, pero: ¿Cómo creo un nuevo servicio? También necesito saber el cobro, pero primero resuelvan esto.",
+    "label": {
+      "category": "general",
+      "priority": "normal"
+    }
+  },
+  {
+    "id": "support-115",
+    "text": "No es urgente, pero: Quiero conocer las opciones del portal Tengo cita en Calle 72 # 10-34.",
+    "label": {
+      "category": "general",
+      "priority": "normal"
+    }
+  },
+  {
+    "id": "support-116",
+    "text": "No es urgente, pero: Necesito ayuda para configurar horarios perdón la ortogrfía, no funsiona.",
+    "label": {
+      "category": "general",
+      "priority": "normal"
+    }
+  },
+  {
+    "id": "support-117",
+    "text": "No es urgente, pero: ¿Dónde veo el reporte mensual? Mi placa es ABC123 y el sistema falló.",
+    "label": {
+      "category": "general",
+      "priority": "normal"
+    }
+  },
+  {
+    "id": "support-118",
+    "text": "No es urgente, pero: ¿Cómo creo un nuevo servicio? Es para hoy, gracias.",
+    "label": {
+      "category": "general",
+      "priority": "normal"
+    }
+  },
+  {
+    "id": "support-119",
+    "text": "No es urgente, pero: Quiero conocer las opciones del portal No compartan este dato: 300 123 4567.",
+    "label": {
+      "category": "general",
+      "priority": "normal"
+    }
+  }
+]

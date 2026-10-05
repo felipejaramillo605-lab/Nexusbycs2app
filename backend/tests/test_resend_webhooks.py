@@ -155,3 +155,21 @@ def test_owner_summary_is_owner_only_and_masked():
     assert "cliente@example.com" not in json.dumps(summary)
     manager, _ = build(role="manager")
     assert manager.get("/api/owner/email-events").status_code == 403
+
+
+def test_oversized_payloads_are_rejected_before_the_signature_is_even_checked():
+    client, db = build()
+    body = b"x" * (subject.MAX_BODY_BYTES + 1)
+    response = client.post("/api/webhooks/resend", content=body, headers=sign(body))
+    assert response.status_code == 413 and db.email_events.docs == []
+
+
+def test_a_body_without_content_length_is_capped_while_streaming():
+    client, db = build()
+
+    def chunks():
+        for _ in range(8):
+            yield b"y" * (subject.MAX_BODY_BYTES // 4)
+
+    response = client.post("/api/webhooks/resend", content=chunks(), headers=sign(b"unused"))
+    assert response.status_code == 413 and db.email_events.docs == []

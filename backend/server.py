@@ -67,7 +67,7 @@ from owner_account_management import (
     enforce_organization_active,
 )
 from resend_webhooks import build_resend_webhook_router, ensure_email_event_indexes
-from owner_connector_status import build_connector_status_router
+from owner_connector_status import build_connector_status_router, ensure_connector_rate_limit_indexes
 from integrity_checks import build_integrity_router
 from owner_media_integrity import build_owner_media_integrity_router
 from owner_delivery_operations import (
@@ -325,6 +325,12 @@ def require_management_role(user: User) -> None:
 
 # NEXUS_ENDPOINT_RBAC_TENANT_ENFORCEMENT_V1
 # ==================== END RLS HELPERS ====================
+
+
+BUSINESS_TYPE_KEYS = frozenset({
+    "barbershop", "hair_salon", "nail_spa", "lash_spa", "beauty_salon",
+    "wellness_spa", "pilates_studio", "health_clinic", "professional_services", "pet_grooming",
+})
 
 
 class Organization(BaseModel):
@@ -2914,6 +2920,9 @@ async def update_organization_profile(
         raise HTTPException(status_code=403, detail="Access denied")
 
     update_data = {k: v for k, v in data.dict().items() if v is not None}
+
+    if "business_type" in update_data and update_data["business_type"] not in BUSINESS_TYPE_KEYS:
+        raise HTTPException(status_code=422, detail="business_type is not allowed")
 
     if "portal_template" in update_data:
         organization = await db.organizations.find_one(
@@ -6831,6 +6840,26 @@ async def cancel_staff_settlement(
 # ==================== CLIENTS ENDPOINTS ====================
 
 
+@api_router.get("/customer-risk", tags=["clients"])
+async def get_customer_risk(
+    organization_id: Optional[str] = None,
+    page: int = Query(default=1, ge=1),
+    page_size: int = Query(default=20, ge=1, le=100),
+    authorization: Optional[str] = Header(None),
+    session_token: Optional[str] = Cookie(None),
+):
+    """Tenant-scoped, read-only recommendations from the local baseline."""
+    current_user = await get_current_user(authorization, session_token)
+    require_management_role(current_user)
+    org_id = await resolve_team_organization(current_user, organization_id)
+    query = {"organization_id": org_id, "kind": "retention_risk"}
+    total = await db.decision_scores.count_documents(query)
+    rows = await db.decision_scores.find(query, {"_id": 0}).sort(
+        [("score", -1), ("client_id", 1)]
+    ).skip((page - 1) * page_size).limit(page_size).to_list(page_size)
+    return {"items": rows, "page": page, "page_size": page_size, "total": total, "total_pages": (total + page_size - 1) // page_size}
+
+
 @api_router.get("/clients", tags=["clients"])
 async def get_clients(
     organization_id: Optional[str] = None,
@@ -9228,7 +9257,7 @@ api_router.include_router(build_audit_log_router(db, get_current_user), tags=["o
 api_router.include_router(build_owner_view_router(db, get_current_user))
 api_router.include_router(build_owner_account_router(db, get_current_user))
 api_router.include_router(build_resend_webhook_router(db, get_current_user))
-api_router.include_router(build_connector_status_router(get_current_user))
+api_router.include_router(build_connector_status_router(get_current_user, db))
 api_router.include_router(build_integrity_router(db, get_current_user), tags=["owner-integrity"])
 api_router.include_router(build_owner_media_integrity_router(db, get_current_user), tags=["owner-media-integrity"])
 api_router.include_router(build_security_observability_router(db, get_current_user), tags=["owner-security"])
@@ -9429,6 +9458,7 @@ async def create_application_indexes():
     await ensure_audit_log_indexes(db)
     await ensure_view_session_indexes(db)
     await ensure_email_event_indexes(db)
+    await ensure_connector_rate_limit_indexes(db)
     await db.owner_invitations.create_index("invitation_id", unique=True, name="owner_invitations_id_unique")
     await db.owner_invitations.create_index([("email_normalized", 1), ("status", 1)], name="owner_invitations_email_status")
     # NEXUS_CHECKOUT_BACKEND_V1

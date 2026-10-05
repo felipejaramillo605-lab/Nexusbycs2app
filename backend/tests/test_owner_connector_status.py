@@ -133,3 +133,47 @@ def test_test_email_is_owner_only_and_rate_limited():
     finally:
         email_module.email_service = original
     assert statuses[:5] == [200] * 5 and 429 in statuses[5:]
+
+
+class _FakeLimits:
+    def __init__(self):
+        self.docs = {}
+
+    async def find_one_and_update(self, query, update, upsert=False, return_document=None):
+        doc = self.docs.setdefault(query["_id"], {"_id": query["_id"], "count": 0})
+        doc["count"] += update["$inc"]["count"]
+        return dict(doc)
+
+
+def test_test_email_limit_is_shared_through_the_database_across_workers(monkeypatch):
+    limits = _FakeLimits()
+    db = SimpleNamespace(connector_rate_limits=limits)
+    mailer = _Mailer()
+    import email_service as email_module
+
+    monkeypatch.setattr(email_module, "email_service", mailer)
+
+    async def current_user(*_):
+        return SimpleNamespace(role="owner", access_status="approved", user_id="owner_shared", email="a@example.com")
+
+    def make_worker():
+        app = FastAPI()
+        app.include_router(subject.build_connector_status_router(current_user, db), prefix="/api")
+        return TestClient(app)
+
+    first, second = make_worker(), make_worker()
+    statuses = [
+        (first if i % 2 == 0 else second).post("/api/owner/connectors/test-email").status_code for i in range(7)
+    ]
+    assert statuses[:5] == [200] * 5 and statuses[5:] == [429, 429]
+
+
+def test_test_email_rejects_a_malformed_owner_address_before_any_provider(monkeypatch):
+    mailer = _Mailer()
+    import email_service as email_module
+
+    monkeypatch.setattr(email_module, "email_service", mailer)
+    response = _client_with_user(email="not-an-address", user_id="owner_bad_mail").post(
+        "/api/owner/connectors/test-email"
+    )
+    assert response.status_code == 422 and mailer.calls == []

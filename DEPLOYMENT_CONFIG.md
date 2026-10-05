@@ -159,3 +159,45 @@ db.organizations.findOne({organization_id: "org_xxxx"})
 - ✅ CORS fail-closed: requiere orígenes explícitos
 - ✅ RLS enforced: manager solo accede a su organización
 - ✅ Validación de servicios: solo del mismo tenant
+
+## Daemons administrados por Supervisor
+
+Los procesos periódicos no se ejecutan dentro de `server.py`: el `lifespan`
+web solo crea índices y hace bootstrap al inicio (`backend/server.py:171-175`).
+En producción, Emergent los mantiene como procesos separados de Supervisor.
+El repositorio confirma este patrón mediante `backend/low_stock_daemon.py:1`,
+`backend/birthday_reminder_daemon.py:1`, `backend/membership_daemon.py:1`,
+`backend/class_schedule_daemon.py:1` y `backend/reminder_daemon.py:1`; el
+reporte operativo conserva como ejemplo `/etc/supervisor/conf.d/reminder_daemon.conf`
+y `/var/log/supervisor/reminder_daemon.out.log` (`test_result.md:152-168`).
+
+### Customer-risk daemon (apagado por defecto)
+
+`backend/scoring_daemon.py` es un worker separado, de solo recomendaciones:
+lee `MONGO_URL`/`DB_NAME`, corre cada seis horas y no crea reservas, mensajes ni
+modifica clientes (`backend/scoring_daemon.py:31-59`). Solo ejecuta trabajo si
+`CUSTOMER_RISK_DAEMON_ENABLED=true` (`:29-30`); sin esa variable su ciclo
+termina como `mode=disabled`.
+
+Antes de activarlo, un operador de Emergent debe crear una entrada Supervisor
+separada, siguiendo el patrón existente y sin añadirlo al comando del backend:
+
+```ini
+[program:customer_risk_daemon]
+directory=/app/backend
+command=/usr/bin/python3 /app/backend/scoring_daemon.py
+autostart=true
+autorestart=true
+startretries=3
+stdout_logfile=/var/log/supervisor/customer_risk_daemon.out.log
+stderr_logfile=/var/log/supervisor/customer_risk_daemon.err.log
+environment=CUSTOMER_RISK_DAEMON_ENABLED="true"
+```
+
+La ruta de Python debe verificarse en el contenedor antes de guardar la
+configuración. Tras `supervisorctl reread`, `supervisorctl update` y el arranque
+del programa, revisar una ejecución completa en el log y confirmar que los
+resultados se mantienen como recomendaciones. Mantener el kill-switch
+`CUSTOMER_RISK_DAEMON_ENABLED=false` hasta que Owner autorice el piloto. No se
+debe iniciar este worker en el proceso web, ni duplicarlo en más de un proceso
+Supervisor sin un candado distribuido.
