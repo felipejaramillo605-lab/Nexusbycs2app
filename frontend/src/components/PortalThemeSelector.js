@@ -5,32 +5,35 @@ import { toast } from 'sonner';
 import { organizationAPI } from '../api';
 import { getBusinessProfile } from '../lib/businessProfiles';
 
-export default function PortalThemeSelector({ organizationId, currentTheme = 'classic', businessType = 'barbershop', onThemeChange }) {
+// El portal publico usa la plantilla premium si hay una activa (portal_template) y, si no, este tema normal.
+// Por eso elegir un tema normal debe guardar tambien portal_template = 'classic'; si no, la premium sigue ganando.
+export default function PortalThemeSelector({ organizationId, currentTheme = 'classic', businessType = 'barbershop', premiumActive = false, onThemeChange, onTemplateReset }) {
   const [saving, setSaving] = useState(false);
-  const [selectedTheme, setSelectedTheme] = useState(currentTheme);
+  const [selectedTheme, setSelectedTheme] = useState(premiumActive ? null : currentTheme);
 
   useEffect(() => {
     const validTheme = CLIENT_PORTAL_THEMES[currentTheme] ? currentTheme : 'classic';
-    setSelectedTheme(validTheme);
-  }, [currentTheme]);
+    setSelectedTheme(premiumActive ? null : validTheme);
+  }, [currentTheme, premiumActive]);
 
-  const handleThemeSelect = async (themeKey) => {
-      if (saving || !CLIENT_PORTAL_THEMES[themeKey]) return;
-    
+  const handleThemeSelect = (themeKey) => {
+    if (saving || !CLIENT_PORTAL_THEMES[themeKey]) return;
     setSelectedTheme(themeKey);
-    setSaving(true);
+  };
 
+  // Hay algo por guardar si cambia el tema o si hoy manda una plantilla premium y se elige un tema normal.
+  const dirty = !!selectedTheme && (selectedTheme !== currentTheme || premiumActive);
+
+  const handleSave = async () => {
+    if (!dirty || saving) return;
+    setSaving(true);
     try {
-      await organizationAPI.update(organizationId, {
-        client_portal_theme: themeKey
-      });
-      
-      toast.success('Tema actualizado correctamente');
-      if (onThemeChange) onThemeChange(themeKey);
+      await organizationAPI.update(organizationId, { client_portal_theme: selectedTheme, portal_template: 'classic' });
+      toast.success(premiumActive ? 'Tema guardado; la plantilla premium se desactivó' : 'Tema guardado');
+      if (onThemeChange) onThemeChange(selectedTheme);
+      if (onTemplateReset) onTemplateReset('classic');
     } catch (error) {
-      console.error('Error updating theme:', error);
-      toast.error('Error al actualizar el tema');
-      setSelectedTheme(currentTheme); // Revert on error
+      toast.error(error?.response?.data?.detail || 'No fue posible guardar el tema');
     } finally {
       setSaving(false);
     }
@@ -115,6 +118,25 @@ export default function PortalThemeSelector({ organizationId, currentTheme = 'cl
             </button>
           );
         })}
+      </div>
+
+      {premiumActive && (
+        <p className="text-sm text-[var(--app-primary)]" data-testid="premium-active-notice">
+          Hoy tu portal usa una plantilla premium. Si eliges un tema normal y guardas, la premium se desactiva.
+        </p>
+      )}
+
+      <div className="flex flex-wrap items-center gap-3">
+        <button
+          type="button"
+          data-testid="save-portal-theme"
+          onClick={handleSave}
+          disabled={!dirty || saving}
+          className="nexus-button nexus-button-primary disabled:opacity-50"
+        >
+          {saving ? 'Guardando…' : 'Guardar cambios'}
+        </button>
+        {dirty && <span className="text-xs text-[var(--app-text-secondary)]">Tienes cambios sin guardar</span>}
       </div>
 
       <div className="mt-6 p-4 bg-blue-500/10 border border-blue-500/30 rounded-xl">

@@ -69,7 +69,7 @@ async def build_report(db):
     platform = await db.platform_settings.find_one({"settings_id": SETTINGS_ID}, {"_id": 0, "platform_logo_url": 1})
     if platform:
         await _check(db, findings, "platform_logo", None, "platform_settings", platform.get("platform_logo_url"))
-    organizations = await db.organizations.find({}, {"_id": 0, "organization_id": 1, "logo_url": 1, "portal_background_url": 1}).to_list(MAX_FINDINGS + 1)
+    organizations = await db.organizations.find({}, {"_id": 0, "organization_id": 1, "name": 1, "logo_url": 1, "portal_background_url": 1}).to_list(MAX_FINDINGS + 1)
     for row in organizations:
         await _check(db, findings, "organization_logo", row.get("organization_id"), row.get("organization_id"), row.get("logo_url"))
         await _check(db, findings, "portal_background", row.get("organization_id"), row.get("organization_id"), row.get("portal_background_url"))
@@ -84,6 +84,9 @@ async def build_report(db):
     for row in catalog:
         for url in row.get("photos") or []:
             await _check(db, findings, "catalog_image", row.get("organization_id"), row.get("product_id"), url)
+    names = {row["organization_id"]: row.get("name") for row in organizations if row.get("name")}
+    for finding in findings:
+        finding["organization_name"] = names.get(finding.get("organization_id"))
     return {
         "generated_at": datetime.now(timezone.utc).isoformat(),
         "scanned": {"organizations": len(organizations), "services": len(services), "professionals": len(professionals), "catalog": len(catalog)},

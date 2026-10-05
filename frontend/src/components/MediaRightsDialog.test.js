@@ -9,9 +9,6 @@ const mockAccept = jest.fn();
 
 jest.mock('../api', () => ({ mediaRightsAPI: { accept: (...args) => mockAccept(...args) } }));
 jest.mock('sonner', () => ({ toast: { success: jest.fn(), error: jest.fn() } }));
-jest.mock('./design/AccessibleModal', () => ({
-  AccessibleModal: ({ open, children }) => (open ? <div role="dialog">{children}</div> : null),
-}));
 jest.mock('./design', () => {
   const React = jest.requireActual('react');
   return {
@@ -37,25 +34,26 @@ afterEach(() => {
   jest.clearAllMocks();
 });
 
-const buttonByText = (text) => Array.from(container.querySelectorAll('button')).find((b) => b.textContent.includes(text));
+const layer = () => document.querySelector('[data-testid="media-rights-layer"]');
+const buttonByText = (text) => Array.from(document.querySelectorAll('.nexus-media-rights-panel button')).find((b) => b.textContent.includes(text));
 
 test('shows the declaration, keeps accept disabled until the box is checked, then resolves true', async () => {
   let pending;
   await act(async () => {
     pending = requestMediaRights({ version: '1.0', message: 'Declaro que tengo derecho a usar las imágenes' });
   });
-  expect(container.textContent).toContain('Declaro que tengo derecho a usar las imágenes');
+  expect(document.body.textContent).toContain('Declaro que tengo derecho a usar las imágenes');
   expect(buttonByText('Aceptar').disabled).toBe(true);
   mockAccept.mockResolvedValue({});
   await act(async () => {
-    container.querySelector('input[type=checkbox]').click();
+    document.querySelector('.nexus-media-rights-panel input[type=checkbox]').click();
   });
   await act(async () => {
     buttonByText('Aceptar').click();
   });
   await expect(pending).resolves.toBe(true);
   expect(mockAccept).toHaveBeenCalledWith('1.0');
-  expect(container.querySelector('[role=dialog]')).toBeNull();
+  expect(layer()).toBeNull();
 });
 
 test('cancel resolves false without registering anything', async () => {
@@ -68,4 +66,34 @@ test('cancel resolves false without registering anything', async () => {
   });
   await expect(pending).resolves.toBe(false);
   expect(mockAccept).not.toHaveBeenCalled();
+});
+
+test('it is its own top layer in the body and shields the modal underneath from taps (mobile: Radix dialogs block outside touches and close on outside press)', async () => {
+  await act(async () => {
+    requestMediaRights({ version: '1.0', message: 'x' });
+  });
+  expect(layer().parentElement).toBe(document.body);
+  expect(layer().className).toContain('nexus-media-rights-layer');
+  const outsideListener = jest.fn();
+  document.addEventListener('mousedown', outsideListener);
+  document.addEventListener('click', outsideListener);
+  await act(async () => {
+    const checkbox = document.querySelector('.nexus-media-rights-panel input[type=checkbox]');
+    checkbox.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
+    checkbox.click();
+  });
+  document.removeEventListener('mousedown', outsideListener);
+  document.removeEventListener('click', outsideListener);
+  expect(outsideListener).not.toHaveBeenCalled();
+  expect(document.querySelector('.nexus-media-rights-panel input[type=checkbox]').checked).toBe(true);
+});
+
+test('the styles give the layer pointer events, the highest stacking and a large tap target', () => {
+  const { readFileSync } = require('fs');
+  const path = require('path');
+  const css = readFileSync(path.join(__dirname, '..', 'index.css'), 'utf8');
+  const rule = css.slice(css.indexOf('.nexus-media-rights-layer{'));
+  expect(rule).toContain('pointer-events:auto');
+  expect(rule).toContain('z-index:2147483000');
+  expect(css).toMatch(/\.nexus-media-rights-check input\{[^}]*width:24px/);
 });

@@ -90,23 +90,30 @@ export default function PremiumTemplateSelector({ organizationId, currentTemplat
   const [saving, setSaving] = useState(false);
   const [selectedTemplate, setSelectedTemplate] = useState(currentTemplate);
   const [previewKey, setPreviewKey] = useState(null);
+  const [pending, setPending] = useState(null);
 
   useEffect(() => {
-    setSelectedTemplate(PREMIUM_TEMPLATE_IMPLEMENTATIONS[currentTemplate] ? currentTemplate : currentTemplate);
+    setSelectedTemplate(currentTemplate);
+    setPending(null);
   }, [currentTemplate]);
 
-  const handleSelect = async (key) => {
+  // Elegir solo marca la plantilla; se aplica al portal cuando se pulsa "Guardar cambios".
+  const handleSelect = (key) => {
     if (saving || !contracted || !PREMIUM_TEMPLATE_IMPLEMENTATIONS[key]) return;
-    const previous = selectedTemplate;
-    setSelectedTemplate(key);
+    setPending(key === selectedTemplate ? null : key);
+  };
+
+  const handleSave = async () => {
+    if (!pending || saving) return;
     setSaving(true);
     try {
-      await organizationAPI.update(organizationId, { portal_template: key });
-      toast.success('Plantilla premium actualizada');
-      onTemplateChange?.(key);
+      await organizationAPI.update(organizationId, { portal_template: pending });
+      toast.success('Plantilla premium guardada');
+      setSelectedTemplate(pending);
+      onTemplateChange?.(pending);
+      setPending(null);
     } catch (error) {
-      toast.error(error.response?.data?.detail || 'No fue posible actualizar la plantilla');
-      setSelectedTemplate(previous);
+      toast.error(error.response?.data?.detail || 'No fue posible guardar la plantilla');
     } finally {
       setSaving(false);
     }
@@ -147,7 +154,8 @@ export default function PremiumTemplateSelector({ organizationId, currentTemplat
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
         {availableTemplates.map((template) => {
           const { theme } = template;
-          const isSelected = contracted && selectedTemplate === template.key;
+          const isSelected = contracted && (pending ?? selectedTemplate) === template.key;
+          const isActive = contracted && !pending && selectedTemplate === template.key;
           const locked = !contracted;
           return (
             <div
@@ -194,7 +202,7 @@ export default function PremiumTemplateSelector({ organizationId, currentTemplat
                       : 'bg-[var(--app-primary)] text-white disabled:opacity-60'
                   }`}
                 >
-                  {isSelected ? 'Activa' : 'Usar esta plantilla'}
+                  {isActive ? 'Activa' : pending === template.key ? 'Seleccionada' : 'Usar esta plantilla'}
                 </button>
               </div>
             </div>
@@ -216,6 +224,26 @@ export default function PremiumTemplateSelector({ organizationId, currentTemplat
           );
         })}
       </div>
+
+      {contracted && (
+        <div className="flex flex-wrap items-center gap-3">
+          <button
+            type="button"
+            data-testid="save-premium-template"
+            onClick={handleSave}
+            disabled={!pending || saving}
+            className="nexus-button nexus-button-primary disabled:opacity-50"
+          >
+            {saving ? 'Guardando…' : 'Guardar cambios'}
+          </button>
+          {pending && (
+            <>
+              <button type="button" onClick={() => setPending(null)} className="text-sm underline" disabled={saving}>Descartar</button>
+              <span className="text-xs text-[var(--app-text-secondary)]">Tienes cambios sin guardar</span>
+            </>
+          )}
+        </div>
+      )}
 
       <TemplatePreviewModal
         template={availableTemplates.find((t) => t.key === previewKey) || null}

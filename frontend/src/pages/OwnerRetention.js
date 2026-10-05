@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { Eraser, RefreshCw } from 'lucide-react';
 import { toast } from 'sonner';
 import { retentionAPI } from '../api';
+import OwnerOrgRetention from '../components/OwnerOrgRetention';
 import { ActionButton, MotionPage, PageHeader, SurfaceCard } from '../components/design';
 
 const PHRASE = 'EJECUTAR RETENCION';
@@ -79,6 +80,7 @@ export default function OwnerRetention() {
               </p>
             )}
           </SurfaceCard>
+          <OwnerOrgRetention />
         </MotionPage>
       </div>
     </div>
