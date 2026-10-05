@@ -3681,6 +3681,28 @@ async def _send_class_booking_confirmation(db, *, organization_id, session, serv
         )
 
 
+def _class_booking_window(session: dict, service: Optional[dict], today=None):
+    """(abierta, fecha en que abre) segun `booking_window_days` del servicio; sin ventana siempre esta abierta."""
+    window = (service or {}).get("booking_window_days")
+    if not window:
+        return True, None
+    opens_on = _strict_date(session["date"]) - timedelta(days=window)
+    return (today or datetime.now(timezone.utc).date()) >= opens_on, opens_on.isoformat()
+
+
+def _class_not_open_error(session: dict, service: Optional[dict]) -> HTTPException:
+    _, opens_on = _class_booking_window(session, service)
+    year, month, day = opens_on.split("-")
+    return HTTPException(
+        status_code=409,
+        detail={
+            "code": "CLASS_NOT_OPEN_YET",
+            "message": f"Las reservas de esta clase abren el {day}/{month}/{year}.",
+            "opens_on": opens_on,
+        },
+    )
+
+
 @api_router.post("/public/clients/class-sessions/{class_session_id}/book", tags=["public-client-portal"])
 @limiter.limit("20/hour")
 async def book_class_session_from_portal(
@@ -3697,11 +3719,8 @@ async def book_class_session_from_portal(
         raise HTTPException(status_code=404, detail="Class session not found")
 
     service = await db.services.find_one({"service_id": session["service_id"]}, {"_id": 0})
-    if service and service.get("booking_window_days"):
-        session_date = _strict_date(session["date"])
-        max_date = datetime.now(timezone.utc).date() + timedelta(days=service["booking_window_days"])
-        if session_date > max_date:
-            raise HTTPException(status_code=409, detail="This class is not open for booking yet")
+    if not _class_booking_window(session, service)[0]:
+        raise _class_not_open_error(session, service)
 
     membership, plan = await _get_client_membership_with_plan(db, org_id, current_client.client_id)
     coverage = _membership_coverage_for_service(membership, plan, session["service_id"])
@@ -3847,6 +3866,8 @@ async def get_public_class_sessions(
             {
                 **s,
                 "spots_available": max(0, s["capacity"] - s["booked_count"]),
+                "open_for_booking": _class_booking_window(s, service_lookup.get(s["service_id"]))[0],
+                "booking_opens_on": _class_booking_window(s, service_lookup.get(s["service_id"]))[1],
                 "spot_layout": layout,
                 "occupied_spots": occupied,
                 "service_presentation": _service_presentation(service_lookup.get(s["service_id"])),
@@ -3947,11 +3968,8 @@ async def book_class_session(org_id: str, class_session_id: str, data: ClassBook
         raise HTTPException(status_code=404, detail="Class session not found")
 
     service = await db.services.find_one({"service_id": session["service_id"]}, {"_id": 0})
-    if service and service.get("booking_window_days"):
-        session_date = _strict_date(session["date"])
-        max_date = datetime.now(timezone.utc).date() + timedelta(days=service["booking_window_days"])
-        if session_date > max_date:
-            raise HTTPException(status_code=409, detail="This class is not open for booking yet")
+    if not _class_booking_window(session, service)[0]:
+        raise _class_not_open_error(session, service)
 
     phone = sanitize_phone(data.client_phone)
     await _enforce_guest_class_phone_rate_limit(org_id, phone, request)
