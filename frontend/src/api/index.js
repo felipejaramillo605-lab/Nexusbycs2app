@@ -98,6 +98,7 @@ export const ownerAPI = {
   revokeOwnerInvitation: (invitationId) => api.delete(`/owner/owner-invitations/${invitationId}`),
   getDeletionImpact: (organizationId) => api.get(`/owner/organizations/${organizationId}/deletion-impact`),
   deleteOrganization: (organizationId, data) => api.post(`/owner/organizations/${organizationId}/delete`, data),
+  backfillObjectStorage: () => api.post('/owner/media/backfill-object-storage'),
 };
 
 // NEXUS_OWNER_CONSOLE_SHELL_V1 (plan PR 19/20): backend from #61
