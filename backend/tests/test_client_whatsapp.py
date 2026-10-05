@@ -91,6 +91,8 @@ def setup(monkeypatch, *, consent=True, role="manager", authenticated=True):
     )
     sender = AsyncMock(return_value={"accepted": True, "provider": "mock", "status": "sent_mock"})
     monkeypatch.setattr(client_whatsapp.whatsapp_service, "send_whatsapp_message", sender)
+    # La ventana de la Ley 2300 depende de la hora: cada prueba la fija de forma explicita.
+    monkeypatch.setattr(client_whatsapp, "marketing_allowed", lambda *args, **kwargs: True)
     return app, db, sender
 
 
@@ -201,3 +203,19 @@ def test_provider_failure_does_not_expose_provider_details(monkeypatch):
     result = post(app, {"kind": "operational_notice", "message": "Cerramos temprano"})
     assert result.status_code == 502
     assert "sensitive-response" not in result.text
+
+
+def test_promotion_outside_the_ley_2300_window_is_blocked_with_a_clear_message(monkeypatch):
+    app, _, sender = setup(monkeypatch)
+    monkeypatch.setattr(client_whatsapp, "marketing_allowed", lambda *args, **kwargs: False)
+    result = post(app, {"kind": "promotion", "message": "Oferta"})
+    assert result.status_code == 409
+    assert "Ley 2300" in result.json()["detail"] and "lunes a viernes" in result.json()["detail"]
+    sender.assert_not_awaited()
+
+
+def test_a_reminder_for_a_real_appointment_is_not_advertising_and_ignores_the_window(monkeypatch):
+    app, _, sender = setup(monkeypatch)
+    monkeypatch.setattr(client_whatsapp, "marketing_allowed", lambda *args, **kwargs: False)
+    result = post(app, {"kind": "reminder", "organization_id": "org-a"})
+    assert result.status_code != 409
