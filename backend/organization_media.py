@@ -14,6 +14,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from fastapi import APIRouter, Cookie, File, Header, HTTPException, Query, UploadFile
+from media_rights import require_media_rights
 from fastapi.responses import FileResponse
 from image_pipeline import MAX_UPLOAD_BYTES, MAX_SIDE, MAX_INPUT_PIXELS, read_upload_limited, normalize_image as _normalize_image, normalize_image_async
 from media_mirror import mirror_delete, mirror_put, mirror_restore
@@ -100,6 +101,7 @@ def build_organization_media_router(db, get_current_user, require_management_rol
     async def upload_organization_logo(organization_id: str, file: UploadFile = File(...), authorization: str | None = Header(None), session_token: str | None = Cookie(None)):
         user = await get_current_user(authorization, session_token)
         org = await management_target(user, organization_id)
+        await require_media_rights(db, user)
         real_org_id = org["organization_id"]
         payload, metadata = await normalize_image_async(await _read_limited(file), "logo", preserve_alpha=True)
         old_url = org.get("logo_url")

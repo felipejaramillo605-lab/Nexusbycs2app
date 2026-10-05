@@ -14,6 +14,7 @@ from pathlib import Path
 from struct import unpack
 
 from fastapi import APIRouter, Cookie, File, Header, HTTPException, UploadFile
+from media_rights import require_media_rights
 from fastapi.responses import FileResponse
 
 from organization_media import SAFE_ORG
@@ -194,7 +195,9 @@ def build_organization_background_media_router(db, get_current_user, require_man
 
     @router.post("/organizations/{organization_id}/portal-background", tags=["organizations"])
     async def upload_background(organization_id: str, file: UploadFile = File(...), authorization: str | None = Header(None), session_token: str | None = Cookie(None)):
-        org = await target(await get_current_user(authorization, session_token), organization_id)
+        user = await get_current_user(authorization, session_token)
+        org = await target(user, organization_id)
+        await require_media_rights(db, user)
         source = await _read_limited(file, MAX_VIDEO_BYTES)
         payload, extension, duration, kind = await prepare_background_upload(source)
         new_url, path = _write_atomic(org["organization_id"], payload, extension)

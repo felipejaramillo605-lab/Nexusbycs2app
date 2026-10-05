@@ -60,7 +60,7 @@ export const BARBERIA_REAL_TEMPLATE = Object.freeze({
   key: 'barberia-real',
   tier: 'premium',
   fontFamily: 'Bitter',
-  fontHref: 'https://fonts.googleapis.com/css2?family=Bitter:wght@400;500;600;700&display=swap',
+  fontHref: '/fonts/fonts.css',
   theme: BARBERIA_REAL_THEME,
   variables: BARBERIA_REAL_VARIABLES,
 });

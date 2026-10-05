@@ -60,7 +60,7 @@ export const BLOOM_TEMPLATE = Object.freeze({
   key: 'bloom',
   tier: 'premium',
   fontFamily: 'Fraunces',
-  fontHref: 'https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght,SOFT,WONK@0,9..144,400,30,1;1,9..144,500,30,1&family=Poppins:wght@400;500;600;700&display=swap',
+  fontHref: '/fonts/fonts.css',
   theme: BLOOM_THEME,
   variables: BLOOM_VARIABLES,
 });

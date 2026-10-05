@@ -143,6 +143,9 @@ class TestServicePhotos:
         # drops it so requests can compute the real multipart/form-data boundary header
         # for these file uploads instead of sending them mislabeled as JSON.
         multipart_headers = {"Content-Type": None}
+        # Subir imagenes exige la declaracion de derechos de uso (una vez por usuario).
+        accepted = manager.post(f"{BASE_URL}/api/account/media-rights", json={"accepted": True}, timeout=15)
+        assert accepted.status_code == 200, accepted.text
         try:
             urls = []
             for i in range(2):

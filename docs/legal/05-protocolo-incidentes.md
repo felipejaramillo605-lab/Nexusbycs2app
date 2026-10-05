@@ -1,6 +1,6 @@
 # Protocolo de Incidentes de Seguridad — Nexus by CS2 (v1)
 
-> **Versión 2.0** · vigente desde el 5 de octubre de 2026. Base: Ley 1581 de 2012 (art. 17 lit. n y art. 18 lit. k: informar a la SIC las violaciones a los códigos de seguridad y los riesgos en la administración de la información), Ley 1273 de 2009 (delitos informáticos).
+> **Versión 2.1** · vigente desde el 5 de octubre de 2026. Base: Ley 1581 de 2012 (art. 17 lit. n y art. 18 lit. k: informar a la SIC las violaciones a los códigos de seguridad y los riesgos en la administración de la información), Ley 1273 de 2009 (delitos informáticos).
 
 ## 1. ¿Qué es un incidente?
 Cualquier evento que comprometa la confidencialidad, integridad o disponibilidad de datos personales: acceso no autorizado, fuga o exposición, pérdida o robo de credenciales o dispositivos, modificación o borrado indebido, ransomware, error que muestre datos de una organización a otra, envío de mensajes a destinatarios equivocados, compromiso de un proveedor.

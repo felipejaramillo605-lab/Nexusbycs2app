@@ -48,7 +48,7 @@ const IGNITION_THEME = Object.freeze({
 });
 export const IGNITION_TEMPLATE = Object.freeze({
   key: 'ignition', tier: 'premium', fontFamily: 'Anton',
-  fontHref: 'https://fonts.googleapis.com/css2?family=Anton&family=Inter:wght@400;500;600;700&display=swap',
+  fontHref: '/fonts/fonts.css',
   theme: IGNITION_THEME, variables: IGNITION_VARIABLES,
 });
 export default IGNITION_TEMPLATE;

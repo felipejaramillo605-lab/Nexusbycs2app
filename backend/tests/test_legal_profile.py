@@ -140,9 +140,9 @@ def test_acceptance_is_idempotent_and_rejects_a_stale_version():
 def test_a_new_contract_version_requires_accepting_again(monkeypatch):
     client, _ = seeded()
     client.post("/api/legal/accept", json={"version": subject.current_version()}, headers=auth("manager_a"))
-    monkeypatch.setenv("LEGAL_DOCS_VERSION", "2.1")
+    monkeypatch.setenv("LEGAL_DOCS_VERSION", "9.9")
     body = client.get("/api/legal/responsible", headers=auth("manager_a")).json()
-    assert body["accepted"] is False and body["private"] is None and body["version"] == "2.1"
+    assert body["accepted"] is False and body["private"] is None and body["version"] == "9.9"
 
 
 def test_only_an_owner_can_edit_the_profile_and_it_is_validated():
