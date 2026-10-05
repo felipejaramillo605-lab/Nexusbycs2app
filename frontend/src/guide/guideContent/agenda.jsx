@@ -108,6 +108,17 @@ const manager = {
       ],
       expected: 'La cita vieja queda cancelada y la nueva reserva aparece confirmada en la agenda.',
     },
+    {
+      id: 'a14',
+      title: 'Crear una cita para un cliente que llega o llama',
+      substeps: [
+        'En el "Historial de Citas" pulsa "Nueva cita".',
+        'Elige el profesional, el servicio, la fecha y una hora de las disponibles.',
+        'Anota el teléfono y el nombre del cliente; el correo es opcional.',
+        'Pulsa "Confirmar cita" y, si quieres, "Copiar enlace" o "Compartir por WhatsApp" para que la próxima vez reserve él mismo desde el portal.',
+      ],
+      expected: 'La cita queda en la agenda del profesional elegido y el cliente queda registrado como invitado, sin promociones.',
+    },
   ],
   buttons: [
     { icon: ArrowLeft, name: 'Volver', does: 'Regresa al panel "Inicio".', when: 'Cuando terminas de trabajar la agenda.' },
@@ -162,6 +173,7 @@ const manager = {
     { id: 'a3', label: 'Entendí que cancelar una cita libera el horario y no cuenta su valor.' },
     { id: 'a4', label: 'Revisé la semana en el "Calendario Semanal" y filtré por un profesional.' },
     { id: 'a5', label: 'Sé cómo se reagenda una cita (el cliente, desde su enlace).' },
+    { id: 'a14', label: 'Sé crear una cita presencial en la agenda de cualquier profesional con "Nueva cita".' },
   ],
 };
 
