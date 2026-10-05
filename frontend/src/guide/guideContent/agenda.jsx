@@ -224,7 +224,7 @@ const staff = {
   summary: {
     what: '"Mis citas" es tu agenda personal: solo muestra las reservas asignadas a tu perfil, organizadas en Hoy, Próximas e Historial.',
     forWhat: 'Sirve para saber a quién atiendes hoy, prepararte para las próximas citas y contactar al cliente si hace falta.',
-    whoUses: 'Cada profesional sobre sus propias citas. No agendas ni cobras: eso lo hace la administración.',
+    whoUses: 'Cada profesional sobre sus propias citas. También puedes crear una cita en tu propia agenda para un cliente que llega al local; el cobro lo registra la administración.',
   },
   screens: [
     {
@@ -274,6 +274,18 @@ const staff = {
       expected: 'Tienes el contexto de la cita y puedes comunicarte con el cliente sin salir de la app.',
     },
     {
+      id: 'a13',
+      title: 'Crear una cita para un cliente que llega en persona',
+      substeps: [
+        'En "Mis citas" pulsa "Nueva cita".',
+        'Elige el servicio, la fecha y una hora de las que aparecen disponibles en tu agenda.',
+        'Pídele al cliente su teléfono y su nombre; el correo es opcional.',
+        'Pulsa "Confirmar cita".',
+        'Dile que la próxima vez puede pedir su cita solo desde el portal de clientes: pulsa "Copiar enlace" o "Compartir por WhatsApp" para enviárselo.',
+      ],
+      expected: 'La cita queda en tu agenda, el cliente queda registrado como invitado (sin promociones) y tiene el enlace del portal para su próxima reserva.',
+    },
+    {
       id: 'a12',
       title: 'Usar la navegación móvil del Staff',
       substeps: [
@@ -293,8 +305,19 @@ const staff = {
     { icon: Phone, name: 'Llamar', does: 'Abre el marcador del teléfono con el número del cliente.', when: 'Para confirmar o avisar algo de la cita.' },
     { icon: Mail, name: 'Correo', does: 'Abre tu app de correo con la dirección del cliente.', when: 'Cuando prefieres escribirle en lugar de llamar.' },
     { icon: RefreshCw, name: 'Reintentar', does: 'Vuelve a cargar el resumen y la lista de citas.', when: 'Si aparece un aviso de que algún dato no se pudo cargar.' },
+    { icon: CalendarDays, name: 'Nueva cita', does: 'Abre el formulario para crear una cita en tu propia agenda.', when: 'Cuando llega un cliente al local sin cita previa.' },
+    { icon: Link2, name: 'Copiar enlace / Compartir por WhatsApp', does: 'Copia o comparte el enlace del portal de clientes de tu negocio.', when: 'Al terminar una cita presencial, para que el cliente reserve solo la próxima vez.' },
   ],
   examples: [
+    {
+      scenario: 'Llega un cliente nuevo, quiere un corte y no tiene la app.',
+      walkthrough: [
+        'Dile: "claro, revisemos mi agenda y te pido la cita ahora mismo".',
+        'Pulsa "Nueva cita", elige el servicio y una hora disponible.',
+        'Anota su teléfono y su nombre y pulsa "Confirmar cita".',
+        'Explícale que la próxima vez puede pedirla desde el portal y pulsa "Compartir por WhatsApp" para enviarle el enlace.',
+      ],
+    },
     {
       scenario: 'Vas llegando al local y quieres saber tu primera cita y si el cliente ya tiene todo listo.',
       walkthrough: [
@@ -307,7 +330,9 @@ const staff = {
   ],
   pitfalls: [
     { problem: 'En móvil no encuentro una sección del Staff.', fix: 'La barra muestra Citas, Ingresos, Reseñas y Perfil. Entra por Citas, que abre Hoy; las demás opciones están en Más.' },
-    { problem: 'No puedo crear ni mover una cita desde "Mis citas".', fix: 'Es correcto: agendar, reprogramar y cobrar lo hace la administración. Tú consultas tus citas y contactas al cliente.' },
+    { problem: 'No puedo mover ni cobrar una cita desde "Mis citas".', fix: 'Es correcto: reprogramar y cobrar lo hace la administración. Tú puedes crear citas nuevas en tu propia agenda con "Nueva cita".' },
+    { problem: 'En "Nueva cita" no aparece la hora que quiere el cliente.', fix: 'Solo se muestran los horarios libres de tu agenda. Prueba otra fecha u otra hora, o pídele a la administración que revise tu horario.' },
+    { problem: 'El cliente no quiere dar su correo.', fix: 'Es opcional: con el teléfono y el nombre basta. Sus datos se usan solo para gestionar la cita y no recibe promociones.' },
     { problem: 'Una cita que atendí sigue apareciendo como "Confirmada".', fix: 'La cita cambia a "Completada" cuando la administración registra el cobro. Si lleva rato sin cambiar, avisa a la administración.' },
     { problem: 'No veo los botones "Llamar" o "Correo".', fix: 'Solo aparecen si la cita tiene registrado el teléfono o el correo del cliente. Si faltan, pídele el dato a la administración.' },
   ],
@@ -316,6 +341,7 @@ const staff = {
     { id: 'a10', label: 'Consulté "Próximas" e "Historial" y probé el filtro de estado.' },
     { id: 'a11', label: 'Abrí "Ver detalle" de una cita y ubiqué el estado del cobro.' },
     { id: 'a12', label: 'Sé encontrar Citas y Más desde la barra móvil del Staff.' },
+    { id: 'a13', label: 'Sé crear una cita para un cliente que llega en persona y compartirle el enlace del portal.' },
   ],
 };
 

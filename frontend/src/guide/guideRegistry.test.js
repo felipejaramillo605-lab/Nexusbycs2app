@@ -43,6 +43,18 @@ it('Premium guidance is role-specific and documents its bundle and invoice flow'
   expect(guideCopy).toContain('plantillas premium');
 });
 
+it('the staff agenda guide teaches how to create a walk-in appointment and share the portal', () => {
+  const agenda = GUIDE_MODULES.find((m) => m.id === 'agenda').content.perRole.staff;
+  const copy = JSON.stringify([agenda.steps, agenda.buttons.map((b) => b.name), agenda.examples, agenda.pitfalls, agenda.checklist]);
+  expect(agenda.steps.map((s) => s.id)).toContain('a13');
+  expect(agenda.checklist.map((c) => c.id)).toContain('a13');
+  expect(copy).toContain('Nueva cita');
+  expect(copy).toContain('Compartir por WhatsApp');
+  expect(copy).toContain('portal de clientes');
+  expect(copy).not.toContain('No puedo crear ni mover una cita');
+  expect(checklistCount('agenda', 'staff')).toBe(agenda.checklist.length);
+});
+
 it('every module exposes content.perRole for each view it claims', () => {
   for (const m of GUIDE_MODULES) {
     for (const v of m.visibleTo) {
