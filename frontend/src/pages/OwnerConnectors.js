@@ -82,7 +82,7 @@ export default function OwnerConnectors() {
       {status ? (
         <div className="grid gap-4 md:grid-cols-3">
           <SurfaceCard>
-            <h2 className="flex items-center gap-2 font-semibold"><HardDrive size={18} /> Almacenamiento de medios</h2>
+            <h2 className="flex items-center gap-2 text-lg font-semibold"><HardDrive className="shrink-0" size={18} /> Almacenamiento de medios</h2>
             <ul>
               <Row label="Almacenamiento durable (Cloudflare R2)" ok={Boolean(status.storage.durable_provider)} okText="Activo" offText="Apagado" />
               <Row label="Copia de respaldo en la base de datos" ok={status.storage.mongo_mirror} okText="Activa" offText="Apagada" />
@@ -90,7 +90,7 @@ export default function OwnerConnectors() {
             <p className="nexus-owner-caption">Sin R2, los archivos de más de 15 MB (videos de fondo) no tienen copia durable.</p>
           </SurfaceCard>
           <SurfaceCard>
-            <h2 className="flex items-center gap-2 font-semibold"><Mail size={18} /> Correo</h2>
+            <h2 className="flex items-center gap-2 text-lg font-semibold"><Mail className="shrink-0" size={18} /> Correo</h2>
             <ul>
               <Row label="Envío principal" ok={email.resend_enabled} okText="Resend" offText="Gmail (SMTP)" offTone="info" />
               <Row label="Clave y remitente de Resend" ok={email.resend_api_key_set && email.sender_set} />
@@ -101,7 +101,7 @@ export default function OwnerConnectors() {
             {testResult ? <p role="status" className="nexus-owner-caption">{testResult.text}</p> : null}
           </SurfaceCard>
           <SurfaceCard>
-            <h2 className="flex items-center gap-2 font-semibold"><Sparkles size={18} /> Motor de decisiones</h2>
+            <h2 className="flex items-center gap-2 text-lg font-semibold"><Sparkles className="shrink-0" size={18} /> Motor de decisiones</h2>
             <ul>
               <Row label="Motor de decisiones" ok={status.decisions.engine_enabled} okText="Encendido" offText="Apagado" offTone="info" />
               <Row label="Clave de Jev" ok={status.decisions.jev_key_set} offTone="info" />

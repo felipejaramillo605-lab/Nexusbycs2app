@@ -7,8 +7,11 @@ global.IS_REACT_ACT_ENVIRONMENT = true;
 const mockGetReport = jest.fn();
 const mockBackfill = jest.fn();
 const mockConfirm = jest.fn();
+const mockOrganizations = jest.fn();
+const mockNavigate = jest.fn();
 
-jest.mock('../api', () => ({ ownerMediaIntegrityAPI: { getReport: (...args) => mockGetReport(...args) }, ownerAPI: { backfillObjectStorage: (...args) => mockBackfill(...args) } }));
+jest.mock('../api', () => ({ ownerMediaIntegrityAPI: { getReport: (...args) => mockGetReport(...args) }, ownerAPI: { backfillObjectStorage: (...args) => mockBackfill(...args) }, thirdPartyMatrixAPI: { list: (...args) => mockOrganizations(...args) } }));
+jest.mock('react-router-dom', () => ({ useNavigate: () => mockNavigate }), { virtual: true });
 jest.mock('../components/design', () => {
   const React = jest.requireActual('react');
   return {
@@ -27,7 +30,7 @@ async function renderPage() {
 
 describe('OwnerMediaIntegrity', () => {
   let root;
-  beforeEach(() => { mockGetReport.mockResolvedValue({ data: { broken: [] } }); mockConfirm.mockResolvedValue(true); });
+  beforeEach(() => { mockGetReport.mockResolvedValue({ data: { broken: [] } }); mockOrganizations.mockResolvedValue({ data: { items: [] } }); mockConfirm.mockResolvedValue(true); });
   afterEach(async () => { if (root) await act(async () => root.unmount()); document.body.innerHTML = ''; root = null; jest.clearAllMocks(); });
 
   test('shows the non-error configuration message when durable storage is disabled', async () => {
@@ -37,5 +40,16 @@ describe('OwnerMediaIntegrity', () => {
     await act(async () => { button.dispatchEvent(new MouseEvent('click', { bubbles: true })); await new Promise((resolve) => setTimeout(resolve, 0)); });
     expect(mockBackfill).toHaveBeenCalledTimes(1);
     expect(rendered.host.textContent).toContain('Almacenamiento durable no configurado');
+  });
+
+  test('groups nonrecoverable media by organization and explains where to upload it', async () => {
+    mockGetReport.mockResolvedValue({ data: { broken: [{ kind: 'professional_photo', organization_id: 'org-1', entity_id: 'p-1', url: '/media/p.png', recoverable_from_mirror: false }] } });
+    mockOrganizations.mockResolvedValue({ data: { items: [{ organization_id: 'org-1', name: 'Clínica Aurora' }] } });
+    const rendered = await renderPage(); root = rendered.root;
+    expect(rendered.host.textContent).toContain('Clínica Aurora');
+    expect(rendered.host.textContent).toContain('Equipo → abre el profesional → foto');
+    const button = [...rendered.host.querySelectorAll('button')].find((item) => item.textContent === 'Abrir organización');
+    await act(async () => { button.click(); });
+    expect(mockNavigate).toHaveBeenCalledWith('/owner/organizations?organization_id=org-1');
   });
 });
