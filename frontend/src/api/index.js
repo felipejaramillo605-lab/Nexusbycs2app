@@ -250,6 +250,10 @@ export const organizationAPI = {
   deletePortalBackground: (organizationId) => api.delete(`/organizations/${organizationId}/portal-background`),
 };
 
+export const customerRiskAPI = {
+  list: (params = {}) => api.get('/customer-risk', { params }),
+};
+
 // NEXUS_PLATFORM_BRANDING_V1: the Nexus PLATFORM's own logo (owner-only,
 // global) -- distinct from organizationAPI above, which is each tenant's
 // own store logo. getBranding is public/unauthenticated on purpose: every

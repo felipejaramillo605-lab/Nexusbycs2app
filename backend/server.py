@@ -6831,6 +6831,26 @@ async def cancel_staff_settlement(
 # ==================== CLIENTS ENDPOINTS ====================
 
 
+@api_router.get("/customer-risk", tags=["clients"])
+async def get_customer_risk(
+    organization_id: Optional[str] = None,
+    page: int = Query(default=1, ge=1),
+    page_size: int = Query(default=20, ge=1, le=100),
+    authorization: Optional[str] = Header(None),
+    session_token: Optional[str] = Cookie(None),
+):
+    """Tenant-scoped, read-only recommendations from the local baseline."""
+    current_user = await get_current_user(authorization, session_token)
+    require_management_role(current_user)
+    org_id = await resolve_team_organization(current_user, organization_id)
+    query = {"organization_id": org_id, "kind": "retention_risk"}
+    total = await db.decision_scores.count_documents(query)
+    rows = await db.decision_scores.find(query, {"_id": 0}).sort(
+        [("score", -1), ("client_id", 1)]
+    ).skip((page - 1) * page_size).limit(page_size).to_list(page_size)
+    return {"items": rows, "page": page, "page_size": page_size, "total": total, "total_pages": (total + page_size - 1) // page_size}
+
+
 @api_router.get("/clients", tags=["clients"])
 async def get_clients(
     organization_id: Optional[str] = None,
