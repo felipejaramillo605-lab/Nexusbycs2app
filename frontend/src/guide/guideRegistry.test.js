@@ -64,3 +64,28 @@ it('Owner console is available only in the owner view', () => {
 it('checklistCount returns 0 for a view with no guide', () => {
   expect(checklistCount('servicios', 'staff')).toBe(0);
 });
+
+test('Owner console documents Owner invitations and safe organization archiving', () => {
+  const ownerConsole = GUIDE_MODULES.find((module) => module.id === 'owner-console').content.perRole.owner;
+  const entries = [...ownerConsole.steps, ...ownerConsole.pitfalls];
+  const copy = entries.map((entry) => `${entry.title || ''} ${entry.problem || ''} ${entry.substeps?.join(' ') || ''} ${entry.fix || ''}`).join(' ');
+
+  expect(ownerConsole.steps.find((entry) => entry.id === 'oc10')).toEqual(expect.objectContaining({ title: 'Ver una cuenta de organización sin modificarla' }));
+  expect(ownerConsole.steps.find((entry) => entry.id === 'oc11')).toEqual(expect.objectContaining({ title: 'Agregar un Owner por correo' }));
+  expect(ownerConsole.steps.find((entry) => entry.id === 'oc12')).toEqual(expect.objectContaining({ title: 'Eliminar una organización conservando sus registros' }));
+  expect(copy).toContain('14 días');
+  expect(copy).toContain('Google');
+  expect(copy).toContain('nombre exacto');
+  expect(copy).toContain('Owner vinculada');
+});
+
+test('only the Staff agenda guide documents its mobile navigation', () => {
+  const agenda = GUIDE_MODULES.find((module) => module.id === 'agenda').content.perRole;
+  const mobileTitle = 'Usar la navegación móvil del Staff';
+
+  expect(agenda.staff.steps).toEqual(expect.arrayContaining([expect.objectContaining({ id: 'a12', title: mobileTitle })]));
+  expect(agenda.manager.steps).not.toEqual(expect.arrayContaining([expect.objectContaining({ title: mobileTitle })]));
+  expect(agenda.owner.steps).not.toEqual(expect.arrayContaining([expect.objectContaining({ title: mobileTitle })]));
+  expect(agenda.manager.pitfalls.map((entry) => entry.problem).join(' ')).not.toContain('sección del Staff');
+  expect(agenda.owner.pitfalls.map((entry) => entry.problem).join(' ')).not.toContain('sección del Staff');
+});

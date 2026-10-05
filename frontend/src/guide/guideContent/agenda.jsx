@@ -84,6 +84,7 @@ const manager = {
       substeps: [
         'Ubica la cita confirmada.',
         'Pulsa "Cancelar cita" (ícono de círculo con equis).',
+        'Lee el aviso de confirmación y confirma solo si quieres liberar el horario.',
         'La cita queda como "Cancelada" y su valor deja de contar.',
       ],
       expected: 'La cita aparece tachada y con estado "Cancelada"; el horario del profesional vuelve a quedar libre.',
@@ -149,7 +150,6 @@ const manager = {
     },
   ],
   pitfalls: [
-    { problem: 'En móvil no encuentro una sección del Staff.', fix: 'La barra muestra Citas, Ingresos, Reseñas y Perfil. Entra por Citas, que abre Hoy; las demás opciones están en Más.' },
     { problem: 'Pulsé cancelar por error.', fix: 'La agenda pide confirmación antes de cancelar. Lee el aviso y confirma solo cuando quieras liberar el horario.' },
     { problem: 'No encuentro un botón para reagendar la cita desde la Agenda.', fix: 'La Agenda no reprograma citas. La reprogramación la hace el cliente desde su portal o desde el enlace de gestión que recibe. Si debes moverla tú, cancélala y comparte el enlace de reservas.' },
     { problem: 'Los "Ingresos de hoy" no suben aunque ya atendimos.', fix: 'El ingreso se registra solo al pulsar "Confirmar cobro" en "Completar y cobrar". Si la cita sigue "Confirmada", todavía no cuenta.' },
@@ -210,7 +210,6 @@ const owner = {
     },
   ],
   pitfalls: [
-    { problem: 'En móvil no encuentro una sección del Staff.', fix: 'La barra muestra Citas, Ingresos, Reseñas y Perfil. Entra por Citas, que abre Hoy; las demás opciones están en Más.' },
     { problem: 'Pulsé cancelar por error.', fix: 'La agenda pide confirmación antes de cancelar. Lee el aviso y confirma solo cuando quieras liberar el horario.' },
     { problem: 'Veo citas que no son de la sede que quería revisar.', fix: 'Vuelve a "Inicio", selecciona la sede correcta y entra a "Agenda" desde ahí. La sede activa viaja en el enlace.' },
   ],
@@ -274,6 +273,16 @@ const staff = {
       ],
       expected: 'Tienes el contexto de la cita y puedes comunicarte con el cliente sin salir de la app.',
     },
+    {
+      id: 'a12',
+      title: 'Usar la navegación móvil del Staff',
+      substeps: [
+        'En un teléfono, abre "Citas" en la barra inferior para ver "Hoy".',
+        'Usa "Más" para encontrar las secciones que no caben en la barra inferior.',
+        'Vuelve a "Citas" cuando necesites revisar tu agenda personal.',
+      ],
+      expected: 'Encuentras tu agenda y las demás secciones de Staff sin depender de una barra lateral de escritorio.',
+    },
   ],
   buttons: [
     { icon: CalendarDays, name: 'Hoy', does: 'Muestra solo las citas de hoy.', when: 'Al empezar tu jornada.' },
@@ -298,7 +307,6 @@ const staff = {
   ],
   pitfalls: [
     { problem: 'En móvil no encuentro una sección del Staff.', fix: 'La barra muestra Citas, Ingresos, Reseñas y Perfil. Entra por Citas, que abre Hoy; las demás opciones están en Más.' },
-    { problem: 'Pulsé cancelar por error.', fix: 'La agenda pide confirmación antes de cancelar. Lee el aviso y confirma solo cuando quieras liberar el horario.' },
     { problem: 'No puedo crear ni mover una cita desde "Mis citas".', fix: 'Es correcto: agendar, reprogramar y cobrar lo hace la administración. Tú consultas tus citas y contactas al cliente.' },
     { problem: 'Una cita que atendí sigue apareciendo como "Confirmada".', fix: 'La cita cambia a "Completada" cuando la administración registra el cobro. Si lleva rato sin cambiar, avisa a la administración.' },
     { problem: 'No veo los botones "Llamar" o "Correo".', fix: 'Solo aparecen si la cita tiene registrado el teléfono o el correo del cliente. Si faltan, pídele el dato a la administración.' },
@@ -307,6 +315,7 @@ const staff = {
     { id: 'a9', label: 'Revisé mis citas de "Hoy".' },
     { id: 'a10', label: 'Consulté "Próximas" e "Historial" y probé el filtro de estado.' },
     { id: 'a11', label: 'Abrí "Ver detalle" de una cita y ubiqué el estado del cobro.' },
+    { id: 'a12', label: 'Sé encontrar Citas y Más desde la barra móvil del Staff.' },
   ],
 };
 

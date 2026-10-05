@@ -172,7 +172,18 @@ const owner = {
       substeps: ['En Directorio, elige la organización y pulsa "Ver cuenta (solo lectura)".', 'Escribe el motivo de soporte; la sesión dura 30 minutos.', 'Consulta las pantallas Manager necesarias y usa "Salir" al terminar.'],
       expected: 'La sesión solo permite lecturas de esa organización; exportaciones y cambios quedan bloqueados y el Owner conserva la auditoría.',
     },
-  ],  buttons: [
+    {
+      id: 'oc11', title: 'Agregar un Owner por correo',
+      substeps: ['En Control de accesos, abre "Agregar Owner" e ingresa el correo y el motivo de la asignación.', 'Si el correo ya pertenece a una cuenta aprobada, confirma la promoción. Si no existe, se crea una invitación de 14 días.', 'La invitación solo se consume cuando esa persona inicia sesión con Google y usa exactamente el correo invitado.'],
+      expected: 'La cuenta existente queda promovida o la invitación queda pendiente, siempre con motivo auditado.',
+    },
+    {
+      id: 'oc12', title: 'Eliminar una organización conservando sus registros',
+      substeps: ['Desde el Directorio, abre "Eliminar organización" y revisa el impacto informado.', 'Escribe el nombre exacto de la organización y un motivo antes de confirmar.', 'Si existe una cuenta Owner vinculada, corrige esa vinculación primero; la eliminación se bloquea hasta resolverla.'],
+      expected: 'La organización se archiva, sus miembros pierden acceso y los registros se conservan para auditoría.',
+    },
+  ],
+  buttons: [
     { icon: Building2, name: 'Ver detalle', does: 'Abre el detalle de una organización en Matriz de terceros.', when: 'Para comprobar datos fiscales, personas y estados.' },
     { icon: RefreshCw, name: 'Actualizar', does: 'Recarga Matriz de terceros, Control de accesos o Administradores de entitlements.', when: 'Después de cambios que puedan haberse realizado en otra sesión.' },
     { icon: Download, name: 'PDF', does: 'Descarga la factura de la fila de la tabla global.', when: 'Cuando ya comprobaste la organización y el número.' },
@@ -183,6 +194,8 @@ const owner = {
     { icon: ShieldCheck, name: 'Revocar', does: 'Retira el permiso Premium tras indicar un motivo y confirmar.', when: 'Si hay más de un titular y esa persona debe dejar de administrarlo.' },
     { icon: ChevronRight, name: 'Anterior / Siguiente', does: 'Recorre resultados en organizaciones, facturas, auditoría y seguridad.', when: 'Cuando hay más páginas disponibles para los filtros elegidos.' },
     { icon: ShieldQuestion, name: 'Actualizar (Reporte de integridad)', does: 'Vuelve a calcular los hallazgos de referencias huérfanas.', when: 'Después de corregir un dato para confirmar que el hallazgo desapareció.' },
+    { icon: UserCheck, name: 'Agregar Owner', does: 'Promueve una cuenta aprobada o crea una invitación de 14 días para ese correo.', when: 'Cuando debes delegar acceso Owner sin compartir credenciales.' },
+    { icon: Building2, name: 'Eliminar organización', does: 'Archiva una organización tras escribir su nombre exacto y un motivo.', when: 'Solo después de revisar el impacto y resolver cualquier Owner vinculado.' },
   ],
   examples: [
     {
@@ -242,6 +255,8 @@ const owner = {
     { problem: 'La organización pregunta quién la revisó en modo visualización.', fix: 'La sesión queda solamente en la auditoría Owner; la organización no recibe aviso ni ve ese historial.' },
     { problem: 'Quiero corregir un hallazgo del reporte de integridad desde ahí mismo.', fix: 'El reporte es estrictamente de solo lectura, igual que auditoría y seguridad. Corrige el dato desde la página dueña de esa entidad (organizaciones, facturación o inventario) y vuelve a pulsar "Actualizar" para confirmar.' },
     { problem: 'Un hallazgo sigue apareciendo después de corregir el dato.', fix: 'Pulsa "Actualizar" para recalcular el reporte; no se actualiza solo. Si persiste, verifica que corregiste la organización correcta.' },
+    { problem: 'No puedo eliminar una organización.', fix: 'La eliminación se bloquea mientras una cuenta Owner siga vinculada. Corrige la vinculación primero; después escribe el nombre exacto y un motivo.' },
+    { problem: 'Soy el último Owner o administrador de una organización.', fix: 'No elimines esa organización para resolver un acceso. Agrega o promueve primero a la persona que mantendrá la administración y conserva el motivo auditado.' },
   ],
   checklist: [
     { id: 'oc1', label: 'Localicé una organización y revisé su detalle fiscal, personas y estados.' },
@@ -253,6 +268,9 @@ const owner = {
     { id: 'oc7', label: 'Sé filtrar auditoría y consultar actores, motivos y entidades en la tabla.' },
     { id: 'oc8', label: 'Distingo eventos de seguridad, ocurrencias y huellas anonimizadas; el registro es de solo lectura.' },
     { id: 'oc9', label: 'Sé leer el reporte de integridad por dominio y sé que la corrección se hace en la página dueña del dato.' },
+    { id: 'oc10', label: 'Sé abrir una vista de organización solo lectura y salir al terminar.' },
+    { id: 'oc11', label: 'Sé agregar un Owner existente o enviar una invitación de 14 días por correo.' },
+    { id: 'oc12', label: 'Sé cuándo una organización puede archivarse y cómo confirmar su nombre y motivo.' },
   ],
 };
 
