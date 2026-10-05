@@ -628,12 +628,21 @@ class AppointmentCreate(BaseModel):
     barber_id: str
     client_name: str = Field(..., max_length=100)
     client_phone: str = Field(..., max_length=32)
-    client_email: EmailStr  # Use EmailStr for validation
+    client_email: Optional[EmailStr] = None
     date: str
     time: str
     marketing_consent: bool = False  # TCPA/Ley 1581 compliance
     # NEXUS_PRODUCT_CATALOG_V11: optional cart carried over from the client portal.
     cart_items: Optional[List[dict]] = None
+
+
+class StaffWalkinAppointmentCreate(BaseModel):
+    service_id: str
+    client_name: str = Field(..., min_length=1, max_length=100)
+    client_phone: str = Field(..., min_length=4, max_length=32)
+    client_email: Optional[EmailStr] = None
+    date: str
+    time: str
 
 
 class AppointmentRescheduleRequest(BaseModel):
@@ -6414,6 +6423,54 @@ async def get_my_staff_appointments(
         .to_list(safe_limit)
     )
     return await enrich_staff_appointments(items, barber["organization_id"])
+
+
+@api_router.post("/staff/appointments", tags=["staff-portal"])
+@limiter.limit("30/hour")
+async def create_staff_walkin_appointment(
+    request: Request,
+    data: StaffWalkinAppointmentCreate,
+    authorization: Optional[str] = Header(None),
+    session_token: Optional[str] = Cookie(None),
+):
+    """Create a walk-in booking only in the authenticated professional's agenda."""
+    current_user = await get_current_user(authorization, session_token)
+    barber = await resolve_current_staff_barber(current_user)
+    organization_id, barber_id = barber["organization_id"], barber["barber_id"]
+    phone = sanitize_phone(data.client_phone)
+    existing_client = await db.clients.find_one(
+        {"organization_id": organization_id, "phone": phone}, {"_id": 0, "client_id": 1}
+    )
+    public_data = AppointmentCreate(
+        service_id=data.service_id,
+        barber_id=barber_id,
+        client_name=data.client_name,
+        client_phone=phone,
+        client_email=data.client_email,
+        date=data.date,
+        time=data.time,
+        marketing_consent=False,
+    )
+    # Reuse the exact public booking implementation without its IP-only limit.
+    # The staff route has its own authenticated per-user limit above.
+    creator = getattr(create_public_appointment, "__wrapped__", create_public_appointment)
+    appointment = await creator(organization_id, public_data, request)
+    client_update = {"source": "staff_walkin", "created_by": current_user.user_id}
+    if not existing_client:
+        client_update.update({"is_registered": False, "accepts_marketing": False, "pin_hash": None})
+    await db.clients.update_one({"organization_id": organization_id, "phone": phone}, {"$set": client_update})
+    await record_audit_event(
+        db,
+        category="appointments",
+        event_type="staff_walkin_appointment_created",
+        actor_user_id=current_user.user_id,
+        organization_id=organization_id,
+        entity_type="appointment",
+        entity_id=appointment["appointment_id"],
+        previous_value=None,
+        new_value={"barber_id": barber_id, "client_id": (existing_client or {}).get("client_id")},
+    )
+    return appointment
 
 
 @api_router.get("/staff/appointments/summary", tags=["staff-portal"])

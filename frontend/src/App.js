@@ -81,6 +81,7 @@ const TermsOfService = lazy(() => import('./pages/TermsOfService'));
 const StaffProfile = lazy(() => import('./pages/StaffProfile'));
 const StaffIncome = lazy(() => import('./pages/StaffIncome'));
 const StaffAppointments = lazy(() => import('./pages/StaffAppointments'));
+const StaffWalkinBooking = lazy(() => import('./components/StaffWalkinBooking'));
 const AccountPrivacy = lazy(() => import('./pages/AccountPrivacy'));
 const ClientPortalAuth = lazy(() => import('./pages/ClientPortalAuth'));
 const ClientPortalDashboard = lazy(() => import('./pages/ClientPortalDashboard'));
@@ -347,6 +348,14 @@ function AppRouter() {
           element={
             <ProtectedRoute requiredRole="staff">
               <StaffAppointments />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/staff/appointments/new"
+          element={
+            <ProtectedRoute requiredRole="staff">
+              <StaffWalkinBooking />
             </ProtectedRoute>
           }
         />
