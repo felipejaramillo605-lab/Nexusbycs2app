@@ -32,6 +32,7 @@ R2_SECRET_ACCESS_KEY=<configurado>
 EMAIL_PROVIDER=resend
 RESEND_API_KEY=<configurado>
 RESEND_FROM_EMAIL=<remitente verificado, p. ej. no-reply@mail.nexusbycs2.com>
+RESEND_WEBHOOK_SECRET=<whsec_... del webhook https://nexusbycs2.com/api/webhooks/resend (eventos bounced, complained, delivered, delivery_delayed, suppressed)>
 
 # LLM Key
 EMERGENT_LLM_KEY=<configurado>
