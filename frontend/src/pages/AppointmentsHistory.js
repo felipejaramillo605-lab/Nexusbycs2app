@@ -7,6 +7,7 @@ import { Calendar, Filter, ArrowLeft, ChevronLeft, ChevronRight, CheckCircle, XC
 import { toast } from 'sonner';
 import { TableSkeleton } from '../components/ui/skeleton';
 import { appointmentAPI } from '../api';
+import ManagerWalkinBooking from '../components/ManagerWalkinBooking';
 import { AccessibleModal, confirmAction } from '../components/design';
 import { formatCOP as formatCurrency } from '../lib/currency';
 
@@ -18,6 +19,7 @@ const AppointmentsHistory = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const queryClient = useQueryClient();
+  const [walkinOpen, setWalkinOpen] = useState(false);
   
   const organizationId = (user?.role === 'owner' ? searchParams.get('org_id') : user?.organization_id) || user?.organization_id;
   
@@ -114,6 +116,15 @@ const AppointmentsHistory = () => {
 
   return (
     <div className="min-h-screen nexus-screen">
+      {walkinOpen && (
+        <AccessibleModal open onClose={() => setWalkinOpen(false)} labelledBy="manager-walkin-title">
+          <ManagerWalkinBooking
+            organizationId={organizationId}
+            onDone={() => queryClient.invalidateQueries({ queryKey: ['appointments'] })}
+            onClose={() => setWalkinOpen(false)}
+          />
+        </AccessibleModal>
+      )}
       {/* Navigation Bar */}
       <nav className="backdrop-blur-xl bg-white/3 border-b border-[var(--app-border)] sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 py-3 sm:py-4">
@@ -131,9 +142,19 @@ const AppointmentsHistory = () => {
               </h1>
             </div>
             
-            <div className="flex items-center gap-2 text-sm text-zinc-400">
-              <Calendar size={16} />
-              <span>{totalAppointments} citas</span>
+            <div className="flex items-center gap-4 text-sm text-zinc-400">
+              <button
+                type="button"
+                data-testid="new-walkin-appointment"
+                onClick={() => setWalkinOpen(true)}
+                className="px-3 py-1.5 rounded-lg bg-[var(--app-primary)] text-white text-sm"
+              >
+                Nueva cita
+              </button>
+              <div className="flex items-center gap-2">
+                <Calendar size={16} />
+                <span>{totalAppointments} citas</span>
+              </div>
             </div>
           </div>
         </div>

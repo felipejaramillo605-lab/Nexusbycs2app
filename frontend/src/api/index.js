@@ -351,6 +351,7 @@ export const barberAPI = {
 
 export const appointmentAPI = {
   getAll: (params = {}) => api.get('/appointments', { params }),
+  createWalkin: (data) => api.post('/manager/appointments', data),
   getToday: (params = {}) => {
     const today = localDateString();
     return api.get('/appointments', { params: { ...params, date: today } });

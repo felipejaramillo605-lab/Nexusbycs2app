@@ -18,6 +18,7 @@ jest.mock('react-router-dom', () => ({ useNavigate: () => jest.fn(), useSearchPa
 jest.mock('sonner', () => ({ toast: { success: jest.fn(), error: jest.fn(), warning: jest.fn() } }));
 jest.mock('../api', () => ({ appointmentAPI: { getAll: jest.fn(), checkout: jest.fn() } }));
 jest.mock('../components/ui/skeleton', () => ({ TableSkeleton: () => null }));
+jest.mock('../components/ManagerWalkinBooking', () => ({ __esModule: true, default: ({ organizationId }) => <div data-testid="walkin-form">walkin {organizationId}</div> }));
 jest.mock('../components/design', () => ({ AccessibleModal: ({ children }) => <div>{children}</div>, confirmAction: (...args) => mockConfirm(...args) }));
 
 describe('AppointmentsHistory', () => {
@@ -31,6 +32,16 @@ describe('AppointmentsHistory', () => {
     await act(async () => root.render(<AppointmentsHistory />));
     expect(host.textContent).toContain('Ana Cliente');
     expect(host.textContent).toContain('+57 300 000 0000');
+  });
+
+  test('the manager can open the presential appointment form for their organization', async () => {
+    const host = document.createElement('div');
+    document.body.appendChild(host);
+    root = createRoot(host);
+    await act(async () => root.render(<AppointmentsHistory />));
+    expect(host.querySelector('[data-testid="walkin-form"]')).toBeNull();
+    await act(async () => { host.querySelector('[data-testid="new-walkin-appointment"]').dispatchEvent(new MouseEvent('click', { bubbles: true })); });
+    expect(host.querySelector('[data-testid="walkin-form"]').textContent).toContain('walkin org-1');
   });
 
   const clickCancel = async host => {
