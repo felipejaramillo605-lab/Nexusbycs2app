@@ -216,6 +216,7 @@ export const ownerMediaIntegrityAPI = { getReport: () => api.get('/owner/media/i
 export const ownerConnectorsAPI = {
   getStatus: () => api.get('/owner/connectors/status'),
   getEmailEvents: () => api.get('/owner/email-events'),
+  sendTestEmail: () => api.post('/owner/connectors/test-email'),
 };
 
 // NEXUS_OWNER_CONSOLE_SHELL_V1 (plan PR 22): read side of security_events --

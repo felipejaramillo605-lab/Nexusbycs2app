@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import os
 
 from fastapi import APIRouter, Cookie, Header, HTTPException
@@ -41,5 +42,37 @@ def build_connector_status_router(get_current_user):
         if user.role != "owner" or user.access_status != "approved":
             raise HTTPException(status_code=403, detail="Owner access required")
         return build_connector_status()
+
+    @router.post("/owner/connectors/test-email", tags=["owner-integrations"])
+    async def send_test_email(authorization: str | None = Header(None), session_token: str | None = Cookie(None)):
+        """Send one test message to the signed-in Owner only, reporting which provider delivered it."""
+        user = await get_current_user(authorization, session_token)
+        if user.role != "owner" or user.access_status != "approved":
+            raise HTTPException(status_code=403, detail="Owner access required")
+        from request_security import rate_limiter
+
+        await rate_limiter.check(f"connector_test_email:{user.user_id}", 5, 3600)
+        recipient = user.email
+        subject = "Prueba de correo de Nexus by CS2"
+        text = "Este es un correo de prueba enviado desde Owner > Conectores. Si lo ves, el envío funciona."
+        html = f"<p>{text}</p>"
+        provider, resend_error, delivered = None, None, False
+        if email_providers.resend_enabled():
+            delivered, resend_error = await asyncio.to_thread(
+                email_providers.send_via_resend, recipient, subject, html, text
+            )
+            provider = "resend" if delivered else None
+        if not delivered:
+            from email_service import email_service
+
+            delivered = bool(await asyncio.to_thread(email_service._send_email, recipient, subject, html, text))
+            provider = "smtp_fallback" if resend_error else "smtp"
+        local, _, domain = recipient.partition("@")
+        return {
+            "sent": delivered,
+            "provider": provider if delivered else None,
+            "resend_error": resend_error,
+            "recipient": f"{local[:1]}***@{domain}",
+        }
 
     return router

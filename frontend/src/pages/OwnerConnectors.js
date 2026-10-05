@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { Mail, HardDrive, Sparkles, RefreshCw } from 'lucide-react';
+import { Mail, HardDrive, Sparkles, RefreshCw, Send } from 'lucide-react';
 import { ownerConnectorsAPI } from '../api';
 import { ActionButton, MotionPage, PageHeader, StatusBadge, SurfaceCard } from '../components/design';
 
@@ -27,6 +27,8 @@ export default function OwnerConnectors() {
   const [events, setEvents] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [testing, setTesting] = useState(false);
+  const [testResult, setTestResult] = useState(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -48,6 +50,22 @@ export default function OwnerConnectors() {
   useEffect(() => {
     load();
   }, [load]);
+
+  const sendTest = async () => {
+    setTesting(true);
+    setTestResult(null);
+    try {
+      const { data } = await ownerConnectorsAPI.sendTestEmail();
+      const via = { resend: 'Resend', smtp: 'Gmail (SMTP)', smtp_fallback: 'Gmail (SMTP) porque Resend falló' }[data.provider] || 'proveedor desconocido';
+      setTestResult(data.sent
+        ? { ok: true, text: `Correo enviado a ${data.recipient} por ${via}. Revisa tu bandeja (y spam).` }
+        : { ok: false, text: `No se pudo enviar${data.resend_error ? ` (Resend: ${data.resend_error})` : ''}. Revisa la configuración.` });
+    } catch (err) {
+      setTestResult({ ok: false, text: err?.response?.status === 429 ? 'Demasiadas pruebas seguidas. Intenta en una hora.' : 'No se pudo enviar la prueba.' });
+    } finally {
+      setTesting(false);
+    }
+  };
 
   const email = status?.email;
   const counts = events?.counts || {};
@@ -79,6 +97,8 @@ export default function OwnerConnectors() {
               <Row label="Respaldo por SMTP" ok={email.smtp_fallback_ready} okText="Listo" offText="No disponible" />
               <Row label="Webhook de rebotes (firma)" ok={email.webhook_secret_set} />
             </ul>
+            <ActionButton variant="secondary" icon={Send} onClick={sendTest} disabled={testing}>Enviar correo de prueba</ActionButton>
+            {testResult ? <p role="status" className="nexus-owner-caption">{testResult.text}</p> : null}
           </SurfaceCard>
           <SurfaceCard>
             <h2 className="flex items-center gap-2 font-semibold"><Sparkles size={18} /> Motor de decisiones</h2>
