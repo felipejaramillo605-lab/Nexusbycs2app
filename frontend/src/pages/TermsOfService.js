@@ -101,7 +101,9 @@ export default function TermsOfService() {
                   Procesamos y almacenamos los datos de tus clientes en tu nombre, siguiendo las instrucciones
                   que nos das a traves del uso normal de la Plataforma. Aplicamos las medidas de seguridad
                   descritas en nuestra{' '}
-                  <a href="/privacy-policy" className="text-purple-400 hover:underline">Politica de Privacidad</a>,
+                  <a href="/privacy-policy" className="text-purple-400 hover:underline">Politica de Privacidad</a>
+                  {' '}(la lista de proveedores esta en{' '}
+                  <a href="/subencargados" className="text-purple-400 hover:underline">Subencargados</a>),
                   y no utilizaremos los datos de tus clientes para finalidades distintas a las necesarias para
                   prestarte el servicio.
                 </p>
