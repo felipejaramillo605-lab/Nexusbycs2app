@@ -13,6 +13,7 @@ import AccountPrivacy from './AccountPrivacy';
 import ManagerBilling from './ManagerBilling';
 import PortalThemeSelector from '../components/PortalThemeSelector';
 import PremiumTemplateSelector from '../components/PremiumTemplateSelector';
+import { PREMIUM_TEMPLATE_KEYS } from '../portal-templates';
 import PortalCustomizationPanel from '../components/PortalCustomizationPanel';
 import OrganizationLogoUpload from '../components/OrganizationLogoUpload';
 import PremiumPlanRequestCard from '../components/PremiumPlanRequestCard';
@@ -1073,8 +1074,12 @@ const Settings = () => {
               organizationId={organizationId}
               currentTheme={profileData.client_portal_theme || 'classic'}
               businessType={profileData.business_type}
+              premiumActive={PREMIUM_TEMPLATE_KEYS.includes(profileData.portal_template)}
               onThemeChange={(theme) => {
                 setProfileData(current => ({ ...current, client_portal_theme: theme }));
+              }}
+              onTemplateReset={(template) => {
+                setProfileData(current => ({ ...current, portal_template: template }));
               }}
             />
             <PremiumTemplateSelector
