@@ -87,3 +87,12 @@ def test_the_public_list_marks_sessions_that_are_not_open_yet(monkeypatch):
     by_id = {row["class_session_id"]: row for row in result}
     assert by_id["far"]["open_for_booking"] is False and by_id["far"]["booking_opens_on"] == "2099-10-06"
     assert by_id["near"]["open_for_booking"] is True and by_id["near"]["spots_available"] == 4
+
+
+def test_class_booking_conflicts_are_structured_and_in_spanish():
+    full = server._class_conflict("CLASS_FULL", "Esta clase ya no tiene cupos disponibles.")
+    assert full.status_code == 409 and full.detail["code"] == "CLASS_FULL"
+    source = (Path(__file__).resolve().parents[1] / "server.py").read_text(encoding="utf-8")
+    assert "You already have a spot in this class" not in source and "This class is full" not in source
+    assert source.count('_class_conflict("CLASS_ALREADY_BOOKED"') + source.count('"CLASS_ALREADY_BOOKED",') >= 2
+    assert source.count('_class_conflict("CLASS_FULL"') == 2
