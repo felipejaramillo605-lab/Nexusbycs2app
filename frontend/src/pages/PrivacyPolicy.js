@@ -215,6 +215,11 @@ export default function PrivacyPolicy() {
               </div>
             </div>
 
+            <p className="text-sm text-zinc-400 mb-4">
+              La lista completa, con pais y region de cada proveedor, esta en la pagina de{' '}
+              <a href="/subencargados" className="underline">Subencargados</a>.
+            </p>
+
             <div className="bg-blue-500/10 border border-blue-500/20 rounded-lg p-4">
               <div className="flex items-start gap-3">
                 <Globe size={18} className="text-blue-400 mt-0.5 flex-shrink-0" />
