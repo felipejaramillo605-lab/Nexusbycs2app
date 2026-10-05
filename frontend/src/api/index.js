@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { isMediaRightsError, requestMediaRights } from '../lib/mediaRights';
 import {localDateString} from '../lib/date';
 import { VIEW_HEADER, clearViewSession, getViewSession } from '../lib/viewMode';
 
@@ -60,13 +61,23 @@ const notifyViewMode = (status, detail) => {
 // NEXUS_7J_SUBSCRIPTION_SUSPENDED_EXPERIENCE
 api.interceptors.response.use(
   response => response,
-  error => {
+  async error => {
     const detail = error?.response?.data?.detail;
     notifySuspendedSubscription(error?.response?.status, detail);
     notifyViewMode(error?.response?.status, detail);
+    // Primera subida de imagenes de un usuario: pide la declaracion de derechos y reintenta la misma peticion.
+    if (isMediaRightsError(error) && !error.config?.__mediaRightsRetried) {
+      const accepted = await requestMediaRights(detail);
+      if (accepted) return api.request({ ...error.config, __mediaRightsRetried: true });
+    }
     return Promise.reject(error);
   }
 );
+
+export const mediaRightsAPI = {
+  status: () => api.get('/account/media-rights'),
+  accept: (version) => api.post('/account/media-rights', { accepted: true, version }),
+};
 
 export const ownerViewAPI = {
   start: (organizationId, reason) => api.post('/owner/view-sessions', { organization_id: organizationId, reason }),
@@ -433,6 +444,7 @@ export const settlementAPI = {
 export const staffAppointmentAPI = {
   getAll: (params = {}) => api.get('/staff/appointments', { params }),
   getSummary: (params = {}) => api.get('/staff/appointments/summary', { params }),
+  createWalkin: (data) => api.post('/staff/appointments', data),
 };
 
 // NEXUS_STAFF_INCOME_BACKEND_V1

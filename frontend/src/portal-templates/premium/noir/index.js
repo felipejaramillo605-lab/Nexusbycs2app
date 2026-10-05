@@ -60,7 +60,7 @@ export const NOIR_TEMPLATE = Object.freeze({
   key: 'noir',
   tier: 'premium',
   fontFamily: 'Playfair Display',
-  fontHref: 'https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,700;0,900;1,700&family=Inter:wght@400;500;600;700&display=swap',
+  fontHref: '/fonts/fonts.css',
   theme: NOIR_THEME,
   variables: NOIR_VARIABLES,
 });

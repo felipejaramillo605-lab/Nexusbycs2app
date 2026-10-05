@@ -168,10 +168,10 @@ class EmailService:
             )
             return ""
         
-    def _send_email(self, to_email: str, subject: str, html_body: str, text_body: Optional[str] = None) -> bool:
+    def _send_email(self, to_email: str, subject: str, html_body: str, text_body: Optional[str] = None, *, headers: Optional[dict[str, str]] = None) -> bool:
         """Send via Resend when enabled (SMTP is the automatic fallback), otherwise via SMTP"""
         if resend_enabled():
-            accepted, _ = send_via_resend(to_email, subject, html_body, text_body, from_name=self.from_name)
+            accepted, _ = send_via_resend(to_email, subject, html_body, text_body, from_name=self.from_name, headers=headers)
             if accepted:
                 return True
             logger.warning("email_resend_fallback_to_smtp")
@@ -181,6 +181,10 @@ class EmailService:
             msg['From'] = f"{self.from_name} <{self.from_email}>"
             msg['To'] = to_email
             msg['Subject'] = subject
+            for header_name, header_value in (headers or {}).items():
+                if "\r" in header_name or "\n" in header_name or "\r" in header_value or "\n" in header_value:
+                    raise ValueError("invalid_header")
+                msg[header_name] = header_value
             
             # Add text and HTML parts
             if text_body:

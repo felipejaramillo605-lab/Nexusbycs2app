@@ -13,6 +13,7 @@ const Register = () => {
     confirmPassword: ''
   });
   const [tosAccepted, setTosAccepted] = useState(false);
+  const [adultConfirmed, setAdultConfirmed] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -43,6 +44,10 @@ const Register = () => {
       toast.error('Debes aceptar los Términos de Servicio para continuar');
       return;
     }
+    if (!adultConfirmed) {
+      toast.error('Debes declarar que eres mayor de 18 años para continuar');
+      return;
+    }
 
     setLoading(true);
     try {
@@ -50,7 +55,8 @@ const Register = () => {
         name: formData.name,
         email: formData.email,
         password: formData.password,
-        tos_accepted: tosAccepted
+        tos_accepted: tosAccepted,
+        adult_confirmed: adultConfirmed
       });
       
       toast.success('Registro exitoso');
@@ -218,10 +224,22 @@ const Register = () => {
               </p>
             </label>
 
+            <label className="flex items-start gap-3 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={adultConfirmed}
+                onChange={(e) => setAdultConfirmed(e.target.checked)}
+                className="mt-1 w-4 h-4 rounded accent-[var(--accent)]"
+              />
+              <p className="text-sm text-[var(--text-secondary)]">
+                Declaro ser mayor de 18 años.
+              </p>
+            </label>
+
             {/* Submit */}
             <button
               type="submit"
-              disabled={loading || !passwordStrength.isValid || formData.password !== formData.confirmPassword || !tosAccepted}
+              disabled={loading || !passwordStrength.isValid || formData.password !== formData.confirmPassword || !tosAccepted || !adultConfirmed}
               className="btn-primary w-full disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {loading ? 'Creando cuenta...' : 'Crear Cuenta'}

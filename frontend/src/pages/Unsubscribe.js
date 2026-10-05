@@ -12,19 +12,20 @@ export default function Unsubscribe() {
   const [status, setStatus] = useState('loading'); // loading, success, error
   const [message, setMessage] = useState('');
   
+  const token = searchParams.get('token');
   const phone = searchParams.get('phone');
   const email = searchParams.get('email');
   const orgId = searchParams.get('org');
 
   useEffect(() => {
     const unsubscribe = async () => {
-      if (!phone && !email) {
+      if (!token && !phone && !email) {
         setStatus('error');
         setMessage('Faltan parámetros requeridos');
         return;
       }
 
-      if (!orgId) {
+      if (!token && !orgId) {
         setStatus('error');
         setMessage('Falta el ID de organización');
         return;
@@ -32,6 +33,7 @@ export default function Unsubscribe() {
 
       try {
         const response = await axios.post(`${API}/public/clients/unsubscribe`, {
+          token: token || undefined,
           phone: phone || undefined,
           email: email || undefined,
           organization_id: orgId
@@ -48,7 +50,7 @@ export default function Unsubscribe() {
     };
 
     unsubscribe();
-  }, [phone, email, orgId]);
+  }, [token, phone, email, orgId]);
 
   return (
     <div className="min-h-screen bg-black flex items-center justify-center p-4">

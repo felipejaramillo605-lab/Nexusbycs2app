@@ -11,7 +11,7 @@ from slowapi.errors import RateLimitExceeded
 import os
 import logging
 from pathlib import Path
-from pydantic import BaseModel, Field, ConfigDict, EmailStr
+from pydantic import BaseModel, Field, ConfigDict, EmailStr, field_validator
 from typing import List, Optional, Literal
 import uuid
 from datetime import datetime, timezone, timedelta
@@ -22,6 +22,8 @@ import json
 import bcrypt
 import secrets
 import hashlib
+import base64
+import hmac
 import re
 import asyncio
 from html import escape as html_escape
@@ -70,6 +72,7 @@ from resend_webhooks import build_resend_webhook_router, ensure_email_event_inde
 from owner_connector_status import build_connector_status_router, ensure_connector_rate_limit_indexes
 from legal_profile import build_legal_router, ensure_legal_indexes
 from data_retention import build_retention_router
+from media_rights import build_media_rights_router
 from marketing_window import blocked_message as marketing_blocked_message, marketing_allowed
 from integrity_checks import build_integrity_router
 from owner_media_integrity import build_owner_media_integrity_router
@@ -628,12 +631,27 @@ class AppointmentCreate(BaseModel):
     barber_id: str
     client_name: str = Field(..., max_length=100)
     client_phone: str = Field(..., max_length=32)
-    client_email: EmailStr  # Use EmailStr for validation
+    client_email: Optional[EmailStr] = None
     date: str
     time: str
     marketing_consent: bool = False  # TCPA/Ley 1581 compliance
     # NEXUS_PRODUCT_CATALOG_V11: optional cart carried over from the client portal.
     cart_items: Optional[List[dict]] = None
+
+
+class StaffWalkinAppointmentCreate(BaseModel):
+    service_id: str
+    client_name: str = Field(..., min_length=1, max_length=100)
+    client_phone: str = Field(..., min_length=4, max_length=32)
+    client_email: Optional[EmailStr] = None
+    date: str
+    time: str
+
+    @field_validator("client_email", mode="before")
+    @classmethod
+    def blank_email_is_none(cls, value):
+        # El formulario envia '' cuando el cliente no da correo: es opcional, no un correo invalido.
+        return None if isinstance(value, str) and not value.strip() else value
 
 
 class AppointmentRescheduleRequest(BaseModel):
@@ -712,6 +730,15 @@ class RegisterRequest(BaseModel):
     password: str = Field(..., max_length=200)
     name: str = Field(..., max_length=200)
     tos_accepted: bool = False  # Terms of Service acceptance (owners/managers)
+    adult_confirmed: bool = False
+
+
+class UnsubscribeRequest(BaseModel):
+    """Token is preferred; contact fields remain only for legacy email links."""
+    token: Optional[str] = Field(default=None, max_length=2000)
+    phone: Optional[str] = Field(default=None, max_length=40)
+    email: Optional[str] = Field(default=None, max_length=254)
+    organization_id: Optional[str] = Field(default=None, max_length=100)
 
 
 # NEXUS_8A7A_SAFE_ORGANIZATION_ONBOARDING_V1
@@ -1127,6 +1154,8 @@ async def register_user(data: RegisterRequest, request: Request):
     """Register new user with email/password. User starts with pending status."""
     if not data.tos_accepted:
         raise HTTPException(status_code=400, detail="Debes aceptar los Términos de Servicio para crear una cuenta")
+    if not data.adult_confirmed:
+        raise HTTPException(status_code=400, detail="Debes declarar que eres mayor de 18 años para crear una cuenta")
 
     existing = await db.users.find_one({"email": data.email}, {"_id": 0})
     if existing:
@@ -1150,6 +1179,7 @@ async def register_user(data: RegisterRequest, request: Request):
         # Legal compliance (ToS acceptance record for B2B relationship)
         "tos_accepted_at": now_iso,
         "tos_accepted_ip": request.client.host if request.client else None,
+        "adult_confirmed_at": now_iso,
     }
     await db.users.insert_one(user_doc)
     logger.info(f"New user registered: {data.email} (pending approval)")
@@ -6416,6 +6446,54 @@ async def get_my_staff_appointments(
     return await enrich_staff_appointments(items, barber["organization_id"])
 
 
+@api_router.post("/staff/appointments", tags=["staff-portal"])
+@limiter.limit("30/hour")
+async def create_staff_walkin_appointment(
+    request: Request,
+    data: StaffWalkinAppointmentCreate,
+    authorization: Optional[str] = Header(None),
+    session_token: Optional[str] = Cookie(None),
+):
+    """Create a walk-in booking only in the authenticated professional's agenda."""
+    current_user = await get_current_user(authorization, session_token)
+    barber = await resolve_current_staff_barber(current_user)
+    organization_id, barber_id = barber["organization_id"], barber["barber_id"]
+    phone = sanitize_phone(data.client_phone)
+    existing_client = await db.clients.find_one(
+        {"organization_id": organization_id, "phone": phone}, {"_id": 0, "client_id": 1}
+    )
+    public_data = AppointmentCreate(
+        service_id=data.service_id,
+        barber_id=barber_id,
+        client_name=data.client_name,
+        client_phone=phone,
+        client_email=data.client_email,
+        date=data.date,
+        time=data.time,
+        marketing_consent=False,
+    )
+    # Reuse the exact public booking implementation without its IP-only limit.
+    # The staff route has its own authenticated per-user limit above.
+    creator = getattr(create_public_appointment, "__wrapped__", create_public_appointment)
+    appointment = await creator(organization_id, public_data, request)
+    client_update = {"source": "staff_walkin", "created_by": current_user.user_id}
+    if not existing_client:
+        client_update.update({"is_registered": False, "accepts_marketing": False, "pin_hash": None})
+    await db.clients.update_one({"organization_id": organization_id, "phone": phone}, {"$set": client_update})
+    await record_audit_event(
+        db,
+        category="appointments",
+        event_type="staff_walkin_appointment_created",
+        actor_user_id=current_user.user_id,
+        organization_id=organization_id,
+        entity_type="appointment",
+        entity_id=appointment["appointment_id"],
+        previous_value=None,
+        new_value={"barber_id": barber_id, "client_id": (existing_client or {}).get("client_id")},
+    )
+    return appointment
+
+
 @api_router.get("/staff/appointments/summary", tags=["staff-portal"])
 async def get_my_staff_appointments_summary(
     start_date: Optional[str] = None,
@@ -7174,30 +7252,68 @@ async def get_client_history_public(request: Request, phone: str, organization_i
 # ==================== LEGAL COMPLIANCE ENDPOINTS (TCPA, CAN-SPAM, Ley 1581 Colombia) ====================
 
 
+def _unsubscribe_signing_key() -> bytes:
+    """Keep marketing links portable while avoiding PII in their URL."""
+    return os.environ.get("UNSUBSCRIBE_TOKEN_SECRET", EMERGENT_LLM_KEY).encode("utf-8")
+
+
+def create_unsubscribe_token(client_id: str, organization_id: str, *, expires_in_days: int = 730) -> str:
+    payload = json.dumps(
+        {"client_id": client_id, "organization_id": organization_id, "exp": int((datetime.now(timezone.utc) + timedelta(days=expires_in_days)).timestamp())},
+        separators=(",", ":"), sort_keys=True,
+    ).encode("utf-8")
+    encoded = base64.urlsafe_b64encode(payload).rstrip(b"=")
+    signature = hmac.new(_unsubscribe_signing_key(), encoded, hashlib.sha256).digest()
+    return f"{encoded.decode('ascii')}.{base64.urlsafe_b64encode(signature).rstrip(b'=').decode('ascii')}"
+
+
+def verify_unsubscribe_token(token: str) -> dict:
+    try:
+        encoded, supplied_signature = token.split(".", 1)
+        expected_signature = hmac.new(_unsubscribe_signing_key(), encoded.encode("ascii"), hashlib.sha256).digest()
+        actual_signature = base64.urlsafe_b64decode(supplied_signature + "=" * (-len(supplied_signature) % 4))
+        if not hmac.compare_digest(expected_signature, actual_signature):
+            raise ValueError("signature")
+        payload = json.loads(base64.urlsafe_b64decode(encoded + "=" * (-len(encoded) % 4)))
+        if not isinstance(payload.get("client_id"), str) or not isinstance(payload.get("organization_id"), str):
+            raise ValueError("payload")
+        if int(payload.get("exp", 0)) < int(datetime.now(timezone.utc).timestamp()):
+            raise ValueError("expired")
+        return payload
+    except (ValueError, TypeError, UnicodeDecodeError, json.JSONDecodeError, base64.binascii.Error) as error:
+        raise HTTPException(status_code=400, detail="Invalid or expired unsubscribe token") from error
+
+
 # Unsubscribe from marketing (CAN-SPAM Act + TCPA compliance)
 @api_router.post("/public/clients/unsubscribe", tags=["public-client-portal"])
 @limiter.limit("10/hour")
-async def unsubscribe_client(
-    request: Request, phone: Optional[str] = None, email: Optional[str] = None, organization_id: Optional[str] = None
-):
+async def unsubscribe_client(request: Request, token: Optional[str] = None):
     """
     Public endpoint to unsubscribe from marketing communications.
     No authentication required - protected by knowing contact info.
     Complies with CAN-SPAM Act and TCPA requirements for easy opt-out.
     """
-    if not phone and not email:
-        raise HTTPException(status_code=400, detail="Phone or email required")
-
-    if not organization_id:
-        raise HTTPException(status_code=400, detail="organization_id required")
+    # RFC 8058 one-click: el correo hace POST (formulario) a ...?token=...; la pagina web envia JSON.
+    data = UnsubscribeRequest()
+    if "application/json" in request.headers.get("content-type", ""):
+        try:
+            data = UnsubscribeRequest(**(await request.json()))
+        except (ValueError, TypeError) as error:
+            raise HTTPException(status_code=400, detail="Invalid unsubscribe request") from error
+    token = data.token or token
+    if token:
+        token_data = verify_unsubscribe_token(token)
+        organization_id = token_data["organization_id"]
+        query = {"organization_id": organization_id, "client_id": token_data["client_id"]}
+    else:
+        # Deprecated backwards-compatible path for links already delivered.
+        if not data.phone and not data.email:
+            raise HTTPException(status_code=400, detail="Unsubscribe token or legacy contact data required")
+        if not data.organization_id:
+            raise HTTPException(status_code=400, detail="organization_id required")
+        organization_id = data.organization_id
+        query = {"organization_id": organization_id, "phone" if data.phone else "email": data.phone or data.email}
     await assert_organization_active(db, organization_id)
-
-    # Find client
-    query = {"organization_id": organization_id}
-    if phone:
-        query["phone"] = phone
-    elif email:
-        query["email"] = email
 
     client = await db.clients.find_one(query, {"_id": 0})
 
@@ -8109,17 +8225,24 @@ async def create_campaign(
         # Send via WhatsApp (mocked)
         if data.channel in ["whatsapp", "both"]:
             try:
-                print(f"📱 [MOCK WhatsApp] Sending to {client['name']} ({client['phone']}): {data.message}")
+                logger.info("mock_whatsapp_campaign_sent client_id=%s", client["client_id"])
                 whatsapp_sent += 1
             except Exception as e:
-                print(f"❌ Failed WhatsApp to {client['phone']}: {str(e)}")
+                logger.warning("mock_whatsapp_campaign_failed client_id=%s diagnostic_code=%s", client["client_id"], type(e).__name__)
                 whatsapp_failed += 1
 
         # Send via Email (real SMTP)
         if data.channel in ["email", "both"] and client.get("email"):
             try:
-                # Create unsubscribe link (CAN-SPAM Act requirement)
-                unsubscribe_url = f"{frontend_url}/unsubscribe?phone={client['phone']}&org={org_id}"
+                # Signed URL avoids exposing a phone number or other PII in marketing links.
+                unsubscribe_token = create_unsubscribe_token(client["client_id"], org_id)
+                unsubscribe_url = f"{frontend_url}/unsubscribe?token={unsubscribe_token}"
+                unsubscribe_headers = {
+                    # URL de la API (acepta POST de un clic); el mailto cae en el correo publico de atencion.
+                    "List-Unsubscribe": f"<{frontend_url}/api/public/clients/unsubscribe?token={unsubscribe_token}>, "
+                    f"<mailto:{os.environ.get('UNSUBSCRIBE_MAILTO', 'nexusbycs2@gmail.com')}?subject=unsubscribe>",
+                    "List-Unsubscribe-Post": "List-Unsubscribe=One-Click",
+                }
 
                 # Sanitize inputs to prevent HTML injection
                 safe_subject = html_escape(data.subject)
@@ -8158,7 +8281,8 @@ async def create_campaign(
                 )
 
                 success = email_service._send_email(
-                    to_email=client["email"], subject=data.subject, html_body=html_body, text_body=data.message
+                    to_email=client["email"], subject=data.subject, html_body=html_body, text_body=data.message,
+                    headers=unsubscribe_headers,
                 )
 
                 if success:
@@ -8167,7 +8291,7 @@ async def create_campaign(
                     email_failed += 1
 
             except Exception as e:
-                print(f"❌ Failed Email to {client.get('email')}: {str(e)}")
+                logger.warning("marketing_email_failed client_id=%s diagnostic_code=%s", client["client_id"], type(e).__name__)
                 email_failed += 1
 
     # Build response message
@@ -8801,7 +8925,8 @@ async def create_public_appointment(org_id: str, data: AppointmentCreate, reques
         "barber_id": data.barber_id,
         "client_name": data.client_name.strip()[:100],  # Limit length
         "client_phone": sanitized_phone,
-        "client_email": data.client_email,
+        # Appointment.client_email es texto: sin correo se guarda vacio (cita presencial sin correo).
+        "client_email": data.client_email or "",
         "date": data.date,
         "time": data.time,
         "status": "confirmed",
@@ -9276,6 +9401,7 @@ api_router.include_router(build_resend_webhook_router(db, get_current_user))
 api_router.include_router(build_connector_status_router(get_current_user, db))
 api_router.include_router(build_legal_router(db, get_current_user))
 api_router.include_router(build_retention_router(db, get_current_user))
+api_router.include_router(build_media_rights_router(db, get_current_user))
 api_router.include_router(build_integrity_router(db, get_current_user), tags=["owner-integrity"])
 api_router.include_router(build_owner_media_integrity_router(db, get_current_user), tags=["owner-media-integrity"])
 api_router.include_router(build_security_observability_router(db, get_current_user), tags=["owner-security"])

@@ -1,6 +1,6 @@
 # Retención, supresión y subencargados — Nexus by CS2 (v1)
 
-> **Versión 2.0** · vigente desde el 5 de octubre de 2026. Los soportes contables que cada negocio deba conservar dependen del negocio Responsable y de su contador.
+> **Versión 2.1** · vigente desde el 5 de octubre de 2026. Los soportes contables que cada negocio deba conservar dependen del negocio Responsable y de su contador.
 
 ## 1. Tabla de retención propuesta
 | Dato / colección | Plazo propuesto | Evento que inicia | Qué pasa al vencer |

@@ -163,6 +163,9 @@ export default function ClientPortalAuth() {
                   <a href="/terms-of-service" target="_blank" rel="noopener noreferrer" className="underline">Términos de uso</a>
                 </p>
               </label>
+              <p className="text-xs text-[var(--app-text-muted)] mt-3">
+                Si eres menor de 18 años, necesitas autorización de tu representante.
+              </p>
             </div>
           )}
 

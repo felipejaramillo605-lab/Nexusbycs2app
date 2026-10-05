@@ -7,6 +7,7 @@ import { OrganizationProvider } from './context/OrganizationContext';
 import { PlatformBrandingProvider } from './context/PlatformBrandingContext';
 import { ThemeProvider } from './context/ThemeContext';
 import { Toaster } from './components/ui/sonner';
+import MediaRightsDialog from './components/MediaRightsDialog';
 import AuthCallback from './components/AuthCallback';
 import ProtectedRoute from './components/ProtectedRoute';
 import ErrorBoundary from './components/ErrorBoundary';
@@ -20,6 +21,7 @@ import CancelAppointment from './pages/CancelAppointment';
 import { RouteExperienceFrame } from './components/design';
 import { ClientPortalThemeWrapper } from './components/ClientPortalThemeWrapper';
 import { settingsTabRedirectLocation } from './routing/settingsTabRedirect';
+import ConsentBanner from './components/ConsentBanner';
 
 // NEXUS_FRONTEND_PERFORMANCE_4C1_V1
 const ReactQueryDevtools = process.env.NODE_ENV === 'development'
@@ -81,6 +83,7 @@ const TermsOfService = lazy(() => import('./pages/TermsOfService'));
 const StaffProfile = lazy(() => import('./pages/StaffProfile'));
 const StaffIncome = lazy(() => import('./pages/StaffIncome'));
 const StaffAppointments = lazy(() => import('./pages/StaffAppointments'));
+const StaffWalkinBooking = lazy(() => import('./components/StaffWalkinBooking'));
 const AccountPrivacy = lazy(() => import('./pages/AccountPrivacy'));
 const ClientPortalAuth = lazy(() => import('./pages/ClientPortalAuth'));
 const ClientPortalDashboard = lazy(() => import('./pages/ClientPortalDashboard'));
@@ -350,6 +353,14 @@ function AppRouter() {
             </ProtectedRoute>
           }
         />
+        <Route
+          path="/staff/appointments/new"
+          element={
+            <ProtectedRoute requiredRole="staff">
+              <StaffWalkinBooking />
+            </ProtectedRoute>
+          }
+        />
 
         {/* NEXUS_GUIDE_V9 */}
         <Route path="/owner/guia" element={<ProtectedRoute requiredRole="owner"><GuideModule /></ProtectedRoute>} />
@@ -385,6 +396,8 @@ function App() {
                   <div className="App">
                     <AppRouter />
                     <Toaster position="top-right" />
+                    <ConsentBanner />
+                    <MediaRightsDialog />
                   </div>
                 </ErrorBoundary>
               </OrganizationProvider>

@@ -54,6 +54,8 @@ class SupportPriorityUpdate(BaseModel):
 
 
 def normalize_support_suggestion(choice: dict | None) -> dict:
+    if isinstance(choice, dict) and "value" in choice:
+        choice = choice["value"]
     choice = choice or {}
     category = {"technical": "peticion", "billing": "reclamo", "general": "otro"}.get(choice.get("category"), "otro")
     priority = choice.get("priority") if choice.get("priority") in {"low", "normal", "high"} else "high" if choice.get("priority") == "urgent" else "normal"
