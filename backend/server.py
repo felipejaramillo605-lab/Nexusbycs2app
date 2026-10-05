@@ -68,6 +68,8 @@ from owner_account_management import (
 )
 from resend_webhooks import build_resend_webhook_router, ensure_email_event_indexes
 from owner_connector_status import build_connector_status_router, ensure_connector_rate_limit_indexes
+from legal_profile import build_legal_router, ensure_legal_indexes
+from marketing_window import blocked_message as marketing_blocked_message, marketing_allowed
 from integrity_checks import build_integrity_router
 from owner_media_integrity import build_owner_media_integrity_router
 from owner_delivery_operations import (
@@ -470,7 +472,7 @@ class Client(BaseModel):
     phone: str  # Primary identifier
     name: str
     email: Optional[str] = None
-    accepts_marketing: bool = True  # Opt-in for notifications/campaigns
+    accepts_marketing: bool = False  # Opt-in (Ley 1581: consentimiento previo, expreso e informado)
     # Legal compliance fields (TCPA, CAN-SPAM, Ley 1581 Colombia)
     marketing_consent_given_at: Optional[datetime] = None  # Timestamp of consent
     marketing_consent_text: Optional[str] = None  # Exact text accepted
@@ -8046,6 +8048,9 @@ async def create_campaign(
     """Send marketing campaign to selected clients via WhatsApp and/or Email"""
     current_user = await get_current_user(authorization, session_token)
     require_management_role(current_user)
+    # Ley 2300 de 2023: la publicidad solo se envia en la ventana horaria y dias habiles de Colombia.
+    if not marketing_allowed():
+        raise HTTPException(status_code=409, detail=marketing_blocked_message())
 
     if not data.client_ids:
         raise HTTPException(status_code=400, detail="No clients selected")
@@ -9258,6 +9263,7 @@ api_router.include_router(build_owner_view_router(db, get_current_user))
 api_router.include_router(build_owner_account_router(db, get_current_user))
 api_router.include_router(build_resend_webhook_router(db, get_current_user))
 api_router.include_router(build_connector_status_router(get_current_user, db))
+api_router.include_router(build_legal_router(db, get_current_user))
 api_router.include_router(build_integrity_router(db, get_current_user), tags=["owner-integrity"])
 api_router.include_router(build_owner_media_integrity_router(db, get_current_user), tags=["owner-media-integrity"])
 api_router.include_router(build_security_observability_router(db, get_current_user), tags=["owner-security"])
@@ -9459,6 +9465,7 @@ async def create_application_indexes():
     await ensure_view_session_indexes(db)
     await ensure_email_event_indexes(db)
     await ensure_connector_rate_limit_indexes(db)
+    await ensure_legal_indexes(db)
     await db.owner_invitations.create_index("invitation_id", unique=True, name="owner_invitations_id_unique")
     await db.owner_invitations.create_index([("email_normalized", 1), ("status", 1)], name="owner_invitations_email_status")
     # NEXUS_CHECKOUT_BACKEND_V1

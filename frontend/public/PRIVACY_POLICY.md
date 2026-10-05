@@ -1,16 +1,17 @@
 # Politica de Privacidad — Nexus by CS2
 
-**Ultima actualizacion:** agosto de 2026
+**Ultima actualizacion:** octubre de 2026
 
 ---
 
 ## Identificacion del Responsable del Tratamiento
 
 - **Razon social:** Felipe Jaramillo Parra (persona natural, actividad comercial bajo el nombre "Nexus by CS2")
-- **NIT / C.C.:** 1152468561
-- **Domicilio:** Cr 51 #96 sur 50, La Estrella, Antioquia, Colombia
+- **Domicilio:** La Estrella, Antioquia, Colombia
 - **Correo electronico:** nexusbycs2@gmail.com
-- **Telefono:** +57 310 370 5753
+- **Telefono para atencion de solicitudes:** +57 323 907 0485
+
+El documento de identidad y la direccion completa del Responsable se ponen a disposicion de los usuarios registrados que aceptan el contrato de servicio.
 
 ---
 
@@ -85,10 +86,13 @@ No requieren consentimiento separado; son inherentes al uso de la Plataforma.
 
 | Proveedor | Finalidad |
 |-----------|-----------|
-| Proveedor de correo electronico (Gmail SMTP) | Envio de confirmaciones, recordatorios y comunicaciones transaccionales |
+| Proveedores de correo electronico (Resend y respaldo SMTP) | Envio de confirmaciones, recordatorios y comunicaciones transaccionales |
 | WhatsApp Business API (Meta Platforms) | Confirmaciones y recordatorios por WhatsApp, solo si el negocio lo tiene habilitado |
 | Proveedor de hosting (infraestructura en la nube) | Almacenamiento y procesamiento seguro de la aplicacion |
 | MongoDB Atlas (MongoDB, Inc.) | Base de datos en la nube donde se almacenan los datos |
+| Cloudflare R2 (Cloudflare, Inc.) | Almacenamiento de imagenes (logos, fondos, fotos de servicios y del equipo) |
+| Google (Google LLC) | Inicio de sesion con Google para usuarios de negocios y, solo cuando se habilite, modelos de inteligencia artificial con texto minimo y enmascarado |
+| IONOS | Dominio, DNS y correo corporativo de soporte |
 | Procesadores de pago (Wompi / Stripe) | Solo si el negocio cobra a traves de la plataforma; Nexus NO almacena numeros de tarjetas ni datos financieros directos |
 
 ### Transferencias internacionales
@@ -119,7 +123,7 @@ Revocar en cualquier momento tu consentimiento para el tratamiento de datos con 
 
 - **Consultas:** Se responderan en un plazo maximo de diez (10) dias habiles contados a partir de la fecha de recepcion. Cuando no fuere posible atender la consulta dentro de dicho termino, se informara al interesado antes de su vencimiento, expresando los motivos de la demora, y se senalara la fecha en que se atendera, la cual no podra superar los cinco (5) dias habiles siguientes.
 - **Reclamos:** Se responderan en un plazo maximo de quince (15) dias habiles contados a partir del dia siguiente a la recepcion. Cuando no fuere posible atender el reclamo dentro de dicho termino, se informara al interesado los motivos de la demora y la fecha en que se atendera, la cual no podra superar los ocho (8) dias habiles siguientes.
-- **Canal:** nexusbycs2@gmail.com o al telefono +57 310 370 5753.
+- **Canal:** nexusbycs2@gmail.com o al telefono +57 323 907 0485.
 
 ---
 
@@ -201,8 +205,8 @@ Al utilizar Nexus by CS2 y proporcionar tus datos personales, declaras que:
 **Nexus by CS2**
 - **Responsable:** Felipe Jaramillo Parra
 - **Correo electronico:** nexusbycs2@gmail.com
-- **Telefono:** +57 310 370 5753
-- **Direccion:** Cr 51 #96 sur 50, La Estrella, Antioquia, Colombia
+- **Telefono:** +57 323 907 0485
+- **Domicilio:** La Estrella, Antioquia, Colombia
 
 ---
 
