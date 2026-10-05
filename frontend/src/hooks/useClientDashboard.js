@@ -53,7 +53,8 @@ export function useClientDashboard() {
       setPickingSpotFor(null);
       await loadClasses();
     } catch (error) {
-      toast.error(error.response?.data?.detail || 'No fue posible reservar el cupo');
+      const detail = error.response?.data?.detail;
+      toast.error((typeof detail === 'object' ? detail?.message : detail) || 'No fue posible reservar el cupo');
     } finally {
       setBookingSessionId(null);
     }

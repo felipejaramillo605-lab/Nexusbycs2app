@@ -3593,6 +3593,9 @@ async def list_portal_class_sessions(current_client: Client = Depends(get_curren
                 "service_presentation": _service_presentation(service),
                 "barber_name": barber.get("display_name") or barber.get("name"),
                 "spots_available": max(0, session["capacity"] - session["booked_count"]),
+                "booking_window_days": service.get("booking_window_days"),
+                "open_for_booking": _class_booking_window(session, service)[0],
+                "booking_opens_on": _class_booking_window(session, service)[1],
                 "already_booked": session["class_session_id"] in booking_by_session,
                 "my_class_booking_id": booking_by_session.get(session["class_session_id"]),
                 "my_spot_label": my_booking_detail_by_session.get(session["class_session_id"], {}).get("spot_label"),
@@ -3694,15 +3697,25 @@ def _class_conflict(code: str, message: str) -> HTTPException:
     return HTTPException(status_code=409, detail={"code": code, "message": message})
 
 
+def _window_label(days: int) -> str:
+    """24 horas para 1 dia; N dias en los demas casos."""
+    return "24 horas" if days == 1 else f"{days} días"
+
+
 def _class_not_open_error(session: dict, service: Optional[dict]) -> HTTPException:
     _, opens_on = _class_booking_window(session, service)
+    window_days = (service or {}).get("booking_window_days")
     year, month, day = opens_on.split("-")
     return HTTPException(
         status_code=409,
         detail={
             "code": "CLASS_NOT_OPEN_YET",
-            "message": f"Las reservas de esta clase abren el {day}/{month}/{year}.",
+            "message": (
+                f"Esta clase solo se puede reservar con {_window_label(window_days)} de anticipación: "
+                f"las reservas abren el {day}/{month}/{year}."
+            ),
             "opens_on": opens_on,
+            "window_days": window_days,
         },
     )
 
@@ -3873,6 +3886,7 @@ async def get_public_class_sessions(
             {
                 **s,
                 "spots_available": max(0, s["capacity"] - s["booked_count"]),
+                "booking_window_days": service_lookup.get(s["service_id"], {}).get("booking_window_days"),
                 "open_for_booking": _class_booking_window(s, service_lookup.get(s["service_id"]))[0],
                 "booking_opens_on": _class_booking_window(s, service_lookup.get(s["service_id"]))[1],
                 "spot_layout": layout,

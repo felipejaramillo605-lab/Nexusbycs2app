@@ -20,6 +20,7 @@ import {
 } from 'lucide-react';
 import ReviewModal from '../components/ReviewModal';
 import { useClientDashboard } from '../hooks/useClientDashboard';
+import { bookingWindowNotice, formatOpensOn } from '../lib/bookingWindow';
 
 export default function ClientPortalDashboard() {
   const navigate = useNavigate();
@@ -346,6 +347,11 @@ export default function ClientPortalDashboard() {
                     >
                       En lista de espera · salir
                     </button>
+                  ) : session.open_for_booking === false ? (
+                    <div className="p-2.5 bg-amber-500/10 border border-amber-500/30 rounded-lg text-xs text-amber-200 space-y-0.5" data-testid="portal-class-not-open">
+                      <p className="font-medium">Las reservas abren el {formatOpensOn(session.booking_opens_on)}</p>
+                      {session.booking_window_days ? <p>{bookingWindowNotice(session.booking_window_days)}</p> : null}
+                    </div>
                   ) : session.spots_available <= 0 ? (
                     <button
                       onClick={() => handleJoinWaitlist(session.class_session_id)}
