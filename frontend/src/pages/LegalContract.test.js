@@ -69,7 +69,7 @@ test('hides the identity document and address until the contract is accepted', a
   await mount();
   const text = container.textContent;
   expect(text).toContain('+57 323 907 0485');
-  expect(text).toContain('Visible tras aceptar');
+  expect(text).toContain('visibles tras aceptar');
   expect(text).not.toContain('9876543210');
   expect(text).not.toContain('Calle Secreta 1');
   expect(container.querySelector('input[type=checkbox]')).not.toBeNull();
@@ -111,4 +111,13 @@ test('a document edited by the Owner replaces the base text', async () => {
 test('placeholders are replaced only when private data exists', () => {
   expect(fillPlaceholders('{{CC_RESPONSABLE}}|{{DIRECCION_COMPLETA}}', null)).toBe('(visible tras aceptar)|(visible tras aceptar)');
   expect(fillPlaceholders('{{CC_RESPONSABLE}}|{{DIRECCION_COMPLETA}}', SECRET)).toBe('9876543210|Calle Secreta 1');
+});
+
+test('the identification data is the last block of the page, in small print', async () => {
+  mockGet.mockResolvedValue({ data: { version: '2.0', accepted: true, public: PUBLIC, private: SECRET } });
+  await mount();
+  const block = container.querySelector('[data-testid="legal-identification"]');
+  expect(block.textContent).toContain('9876543210');
+  expect(block.nextElementSibling).toBeNull();
+  expect(block.className).toContain('text-[11px]');
 });

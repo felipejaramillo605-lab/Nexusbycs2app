@@ -117,17 +117,6 @@ export default function LegalContract() {
             description="Lee y acepta el contrato para ver los datos completos del Responsable."
             actions={<StatusBadge tone={accepted ? 'success' : 'warning'}>{accepted ? 'Aceptado' : 'Pendiente de aceptar'}</StatusBadge>}
           />
-          <SurfaceCard>
-            <h2 className="text-lg">Responsable del tratamiento</h2>
-            <ul className="mt-3 space-y-1">
-              <li>Nombre: {contact.full_name || '—'}</li>
-              <li>Municipio: {contact.municipality || '—'}</li>
-              <li>Correo: {contact.email || '—'}</li>
-              <li>Teléfono para atención de solicitudes: {contact.phone || '—'}</li>
-              <li>Documento de identidad: {privateData ? `${privateData.document_type} ${privateData.document_number}` : 'Visible tras aceptar el contrato'}</li>
-              <li>Dirección: {privateData ? privateData.full_address : 'Visible tras aceptar el contrato'}</li>
-            </ul>
-          </SurfaceCard>
           {DOCUMENTS.map(([, title], index) => (
             <SurfaceCard key={title}>
               <h2 className="text-lg mb-3">{title}</h2>
@@ -147,6 +136,17 @@ export default function LegalContract() {
               </div>
             </SurfaceCard>
           )}
+          <div className="px-1 pt-2 text-[11px] leading-snug text-[var(--app-text-muted)]" data-testid="legal-identification">
+            <p className="font-medium">Datos de identificación del Encargado</p>
+            <p>
+              {contact.full_name || '—'} · {contact.municipality || '—'} · {contact.email || '—'} · Atención de solicitudes: {contact.phone || '—'}
+            </p>
+            <p>
+              {privateData
+                ? `${privateData.document_type} ${privateData.document_number} · ${privateData.full_address}`
+                : 'Documento de identidad y dirección: visibles tras aceptar el contrato.'}
+            </p>
+          </div>
         </MotionPage>
       </div>
     </div>
