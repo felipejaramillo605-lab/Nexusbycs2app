@@ -9209,6 +9209,7 @@ api_router.include_router(build_owner_media_integrity_router(db, get_current_use
 api_router.include_router(build_security_observability_router(db, get_current_user), tags=["owner-security"])
 # NEXUS_8A7S1A_SUPPORT_FOUNDATION_REGISTRATION_V1
 from support_center import build_support_center_router, ensure_support_center_indexes
+from customer_risk_scoring import ensure_customer_risk_indexes
 
 api_router.include_router(
     build_support_center_router(
@@ -9517,6 +9518,7 @@ async def create_application_indexes():
     await ensure_professional_media_lifecycle_indexes(db)
     # NEXUS_8A7S1A_SUPPORT_FOUNDATION_INDEXES_V1
     await ensure_support_center_indexes(db)
+    await ensure_customer_risk_indexes(db)
     await ensure_catalog_indexes(db)
     # NEXUS_LOW_STOCK_ALERT_DAEMON_V1
     await ensure_low_stock_alert_indexes(db)
