@@ -1,0 +1,402 @@
+[
+  {
+    "id": "intent-0",
+    "text": "¿Cuántas citas tengo hoy?",
+    "label": "pregunta_de_datos"
+  },
+  {
+    "id": "intent-1",
+    "text": "Muéstrame las ventas de esta semana",
+    "label": "pregunta_de_datos"
+  },
+  {
+    "id": "intent-2",
+    "text": "¿Qué cliente falta por confirmar?",
+    "label": "pregunta_de_datos"
+  },
+  {
+    "id": "intent-3",
+    "text": "Dame el inventario actual",
+    "label": "pregunta_de_datos"
+  },
+  {
+    "id": "intent-4",
+    "text": "¿Cuántas citas tengo hoy?",
+    "label": "pregunta_de_datos"
+  },
+  {
+    "id": "intent-5",
+    "text": "Muéstrame las ventas de esta semana",
+    "label": "pregunta_de_datos"
+  },
+  {
+    "id": "intent-6",
+    "text": "¿Qué cliente falta por confirmar?",
+    "label": "pregunta_de_datos"
+  },
+  {
+    "id": "intent-7",
+    "text": "Dame el inventario actual",
+    "label": "pregunta_de_datos"
+  },
+  {
+    "id": "intent-8",
+    "text": "¿Cuántas citas tengo hoy?",
+    "label": "pregunta_de_datos"
+  },
+  {
+    "id": "intent-9",
+    "text": "Muéstrame las ventas de esta semana",
+    "label": "pregunta_de_datos"
+  },
+  {
+    "id": "intent-10",
+    "text": "¿Qué cliente falta por confirmar?",
+    "label": "pregunta_de_datos"
+  },
+  {
+    "id": "intent-11",
+    "text": "Dame el inventario actual",
+    "label": "pregunta_de_datos"
+  },
+  {
+    "id": "intent-12",
+    "text": "¿Cuántas citas tengo hoy?",
+    "label": "pregunta_de_datos"
+  },
+  {
+    "id": "intent-13",
+    "text": "Muéstrame las ventas de esta semana",
+    "label": "pregunta_de_datos"
+  },
+  {
+    "id": "intent-14",
+    "text": "¿Qué cliente falta por confirmar?",
+    "label": "pregunta_de_datos"
+  },
+  {
+    "id": "intent-15",
+    "text": "Dame el inventario actual",
+    "label": "pregunta_de_datos"
+  },
+  {
+    "id": "intent-16",
+    "text": "¿Cuántas citas tengo hoy?",
+    "label": "pregunta_de_datos"
+  },
+  {
+    "id": "intent-17",
+    "text": "Muéstrame las ventas de esta semana",
+    "label": "pregunta_de_datos"
+  },
+  {
+    "id": "intent-18",
+    "text": "¿Qué cliente falta por confirmar?",
+    "label": "pregunta_de_datos"
+  },
+  {
+    "id": "intent-19",
+    "text": "Dame el inventario actual",
+    "label": "pregunta_de_datos"
+  },
+  {
+    "id": "intent-20",
+    "text": "Envía un recordatorio a Ana",
+    "label": "accion_recordatorio"
+  },
+  {
+    "id": "intent-21",
+    "text": "Recuérdale a Carlos su cita",
+    "label": "accion_recordatorio"
+  },
+  {
+    "id": "intent-22",
+    "text": "Manda el aviso de mañana",
+    "label": "accion_recordatorio"
+  },
+  {
+    "id": "intent-23",
+    "text": "Necesito enviar recordatorios",
+    "label": "accion_recordatorio"
+  },
+  {
+    "id": "intent-24",
+    "text": "Envía un recordatorio a Ana",
+    "label": "accion_recordatorio"
+  },
+  {
+    "id": "intent-25",
+    "text": "Recuérdale a Carlos su cita",
+    "label": "accion_recordatorio"
+  },
+  {
+    "id": "intent-26",
+    "text": "Manda el aviso de mañana",
+    "label": "accion_recordatorio"
+  },
+  {
+    "id": "intent-27",
+    "text": "Necesito enviar recordatorios",
+    "label": "accion_recordatorio"
+  },
+  {
+    "id": "intent-28",
+    "text": "Envía un recordatorio a Ana",
+    "label": "accion_recordatorio"
+  },
+  {
+    "id": "intent-29",
+    "text": "Recuérdale a Carlos su cita",
+    "label": "accion_recordatorio"
+  },
+  {
+    "id": "intent-30",
+    "text": "Manda el aviso de mañana",
+    "label": "accion_recordatorio"
+  },
+  {
+    "id": "intent-31",
+    "text": "Necesito enviar recordatorios",
+    "label": "accion_recordatorio"
+  },
+  {
+    "id": "intent-32",
+    "text": "Envía un recordatorio a Ana",
+    "label": "accion_recordatorio"
+  },
+  {
+    "id": "intent-33",
+    "text": "Recuérdale a Carlos su cita",
+    "label": "accion_recordatorio"
+  },
+  {
+    "id": "intent-34",
+    "text": "Manda el aviso de mañana",
+    "label": "accion_recordatorio"
+  },
+  {
+    "id": "intent-35",
+    "text": "Necesito enviar recordatorios",
+    "label": "accion_recordatorio"
+  },
+  {
+    "id": "intent-36",
+    "text": "Envía un recordatorio a Ana",
+    "label": "accion_recordatorio"
+  },
+  {
+    "id": "intent-37",
+    "text": "Recuérdale a Carlos su cita",
+    "label": "accion_recordatorio"
+  },
+  {
+    "id": "intent-38",
+    "text": "Manda el aviso de mañana",
+    "label": "accion_recordatorio"
+  },
+  {
+    "id": "intent-39",
+    "text": "Necesito enviar recordatorios",
+    "label": "accion_recordatorio"
+  },
+  {
+    "id": "intent-40",
+    "text": "¿Cómo creo una membresía?",
+    "label": "ayuda_de_uso"
+  },
+  {
+    "id": "intent-41",
+    "text": "¿Dónde cambio mi horario?",
+    "label": "ayuda_de_uso"
+  },
+  {
+    "id": "intent-42",
+    "text": "Explícame cómo usar clases",
+    "label": "ayuda_de_uso"
+  },
+  {
+    "id": "intent-43",
+    "text": "¿Cómo ajusto mi portal?",
+    "label": "ayuda_de_uso"
+  },
+  {
+    "id": "intent-44",
+    "text": "¿Cómo creo una membresía?",
+    "label": "ayuda_de_uso"
+  },
+  {
+    "id": "intent-45",
+    "text": "¿Dónde cambio mi horario?",
+    "label": "ayuda_de_uso"
+  },
+  {
+    "id": "intent-46",
+    "text": "Explícame cómo usar clases",
+    "label": "ayuda_de_uso"
+  },
+  {
+    "id": "intent-47",
+    "text": "¿Cómo ajusto mi portal?",
+    "label": "ayuda_de_uso"
+  },
+  {
+    "id": "intent-48",
+    "text": "¿Cómo creo una membresía?",
+    "label": "ayuda_de_uso"
+  },
+  {
+    "id": "intent-49",
+    "text": "¿Dónde cambio mi horario?",
+    "label": "ayuda_de_uso"
+  },
+  {
+    "id": "intent-50",
+    "text": "Explícame cómo usar clases",
+    "label": "ayuda_de_uso"
+  },
+  {
+    "id": "intent-51",
+    "text": "¿Cómo ajusto mi portal?",
+    "label": "ayuda_de_uso"
+  },
+  {
+    "id": "intent-52",
+    "text": "¿Cómo creo una membresía?",
+    "label": "ayuda_de_uso"
+  },
+  {
+    "id": "intent-53",
+    "text": "¿Dónde cambio mi horario?",
+    "label": "ayuda_de_uso"
+  },
+  {
+    "id": "intent-54",
+    "text": "Explícame cómo usar clases",
+    "label": "ayuda_de_uso"
+  },
+  {
+    "id": "intent-55",
+    "text": "¿Cómo ajusto mi portal?",
+    "label": "ayuda_de_uso"
+  },
+  {
+    "id": "intent-56",
+    "text": "¿Cómo creo una membresía?",
+    "label": "ayuda_de_uso"
+  },
+  {
+    "id": "intent-57",
+    "text": "¿Dónde cambio mi horario?",
+    "label": "ayuda_de_uso"
+  },
+  {
+    "id": "intent-58",
+    "text": "Explícame cómo usar clases",
+    "label": "ayuda_de_uso"
+  },
+  {
+    "id": "intent-59",
+    "text": "¿Cómo ajusto mi portal?",
+    "label": "ayuda_de_uso"
+  },
+  {
+    "id": "intent-60",
+    "text": "Escríbeme un poema",
+    "label": "fuera_de_alcance"
+  },
+  {
+    "id": "intent-61",
+    "text": "¿Quién ganará el partido?",
+    "label": "fuera_de_alcance"
+  },
+  {
+    "id": "intent-62",
+    "text": "Haz mi declaración de renta",
+    "label": "fuera_de_alcance"
+  },
+  {
+    "id": "intent-63",
+    "text": "Cuéntame un chiste",
+    "label": "fuera_de_alcance"
+  },
+  {
+    "id": "intent-64",
+    "text": "Escríbeme un poema",
+    "label": "fuera_de_alcance"
+  },
+  {
+    "id": "intent-65",
+    "text": "¿Quién ganará el partido?",
+    "label": "fuera_de_alcance"
+  },
+  {
+    "id": "intent-66",
+    "text": "Haz mi declaración de renta",
+    "label": "fuera_de_alcance"
+  },
+  {
+    "id": "intent-67",
+    "text": "Cuéntame un chiste",
+    "label": "fuera_de_alcance"
+  },
+  {
+    "id": "intent-68",
+    "text": "Escríbeme un poema",
+    "label": "fuera_de_alcance"
+  },
+  {
+    "id": "intent-69",
+    "text": "¿Quién ganará el partido?",
+    "label": "fuera_de_alcance"
+  },
+  {
+    "id": "intent-70",
+    "text": "Haz mi declaración de renta",
+    "label": "fuera_de_alcance"
+  },
+  {
+    "id": "intent-71",
+    "text": "Cuéntame un chiste",
+    "label": "fuera_de_alcance"
+  },
+  {
+    "id": "intent-72",
+    "text": "Escríbeme un poema",
+    "label": "fuera_de_alcance"
+  },
+  {
+    "id": "intent-73",
+    "text": "¿Quién ganará el partido?",
+    "label": "fuera_de_alcance"
+  },
+  {
+    "id": "intent-74",
+    "text": "Haz mi declaración de renta",
+    "label": "fuera_de_alcance"
+  },
+  {
+    "id": "intent-75",
+    "text": "Cuéntame un chiste",
+    "label": "fuera_de_alcance"
+  },
+  {
+    "id": "intent-76",
+    "text": "Escríbeme un poema",
+    "label": "fuera_de_alcance"
+  },
+  {
+    "id": "intent-77",
+    "text": "¿Quién ganará el partido?",
+    "label": "fuera_de_alcance"
+  },
+  {
+    "id": "intent-78",
+    "text": "Haz mi declaración de renta",
+    "label": "fuera_de_alcance"
+  },
+  {
+    "id": "intent-79",
+    "text": "Cuéntame un chiste",
+    "label": "fuera_de_alcance"
+  }
+]
