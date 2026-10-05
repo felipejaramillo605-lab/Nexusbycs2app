@@ -14,6 +14,10 @@ from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 from pydantic import BaseModel, Field
 
 
+async def _assert_organization_active(_db, _organization_id):
+    """Archived-organization guard is covered in test_archived_org_and_storage_hardening."""
+
+
 def _load(names):
     # _organization_timezone: _perform_class_booking_cancel resolves the
     # org's real timezone (PR #25) before calling _is_late_cancellation.
@@ -39,6 +43,7 @@ def _load(names):
         "ZoneInfo": ZoneInfo,
         "ZoneInfoNotFoundError": ZoneInfoNotFoundError,
         "logger": logging.getLogger("test_class_cancellation_authz"),
+        "assert_organization_active": _assert_organization_active,
     }
     exec(compile(ast.Module(body=nodes, type_ignores=[]), "server.py", "exec"), scope)
     return scope
