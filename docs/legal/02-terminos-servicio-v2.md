@@ -41,6 +41,8 @@ Queda prohibido usar la Plataforma para actividades ilícitas, spam, suplantaci�
 ## 9. Propiedad intelectual
 La Plataforma, su código, diseño y marcas pertenecen a Nexus. El Negocio conserva la titularidad de sus datos y contenidos y otorga a Nexus una licencia limitada para alojarlos y procesarlos con el fin de prestar el servicio. El Negocio garantiza tener derechos sobre las imágenes y textos que carga.
 
+**Retiro de contenido.** Si recibimos un aviso fundado de que un contenido cargado por el Negocio infringe derechos de autor, de imagen, de privacidad u otros derechos de terceros, podremos retirarlo o inhabilitarlo de inmediato, sin responsabilidad frente al Negocio, informándole. Los avisos se envían a nexusbycs2@gmail.com e indican el derecho afectado, la ubicación del contenido, los datos de contacto de quien reclama y una declaración de buena fe. El Negocio responde por el contenido que cargó y mantendrá indemne a Nexus (cláusula 13); los infractores reincidentes podrán ser suspendidos. Si Nexus presta el servicio en EE. UU., se designará un agente para avisos bajo la DMCA y su contacto se publicará aquí.
+
 ## 10. Confidencialidad
 Cada parte protegerá la información confidencial de la otra y solo la usará para ejecutar el contrato, durante su vigencia y 2 años después.
 

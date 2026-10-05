@@ -196,6 +196,16 @@ export default function TermsOfService() {
                 </p>
               </div>
               <div className="bg-white/5 border border-white/10 rounded-lg p-4">
+                <h3 className="text-base font-semibold text-white mb-2">Retiro de contenido</h3>
+                <p className="text-sm text-zinc-400">
+                  Si recibimos un aviso fundado de que un contenido cargado por un Negocio infringe derechos de autor,
+                  de imagen, de privacidad u otros derechos de terceros, podremos retirarlo o inhabilitarlo de inmediato
+                  y sin responsabilidad frente al Negocio. Los avisos se envian a nexusbycs2@gmail.com indicando el
+                  derecho afectado, la ubicacion del contenido, los datos de contacto de quien reclama y una
+                  declaracion de buena fe. El Negocio responde por el contenido que carga.
+                </p>
+              </div>
+              <div className="bg-white/5 border border-white/10 rounded-lg p-4">
                 <h3 className="text-base font-semibold text-white mb-2">Propiedad del Negocio</h3>
                 <p className="text-sm text-zinc-400">
                   Los datos que ingreses en la Plataforma (informacion de tu negocio, tus clientes, tus

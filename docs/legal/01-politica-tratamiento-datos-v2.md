@@ -73,6 +73,9 @@ Si ocurre una violación de los códigos de seguridad que ponga en riesgo la inf
 ## 13. Cookies
 Usamos cookies estrictamente necesarias (sesión y preferencias de interfaz). No usamos cookies publicitarias de terceros. Si en el futuro se agregan, se pedirá tu autorización.
 
+## 13 bis. Usuarios en EE. UU.
+Nexus está diseñado para Colombia. Si prestamos el servicio a negocios en EE. UU.: **no vendemos datos personales ni los compartimos para publicidad**; no usamos analítica ni píxeles publicitarios de terceros; puedes pedir acceso, corrección, eliminación y copia de tus datos en nexusbycs2@gmail.com o al +57 323 907 0485, sin discriminación por ejercer esos derechos; los mensajes de marketing solo se envían con consentimiento previo y expreso y puedes retirarlo en cualquier momento; el servicio es para mayores de 18 años y, si detectamos datos de un menor de 13 años sin autorización verificable, los eliminaremos. Este aviso se revisará con asesoría local antes de operar en EE. UU.
+
 ## 14. Cambios
 Los cambios sustanciales se publicarán con **30 días** de anticipación y, cuando exijan nueva autorización, se solicitará de nuevo. La versión vigente y su fecha están siempre al inicio.
 
