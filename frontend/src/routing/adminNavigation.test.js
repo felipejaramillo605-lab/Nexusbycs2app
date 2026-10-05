@@ -1,5 +1,6 @@
 import { readFileSync } from 'fs';
-import { adminSections } from '../components/design/adminNavigation';
+import { adminSections, getAdminSections } from '../components/design/adminNavigation';
+import { PawPrint, Scissors } from 'lucide-react';
 
 const paths = adminSections.flatMap((section) => section.items.map(([path]) => path));
 
@@ -15,5 +16,11 @@ describe('AdminShell navigation', () => {
       '/manager/fiscal-profile',
       '/account/privacy',
     ]));
+  });
+
+  test('uses the configured business icon for the Services navigation item', () => {
+    const serviceItem = getAdminSections('pet_grooming').flatMap((section) => section.items).find(([path]) => path === '/manager/services');
+    expect(serviceItem[2]).toBe(PawPrint);
+    expect(getAdminSections('barbershop').flatMap((section) => section.items).find(([path]) => path === '/manager/services')[2]).toBe(Scissors);
   });
 });

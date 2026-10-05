@@ -408,7 +408,7 @@ Reglas estrictas:
 - Hoy es {today}.
 """
 
-VERTICAL_LABELS = {"barbershop": "barbería", "hair_salon": "peluquería", "nail_spa": "spa de uñas", "lash_spa": "spa de pestañas", "beauty_salon": "salón de belleza"}
+VERTICAL_LABELS = {"barbershop": "barbería", "hair_salon": "peluquería", "nail_spa": "spa de uñas", "lash_spa": "spa de pestañas", "beauty_salon": "salón de belleza", "wellness_spa": "spa y bienestar", "pilates_studio": "estudio de pilates", "health_clinic": "consultorio", "professional_services": "empresa de servicios profesionales", "pet_grooming": "grooming para mascotas"}
 
 
 def _get_or_create_chat(conversation_id, org):

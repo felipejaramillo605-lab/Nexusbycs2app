@@ -8,14 +8,15 @@ import {
   STANDARD_TEMPLATE_KEYS,
 } from './index';
 
-test('template registries retain the seven standard keys and add seven premium metadata entries', () => {
+test('template registries retain legacy standard keys and add vertical-safe standard choices', () => {
   expect(STANDARD_TEMPLATE_KEYS).toEqual([
     'classic', 'feminine', 'professional', 'cyberpunk', 'underground', 'neutral', 'minimalist_purple',
+    'nail-studio', 'bloom-garden', 'wellness', 'movement', 'clinical', 'pet-care',
   ]);
   expect(PREMIUM_TEMPLATE_KEYS).toEqual([
     'barberia-real', 'bloom', 'ignition', 'claridad', 'noir', 'atelier', 'recreo',
   ]);
-  expect(PORTAL_TEMPLATE_KEYS).toHaveLength(14);
+  expect(PORTAL_TEMPLATE_KEYS).toHaveLength(20);
   expect(PORTAL_TEMPLATE_METADATA.noir).toEqual({ key: 'noir', tier: 'premium' });
   expect(PORTAL_TEMPLATE_METADATA.neutral).toEqual({ key: 'neutral', tier: 'standard' });
 });
@@ -24,6 +25,7 @@ test('standard theme tokens and legacy lookup behavior remain available', () => 
   expect(Object.keys(CLIENT_PORTAL_THEMES)).toEqual(STANDARD_TEMPLATE_KEYS);
   expect(CLIENT_PORTAL_THEMES.classic.bgStart).toBe('#0a0a0a');
   expect(CLIENT_PORTAL_THEMES.neutral.name).toBe('Verde Natural');
+  expect(CLIENT_PORTAL_THEMES['pet-care'].name).toBe('Patitas');
 });
 
 test('Barbería Real has an original premium theme contract', () => {

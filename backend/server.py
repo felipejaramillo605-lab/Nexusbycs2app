@@ -327,6 +327,12 @@ def require_management_role(user: User) -> None:
 # ==================== END RLS HELPERS ====================
 
 
+BUSINESS_TYPE_KEYS = frozenset({
+    "barbershop", "hair_salon", "nail_spa", "lash_spa", "beauty_salon",
+    "wellness_spa", "pilates_studio", "health_clinic", "professional_services", "pet_grooming",
+})
+
+
 class Organization(BaseModel):
     model_config = ConfigDict(extra="ignore")
     organization_id: str
@@ -2914,6 +2920,9 @@ async def update_organization_profile(
         raise HTTPException(status_code=403, detail="Access denied")
 
     update_data = {k: v for k, v in data.dict().items() if v is not None}
+
+    if "business_type" in update_data and update_data["business_type"] not in BUSINESS_TYPE_KEYS:
+        raise HTTPException(status_code=422, detail="business_type is not allowed")
 
     if "portal_template" in update_data:
         organization = await db.organizations.find_one(

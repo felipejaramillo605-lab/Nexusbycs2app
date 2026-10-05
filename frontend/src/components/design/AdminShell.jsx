@@ -9,7 +9,7 @@ import ThemeToggle from '../ThemeToggle';
 import NotificationBellEnhanced from '../NotificationBellEnhanced';
 import { useAccessibleDialog } from './useAccessibleDialog';
 import OnboardingTour from '../onboarding/OnboardingTour';
-import { adminSections } from './adminNavigation';
+import { getAdminSections } from './adminNavigation';
 import { ownerConsoleSections, ownerMobilePrimary } from './ownerConsoleSections';
 import { CommandPalette } from './CommandPalette';
 const ShellContext=createContext(false);
@@ -22,7 +22,8 @@ export function AdminShell({children,organizationName='Nexus',organizationId,act
  // client-side navigation choice: the actual authorization boundary is
  // unchanged, still enforced server-side per endpoint exactly as before.
  const isOwnerConsole=user?.role==='owner'&&location.pathname.startsWith('/owner');
- const allowed=useMemo(()=>isOwnerConsole?ownerConsoleSections:adminSections.map(section=>({...section,items:section.items.filter(item=>!item[3]||item[3]===user?.role)})),[isOwnerConsole,user?.role]);
+ const {organization,loadOrganization}=useOrganization();
+ const allowed=useMemo(()=>isOwnerConsole?ownerConsoleSections:getAdminSections(organization?.business_type).map(section=>({...section,items:section.items.filter(item=>!item[3]||item[3]===user?.role)})),[isOwnerConsole,organization?.business_type,user?.role]);
  const mobilePrimary=isOwnerConsole?ownerMobilePrimary:mobilePrimaryManager;
  // NEXUS_OWNER_CONSOLE_SHELL_V1 (plan PR 10): search over the real nav
  // registry currently in `allowed` -- flattened once here so the palette
@@ -53,7 +54,6 @@ export function AdminShell({children,organizationName='Nexus',organizationId,act
  // one (organizationId prop or ?org_id= present) -- otherwise it's the
  // platform's own "Nexus" identity, same as before this feature existed.
  const brandOrgId=user?.role==='owner'?(organizationId||sp.get('org_id')||null):org;
- const {organization,loadOrganization}=useOrganization();
  useEffect(()=>{if(brandOrgId)loadOrganization(brandOrgId)
  // eslint-disable-next-line react-hooks/exhaustive-deps
  },[brandOrgId]);

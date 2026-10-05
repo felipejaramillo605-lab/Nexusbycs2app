@@ -20,7 +20,8 @@ from portal_templates import (  # noqa: E402
 class PortalTemplateGatingTests(unittest.TestCase):
     def test_standard_and_premium_allowlists_are_exact(self):
         self.assertEqual(STANDARD_TEMPLATE_KEYS, (
-            "classic", "feminine", "professional", "cyberpunk", "underground", "neutral", "minimalist_purple"
+            "classic", "feminine", "professional", "cyberpunk", "underground", "neutral", "minimalist_purple",
+            "nail-studio", "bloom-garden", "wellness", "movement", "clinical", "pet-care"
         ))
         self.assertEqual(PREMIUM_TEMPLATE_KEYS, (
             "barberia-real", "bloom", "ignition", "claridad", "noir", "atelier", "recreo"
@@ -43,6 +44,7 @@ class PortalTemplateGatingTests(unittest.TestCase):
         self.assertEqual(effective_portal_template({"portal_template": "noir", "premium_templates_contracted": True}), "noir")
         self.assertEqual(effective_portal_template({"portal_template": "barberia-real", "premium_templates_contracted": True}), "barberia-real")
         self.assertEqual(effective_portal_template({"portal_template": "neutral"}), "neutral")
+        self.assertEqual(effective_portal_template({"portal_template": "pet-care"}), "pet-care")
 
     def test_update_contract_cannot_accept_entitlement_flag(self):
         tree = ast.parse((BACKEND / "server.py").read_text(encoding="utf-8"))

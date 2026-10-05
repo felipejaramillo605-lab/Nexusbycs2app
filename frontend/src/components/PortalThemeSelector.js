@@ -3,8 +3,9 @@ import { Check, Palette } from 'lucide-react';
 import { CLIENT_PORTAL_THEMES } from '../constants/clientPortalThemes';
 import { toast } from 'sonner';
 import { organizationAPI } from '../api';
+import { getBusinessProfile } from '../lib/businessProfiles';
 
-export default function PortalThemeSelector({ organizationId, currentTheme = 'classic', onThemeChange }) {
+export default function PortalThemeSelector({ organizationId, currentTheme = 'classic', businessType = 'barbershop', onThemeChange }) {
   const [saving, setSaving] = useState(false);
   const [selectedTheme, setSelectedTheme] = useState(currentTheme);
 
@@ -35,6 +36,13 @@ export default function PortalThemeSelector({ organizationId, currentTheme = 'cl
     }
   };
 
+  const profile = getBusinessProfile(businessType);
+  const themeRank = (themeKey) => {
+    const index = profile.recommendedThemes.indexOf(themeKey);
+    return index === -1 ? Number.MAX_SAFE_INTEGER : index;
+  };
+  const themes = Object.values(CLIENT_PORTAL_THEMES).sort((left, right) => themeRank(left.key) - themeRank(right.key));
+
   return (
     <div className="space-y-4">
       <div className="flex items-center gap-3 mb-6">
@@ -48,11 +56,12 @@ export default function PortalThemeSelector({ organizationId, currentTheme = 'cl
           <p className="text-sm text-[var(--app-text-secondary)]">
             Personaliza la apariencia de las páginas públicas de reserva
           </p>
+          <p className="mt-1 text-xs text-[var(--app-primary)]">Recomendadas para {profile.label}</p>
         </div>
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-        {Object.values(CLIENT_PORTAL_THEMES).map((theme) => {
+        {themes.map((theme) => {
           const isSelected = selectedTheme === theme.key;
           
           return (
@@ -94,6 +103,9 @@ export default function PortalThemeSelector({ organizationId, currentTheme = 'cl
                   </span>
                   {isSelected && (
                     <Check size={18} className="text-[var(--app-primary)]" />
+                  )}
+                  {!isSelected && profile.recommendedThemes.includes(theme.key) && (
+                    <span className="rounded-full bg-[var(--app-primary)]/10 px-2 py-0.5 text-[10px] font-medium text-[var(--app-primary)]">Sugerida</span>
                   )}
                 </div>
                 <p className="text-xs text-[var(--app-text-secondary)]">
