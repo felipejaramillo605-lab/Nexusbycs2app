@@ -33,3 +33,9 @@ export const BUSINESS_TYPE_OPTIONS = Object.freeze(
 export const getBusinessProfile = (businessType) => (
   BUSINESS_PROFILES[businessType] || BUSINESS_PROFILES.barbershop
 );
+
+export const shouldApplyRecommendedTheme = (currentTheme, previousBusinessType) => (
+  !currentTheme
+  || currentTheme === 'classic'
+  || getBusinessProfile(previousBusinessType).recommendedThemes.includes(currentTheme)
+);

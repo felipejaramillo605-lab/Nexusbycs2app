@@ -9,6 +9,8 @@ export const MESSAGE_TEMPLATES = {
 export const VERTICAL_LABELS = {
   barbershop: 'Barbería', hair_salon: 'Peluquería', nail_spa: 'Spa de uñas',
   lash_spa: 'Spa de pestañas', beauty_salon: 'Salón de belleza',
+  wellness_spa: 'Spa y bienestar', pilates_studio: 'Estudio de pilates', health_clinic: 'Consultorio',
+  professional_services: 'Servicios profesionales', pet_grooming: 'Grooming para mascotas',
 };
 
 export const generateReactivationMessageFor = (clientName) =>

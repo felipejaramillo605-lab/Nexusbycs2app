@@ -62,4 +62,15 @@ describe('BusinessProfile', () => {
     await act(async () => { rendered.host.querySelector('form').dispatchEvent(new Event('submit', { bubbles: true, cancelable: true })); await new Promise(resolve => setTimeout(resolve, 0)); });
     expect(mockUpdateOrganization).toHaveBeenLastCalledWith('org-1', expect.objectContaining({ business_type: 'pet_grooming', client_portal_theme: 'pet-care' }));
   });
+
+  test('keeps a chosen portal theme when the business type changes', async () => {
+    mockGetOrganization.mockResolvedValue({ data: { name: 'Patitas', business_type: 'barbershop', client_portal_theme: 'noir' } });
+    mockUpdateOrganization.mockResolvedValue({ data: {} });
+    const rendered = await renderPage(); root = rendered.root;
+    const select = rendered.host.querySelector('[data-testid="business-type-select"]');
+    await act(async () => { select.value = 'pet_grooming'; select.dispatchEvent(new Event('change', { bubbles: true })); });
+    expect(rendered.host.querySelector('[role="status"]').textContent).toContain('conserva el tema actual');
+    await act(async () => { rendered.host.querySelector('form').dispatchEvent(new Event('submit', { bubbles: true, cancelable: true })); await new Promise(resolve => setTimeout(resolve, 0)); });
+    expect(mockUpdateOrganization).toHaveBeenLastCalledWith('org-1', expect.objectContaining({ business_type: 'pet_grooming', client_portal_theme: 'noir' }));
+  });
 });
