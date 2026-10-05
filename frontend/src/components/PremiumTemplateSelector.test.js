@@ -55,23 +55,41 @@ describe('PremiumTemplateSelector', () => {
     expect(onRequestPremium).toHaveBeenCalledTimes(1);
   });
 
-  test('activates a template and persists it via organizationAPI.update when contracted', async () => {
-    mockUpdate.mockResolvedValue({ data: { portal_template: 'bloom' } });
+  const click = (element) => act(async () => { element.dispatchEvent(new MouseEvent('click', { bubbles: true })); });
+  const byText = (text) => Array.from(host.querySelectorAll('button')).find((b) => b.textContent.includes(text));
+
+  test('choosing a template only selects it; nothing is saved until "Guardar cambios"', async () => {
+    mockUpdate.mockResolvedValue({ data: { portal_template: 'barberia-real' } });
     const onTemplateChange = jest.fn();
     await renderSelector({ contracted: true, currentTemplate: 'classic', onTemplateChange });
     expect(host.textContent).not.toContain('requieren el plan Premium');
-    const bloomButton = Array.from(host.querySelectorAll('button')).find((b) => b.textContent.includes('Usar esta plantilla'));
-    await act(async () => { bloomButton.dispatchEvent(new MouseEvent('click', { bubbles: true })); });
+    expect(host.querySelector('[data-testid="save-premium-template"]').disabled).toBe(true);
+    await click(byText('Usar esta plantilla'));
+    expect(mockUpdate).not.toHaveBeenCalled();
+    expect(host.textContent).toContain('Seleccionada');
+    expect(host.textContent).toContain('Tienes cambios sin guardar');
+    await click(host.querySelector('[data-testid="save-premium-template"]'));
     expect(mockUpdate).toHaveBeenCalledWith('org_1', { portal_template: 'barberia-real' });
     expect(onTemplateChange).toHaveBeenCalledWith('barberia-real');
+    expect(host.textContent).toContain('Activa');
   });
 
-  test('reverts the selection when the update request fails', async () => {
+  test('"Descartar" drops the pending choice without calling the API', async () => {
+    await renderSelector({ contracted: true, currentTemplate: 'classic' });
+    await click(byText('Usar esta plantilla'));
+    await click(byText('Descartar'));
+    expect(mockUpdate).not.toHaveBeenCalled();
+    expect(host.textContent).not.toContain('Seleccionada');
+    expect(host.querySelector('[data-testid="save-premium-template"]').disabled).toBe(true);
+  });
+
+  test('a failed save keeps the choice pending so it can be retried', async () => {
     mockUpdate.mockRejectedValue({ response: { data: { detail: 'nope' } } });
     await renderSelector({ contracted: true, currentTemplate: 'classic' });
-    const button = Array.from(host.querySelectorAll('button')).find((b) => b.textContent.includes('Usar esta plantilla'));
-    await act(async () => { button.dispatchEvent(new MouseEvent('click', { bubbles: true })); });
+    await click(byText('Usar esta plantilla'));
+    await click(host.querySelector('[data-testid="save-premium-template"]'));
     expect(mockUpdate).toHaveBeenCalled();
     expect(host.textContent).not.toContain('Activa');
+    expect(host.textContent).toContain('Seleccionada');
   });
 });
