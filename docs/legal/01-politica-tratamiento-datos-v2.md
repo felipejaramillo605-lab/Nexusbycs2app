@@ -1,6 +1,6 @@
 # Política de Tratamiento de Datos Personales — Nexus by CS2 (v2)
 
-> **BORRADOR PENDIENTE DE REVISIÓN LEGAL.** Versión 2.0-borrador · Fecha: 2026-10-05.
+> **Versión 2.0** · vigente desde el 5 de octubre de 2026.
 
 ## 1. Responsable del Tratamiento
 - **Nombre:** Felipe Jaramillo Parra, persona natural, actividad comercial bajo el nombre "Nexus by CS2".

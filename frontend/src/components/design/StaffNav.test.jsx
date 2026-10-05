@@ -15,6 +15,7 @@ jest.mock('react-router-dom', () => ({
   useLocation: () => ({ pathname: '/manager/barbers/pro-1/metrics' }),
   useNavigate: () => jest.fn(),
 }), { virtual: true });
+jest.mock('../../api', () => ({ legalAPI: { getStatus: () => Promise.resolve({ data: { accepted: true } }) } }));
 jest.mock('../../context/AuthContext', () => ({
   useAuth: () => ({ user: mockUser, loading: false, subscriptionSuspended: false, logout: mockLogout }),
 }));

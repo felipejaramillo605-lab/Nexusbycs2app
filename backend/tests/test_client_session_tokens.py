@@ -148,6 +148,7 @@ class TestClientSessionTokenHash:
                 organization_id="org_client_session_test",
                 name="New Client",
                 pin="1234",
+                terms_accepted=True,
             )
             handler = getattr(server.register_client_with_pin, "__wrapped__", server.register_client_with_pin)
             response = await handler(data, _fake_request())
@@ -251,3 +252,11 @@ class TestClientSessionTokenHash:
             assert self.sessions.indexes["client_sessions_ttl"]["key"] == "expires_at"
 
         asyncio.run(run())
+
+
+def test_client_registration_requires_accepting_terms():
+    import inspect
+
+    source = inspect.getsource(server.register_client_with_pin)
+    assert "terms_accepted" in source and source.index("data.terms_accepted") < source.index("bcrypt.hashpw")
+    assert server.ClientRegisterRequest.model_fields["terms_accepted"].default is False

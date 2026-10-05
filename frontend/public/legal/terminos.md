@@ -1,18 +1,22 @@
 # Términos y Condiciones de Servicio — Nexus by CS2 (v2)
 
-> **BORRADOR PENDIENTE DE REVISIÓN LEGAL.** Versión 2.0-borrador · 2026-10-05. Aplica a negocios y a sus usuarios (Owners, Managers, Staff). Se acepta electrónicamente junto con el Anexo de Transmisión de Datos (documento 03).
+> **Versión 2.0** · vigente desde el 5 de octubre de 2026. Aplica a negocios y a sus usuarios (Owners, Managers, Staff). Se acepta electrónicamente junto con el Anexo de Transmisión de Datos (documento 03).
 
 ## 1. Partes y definiciones
-- **Prestador:** Felipe Jaramillo Parra, persona natural, actividad comercial bajo el nombre "Nexus by CS2" (en adelante, "Nexus"). Datos de contacto: nexusbycs2@gmail.com · +57 323 907 0485. Documento de identidad y dirección completa: en el contrato aceptado (cláusula 14 del Anexo).
+- **Prestador:** Felipe Jaramillo Parra, persona natural comerciante y creador de **CS2**, iniciativa comercial dedicada a las redes sociales, el community management y el desarrollo de programas de software, entre los cuales se encuentra **Nexus by CS2** (en adelante, "Nexus"), una solución para pequeñas y medianas empresas. Datos de contacto: nexusbycs2@gmail.com · +57 323 907 0485. Documento de identidad y dirección completa: en el contrato aceptado (cláusula 14 del Anexo).
 - **Cliente / Negocio:** la persona natural o jurídica que registra una organización en la plataforma.
 - **Usuarios:** personas que el Negocio autoriza a usar la plataforma.
 - **Clientes finales:** personas que reservan o son atendidas por el Negocio.
-- **Plataforma:** software como servicio de agenda, clientes, equipo, portal de reservas, comunicaciones, inventario y analítica.
+- **Plataforma:** software como servicio para pequeñas y medianas empresas que permite gestionar citas y agenda, clientes, equipo (incluidos salarios y porcentajes de comisión), portal de reservas, comunicaciones, inventarios y analítica.
 
 ## 2. Aceptación y capacidad
 Al registrarse y marcar "Acepto", el Negocio declara que tiene capacidad legal, que quien acepta está facultado para obligarlo y que acepta estos Términos, el Anexo de Transmisión de Datos y las políticas de privacidad y de uso aceptable. La aceptación electrónica es válida como mensaje de datos (Ley 527 de 1999) y se registra con versión, huella del documento, fecha, hora, IP y usuario.
 
-## 3. Servicio
+## 3. Servicio y alcance
+**Qué es Nexus.** Una herramienta de gestión para pequeñas y medianas empresas: agendar citas, controlar la agenda del equipo, calcular salarios y porcentajes de comisión, llevar inventarios y atender clientes.
+
+**Qué no es Nexus.** Nexus **no es un software contable, tributario ni de facturación electrónica** y no incurre en temas tributarios. Por eso: (a) las liquidaciones, comisiones y cálculos de pago que genera son **herramientas internas de control y gestión del Negocio; no constituyen soporte fiscal, contable, laboral ni de nómina electrónica** y no sustituyen a un contador; (b) el Negocio es el único responsable de sus obligaciones tributarias (facturación electrónica, retenciones, IVA, renta), laborales y de seguridad social, y debe validar con su contador cualquier cifra antes de usarla ante autoridades o trabajadores; (c) Nexus no responde por sanciones, diferencias o perjuicios derivados de usar esas cifras como soporte oficial.
+
 Nexus presta la Plataforma "tal como está", con mejoras continuas. Algunas funciones dependen de terceros (hosting, correo, almacenamiento, WhatsApp, pagos, IA) y pueden variar. Nexus podrá modificar funciones avisando con 30 días cuando el cambio afecte sustancialmente el servicio.
 
 ## 4. Cuenta y seguridad
@@ -47,7 +51,7 @@ Nexus hará esfuerzos razonables para mantener la Plataforma disponible y atende
 En la máxima medida permitida por la ley: (a) Nexus no responde por lucro cesante, pérdida de oportunidad, daño reputacional ni daños indirectos; (b) la responsabilidad total de Nexus frente al Negocio por cualquier causa se limita a **las sumas efectivamente pagadas por el Negocio en los 12 meses anteriores al hecho** (o, si el servicio es gratuito, a un salario mínimo mensual); (c) Nexus no responde por fallas de terceros (proveedores de nube, correo, mensajería, pagos) fuera de su control razonable. **Estas limitaciones no aplican a dolo, culpa grave ni a los derechos irrenunciables del titular de los datos.**
 
 ## 13. Indemnidad del Negocio
-El Negocio mantendrá indemne a Nexus frente a reclamaciones de terceros, sanciones o costos (incluidos honorarios razonables) originados en: (a) la falta de autorización de sus clientes finales para el tratamiento o el envío de comunicaciones; (b) el incumplimiento de la Ley 2300 de 2023 o de la ley de protección de datos por instrucciones suyas; (c) contenidos que cargue sin derechos; (d) el uso de la Plataforma contrario a estos Términos. Nexus avisará oportunamente de la reclamación y permitirá al Negocio colaborar en la defensa.
+El Negocio mantendrá indemne a Nexus frente a reclamaciones de terceros, sanciones o costos (incluidos honorarios razonables) originados en: (a) la falta de autorización de sus clientes finales para el tratamiento o el envío de comunicaciones; (b) el incumplimiento de la Ley 2300 de 2023 o de la ley de protección de datos por instrucciones suyas; (c) contenidos que cargue sin derechos; (d) el uso de la Plataforma contrario a estos Términos; (e) el uso de las liquidaciones o reportes de la Plataforma como soporte fiscal, contable o laboral. Nexus avisará oportunamente de la reclamación y permitirá al Negocio colaborar en la defensa.
 
 ## 14. Vigencia, terminación y portabilidad
 El contrato es de duración indefinida y cualquiera de las partes puede terminarlo con 30 días de aviso (inmediato por incumplimiento grave). Al terminar, el Negocio podrá **exportar sus datos** durante 30 días; luego Nexus los eliminará o anonimizará en un máximo de 90 días, salvo los que la ley obligue a conservar.
