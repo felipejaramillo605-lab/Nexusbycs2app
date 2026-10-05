@@ -87,9 +87,16 @@ def build_resend_webhook_router(db, get_current_user):
         secret = os.getenv("RESEND_WEBHOOK_SECRET", "").strip()
         if not secret:
             raise HTTPException(status_code=503, detail="Webhook not configured")
-        body = await request.body()
-        if len(body) > MAX_BODY_BYTES:
+        declared = request.headers.get("content-length", "")
+        if declared.isdigit() and int(declared) > MAX_BODY_BYTES:
             raise HTTPException(status_code=413, detail="Payload too large")
+        chunks, total = [], 0
+        async for chunk in request.stream():
+            total += len(chunk)
+            if total > MAX_BODY_BYTES:
+                raise HTTPException(status_code=413, detail="Payload too large")
+            chunks.append(chunk)
+        body = b"".join(chunks)
         if not verify_signature(secret, svix_id or "", svix_timestamp or "", svix_signature or "", body):
             raise HTTPException(status_code=401, detail="Invalid signature")
         try:
