@@ -61,6 +61,7 @@ from security_observability import (
 from audit_contracts import build_audit_log_router, ensure_audit_log_indexes, record_audit_event
 from owner_view_mode import build_owner_view_router, enforce_view_mode, ensure_view_session_indexes
 from owner_account_management import (
+    assert_organization_active,
     build_owner_account_router,
     consume_owner_invitation,
     enforce_organization_active,
@@ -995,6 +996,7 @@ async def get_current_client(client_session_token: Optional[str] = Cookie(None))
     if client.get("deletion_requested_at"):
         raise HTTPException(status_code=403, detail="Account deleted")
 
+    await assert_organization_active(db, client.get("organization_id"))
     return Client(**client)
 
 
@@ -3027,6 +3029,7 @@ def _public_client_view(client: dict) -> dict:
 @api_router.post("/public/auth/passwordless", tags=["public-auth"])
 async def passwordless_login(data: PasswordlessLoginRequest, request: Request):
     """Passwordless authentication for clients using phone number - TCPA/Ley 1581 compliant"""
+    await assert_organization_active(db, data.organization_id)
     # Check if client exists
     client = await db.clients.find_one({"phone": data.phone, "organization_id": data.organization_id}, {"_id": 0})
 
@@ -4185,6 +4188,7 @@ async def leave_class_waitlist(waitlist_id: str, data: GuestPhoneVerify):
     entry = await db.class_waitlist.find_one({"waitlist_id": waitlist_id, "status": "waiting"}, {"_id": 0})
     if not entry:
         raise HTTPException(status_code=404, detail="Waitlist entry not found")
+    await assert_organization_active(db, entry.get("organization_id"))
     if sanitize_phone(data.client_phone) != entry.get("client_phone"):
         raise HTTPException(status_code=403, detail="Access denied")
     result = await db.class_waitlist.update_one({"waitlist_id": waitlist_id, "status": "waiting"}, {"$set": {"status": "left"}})
@@ -4198,6 +4202,7 @@ async def cancel_class_booking(class_booking_id: str, data: GuestPhoneVerify):
     booking = await db.class_bookings.find_one({"class_booking_id": class_booking_id, "status": "confirmed"}, {"_id": 0})
     if not booking:
         raise HTTPException(status_code=404, detail="Booking not found")
+    await assert_organization_active(db, booking.get("organization_id"))
     if sanitize_phone(data.client_phone) != booking.get("client_phone"):
         raise HTTPException(status_code=403, detail="Access denied")
     return await _perform_class_booking_cancel(db, booking)
@@ -7090,6 +7095,7 @@ async def get_client_history_public(request: Request, phone: str, organization_i
     """Get client appointment history by phone number (public endpoint for customer portal).
     SECURITY: rate-limited because phone+org_id is guessable/enumerable and this is a guest
     lookup feature by design (no PIN required) — see pentest finding #1/#5."""
+    await assert_organization_active(db, organization_id)
     # Find client by phone and org
     client = await db.clients.find_one(
         {"phone": phone, "organization_id": organization_id},
@@ -7150,6 +7156,7 @@ async def unsubscribe_client(
 
     if not organization_id:
         raise HTTPException(status_code=400, detail="organization_id required")
+    await assert_organization_active(db, organization_id)
 
     # Find client
     query = {"organization_id": organization_id}
@@ -7308,6 +7315,7 @@ async def register_client_with_pin(data: ClientRegisterRequest, request: Request
     Register client with 4-digit PIN. If client exists (booked as guest before),
     upgrades them to registered account. Otherwise creates new client.
     """
+    await assert_organization_active(db, data.organization_id)
     # Validate PIN format (exactly 4 digits)
     import re
 
@@ -7426,6 +7434,7 @@ async def login_client_with_pin(data: ClientLoginRequest, request: Request):
     Login client with 4-digit PIN. Enforces 5-attempt limit with 15-minute lockout.
     This is non-negotiable: 4-digit PIN = 10,000 combinations, brute-forceable without limit.
     """
+    await assert_organization_active(db, data.organization_id)
     phone = sanitize_phone(data.phone)
 
     # Find client
@@ -7759,6 +7768,7 @@ async def forgot_client_pin(data: ClientForgotPinRequest, request: Request):
     """
     Send PIN reset link via email. Always returns same message (don't leak phone existence).
     """
+    await assert_organization_active(db, data.organization_id)
     phone = sanitize_phone(data.phone)
 
     # Find client
@@ -7815,6 +7825,7 @@ async def reset_client_pin(data: ClientResetPinRequest):
 
     if not client:
         raise HTTPException(status_code=400, detail="Invalid or expired reset link")
+    await assert_organization_active(db, client.get("organization_id"))
 
     # Check expiration
     try:
@@ -9060,6 +9071,7 @@ async def _get_public_appointment_with_token(appointment_id: str, token: str):
     supplied_hash = _appointment_token_hash(token)
     if not appointment or not stored_hash or not secrets.compare_digest(stored_hash, supplied_hash):
         raise HTTPException(status_code=403, detail="Invalid or expired appointment link")
+    await assert_organization_active(db, appointment.get("organization_id"))
     return appointment
 
 

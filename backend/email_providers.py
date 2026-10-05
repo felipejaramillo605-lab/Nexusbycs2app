@@ -10,6 +10,7 @@ import base64
 import hashlib
 import logging
 import os
+import re
 from typing import Iterable, Optional, Sequence
 
 import requests
@@ -17,6 +18,7 @@ import requests
 logger = logging.getLogger(__name__)
 
 RESEND_URL = "https://api.resend.com/emails"
+ADDRESS_PATTERN = re.compile(r"^[^@\s<>,;\"']+@[^@\s<>,;\"']+\.[^@\s<>,;\"']+$")
 TIMEOUT_SECONDS = 15
 
 
@@ -45,6 +47,11 @@ def send_via_resend(
     """Send one message. Returns (accepted, diagnostic_code); never raises, never logs the recipient."""
     if not resend_enabled():
         return False, "resend_not_configured"
+    cc = [address for address in (cc or []) if address]
+    if any(char in text for text in (subject, from_name or "") for char in "\r\n"):
+        return False, "invalid_header"
+    if not ADDRESS_PATTERN.match(str(to_email or "")) or not all(ADDRESS_PATTERN.match(str(a)) for a in cc):
+        return False, "invalid_address"
     sender = os.getenv("RESEND_FROM_EMAIL", "").strip()
     name = (from_name or os.getenv("SMTP_FROM_NAME", "Nexus by CS2")).replace('"', "").strip()
     payload: dict = {

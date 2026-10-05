@@ -17,6 +17,22 @@ logger = logging.getLogger(__name__)
 # Defensive ceiling (the largest allowed upload today is a ~15 MB portal background video).
 MAX_OBJECT_BYTES = 50 * 1024 * 1024
 KEY_PREFIX = "nexus/"
+ALLOWED_NAMESPACES = {"platform", "organizations", "professionals", "catalog", "portal-backgrounds"}
+
+
+def validate_key(namespace: str, relative_key: str) -> None:
+    """Canonical key check: closed namespace list, no absolute paths, no `..`, no backslashes or control chars."""
+    parts = str(relative_key or "").split("/")
+    if (
+        namespace not in ALLOWED_NAMESPACES
+        or not relative_key
+        or relative_key.startswith("/")
+        or any(part in {"", ".", ".."} for part in parts)
+        or "\\" in relative_key
+        or any(ord(char) < 32 for char in relative_key)
+        or len(relative_key) > 300
+    ):
+        raise ValueError("Invalid object storage key")
 
 
 def _settings() -> dict | None:
@@ -83,7 +99,13 @@ def _put(key: str, payload: bytes, content_type: str) -> None:
 def _get(key: str) -> bytes | None:
     client, bucket = _client()
     try:
-        return client.get_object(Bucket=bucket, Key=key)["Body"].read()
+        response = client.get_object(Bucket=bucket, Key=key)
+        if int(response.get("ContentLength") or 0) > MAX_OBJECT_BYTES:
+            raise ValueError("Stored object exceeds the size limit")
+        data = response["Body"].read(MAX_OBJECT_BYTES + 1)
+        if len(data) > MAX_OBJECT_BYTES:
+            raise ValueError("Stored object exceeds the size limit")
+        return data
     except Exception as exc:
         code = getattr(exc, "response", {}).get("Error", {}).get("Code")
         if code in {"404", "NoSuchKey", "NotFound"}:
@@ -98,6 +120,7 @@ def _delete(key: str) -> None:
 
 async def put_object(namespace: str, relative_key: str, payload: bytes, content_type: str) -> bool:
     """Store the object; returns False when storage is not configured. Raises on a real failure."""
+    validate_key(namespace, relative_key)
     if not enabled():
         return False
     if len(payload) > MAX_OBJECT_BYTES:
@@ -107,12 +130,14 @@ async def put_object(namespace: str, relative_key: str, payload: bytes, content_
 
 
 async def get_object(namespace: str, relative_key: str) -> bytes | None:
+    validate_key(namespace, relative_key)
     if not enabled():
         return None
     return await asyncio.to_thread(_get, object_key(namespace, relative_key))
 
 
 async def delete_object(namespace: str, relative_key: str) -> None:
+    validate_key(namespace, relative_key)
     if not enabled():
         return
     try:

@@ -6,7 +6,7 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 import sys
 from types import SimpleNamespace
-from unittest.mock import Mock, patch
+from unittest.mock import AsyncMock, Mock, patch
 
 import bcrypt
 from fastapi import HTTPException
@@ -59,6 +59,7 @@ def database_for(document):
     return SimpleNamespace(
         clients=MemoryCollection([document]),
         client_sessions=SimpleNamespace(delete_many=Mock()),
+        organizations=SimpleNamespace(find_one=AsyncMock(return_value=None)),
     )
 
 
@@ -183,7 +184,8 @@ def test_public_history_response_excludes_every_pin_field():
         document["pin_reset_token_hash"] = server.token_digest("other-secret")
         empty = SimpleNamespace(find=lambda *args, **kwargs: EmptyCursor())
         database = SimpleNamespace(
-            clients=MemoryCollection([document]), appointments=empty, services=empty, barbers=empty
+            clients=MemoryCollection([document]), appointments=empty, services=empty, barbers=empty,
+            organizations=SimpleNamespace(find_one=AsyncMock(return_value=None)),
         )
         handler = getattr(server.get_client_history_public, "__wrapped__", server.get_client_history_public)
         with patch.object(server, "db", database):
