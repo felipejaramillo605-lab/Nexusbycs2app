@@ -47,12 +47,15 @@ def send_via_resend(
     cc: Optional[Iterable[str]] = None,
     attachments: Optional[Sequence[tuple[str, bytes, str]]] = None,
     from_name: Optional[str] = None,
+    headers: Optional[dict[str, str]] = None,
 ) -> tuple[bool, Optional[str]]:
     """Send one message. Returns (accepted, diagnostic_code); never raises, never logs the recipient."""
     if not resend_enabled():
         return False, "resend_not_configured"
     cc = [address for address in (cc or []) if address]
     if any(char in text for text in (subject, from_name or "") for char in "\r\n"):
+        return False, "invalid_header"
+    if any("\r" in str(key) or "\n" in str(key) or "\r" in str(value) or "\n" in str(value) for key, value in (headers or {}).items()):
         return False, "invalid_header"
     if not ADDRESS_PATTERN.match(str(to_email or "")) or not all(ADDRESS_PATTERN.match(str(a)) for a in cc):
         return False, "invalid_address"
@@ -74,6 +77,8 @@ def send_via_resend(
             {"filename": filename, "content": base64.b64encode(content).decode("ascii"), "content_type": mime}
             for filename, content, mime in attachments
         ]
+    if headers:
+        payload["headers"] = dict(headers)
     try:
         response = requests.post(
             RESEND_URL,

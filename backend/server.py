@@ -22,6 +22,8 @@ import json
 import bcrypt
 import secrets
 import hashlib
+import base64
+import hmac
 import re
 import asyncio
 from html import escape as html_escape
@@ -712,6 +714,15 @@ class RegisterRequest(BaseModel):
     password: str = Field(..., max_length=200)
     name: str = Field(..., max_length=200)
     tos_accepted: bool = False  # Terms of Service acceptance (owners/managers)
+    adult_confirmed: bool = False
+
+
+class UnsubscribeRequest(BaseModel):
+    """Token is preferred; contact fields remain only for legacy email links."""
+    token: Optional[str] = Field(default=None, max_length=2000)
+    phone: Optional[str] = Field(default=None, max_length=40)
+    email: Optional[str] = Field(default=None, max_length=254)
+    organization_id: Optional[str] = Field(default=None, max_length=100)
 
 
 # NEXUS_8A7A_SAFE_ORGANIZATION_ONBOARDING_V1
@@ -1127,6 +1138,8 @@ async def register_user(data: RegisterRequest, request: Request):
     """Register new user with email/password. User starts with pending status."""
     if not data.tos_accepted:
         raise HTTPException(status_code=400, detail="Debes aceptar los Términos de Servicio para crear una cuenta")
+    if not data.adult_confirmed:
+        raise HTTPException(status_code=400, detail="Debes declarar que eres mayor de 18 años para crear una cuenta")
 
     existing = await db.users.find_one({"email": data.email}, {"_id": 0})
     if existing:
@@ -1150,6 +1163,7 @@ async def register_user(data: RegisterRequest, request: Request):
         # Legal compliance (ToS acceptance record for B2B relationship)
         "tos_accepted_at": now_iso,
         "tos_accepted_ip": request.client.host if request.client else None,
+        "adult_confirmed_at": now_iso,
     }
     await db.users.insert_one(user_doc)
     logger.info(f"New user registered: {data.email} (pending approval)")
@@ -7174,30 +7188,62 @@ async def get_client_history_public(request: Request, phone: str, organization_i
 # ==================== LEGAL COMPLIANCE ENDPOINTS (TCPA, CAN-SPAM, Ley 1581 Colombia) ====================
 
 
+def _unsubscribe_signing_key() -> bytes:
+    """Keep marketing links portable while avoiding PII in their URL."""
+    return os.environ.get("UNSUBSCRIBE_TOKEN_SECRET", EMERGENT_LLM_KEY).encode("utf-8")
+
+
+def create_unsubscribe_token(client_id: str, organization_id: str, *, expires_in_days: int = 730) -> str:
+    payload = json.dumps(
+        {"client_id": client_id, "organization_id": organization_id, "exp": int((datetime.now(timezone.utc) + timedelta(days=expires_in_days)).timestamp())},
+        separators=(",", ":"), sort_keys=True,
+    ).encode("utf-8")
+    encoded = base64.urlsafe_b64encode(payload).rstrip(b"=")
+    signature = hmac.new(_unsubscribe_signing_key(), encoded, hashlib.sha256).digest()
+    return f"{encoded.decode('ascii')}.{base64.urlsafe_b64encode(signature).rstrip(b'=').decode('ascii')}"
+
+
+def verify_unsubscribe_token(token: str) -> dict:
+    try:
+        encoded, supplied_signature = token.split(".", 1)
+        expected_signature = hmac.new(_unsubscribe_signing_key(), encoded.encode("ascii"), hashlib.sha256).digest()
+        actual_signature = base64.urlsafe_b64decode(supplied_signature + "=" * (-len(supplied_signature) % 4))
+        if not hmac.compare_digest(expected_signature, actual_signature):
+            raise ValueError("signature")
+        payload = json.loads(base64.urlsafe_b64decode(encoded + "=" * (-len(encoded) % 4)))
+        if not isinstance(payload.get("client_id"), str) or not isinstance(payload.get("organization_id"), str):
+            raise ValueError("payload")
+        if int(payload.get("exp", 0)) < int(datetime.now(timezone.utc).timestamp()):
+            raise ValueError("expired")
+        return payload
+    except (ValueError, TypeError, UnicodeDecodeError, json.JSONDecodeError, base64.binascii.Error) as error:
+        raise HTTPException(status_code=400, detail="Invalid or expired unsubscribe token") from error
+
+
 # Unsubscribe from marketing (CAN-SPAM Act + TCPA compliance)
 @api_router.post("/public/clients/unsubscribe", tags=["public-client-portal"])
 @limiter.limit("10/hour")
 async def unsubscribe_client(
-    request: Request, phone: Optional[str] = None, email: Optional[str] = None, organization_id: Optional[str] = None
+    request: Request, data: UnsubscribeRequest
 ):
     """
     Public endpoint to unsubscribe from marketing communications.
     No authentication required - protected by knowing contact info.
     Complies with CAN-SPAM Act and TCPA requirements for easy opt-out.
     """
-    if not phone and not email:
-        raise HTTPException(status_code=400, detail="Phone or email required")
-
-    if not organization_id:
-        raise HTTPException(status_code=400, detail="organization_id required")
+    if data.token:
+        token_data = verify_unsubscribe_token(data.token)
+        organization_id = token_data["organization_id"]
+        query = {"organization_id": organization_id, "client_id": token_data["client_id"]}
+    else:
+        # Deprecated backwards-compatible path for links already delivered.
+        if not data.phone and not data.email:
+            raise HTTPException(status_code=400, detail="Unsubscribe token or legacy contact data required")
+        if not data.organization_id:
+            raise HTTPException(status_code=400, detail="organization_id required")
+        organization_id = data.organization_id
+        query = {"organization_id": organization_id, "phone" if data.phone else "email": data.phone or data.email}
     await assert_organization_active(db, organization_id)
-
-    # Find client
-    query = {"organization_id": organization_id}
-    if phone:
-        query["phone"] = phone
-    elif email:
-        query["email"] = email
 
     client = await db.clients.find_one(query, {"_id": 0})
 
@@ -8109,17 +8155,22 @@ async def create_campaign(
         # Send via WhatsApp (mocked)
         if data.channel in ["whatsapp", "both"]:
             try:
-                print(f"📱 [MOCK WhatsApp] Sending to {client['name']} ({client['phone']}): {data.message}")
+                logger.info("mock_whatsapp_campaign_sent client_id=%s", client["client_id"])
                 whatsapp_sent += 1
             except Exception as e:
-                print(f"❌ Failed WhatsApp to {client['phone']}: {str(e)}")
+                logger.warning("mock_whatsapp_campaign_failed client_id=%s diagnostic_code=%s", client["client_id"], type(e).__name__)
                 whatsapp_failed += 1
 
         # Send via Email (real SMTP)
         if data.channel in ["email", "both"] and client.get("email"):
             try:
-                # Create unsubscribe link (CAN-SPAM Act requirement)
-                unsubscribe_url = f"{frontend_url}/unsubscribe?phone={client['phone']}&org={org_id}"
+                # Signed URL avoids exposing a phone number or other PII in marketing links.
+                unsubscribe_token = create_unsubscribe_token(client["client_id"], org_id)
+                unsubscribe_url = f"{frontend_url}/unsubscribe?token={unsubscribe_token}"
+                unsubscribe_headers = {
+                    "List-Unsubscribe": f"<{unsubscribe_url}>, <mailto:{os.environ.get('UNSUBSCRIBE_MAILTO', 'unsubscribe@nexusbycs2.com')}>",
+                    "List-Unsubscribe-Post": "List-Unsubscribe=One-Click",
+                }
 
                 # Sanitize inputs to prevent HTML injection
                 safe_subject = html_escape(data.subject)
@@ -8158,7 +8209,8 @@ async def create_campaign(
                 )
 
                 success = email_service._send_email(
-                    to_email=client["email"], subject=data.subject, html_body=html_body, text_body=data.message
+                    to_email=client["email"], subject=data.subject, html_body=html_body, text_body=data.message,
+                    headers=unsubscribe_headers,
                 )
 
                 if success:
@@ -8167,7 +8219,7 @@ async def create_campaign(
                     email_failed += 1
 
             except Exception as e:
-                print(f"❌ Failed Email to {client.get('email')}: {str(e)}")
+                logger.warning("marketing_email_failed client_id=%s diagnostic_code=%s", client["client_id"], type(e).__name__)
                 email_failed += 1
 
     # Build response message
