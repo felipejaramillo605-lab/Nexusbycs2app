@@ -214,6 +214,13 @@ export const ownerIntegrityAPI = {
 
 export const ownerMediaIntegrityAPI = { getReport: () => api.get('/owner/media/integrity') };
 
+export const legalAPI = {
+  getResponsible: () => api.get('/legal/responsible'),
+  accept: (version, documentHash) => api.post('/legal/accept', { version, document_hash: documentHash || null }),
+  ownerGetProfile: () => api.get('/owner/legal-profile'),
+  ownerSaveProfile: (data) => api.put('/owner/legal-profile', data),
+};
+
 export const ownerConnectorsAPI = {
   getStatus: () => api.get('/owner/connectors/status'),
   getEmailEvents: () => api.get('/owner/email-events'),
