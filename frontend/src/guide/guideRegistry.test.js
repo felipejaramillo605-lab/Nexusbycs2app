@@ -55,6 +55,13 @@ it('the staff agenda guide teaches how to create a walk-in appointment and share
   expect(checklistCount('agenda', 'staff')).toBe(agenda.checklist.length);
 });
 
+it('the manager agenda guide teaches how to create a presential appointment', () => {
+  const agenda = GUIDE_MODULES.find((m) => m.id === 'agenda').content.perRole.manager;
+  expect(agenda.steps.map((x) => x.id)).toContain('a14');
+  expect(agenda.checklist.map((x) => x.id)).toContain('a14');
+  expect(JSON.stringify(agenda.steps)).toContain('Nueva cita');
+});
+
 it('every module exposes content.perRole for each view it claims', () => {
   for (const m of GUIDE_MODULES) {
     for (const v of m.visibleTo) {

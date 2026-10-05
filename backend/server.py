@@ -6446,18 +6446,12 @@ async def get_my_staff_appointments(
     return await enrich_staff_appointments(items, barber["organization_id"])
 
 
-@api_router.post("/staff/appointments", tags=["staff-portal"])
-@limiter.limit("30/hour")
-async def create_staff_walkin_appointment(
-    request: Request,
-    data: StaffWalkinAppointmentCreate,
-    authorization: Optional[str] = Header(None),
-    session_token: Optional[str] = Cookie(None),
-):
-    """Create a walk-in booking only in the authenticated professional's agenda."""
-    current_user = await get_current_user(authorization, session_token)
-    barber = await resolve_current_staff_barber(current_user)
-    organization_id, barber_id = barber["organization_id"], barber["barber_id"]
+async def _create_presential_appointment(request: Request, actor: User, organization_id: str, barber_id: str, data, source: str):
+    """Cita creada en persona por el personal (staff o manager) para un cliente que llega al local.
+
+    Reutiliza la implementacion publica de reservas (disponibilidad, solapes, bloqueos) sin su limite por IP. El cliente
+    nuevo queda como invitado: sin PIN y sin consentimiento de marketing.
+    """
     phone = sanitize_phone(data.client_phone)
     existing_client = await db.clients.find_one(
         {"organization_id": organization_id, "phone": phone}, {"_id": 0, "client_id": 1}
@@ -6472,26 +6466,82 @@ async def create_staff_walkin_appointment(
         time=data.time,
         marketing_consent=False,
     )
-    # Reuse the exact public booking implementation without its IP-only limit.
-    # The staff route has its own authenticated per-user limit above.
     creator = getattr(create_public_appointment, "__wrapped__", create_public_appointment)
     appointment = await creator(organization_id, public_data, request)
-    client_update = {"source": "staff_walkin", "created_by": current_user.user_id}
     if not existing_client:
-        client_update.update({"is_registered": False, "accepts_marketing": False, "pin_hash": None})
-    await db.clients.update_one({"organization_id": organization_id, "phone": phone}, {"$set": client_update})
-    await record_audit_event(
-        db,
-        category="appointments",
-        event_type="staff_walkin_appointment_created",
-        actor_user_id=current_user.user_id,
-        organization_id=organization_id,
-        entity_type="appointment",
-        entity_id=appointment["appointment_id"],
-        previous_value=None,
-        new_value={"barber_id": barber_id, "client_id": (existing_client or {}).get("client_id")},
-    )
+        await db.clients.update_one(
+            {"organization_id": organization_id, "phone": phone},
+            {
+                "$set": {
+                    "source": source,
+                    "created_by": actor.user_id,
+                    "is_registered": False,
+                    "accepts_marketing": False,
+                    "pin_hash": None,
+                }
+            },
+        )
+    try:
+        # La cita ya existe: un fallo de auditoria no debe devolver error al personal (reintentar duplicaria el intento).
+        await record_audit_event(
+            db,
+            category="account",
+            event_type=f"{source}_appointment_created",
+            actor_user_id=actor.user_id,
+            organization_id=organization_id,
+            entity_type="appointment",
+            entity_id=appointment["appointment_id"],
+            previous_value=None,
+            new_value={"barber_id": barber_id, "client_id": (existing_client or {}).get("client_id")},
+        )
+    except Exception as error:  # noqa: BLE001
+        logger.warning("presential_appointment_audit_failed diagnostic_code=%s", type(error).__name__)
     return appointment
+
+
+@api_router.post("/staff/appointments", tags=["staff-portal"])
+@limiter.limit("30/hour")
+async def create_staff_walkin_appointment(
+    request: Request,
+    data: StaffWalkinAppointmentCreate,
+    authorization: Optional[str] = Header(None),
+    session_token: Optional[str] = Cookie(None),
+):
+    """Create a walk-in booking only in the authenticated professional's agenda."""
+    current_user = await get_current_user(authorization, session_token)
+    barber = await resolve_current_staff_barber(current_user)
+    organization_id, barber_id = barber["organization_id"], barber["barber_id"]
+    return await _create_presential_appointment(
+        request, current_user, organization_id, barber_id, data, source="staff_walkin"
+    )
+
+
+class ManagerWalkinAppointmentCreate(StaffWalkinAppointmentCreate):
+    barber_id: str
+    organization_id: Optional[str] = None
+
+
+@api_router.post("/manager/appointments", tags=["appointments"])
+@limiter.limit("60/hour")
+async def create_manager_walkin_appointment(
+    request: Request,
+    data: ManagerWalkinAppointmentCreate,
+    authorization: Optional[str] = Header(None),
+    session_token: Optional[str] = Cookie(None),
+):
+    """Un manager crea una cita presencial en la agenda de cualquier profesional activo de SU organizacion."""
+    current_user = await get_current_user(authorization, session_token)
+    require_management_role(current_user)
+    organization_id = await resolve_team_organization(current_user, data.organization_id)
+    barber = await db.barbers.find_one(
+        {"barber_id": data.barber_id, "organization_id": organization_id, "active": {"$ne": False}},
+        {"_id": 0, "barber_id": 1},
+    )
+    if not barber:
+        raise HTTPException(status_code=404, detail="Professional not found")
+    return await _create_presential_appointment(
+        request, current_user, organization_id, data.barber_id, data, source="manager_walkin"
+    )
 
 
 @api_router.get("/staff/appointments/summary", tags=["staff-portal"])
