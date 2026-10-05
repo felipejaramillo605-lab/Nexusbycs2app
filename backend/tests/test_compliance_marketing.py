@@ -31,15 +31,29 @@ def test_unsubscribe_tokens_are_signed_and_expire(monkeypatch):
 def test_campaigns_have_one_click_headers_and_no_pii_prints():
     source = (Path(__file__).resolve().parents[1] / "server.py").read_text(encoding="utf-8")
     tree = ast.parse(source)
-    campaign = next(node for node in ast.walk(tree) if isinstance(node, ast.AsyncFunctionDef) and node.name == "create_campaign")
+    campaign = next(
+        node for node in ast.walk(tree) if isinstance(node, ast.AsyncFunctionDef) and node.name == "create_campaign"
+    )
     body = ast.get_source_segment(source, campaign) or ""
     assert "List-Unsubscribe" in body and "List-Unsubscribe-Post" in body
     assert "unsubscribe?phone=" not in body
     assert '"accepts_marketing": False' in source
-    assert not [node for node in ast.walk(campaign) if isinstance(node, ast.Call) and getattr(node.func, "id", None) == "print"]
+    assert not [
+        node for node in ast.walk(campaign) if isinstance(node, ast.Call) and getattr(node.func, "id", None) == "print"
+    ]
 
 
 def test_business_registration_requires_adult_confirmation():
     source = (Path(__file__).resolve().parents[1] / "server.py").read_text(encoding="utf-8")
     assert "adult_confirmed: bool = False" in source
     assert '"adult_confirmed_at": now_iso' in source
+
+
+def test_one_click_post_with_form_body_reaches_the_token_check():
+    """RFC 8058: the mail client POSTs a form to the URL in List-Unsubscribe; it must not 422."""
+    from fastapi.testclient import TestClient
+
+    response = TestClient(server.app).post(
+        "/api/public/clients/unsubscribe?token=invalid", data={"List-Unsubscribe": "One-Click"}
+    )
+    assert response.status_code == 400

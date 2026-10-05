@@ -7223,16 +7223,22 @@ def verify_unsubscribe_token(token: str) -> dict:
 # Unsubscribe from marketing (CAN-SPAM Act + TCPA compliance)
 @api_router.post("/public/clients/unsubscribe", tags=["public-client-portal"])
 @limiter.limit("10/hour")
-async def unsubscribe_client(
-    request: Request, data: UnsubscribeRequest
-):
+async def unsubscribe_client(request: Request, token: Optional[str] = None):
     """
     Public endpoint to unsubscribe from marketing communications.
     No authentication required - protected by knowing contact info.
     Complies with CAN-SPAM Act and TCPA requirements for easy opt-out.
     """
-    if data.token:
-        token_data = verify_unsubscribe_token(data.token)
+    # RFC 8058 one-click: el correo hace POST (formulario) a ...?token=...; la pagina web envia JSON.
+    data = UnsubscribeRequest()
+    if "application/json" in request.headers.get("content-type", ""):
+        try:
+            data = UnsubscribeRequest(**(await request.json()))
+        except (ValueError, TypeError) as error:
+            raise HTTPException(status_code=400, detail="Invalid unsubscribe request") from error
+    token = data.token or token
+    if token:
+        token_data = verify_unsubscribe_token(token)
         organization_id = token_data["organization_id"]
         query = {"organization_id": organization_id, "client_id": token_data["client_id"]}
     else:
@@ -8168,7 +8174,9 @@ async def create_campaign(
                 unsubscribe_token = create_unsubscribe_token(client["client_id"], org_id)
                 unsubscribe_url = f"{frontend_url}/unsubscribe?token={unsubscribe_token}"
                 unsubscribe_headers = {
-                    "List-Unsubscribe": f"<{unsubscribe_url}>, <mailto:{os.environ.get('UNSUBSCRIBE_MAILTO', 'unsubscribe@nexusbycs2.com')}>",
+                    # URL de la API (acepta POST de un clic); el mailto cae en el correo publico de atencion.
+                    "List-Unsubscribe": f"<{frontend_url}/api/public/clients/unsubscribe?token={unsubscribe_token}>, "
+                    f"<mailto:{os.environ.get('UNSUBSCRIBE_MAILTO', 'nexusbycs2@gmail.com')}?subject=unsubscribe>",
                     "List-Unsubscribe-Post": "List-Unsubscribe=One-Click",
                 }
 
