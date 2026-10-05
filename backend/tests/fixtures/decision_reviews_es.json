@@ -1,0 +1,642 @@
+[
+  {
+    "id": "review-0",
+    "text": "Excelente servicio y muy amables",
+    "label": {
+      "sentiment": "positive",
+      "topic": "service"
+    }
+  },
+  {
+    "id": "review-1",
+    "text": "Me encantó la atención del profesional",
+    "label": {
+      "sentiment": "positive",
+      "topic": "service"
+    }
+  },
+  {
+    "id": "review-2",
+    "text": "Todo salió perfecto",
+    "label": {
+      "sentiment": "positive",
+      "topic": "service"
+    }
+  },
+  {
+    "id": "review-3",
+    "text": "Volveré pronto, gracias",
+    "label": {
+      "sentiment": "positive",
+      "topic": "service"
+    }
+  },
+  {
+    "id": "review-4",
+    "text": "Excelente servicio y muy amables",
+    "label": {
+      "sentiment": "positive",
+      "topic": "service"
+    }
+  },
+  {
+    "id": "review-5",
+    "text": "Me encantó la atención del profesional",
+    "label": {
+      "sentiment": "positive",
+      "topic": "service"
+    }
+  },
+  {
+    "id": "review-6",
+    "text": "Todo salió perfecto",
+    "label": {
+      "sentiment": "positive",
+      "topic": "service"
+    }
+  },
+  {
+    "id": "review-7",
+    "text": "Volveré pronto, gracias",
+    "label": {
+      "sentiment": "positive",
+      "topic": "service"
+    }
+  },
+  {
+    "id": "review-8",
+    "text": "Excelente servicio y muy amables",
+    "label": {
+      "sentiment": "positive",
+      "topic": "service"
+    }
+  },
+  {
+    "id": "review-9",
+    "text": "Me encantó la atención del profesional",
+    "label": {
+      "sentiment": "positive",
+      "topic": "service"
+    }
+  },
+  {
+    "id": "review-10",
+    "text": "Todo salió perfecto",
+    "label": {
+      "sentiment": "positive",
+      "topic": "service"
+    }
+  },
+  {
+    "id": "review-11",
+    "text": "Volveré pronto, gracias",
+    "label": {
+      "sentiment": "positive",
+      "topic": "service"
+    }
+  },
+  {
+    "id": "review-12",
+    "text": "Excelente servicio y muy amables",
+    "label": {
+      "sentiment": "positive",
+      "topic": "service"
+    }
+  },
+  {
+    "id": "review-13",
+    "text": "Me encantó la atención del profesional",
+    "label": {
+      "sentiment": "positive",
+      "topic": "service"
+    }
+  },
+  {
+    "id": "review-14",
+    "text": "Todo salió perfecto",
+    "label": {
+      "sentiment": "positive",
+      "topic": "service"
+    }
+  },
+  {
+    "id": "review-15",
+    "text": "Volveré pronto, gracias",
+    "label": {
+      "sentiment": "positive",
+      "topic": "service"
+    }
+  },
+  {
+    "id": "review-16",
+    "text": "Excelente servicio y muy amables",
+    "label": {
+      "sentiment": "positive",
+      "topic": "service"
+    }
+  },
+  {
+    "id": "review-17",
+    "text": "Me encantó la atención del profesional",
+    "label": {
+      "sentiment": "positive",
+      "topic": "service"
+    }
+  },
+  {
+    "id": "review-18",
+    "text": "Todo salió perfecto",
+    "label": {
+      "sentiment": "positive",
+      "topic": "service"
+    }
+  },
+  {
+    "id": "review-19",
+    "text": "Volveré pronto, gracias",
+    "label": {
+      "sentiment": "positive",
+      "topic": "service"
+    }
+  },
+  {
+    "id": "review-20",
+    "text": "Esperé demasiado para que me atendieran",
+    "label": {
+      "sentiment": "negative",
+      "topic": "wait"
+    }
+  },
+  {
+    "id": "review-21",
+    "text": "La fila fue eterna",
+    "label": {
+      "sentiment": "negative",
+      "topic": "wait"
+    }
+  },
+  {
+    "id": "review-22",
+    "text": "Llegué puntual y esperé una hora",
+    "label": {
+      "sentiment": "negative",
+      "topic": "wait"
+    }
+  },
+  {
+    "id": "review-23",
+    "text": "Mucha demora en recepción",
+    "label": {
+      "sentiment": "negative",
+      "topic": "wait"
+    }
+  },
+  {
+    "id": "review-24",
+    "text": "Esperé demasiado para que me atendieran",
+    "label": {
+      "sentiment": "negative",
+      "topic": "wait"
+    }
+  },
+  {
+    "id": "review-25",
+    "text": "La fila fue eterna",
+    "label": {
+      "sentiment": "negative",
+      "topic": "wait"
+    }
+  },
+  {
+    "id": "review-26",
+    "text": "Llegué puntual y esperé una hora",
+    "label": {
+      "sentiment": "negative",
+      "topic": "wait"
+    }
+  },
+  {
+    "id": "review-27",
+    "text": "Mucha demora en recepción",
+    "label": {
+      "sentiment": "negative",
+      "topic": "wait"
+    }
+  },
+  {
+    "id": "review-28",
+    "text": "Esperé demasiado para que me atendieran",
+    "label": {
+      "sentiment": "negative",
+      "topic": "wait"
+    }
+  },
+  {
+    "id": "review-29",
+    "text": "La fila fue eterna",
+    "label": {
+      "sentiment": "negative",
+      "topic": "wait"
+    }
+  },
+  {
+    "id": "review-30",
+    "text": "Llegué puntual y esperé una hora",
+    "label": {
+      "sentiment": "negative",
+      "topic": "wait"
+    }
+  },
+  {
+    "id": "review-31",
+    "text": "Mucha demora en recepción",
+    "label": {
+      "sentiment": "negative",
+      "topic": "wait"
+    }
+  },
+  {
+    "id": "review-32",
+    "text": "Esperé demasiado para que me atendieran",
+    "label": {
+      "sentiment": "negative",
+      "topic": "wait"
+    }
+  },
+  {
+    "id": "review-33",
+    "text": "La fila fue eterna",
+    "label": {
+      "sentiment": "negative",
+      "topic": "wait"
+    }
+  },
+  {
+    "id": "review-34",
+    "text": "Llegué puntual y esperé una hora",
+    "label": {
+      "sentiment": "negative",
+      "topic": "wait"
+    }
+  },
+  {
+    "id": "review-35",
+    "text": "Mucha demora en recepción",
+    "label": {
+      "sentiment": "negative",
+      "topic": "wait"
+    }
+  },
+  {
+    "id": "review-36",
+    "text": "Esperé demasiado para que me atendieran",
+    "label": {
+      "sentiment": "negative",
+      "topic": "wait"
+    }
+  },
+  {
+    "id": "review-37",
+    "text": "La fila fue eterna",
+    "label": {
+      "sentiment": "negative",
+      "topic": "wait"
+    }
+  },
+  {
+    "id": "review-38",
+    "text": "Llegué puntual y esperé una hora",
+    "label": {
+      "sentiment": "negative",
+      "topic": "wait"
+    }
+  },
+  {
+    "id": "review-39",
+    "text": "Mucha demora en recepción",
+    "label": {
+      "sentiment": "negative",
+      "topic": "wait"
+    }
+  },
+  {
+    "id": "review-40",
+    "text": "El precio fue más alto de lo informado",
+    "label": {
+      "sentiment": "negative",
+      "topic": "price"
+    }
+  },
+  {
+    "id": "review-41",
+    "text": "Me cobraron de más",
+    "label": {
+      "sentiment": "negative",
+      "topic": "price"
+    }
+  },
+  {
+    "id": "review-42",
+    "text": "No entendí el valor final",
+    "label": {
+      "sentiment": "negative",
+      "topic": "price"
+    }
+  },
+  {
+    "id": "review-43",
+    "text": "Muy caro para el resultado",
+    "label": {
+      "sentiment": "negative",
+      "topic": "price"
+    }
+  },
+  {
+    "id": "review-44",
+    "text": "El precio fue más alto de lo informado",
+    "label": {
+      "sentiment": "negative",
+      "topic": "price"
+    }
+  },
+  {
+    "id": "review-45",
+    "text": "Me cobraron de más",
+    "label": {
+      "sentiment": "negative",
+      "topic": "price"
+    }
+  },
+  {
+    "id": "review-46",
+    "text": "No entendí el valor final",
+    "label": {
+      "sentiment": "negative",
+      "topic": "price"
+    }
+  },
+  {
+    "id": "review-47",
+    "text": "Muy caro para el resultado",
+    "label": {
+      "sentiment": "negative",
+      "topic": "price"
+    }
+  },
+  {
+    "id": "review-48",
+    "text": "El precio fue más alto de lo informado",
+    "label": {
+      "sentiment": "negative",
+      "topic": "price"
+    }
+  },
+  {
+    "id": "review-49",
+    "text": "Me cobraron de más",
+    "label": {
+      "sentiment": "negative",
+      "topic": "price"
+    }
+  },
+  {
+    "id": "review-50",
+    "text": "No entendí el valor final",
+    "label": {
+      "sentiment": "negative",
+      "topic": "price"
+    }
+  },
+  {
+    "id": "review-51",
+    "text": "Muy caro para el resultado",
+    "label": {
+      "sentiment": "negative",
+      "topic": "price"
+    }
+  },
+  {
+    "id": "review-52",
+    "text": "El precio fue más alto de lo informado",
+    "label": {
+      "sentiment": "negative",
+      "topic": "price"
+    }
+  },
+  {
+    "id": "review-53",
+    "text": "Me cobraron de más",
+    "label": {
+      "sentiment": "negative",
+      "topic": "price"
+    }
+  },
+  {
+    "id": "review-54",
+    "text": "No entendí el valor final",
+    "label": {
+      "sentiment": "negative",
+      "topic": "price"
+    }
+  },
+  {
+    "id": "review-55",
+    "text": "Muy caro para el resultado",
+    "label": {
+      "sentiment": "negative",
+      "topic": "price"
+    }
+  },
+  {
+    "id": "review-56",
+    "text": "El precio fue más alto de lo informado",
+    "label": {
+      "sentiment": "negative",
+      "topic": "price"
+    }
+  },
+  {
+    "id": "review-57",
+    "text": "Me cobraron de más",
+    "label": {
+      "sentiment": "negative",
+      "topic": "price"
+    }
+  },
+  {
+    "id": "review-58",
+    "text": "No entendí el valor final",
+    "label": {
+      "sentiment": "negative",
+      "topic": "price"
+    }
+  },
+  {
+    "id": "review-59",
+    "text": "Muy caro para el resultado",
+    "label": {
+      "sentiment": "negative",
+      "topic": "price"
+    }
+  },
+  {
+    "id": "review-60",
+    "text": "Buen resultado pero el trato fue frío",
+    "label": {
+      "sentiment": "mixed",
+      "topic": "treatment"
+    }
+  },
+  {
+    "id": "review-61",
+    "text": "Me gustó el servicio aunque hubo demora",
+    "label": {
+      "sentiment": "mixed",
+      "topic": "treatment"
+    }
+  },
+  {
+    "id": "review-62",
+    "text": "Excelente profesional, recepción regular",
+    "label": {
+      "sentiment": "mixed",
+      "topic": "treatment"
+    }
+  },
+  {
+    "id": "review-63",
+    "text": "Quedé bien pero el precio sorprendió",
+    "label": {
+      "sentiment": "mixed",
+      "topic": "treatment"
+    }
+  },
+  {
+    "id": "review-64",
+    "text": "Buen resultado pero el trato fue frío",
+    "label": {
+      "sentiment": "mixed",
+      "topic": "treatment"
+    }
+  },
+  {
+    "id": "review-65",
+    "text": "Me gustó el servicio aunque hubo demora",
+    "label": {
+      "sentiment": "mixed",
+      "topic": "treatment"
+    }
+  },
+  {
+    "id": "review-66",
+    "text": "Excelente profesional, recepción regular",
+    "label": {
+      "sentiment": "mixed",
+      "topic": "treatment"
+    }
+  },
+  {
+    "id": "review-67",
+    "text": "Quedé bien pero el precio sorprendió",
+    "label": {
+      "sentiment": "mixed",
+      "topic": "treatment"
+    }
+  },
+  {
+    "id": "review-68",
+    "text": "Buen resultado pero el trato fue frío",
+    "label": {
+      "sentiment": "mixed",
+      "topic": "treatment"
+    }
+  },
+  {
+    "id": "review-69",
+    "text": "Me gustó el servicio aunque hubo demora",
+    "label": {
+      "sentiment": "mixed",
+      "topic": "treatment"
+    }
+  },
+  {
+    "id": "review-70",
+    "text": "Excelente profesional, recepción regular",
+    "label": {
+      "sentiment": "mixed",
+      "topic": "treatment"
+    }
+  },
+  {
+    "id": "review-71",
+    "text": "Quedé bien pero el precio sorprendió",
+    "label": {
+      "sentiment": "mixed",
+      "topic": "treatment"
+    }
+  },
+  {
+    "id": "review-72",
+    "text": "Buen resultado pero el trato fue frío",
+    "label": {
+      "sentiment": "mixed",
+      "topic": "treatment"
+    }
+  },
+  {
+    "id": "review-73",
+    "text": "Me gustó el servicio aunque hubo demora",
+    "label": {
+      "sentiment": "mixed",
+      "topic": "treatment"
+    }
+  },
+  {
+    "id": "review-74",
+    "text": "Excelente profesional, recepción regular",
+    "label": {
+      "sentiment": "mixed",
+      "topic": "treatment"
+    }
+  },
+  {
+    "id": "review-75",
+    "text": "Quedé bien pero el precio sorprendió",
+    "label": {
+      "sentiment": "mixed",
+      "topic": "treatment"
+    }
+  },
+  {
+    "id": "review-76",
+    "text": "Buen resultado pero el trato fue frío",
+    "label": {
+      "sentiment": "mixed",
+      "topic": "treatment"
+    }
+  },
+  {
+    "id": "review-77",
+    "text": "Me gustó el servicio aunque hubo demora",
+    "label": {
+      "sentiment": "mixed",
+      "topic": "treatment"
+    }
+  },
+  {
+    "id": "review-78",
+    "text": "Excelente profesional, recepción regular",
+    "label": {
+      "sentiment": "mixed",
+      "topic": "treatment"
+    }
+  },
+  {
+    "id": "review-79",
+    "text": "Quedé bien pero el precio sorprendió",
+    "label": {
+      "sentiment": "mixed",
+      "topic": "treatment"
+    }
+  }
+]
