@@ -26,6 +26,10 @@ def _fingerprint(value: str) -> str:
     return hashlib.sha256(str(value or "").strip().lower().encode()).hexdigest()[:16]
 
 
+def valid_address(value: str) -> bool:
+    return bool(ADDRESS_PATTERN.match(str(value or "")))
+
+
 def resend_enabled() -> bool:
     return (
         os.getenv("EMAIL_PROVIDER", "").strip().lower() == "resend"
