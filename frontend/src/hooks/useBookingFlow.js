@@ -4,6 +4,7 @@ import { toast } from 'sonner';
 import { publicAPI } from '../api';
 import { useOrganization } from '../context/OrganizationContext';
 import { useCart } from '../lib/cart';
+import { describeBookingConflict } from '../lib/bookingErrors';
 
 const weekday = (value) => {
   if (!value) return null;
@@ -275,14 +276,15 @@ export function useBookingFlow() {
     } catch (err) {
       const status = err.response?.status;
       const detail = err.response?.data?.detail;
-      const code = typeof detail === 'object' ? detail?.code : null;
       const message = typeof detail === 'object' ? detail?.message : detail;
       if (status === 409) {
-        setError(code === 'APPOINTMENT_TIME_IN_PAST'
-          ? 'Este horario ya pasó. Selecciona uno posterior.'
-          : message || 'El horario acaba de cambiar o ya fue reservado. Selecciona otro.');
-        setStep(3);
-        await loadAvailability();
+        const conflict = describeBookingConflict(detail);
+        setError(conflict.message);
+        if (conflict.backToStep) {
+          setStep(conflict.backToStep);
+          await loadAvailability();
+          setError(conflict.message);
+        }
       } else {
         setError(message || 'No fue posible crear la cita.');
       }
