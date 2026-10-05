@@ -100,6 +100,13 @@ def test_payload_has_sender_recipient_text_cc_and_base64_attachment(resend_env, 
     assert base64.b64decode(body["attachments"][0]["content"]) == b"%PDF-data"
 
 
+def test_resend_accepts_list_unsubscribe_headers_for_marketing(resend_env, posts):
+    calls, _ = posts
+    headers = {"List-Unsubscribe": "<https://example.test/unsubscribe?token=signed>", "List-Unsubscribe-Post": "List-Unsubscribe=One-Click"}
+    assert email_providers.send_via_resend("recipient@example.test", "Campaign", "<p>x</p>", headers=headers) == (True, None)
+    assert calls[0]["json"]["headers"] == headers
+
+
 @pytest.mark.parametrize("status", [429, 500, 422])
 def test_http_errors_are_reported_without_raising(resend_env, posts, status):
     _, state = posts

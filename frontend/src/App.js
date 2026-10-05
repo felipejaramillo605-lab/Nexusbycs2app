@@ -21,6 +21,7 @@ import CancelAppointment from './pages/CancelAppointment';
 import { RouteExperienceFrame } from './components/design';
 import { ClientPortalThemeWrapper } from './components/ClientPortalThemeWrapper';
 import { settingsTabRedirectLocation } from './routing/settingsTabRedirect';
+import ConsentBanner from './components/ConsentBanner';
 
 // NEXUS_FRONTEND_PERFORMANCE_4C1_V1
 const ReactQueryDevtools = process.env.NODE_ENV === 'development'
@@ -386,6 +387,7 @@ function App() {
                   <div className="App">
                     <AppRouter />
                     <Toaster position="top-right" />
+                    <ConsentBanner />
                     <MediaRightsDialog />
                   </div>
                 </ErrorBoundary>

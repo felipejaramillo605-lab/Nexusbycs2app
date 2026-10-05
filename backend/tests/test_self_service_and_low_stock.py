@@ -97,7 +97,7 @@ def new_manager(db):
     s = _session()
     r = s.post(
         f"{BASE_URL}/api/auth/register",
-        json={"email": email, "password": password, "name": "Test SelfSvc", "tos_accepted": True},
+        json={"email": email, "password": password, "name": "Test SelfSvc", "tos_accepted": True, "adult_confirmed": True},
         timeout=15,
     )
     assert r.status_code == 200, f"register failed: {r.status_code} {r.text}"

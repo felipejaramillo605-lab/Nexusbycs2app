@@ -44,7 +44,7 @@ async def fix_total_visits():
                 {"client_id": client["client_id"]},
                 {"$set": {"total_visits": completed_appointments}}
             )
-            print(f"  ✅ {client['name']}: {current_visits} → {completed_appointments} visitas")
+            print(f"  ✅ client_id={client['client_id']}: {current_visits} → {completed_appointments} visitas")
             updated_count += 1
     
     print(f"\n✨ Corrección completada: {updated_count} clientes actualizados")
