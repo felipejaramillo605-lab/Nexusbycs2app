@@ -16,7 +16,7 @@ const blankForm={subject:'',category:'peticion',priority:'normal',initial_messag
 
 export default function ManagerSupport(){
  const [conversations,setConversations]=useState([]),[loading,setLoading]=useState(true);
- const [showNew,setShowNew]=useState(false),[form,setForm]=useState(blankForm),[creating,setCreating]=useState(false),[suggesting,setSuggesting]=useState(false);
+ const [showNew,setShowNew]=useState(false),[form,setForm]=useState(blankForm),[creating,setCreating]=useState(false),[suggesting,setSuggesting]=useState(false),[suggestionInfo,setSuggestionInfo]=useState(null);
  const [selectedId,setSelectedId]=useState(null),[selected,setSelected]=useState(null),[selectedLoading,setSelectedLoading]=useState(false);
  const [reply,setReply]=useState(''),[sending,setSending]=useState(false);
 
@@ -26,8 +26,8 @@ export default function ManagerSupport(){
  const openConversation=async(id)=>{setSelectedId(id);setSelectedLoading(true);setSelected(null);try{const r=await supportAPI.get(id);setSelected(r.data)}catch(e){toast.error(detail(e,'No fue posible cargar el PQRS'));setSelectedId(null)}finally{setSelectedLoading(false)}};
  const closeDrawer=()=>{setSelectedId(null);setSelected(null);setReply('')};
 
- const suggestTicket=async()=>{if(!form.subject.trim()||!form.initial_message.trim()){toast.error('Escribe el asunto y mensaje antes de pedir una sugerencia');return}setSuggesting(true);try{const r=await supportAPI.suggest({subject:form.subject.trim(),initial_message:form.initial_message.trim()});setForm(current=>({...current,...r.data.suggestion}));toast.success('Sugerencia aplicada. Puedes cambiarla antes de enviar.')}catch(e){toast.error(detail(e,'No fue posible generar la sugerencia'))}finally{setSuggesting(false)}};
- const createTicket=async(e)=>{e.preventDefault();if(!form.subject.trim()||!form.initial_message.trim())return;setCreating(true);try{await supportAPI.create({subject:form.subject.trim(),category:form.category,priority:form.priority,initial_message:form.initial_message.trim(),idempotency_key:`pqrs-ui-${Date.now()}-${Math.random().toString(36).slice(2,10)}`});toast.success('PQRS enviado a Nexus');setShowNew(false);setForm(blankForm);await load()}catch(e){toast.error(detail(e,'No fue posible enviar el PQRS'))}finally{setCreating(false)}};
+ const suggestTicket=async()=>{if(!form.subject.trim()||!form.initial_message.trim()){toast.error('Escribe el asunto y mensaje antes de pedir una sugerencia');return}setSuggesting(true);try{const r=await supportAPI.suggest({subject:form.subject.trim(),initial_message:form.initial_message.trim()});setForm(current=>({...current,...r.data.suggestion}));setSuggestionInfo({confidence:r.data.confidence,provider:r.data.provider});toast.success('Sugerencia aplicada. Puedes cambiarla antes de enviar.')}catch(e){toast.error(detail(e,'No fue posible generar la sugerencia'))}finally{setSuggesting(false)}};
+ const createTicket=async(e)=>{e.preventDefault();if(!form.subject.trim()||!form.initial_message.trim())return;setCreating(true);try{await supportAPI.create({subject:form.subject.trim(),category:form.category,priority:form.priority,initial_message:form.initial_message.trim(),idempotency_key:`pqrs-ui-${Date.now()}-${Math.random().toString(36).slice(2,10)}`});toast.success('PQRS enviado a Nexus');setShowNew(false);setForm(blankForm);setSuggestionInfo(null);await load()}catch(e){toast.error(detail(e,'No fue posible enviar el PQRS'))}finally{setCreating(false)}};
 
  const sendReply=async(e)=>{e.preventDefault();const body=reply.trim();if(!body||!selectedId)return;setSending(true);try{const r=await supportAPI.sendMessage(selectedId,{body,idempotency_key:`pqrs-msg-${Date.now()}-${Math.random().toString(36).slice(2,10)}`});setSelected(s=>({conversation:r.data.conversation,messages:[...(s?.messages||[]),r.data.message]}));setReply('');await load()}catch(e){toast.error(detail(e,'No fue posible enviar el mensaje'))}finally{setSending(false)}};
 
@@ -51,6 +51,7 @@ export default function ManagerSupport(){
     <label><FieldGuide label="Prioridad" required/><select value={form.priority} onChange={e=>setForm({...form,priority:e.target.value})}>{PRIORITIES.map(([v,l])=><option key={v} value={v}>{l}</option>)}</select></label>
     <label className="nexus-field-wide"><FieldGuide label="Asunto" hint="Un resumen corto." example="Demora en respuesta de soporte" required/><input value={form.subject} onChange={e=>setForm({...form,subject:e.target.value})} maxLength={160} required/></label>
     <label className="nexus-field-wide"><FieldGuide label="Mensaje" required/><textarea rows={4} value={form.initial_message} onChange={e=>setForm({...form,initial_message:e.target.value})} maxLength={4000} required/></label>
+    {suggestionInfo&&<p role="status" className="nexus-field-wide text-sm text-[var(--app-text-secondary)]">Sugerencia automática básica{typeof suggestionInfo.confidence==='number'?` (confianza ${Math.round(suggestionInfo.confidence*100)}%)`:''}. Puedes cambiar el tipo y la prioridad antes de enviar.</p>}
     <div className="nexus-account-actions mt-2"><ActionButton type="button" variant="secondary" icon={Sparkles} onClick={suggestTicket} disabled={creating||suggesting} loading={suggesting}>Sugerir tipo y prioridad</ActionButton><ActionButton type="button" variant="secondary" onClick={()=>setShowNew(false)} disabled={creating}>Cancelar</ActionButton><ActionButton type="submit" icon={Send} loading={creating}>Enviar PQRS</ActionButton></div>
    </form>
   </AccessibleModal>}

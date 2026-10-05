@@ -7,6 +7,7 @@ import uuid
 
 from pymongo.errors import DuplicateKeyError
 from decision_engine import decide
+from request_security import rate_limiter
 
 from fastapi import APIRouter, Cookie, Header, HTTPException, Query
 from pydantic import BaseModel, Field
@@ -17,6 +18,7 @@ SUPPORT_PRIORITIES = {"low", "normal", "high", "urgent"}
 SUPPORT_MESSAGE_TYPES = {"text", "image", "mixed", "system"}
 ORGANIZATION_SUPPORT_ROLES = {"manager", "admin"}
 OWNER_SUPPORT_ROLES = {"owner"}
+SUPPORT_SUGGESTIONS_PER_MINUTE = 10
 
 
 class SupportConversationCreate(BaseModel):
@@ -168,14 +170,18 @@ def build_support_center_router(db, get_current_user, require_management_role, r
     ):
         user = await actor(authorization, session_token)
         org_id = await organization_actor(user, organization_id)
+        await rate_limiter.check(f"support_suggestion:{user.user_id}", SUPPORT_SUGGESTIONS_PER_MINUTE, 60)
         result = await decide(
             db, actor_user_id=user.user_id, organization_id=org_id, kind="support",
             text=f"{data.subject.strip()}\n{data.initial_message.strip()}",
         )
         choice = result.get("choice") if isinstance(result.get("choice"), dict) else {}
-        category = {"technical": "peticion", "billing": "reclamo", "general": "otro"}.get(choice.get("category"), "otro")
-        priority = choice.get("priority") if choice.get("priority") in {"low", "normal", "high"} else "high" if choice.get("priority") == "urgent" else "normal"
-        return {"suggestion": {"category": category, "priority": priority}, "confidence": result.get("confidence"), "provider": result.get("provider"), "automatic": False}
+        return {
+            "suggestion": normalize_support_suggestion(choice),
+            "confidence": result.get("confidence"),
+            "provider": result.get("provider"),
+            "automatic": False,
+        }
     @router.post("/support/conversations")
     async def create_support_conversation(
         data: SupportConversationCreate,
