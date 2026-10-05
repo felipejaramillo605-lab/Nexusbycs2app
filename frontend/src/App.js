@@ -43,6 +43,7 @@ const OwnerLegalProfile = lazy(() => import('./pages/OwnerLegalProfile'));
 const OwnerLegalDocuments = lazy(() => import('./pages/OwnerLegalDocuments'));
 const OwnerRetention = lazy(() => import('./pages/OwnerRetention'));
 const LegalContract = lazy(() => import('./pages/LegalContract'));
+const Subprocessors = lazy(() => import('./pages/Subprocessors'));
 const OwnerThirdPartyMatrix = lazy(() => import('./pages/OwnerThirdPartyMatrix'));
 const OwnerAnnouncements = lazy(() => import('./pages/OwnerAnnouncements'));
 const OwnerSupportInbox = lazy(() => import('./pages/OwnerSupportInbox'));
@@ -374,6 +375,7 @@ function AppRouter() {
         <Route path="/unsubscribe" element={<Unsubscribe />} />
         <Route path="/privacy-policy" element={<PrivacyPolicy />} />
         <Route path="/terms-of-service" element={<TermsOfService />} />
+        <Route path="/subencargados" element={<Suspense fallback={<PageLoader />}><Subprocessors /></Suspense>} />
         
         <Route path="/" element={<Navigate to="/login" replace />} />
         <Route path="*" element={<NotFound />} />
