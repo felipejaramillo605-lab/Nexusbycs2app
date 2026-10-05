@@ -32,7 +32,7 @@ export default function PrivacyPolicy() {
 
           {/* --- 1. Identificacion del Responsable --- */}
           <section className="mb-8">
-            <p className="text-sm text-zinc-400 mb-4">Ultima actualizacion: agosto de 2026</p>
+            <p className="text-sm text-zinc-400 mb-4">Ultima actualizacion: octubre de 2026</p>
 
             <div className="bg-blue-500/10 border border-blue-500/20 rounded-xl p-5 mb-6">
               <div className="flex items-start gap-3 mb-3">
@@ -41,10 +41,10 @@ export default function PrivacyPolicy() {
               </div>
               <div className="text-sm text-zinc-300 space-y-1 ml-8">
                 <p><strong className="text-white">Razon social:</strong> Felipe Jaramillo Parra (persona natural, actividad comercial bajo el nombre "Nexus by CS2")</p>
-                <p><strong className="text-white">NIT / C.C.:</strong> 1152468561</p>
-                <p><strong className="text-white">Domicilio:</strong> Cr 51 #96 sur 50, La Estrella, Antioquia, Colombia</p>
+                <p><strong className="text-white">Domicilio:</strong> La Estrella, Antioquia, Colombia</p>
                 <p><strong className="text-white">Correo de contacto:</strong> nexusbycs2@gmail.com</p>
-                <p><strong className="text-white">Telefono:</strong> +57 310 370 5753</p>
+                <p><strong className="text-white">Telefono para atencion de solicitudes:</strong> +57 323 907 0485</p>
+                <p className="text-xs text-zinc-500 pt-1">El documento de identidad y la direccion completa del Responsable se ponen a disposicion de los usuarios registrados que aceptan el contrato de servicio.</p>
               </div>
             </div>
 
@@ -182,7 +182,7 @@ export default function PrivacyPolicy() {
 
             <div className="bg-white/5 border border-white/10 rounded-lg divide-y divide-white/10 mb-4">
               <div className="p-4">
-                <p className="text-sm text-white font-medium">Proveedor de correo electronico (Gmail SMTP)</p>
+                <p className="text-sm text-white font-medium">Proveedores de correo electronico (Resend y respaldo SMTP)</p>
                 <p className="text-xs text-zinc-500">Envio de confirmaciones, recordatorios y comunicaciones transaccionales.</p>
               </div>
               <div className="p-4">
@@ -196,6 +196,18 @@ export default function PrivacyPolicy() {
               <div className="p-4">
                 <p className="text-sm text-white font-medium">MongoDB Atlas (MongoDB, Inc.)</p>
                 <p className="text-xs text-zinc-500">Base de datos en la nube donde se almacenan los datos de usuarios, citas y configuraciones.</p>
+              </div>
+              <div className="p-4">
+                <p className="text-sm text-white font-medium">Cloudflare R2 (Cloudflare, Inc.)</p>
+                <p className="text-xs text-zinc-500">Almacenamiento de imagenes (logos, fondos, fotos de servicios y del equipo).</p>
+              </div>
+              <div className="p-4">
+                <p className="text-sm text-white font-medium">Google (Google LLC)</p>
+                <p className="text-xs text-zinc-500">Inicio de sesion con Google para usuarios de negocios y, solo cuando se habilite, modelos de inteligencia artificial con texto minimo y enmascarado.</p>
+              </div>
+              <div className="p-4">
+                <p className="text-sm text-white font-medium">IONOS</p>
+                <p className="text-xs text-zinc-500">Dominio, DNS y correo corporativo de soporte.</p>
               </div>
               <div className="p-4">
                 <p className="text-sm text-white font-medium">Procesadores de pago (Wompi / Stripe)</p>
@@ -269,7 +281,7 @@ export default function PrivacyPolicy() {
               <div className="text-sm text-zinc-400 space-y-2">
                 <p><strong className="text-white">Consultas:</strong> Se responderan en un plazo maximo de diez (10) dias habiles contados a partir de la fecha de recepcion. Cuando no fuere posible atender la consulta dentro de dicho termino, se informara al interesado antes de su vencimiento, expresando los motivos de la demora, y se senalara la fecha en que se atendera, la cual no podra superar los cinco (5) dias habiles siguientes.</p>
                 <p><strong className="text-white">Reclamos:</strong> Se responderan en un plazo maximo de quince (15) dias habiles contados a partir del dia siguiente a la recepcion. Cuando no fuere posible atender el reclamo dentro de dicho termino, se informara al interesado los motivos de la demora y la fecha en que se atendera, la cual no podra superar los ocho (8) dias habiles siguientes.</p>
-                <p><strong className="text-white">Canal:</strong> nexusbycs2@gmail.com o al telefono +57 310 370 5753.</p>
+                <p><strong className="text-white">Canal:</strong> nexusbycs2@gmail.com o al telefono +57 323 907 0485.</p>
               </div>
             </div>
           </section>
@@ -451,8 +463,8 @@ export default function PrivacyPolicy() {
                   <Phone size={18} className="text-blue-400 mt-0.5 flex-shrink-0" />
                   <div>
                     <p className="text-xs text-zinc-500 mb-1">Telefono</p>
-                    <a href="tel:+573103705753" className="text-blue-400 hover:underline text-sm">
-                      +57 310 370 5753
+                    <a href="tel:+573239070485" className="text-blue-400 hover:underline text-sm">
+                      +57 323 907 0485
                     </a>
                   </div>
                 </div>
@@ -461,7 +473,6 @@ export default function PrivacyPolicy() {
                   <div>
                     <p className="text-xs text-zinc-500 mb-1">Direccion</p>
                     <p className="text-sm text-zinc-300">
-                      Cr 51 #96 sur 50<br />
                       La Estrella, Antioquia, Colombia
                     </p>
                   </div>
