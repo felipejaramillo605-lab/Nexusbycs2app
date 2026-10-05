@@ -8,6 +8,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from fastapi import APIRouter, Cookie, File, Header, HTTPException, Query, UploadFile
+from media_rights import require_media_rights
 from fastapi.responses import FileResponse
 from image_pipeline import MAX_UPLOAD_BYTES, MAX_SIDE, MAX_INPUT_PIXELS, read_upload_limited, normalize_image as _normalize_image, normalize_image_async
 from media_mirror import mirror_delete, mirror_put, mirror_restore
@@ -163,6 +164,7 @@ def build_professional_media_router(db, get_current_user, require_management_rol
     @router.post("/barbers/me/avatar")
     async def upload_my_avatar(file: UploadFile = File(...), authorization: str | None = Header(None), session_token: str | None = Cookie(None)):
         user = await get_current_user(authorization, session_token)
+        await require_media_rights(db, user)
         return await persist(await staff_target(user), user, file)
 
     @router.delete("/barbers/me/avatar")
@@ -173,6 +175,7 @@ def build_professional_media_router(db, get_current_user, require_management_rol
     @router.post("/barbers/{barber_id}/avatar")
     async def upload_professional_avatar(barber_id: str, file: UploadFile = File(...), organization_id: str | None = Query(None), authorization: str | None = Header(None), session_token: str | None = Cookie(None)):
         user = await get_current_user(authorization, session_token)
+        await require_media_rights(db, user)
         return await persist(await management_target(user, barber_id, organization_id), user, file)
 
     @router.delete("/barbers/{barber_id}/avatar")

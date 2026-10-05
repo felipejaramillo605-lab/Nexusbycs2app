@@ -1,6 +1,6 @@
 # Términos y Condiciones de Servicio — Nexus by CS2 (v2)
 
-> **Versión 2.0** · vigente desde el 5 de octubre de 2026. Aplica a negocios y a sus usuarios (Owners, Managers, Staff). Se acepta electrónicamente junto con el Anexo de Transmisión de Datos (documento 03).
+> **Versión 2.1** · vigente desde el 5 de octubre de 2026. Aplica a negocios y a sus usuarios (Owners, Managers, Staff). Se acepta electrónicamente junto con el Anexo de Transmisión de Datos (documento 03).
 
 ## 1. Partes y definiciones
 - **Prestador:** Felipe Jaramillo Parra, persona natural comerciante y creador de **CS2**, iniciativa comercial dedicada a las redes sociales, el community management y el desarrollo de programas de software, entre los cuales se encuentra **Nexus by CS2** (en adelante, "Nexus"), una solución para pequeñas y medianas empresas. Datos de contacto: nexusbycs2@gmail.com · +57 323 907 0485. Documento de identidad y dirección completa: en el contrato aceptado (cláusula 14 del Anexo).
@@ -40,6 +40,8 @@ Queda prohibido usar la Plataforma para actividades ilícitas, spam, suplantaci�
 
 ## 9. Propiedad intelectual
 La Plataforma, su código, diseño y marcas pertenecen a Nexus. El Negocio conserva la titularidad de sus datos y contenidos y otorga a Nexus una licencia limitada para alojarlos y procesarlos con el fin de prestar el servicio. El Negocio garantiza tener derechos sobre las imágenes y textos que carga.
+
+**Imágenes y autorización de uso.** Al subir imágenes (logos, fondos, fotos de servicios, de productos o de los profesionales) el usuario declara que tiene derecho a usarlas y que, si en ellas aparecen personas (profesionales o clientes), cuenta con su autorización para publicar su imagen en Nexus y en el portal del negocio; la plataforma pide esta declaración con una casilla antes de la primera subida y guarda la fecha y la versión aceptada. El usuario autoriza a Nexus a alojar y mostrar esas imágenes únicamente para prestar el servicio. Quien aparece en una imagen puede pedir su retiro al negocio o a Nexus (nexusbycs2@gmail.com).
 
 **Retiro de contenido.** Si recibimos un aviso fundado de que un contenido cargado por el Negocio infringe derechos de autor, de imagen, de privacidad u otros derechos de terceros, podremos retirarlo o inhabilitarlo de inmediato, sin responsabilidad frente al Negocio, informándole. Los avisos se envían a nexusbycs2@gmail.com e indican el derecho afectado, la ubicación del contenido, los datos de contacto de quien reclama y una declaración de buena fe. El Negocio responde por el contenido que cargó y mantendrá indemne a Nexus (cláusula 13); los infractores reincidentes podrán ser suspendidos. Si Nexus presta el servicio en EE. UU., se designará un agente para avisos bajo la DMCA y su contacto se publicará aquí.
 

@@ -196,6 +196,16 @@ export default function TermsOfService() {
                 </p>
               </div>
               <div className="bg-white/5 border border-white/10 rounded-lg p-4">
+                <h3 className="text-base font-semibold text-white mb-2">Imagenes y autorizacion de uso</h3>
+                <p className="text-sm text-zinc-400">
+                  Al subir imagenes (logos, fondos, fotos de servicios, de productos o de los profesionales) declaras
+                  que tienes derecho a usarlas y que, si aparecen personas, cuentas con su autorizacion para publicar
+                  su imagen en Nexus y en el portal del negocio. La plataforma te lo pide con una casilla antes de la
+                  primera subida. Autorizas a Nexus a alojarlas y mostrarlas unicamente para prestar el servicio. Quien
+                  aparece en una imagen puede pedir su retiro.
+                </p>
+              </div>
+              <div className="bg-white/5 border border-white/10 rounded-lg p-4">
                 <h3 className="text-base font-semibold text-white mb-2">Retiro de contenido</h3>
                 <p className="text-sm text-zinc-400">
                   Si recibimos un aviso fundado de que un contenido cargado por un Negocio infringe derechos de autor,

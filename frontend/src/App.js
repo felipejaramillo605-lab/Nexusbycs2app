@@ -7,6 +7,7 @@ import { OrganizationProvider } from './context/OrganizationContext';
 import { PlatformBrandingProvider } from './context/PlatformBrandingContext';
 import { ThemeProvider } from './context/ThemeContext';
 import { Toaster } from './components/ui/sonner';
+import MediaRightsDialog from './components/MediaRightsDialog';
 import AuthCallback from './components/AuthCallback';
 import ProtectedRoute from './components/ProtectedRoute';
 import ErrorBoundary from './components/ErrorBoundary';
@@ -385,6 +386,7 @@ function App() {
                   <div className="App">
                     <AppRouter />
                     <Toaster position="top-right" />
+                    <MediaRightsDialog />
                   </div>
                 </ErrorBoundary>
               </OrganizationProvider>

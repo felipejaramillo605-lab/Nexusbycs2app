@@ -1,6 +1,6 @@
 # Política de Tratamiento de Datos Personales — Nexus by CS2 (v2)
 
-> **Versión 2.0** · vigente desde el 5 de octubre de 2026.
+> **Versión 2.1** · vigente desde el 5 de octubre de 2026.
 
 ## 1. Responsable del Tratamiento
 - **Nombre:** Felipe Jaramillo Parra, persona natural, actividad comercial bajo el nombre "Nexus by CS2".
@@ -23,6 +23,8 @@ Si eres cliente de un negocio y quieres ejercer tus derechos, puedes dirigirte a
 - **Técnicos:** dirección IP, navegador, cookies estrictamente necesarias, eventos de entrega de correo (con la dirección enmascarada).
 - **No solicitamos datos sensibles.** Está prohibido cargar historias clínicas, diagnósticos, datos biométricos, origen racial, orientación sexual, afiliación política o religiosa u otros datos sensibles (ver la Política de Uso Aceptable). Si por error se cargan, se tratarán con las medidas reforzadas y se eliminarán a solicitud.
 - **Menores de edad:** solo con autorización de su representante legal y respetando el interés superior del menor.
+
+**Imágenes.** Las imágenes que sube un negocio (incluidas fotos de sus profesionales) se tratan solo para prestar el servicio. El usuario que las sube declara tener derecho a usarlas y la autorización de las personas que aparezcan; Nexus lo solicita con una casilla antes de la primera subida. Quien aparece en una imagen puede pedir su retiro.
 
 ## 4. Finalidades
 **Necesarias para el servicio:** crear y gestionar cuentas; agendar, confirmar, reprogramar y cancelar citas; enviar confirmaciones y recordatorios; permitir al negocio atender a su cliente; procesar pagos cuando el negocio los habilite; seguridad, prevención de fraude y auditoría; atención de soporte; cumplimiento de obligaciones legales.

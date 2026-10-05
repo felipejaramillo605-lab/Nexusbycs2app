@@ -405,6 +405,21 @@ export default function PrivacyPolicy() {
             </p>
           </section>
 
+          {/* --- 9 bis. Imagenes --- */}
+          <section className="mb-8">
+            <h2 className="text-2xl font-bold mb-4 text-white border-b border-white/10 pb-2">
+              9 bis. Imagenes y autorizacion de uso
+            </h2>
+            <p className="text-zinc-300 mb-4">
+              Las imagenes que sube un negocio (logos, fondos, fotos de servicios, de productos o de sus profesionales)
+              se tratan solo para prestar el servicio. Quien las sube declara que tiene derecho a usarlas y que cuenta
+              con la autorizacion de las personas que aparezcan en ellas para publicar su imagen en Nexus y en el
+              portal del negocio; la plataforma pide esta declaracion con una casilla antes de la primera subida y
+              guarda la fecha y la version aceptada. Quien aparece en una imagen puede pedir su retiro escribiendo a
+              nexusbycs2@gmail.com.
+            </p>
+          </section>
+
           {/* --- 10 bis. Inteligencia artificial --- */}
           <section className="mb-8">
             <h2 className="text-2xl font-bold mb-4 text-white border-b border-white/10 pb-2">

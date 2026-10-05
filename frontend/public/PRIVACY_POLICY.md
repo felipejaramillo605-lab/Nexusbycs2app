@@ -183,6 +183,10 @@ Nexus utiliza cookies estrictamente necesarias para el funcionamiento de la plat
 
 ---
 
+## 9 bis. Imagenes y autorizacion de uso
+
+Las imagenes que sube un negocio (logos, fondos, fotos de servicios, de productos o de sus profesionales) se tratan solo para prestar el servicio. Quien las sube declara que tiene derecho a usarlas y que cuenta con la autorizacion de las personas que aparezcan en ellas para publicar su imagen en Nexus y en el portal del negocio; la plataforma pide esta declaracion con una casilla antes de la primera subida y guarda la fecha y la version aceptada. Quien aparece en una imagen puede pedir su retiro escribiendo a nexusbycs2@gmail.com.
+
 ## 10 bis. Inteligencia artificial
 
 Nexus incluye un asistente de inteligencia artificial (Nexus AI) para duenos y administradores, que responde consultas sobre su propio negocio. Al proveedor del modelo enviamos solo el texto minimo necesario y, en las funciones que usen datos de clientes finales, enmascarado (sin correos, telefonos, documentos ni direcciones); esas funciones estan apagadas por defecto y cada negocio decide si las activa. La IA solo sugiere: una persona decide, y nunca se usa para tomar decisiones automaticas sobre cobros, accesos, bloqueos, precios o disponibilidad de citas. Nexus no usa tus datos para entrenar modelos propios y exige a sus proveedores no usarlos para entrenar los suyos.

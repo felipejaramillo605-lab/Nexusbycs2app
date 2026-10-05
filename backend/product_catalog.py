@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import Optional
 
 from fastapi import APIRouter, Cookie, File, Header, HTTPException, Query, Request, UploadFile
+from media_rights import require_media_rights
 from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
 
@@ -290,6 +291,7 @@ def build_product_catalog_router(db, get_current_user, require_management_role, 
         session_token: Optional[str] = Cookie(None),
     ):
         user, org_id = await mgmt_org(authorization, session_token, organization_id)
+        await require_media_rights(db, user)
         doc = await db.catalog_products.find_one(
             {"organization_id": org_id, "product_id": product_id, "active": {"$ne": False}}, {"_id": 0}
         )
@@ -348,6 +350,7 @@ def build_product_catalog_router(db, get_current_user, require_management_role, 
         session_token: Optional[str] = Cookie(None),
     ):
         user, org_id = await mgmt_org(authorization, session_token, organization_id)
+        await require_media_rights(db, user)
         doc = await db.catalog_products.find_one(
             {"organization_id": org_id, "product_id": product_id, "active": {"$ne": False}}, {"_id": 0}
         )

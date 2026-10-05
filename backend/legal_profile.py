@@ -33,7 +33,7 @@ EMAIL_PATTERN = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 
 
 def current_version() -> str:
-    return os.getenv("LEGAL_DOCS_VERSION", "2.0").strip() or "2.0"
+    return os.getenv("LEGAL_DOCS_VERSION", "2.1").strip() or "2.1"
 
 
 async def get_version(db) -> str:

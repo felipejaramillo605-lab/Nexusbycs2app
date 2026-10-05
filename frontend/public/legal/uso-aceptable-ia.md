@@ -1,6 +1,6 @@
 # Política de Uso Aceptable y de Inteligencia Artificial — Nexus by CS2 (v1)
 
-> **Versión 2.0** · vigente desde el 5 de octubre de 2026. Forma parte de los Términos (documento 02).
+> **Versión 2.1** · vigente desde el 5 de octubre de 2026. Forma parte de los Términos (documento 02).
 
 ## Parte A — Uso aceptable
 **Permitido:** gestionar la agenda, clientes, equipo, inventario y comunicaciones de tu negocio legítimo.
