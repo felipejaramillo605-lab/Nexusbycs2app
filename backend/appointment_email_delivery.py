@@ -26,7 +26,15 @@ PERMANENT_ERROR_CODES = {
 RETRYABLE_SMTP_CODES = {"421", "450", "451", "452", "454"}
 PERMANENT_SMTP_CODES = {"530", "534", "535", "550", "551", "552", "553", "554"}
 
-EVENT_TYPES = {"confirmation", "reminder_24h", "cancelled", "completed", "admin_new_booking", "review_request"}
+EVENT_TYPES = {
+    "confirmation",
+    "class_confirmation",
+    "reminder_24h",
+    "cancelled",
+    "completed",
+    "admin_new_booking",
+    "review_request",
+}
 SAFE_ERROR = re.compile(r"[^A-Za-z0-9_.:-]+")
 
 
