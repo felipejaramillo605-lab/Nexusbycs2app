@@ -240,6 +240,8 @@ export const legalAPI = {
 export const retentionAPI = {
   plan: () => api.get('/owner/retention/plan'),
   run: (confirmation) => api.post('/owner/retention/run', { confirmation }),
+  organizationsPlan: () => api.get('/owner/retention/organizations'),
+  purgeOrganizations: (confirmation) => api.post('/owner/retention/purge-organizations', { confirmation }),
 };
 
 export const ownerConnectorsAPI = {

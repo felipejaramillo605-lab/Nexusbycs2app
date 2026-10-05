@@ -72,3 +72,13 @@ def test_professional_avatar_field_is_checked(monkeypatch, tmp_path):
     (tmp_path / 'org_1').mkdir()
     (tmp_path / 'org_1' / '0123456789abcdef0123456789abcdef.webp').write_bytes(b'x')
     assert asyncio.run(subject.build_report(db))['broken'] == []
+
+
+def test_findings_carry_the_organization_name_so_the_page_does_not_show_raw_ids(monkeypatch, tmp_path):
+    db = DB()
+    url = '/api/media/catalog/org_1/0123456789abcdef0123456789abcdef.webp'
+    db.organizations = Collection([{'organization_id': 'org_1', 'name': 'Fortis Barber Shop'}])
+    db.catalog_products = Collection([{'organization_id': 'org_1', 'product_id': 'p1', 'photos': [url]}])
+    monkeypatch.setattr(subject, '_safe_catalog_path', lambda *_: tmp_path / 'missing.webp')
+    broken = asyncio.run(subject.build_report(db))['broken']
+    assert broken[0]['organization_id'] == 'org_1' and broken[0]['organization_name'] == 'Fortis Barber Shop'

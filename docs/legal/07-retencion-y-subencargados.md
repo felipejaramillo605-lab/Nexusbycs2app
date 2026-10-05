@@ -20,7 +20,7 @@
 | Organización eliminada (archivo lógico) | **90 días** hasta supresión definitiva, salvo obligación legal; datos personales de miembros ya anonimizados | Fecha de eliminación | Supresión definitiva programada |
 
 ## 2. Supresión de extremo a extremo (qué hay que tocar)
-MongoDB (clientes, citas, sesiones, consentimientos) · Cloudflare R2 y espejo `media_blobs` · listas de supresión de Resend (solo para **bloquear** envíos, no para borrar el derecho) · proveedor de IA (no se guarda texto; solo hash/longitud) · respaldos (por rotación) · caches. **Pendiente de implementar** (ver tareas): job de retención y supresión que cubra R2 y espejo, y exportación de datos del titular.
+MongoDB (clientes, citas, sesiones, consentimientos) · Cloudflare R2 y espejo `media_blobs` · listas de supresión de Resend (solo para **bloquear** envíos, no para borrar el derecho) · proveedor de IA (no se guarda texto; solo hash/longitud) · respaldos (por rotación) · caches. **Implementado:** simulación y supresión confirmadas por el Owner (`/owner/retention`): clientes con solicitud de supresión o 2 años inactivos (anonimización, incluidas sus citas) y organizaciones dadas de baja hace más de 90 días (borrado de imágenes en R2, espejo y disco; anonimización de clientes; sesiones del portal). **Pendiente:** exportación de datos del titular y retención automática de auditoría y soportes.
 
 ## 3. Subencargados vigentes
 | Subencargado | Servicio | Datos | País | Contrato / base | Revisado |
