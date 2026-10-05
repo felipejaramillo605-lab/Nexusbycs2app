@@ -68,6 +68,12 @@ async def ensure_customer_risk_indexes(db):
         partialFilterExpression={"kind": "retention_risk"},
         name="decision_scores_retention_risk_unique",
     )
+    # `_no_show_counts` reads this exact tenant-scoped order. Keeping the
+    # index here means the scheduled worker remains bounded as tenants grow.
+    await db.appointments.create_index(
+        [("organization_id", 1), ("status", 1), ("client_id", 1)],
+        name="appointments_customer_risk_no_show_lookup",
+    )
 
 
 async def _batches(collection, query, projection, batch_size, key="client_id"):

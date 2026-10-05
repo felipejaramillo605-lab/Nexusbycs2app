@@ -104,6 +104,16 @@ const manager = {
       ],
       expected: 'Recorres todo el directorio sin perder el filtro de búsqueda.',
     },
+    {
+      id: 'c13',
+      title: 'Revisar clientes en riesgo',
+      substeps: [
+        'Abre /manager/customer-risk desde el acceso de Clientes.',
+        'Lee la banda, días sin visita y ausencias de cada fila.',
+        'Pulsa "Ver cliente" para revisar su historial antes de decidir cualquier seguimiento.',
+      ],
+      expected: 'Ves señales explicables; Nexus no envía mensajes ni crea acciones automáticas desde esta pantalla.',
+    },
   ],
   buttons: [
     { icon: ArrowLeft, name: 'Volver', does: 'Regresa al panel "Inicio".', when: 'Cuando terminas de revisar clientes.' },
@@ -123,6 +133,7 @@ const manager = {
     { icon: Send, name: 'Enviar Mensaje (dentro de la ventana)', does: 'Envía el mensaje por WhatsApp al cliente.', when: 'Cuando la vista previa es correcta.' },
     { icon: ChevronLeft, name: 'Página anterior', does: 'Muestra la página anterior del directorio.', when: 'Para volver a clientes ya revisados.' },
     { icon: ChevronRight, name: 'Página siguiente', does: 'Muestra la página siguiente del directorio.', when: 'Para seguir recorriendo la lista.' },
+    { icon: Eye, name: 'Ver cliente (Clientes en riesgo)', does: 'Regresa al directorio para que revises el historial antes de tomar una decisión.', when: 'Cuando una señal requiere contexto.' },
   ],
   examples: [
     {
@@ -157,6 +168,7 @@ const manager = {
     { id: 'c3', label: 'Identifiqué qué clientes aceptan mensajes de marketing por el interruptor.' },
     { id: 'c4', label: 'Preparé un mensaje con una plantilla y revisé la vista previa.' },
     { id: 'c5', label: 'Recorrí el directorio con la paginación.' },
+    { id: 'c13', label: 'Revisé una señal de riesgo y entendí que no activa mensajes automáticos.' },
   ],
 };
 
