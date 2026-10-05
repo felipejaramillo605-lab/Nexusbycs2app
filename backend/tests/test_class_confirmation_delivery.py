@@ -113,7 +113,6 @@ def test_the_same_booking_is_not_sent_twice():
         )
     assert sent == [1]
 
-
     """Todo `event_type="..."` pasado a la cola debe existir en EVENT_TYPES (si no, el correo se pierde en silencio)."""
     """Cualquier `event_type="..."` pasado a la cola debe existir en EVENT_TYPES (si no, el correo se pierde en silencio)."""
     used = set()
