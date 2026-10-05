@@ -11,7 +11,7 @@ from slowapi.errors import RateLimitExceeded
 import os
 import logging
 from pathlib import Path
-from pydantic import BaseModel, Field, ConfigDict, EmailStr
+from pydantic import BaseModel, Field, ConfigDict, EmailStr, field_validator
 from typing import List, Optional, Literal
 import uuid
 from datetime import datetime, timezone, timedelta
@@ -643,6 +643,12 @@ class StaffWalkinAppointmentCreate(BaseModel):
     client_email: Optional[EmailStr] = None
     date: str
     time: str
+
+    @field_validator("client_email", mode="before")
+    @classmethod
+    def blank_email_is_none(cls, value):
+        # El formulario envia '' cuando el cliente no da correo: es opcional, no un correo invalido.
+        return None if isinstance(value, str) and not value.strip() else value
 
 
 class AppointmentRescheduleRequest(BaseModel):
@@ -8858,7 +8864,8 @@ async def create_public_appointment(org_id: str, data: AppointmentCreate, reques
         "barber_id": data.barber_id,
         "client_name": data.client_name.strip()[:100],  # Limit length
         "client_phone": sanitized_phone,
-        "client_email": data.client_email,
+        # Appointment.client_email es texto: sin correo se guarda vacio (cita presencial sin correo).
+        "client_email": data.client_email or "",
         "date": data.date,
         "time": data.time,
         "status": "confirmed",
