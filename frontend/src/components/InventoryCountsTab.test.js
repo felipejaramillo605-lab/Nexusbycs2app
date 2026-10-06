@@ -131,3 +131,16 @@ test('shows the counts assigned to the current user with a link to the sheet', a
   await mount();
   expect(container.querySelector('[data-testid="my-counts"] a').getAttribute('href')).toBe('/inventory/count/c9');
 });
+
+test('creating a count while another is open leaves the new one on screen', async () => {
+  mockApi.createCount.mockResolvedValue({ data: { count_id: 'c2' } });
+  await mount();
+  await click(container.querySelector('[data-testid="count-row"]'));
+  const name = container.querySelector('[data-testid="count-name"]');
+  await act(async () => {
+    Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(name, 'Sección Vitrina');
+    name.dispatchEvent(new Event('input', { bubbles: true }));
+  });
+  await click(container.querySelector('[data-testid="create-count"]'));
+  expect(mockApi.getCount).toHaveBeenLastCalledWith('c2', { organization_id: 'org_a' });
+});

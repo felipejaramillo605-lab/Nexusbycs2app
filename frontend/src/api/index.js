@@ -58,10 +58,24 @@ const notifyViewMode = (status, detail) => {
   }
 };
 
+// FastAPI devuelve los errores de validacion (422) como una lista de objetos; si una pantalla la pasa tal cual a un
+// toast, React intenta pintar el objeto y toda la pantalla cae. Se convierte en un texto legible.
+export const describeValidationDetail = detail => {
+  if (!Array.isArray(detail)) return detail;
+  const parts = detail.map(item => {
+    if (typeof item === 'string') return item;
+    const field = Array.isArray(item?.loc) ? item.loc.filter(p => typeof p === 'string' && !['body', 'query', 'path'].includes(p)).pop() : '';
+    const message = item?.msg || 'valor no válido';
+    return field ? `${field}: ${message}` : message;
+  });
+  return `Revisa los datos: ${parts.join('; ')}`;
+};
+
 // NEXUS_7J_SUBSCRIPTION_SUSPENDED_EXPERIENCE
 api.interceptors.response.use(
   response => response,
   async error => {
+    if (Array.isArray(error?.response?.data?.detail)) error.response.data.detail = describeValidationDetail(error.response.data.detail);
     const detail = error?.response?.data?.detail;
     notifySuspendedSubscription(error?.response?.status, detail);
     notifyViewMode(error?.response?.status, detail);
