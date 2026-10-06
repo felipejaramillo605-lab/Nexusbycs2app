@@ -21,10 +21,11 @@ class PortalTemplateGatingTests(unittest.TestCase):
     def test_standard_and_premium_allowlists_are_exact(self):
         self.assertEqual(STANDARD_TEMPLATE_KEYS, (
             "classic", "feminine", "professional", "cyberpunk", "underground", "neutral", "minimalist_purple",
-            "nail-studio", "bloom-garden", "wellness", "movement", "clinical", "pet-care"
+            "nail-studio", "bloom-garden", "wellness", "movement", "clinical", "pet-care", "estudio"
         ))
         self.assertEqual(PREMIUM_TEMPLATE_KEYS, (
-            "barberia-real", "bloom", "ignition", "claridad", "noir", "atelier", "recreo"
+            "barberia-real", "bloom", "ignition", "claridad", "noir", "atelier", "recreo",
+            "obsidiana", "porcelana", "voltaje", "cadencia", "aliento"
         ))
         self.assertEqual(ALLOWED_PORTAL_TEMPLATES, frozenset((*STANDARD_TEMPLATE_KEYS, *PREMIUM_TEMPLATE_KEYS)))
 

@@ -14,3 +14,9 @@ export const resolvePremiumPortalTemplate = (organization, routeOrgId) => {
   const implementation = PREMIUM_TEMPLATE_IMPLEMENTATIONS[organization.portal_template];
   return implementation?.tier === 'premium' ? implementation : null;
 };
+
+/** Tema efectivo del portal para una organizacion: plantilla premium activa o tema estandar elegido. */
+export const resolvePortalTheme = (organization, routeOrgId) => (
+  resolvePremiumPortalTemplate(organization, routeOrgId)?.theme
+  || getThemeColors(organization?.client_portal_theme)
+);

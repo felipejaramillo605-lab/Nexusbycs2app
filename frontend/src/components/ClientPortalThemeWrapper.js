@@ -1,10 +1,18 @@
 import React from 'react';
 import { useClientPortalOrganizationTheme } from '../hooks/useClientPortalOrganizationTheme';
 import OnboardingTour from './onboarding/OnboardingTour';
+import PortalWhatsAppButton from './PortalWhatsAppButton';
+import '../portal-templates/landing.css';
 import '../portal-templates/premium/barberia-real/barberia-real.css';
 import '../portal-templates/premium/bloom/bloom.css';
 import '../portal-templates/premium/ignition/ignition.css';
 import '../portal-templates/premium/noir/noir.css';
+import '../portal-templates/premium/obsidiana/obsidiana.css';
+import '../portal-templates/premium/porcelana/porcelana.css';
+import '../portal-templates/premium/voltaje/voltaje.css';
+import '../portal-templates/premium/cadencia/cadencia.css';
+import '../portal-templates/premium/aliento/aliento.css';
+import '../portal-templates/standard/estudio.css';
 
 export const ClientPortalThemeWrapper = ({ children }) => {
   const {
@@ -19,6 +27,8 @@ export const ClientPortalThemeWrapper = ({ children }) => {
     backgroundOverlay,
     showBackground,
     handleMouseMove,
+    organization,
+    orgId,
   } = useClientPortalOrganizationTheme();
 
   return (
@@ -37,6 +47,7 @@ export const ClientPortalThemeWrapper = ({ children }) => {
       </div>}
       <OnboardingTour role="client" />
       {children}
+      <PortalWhatsAppButton organization={organization?.organization_id === orgId ? organization : null} />
     </div>
   );
 };

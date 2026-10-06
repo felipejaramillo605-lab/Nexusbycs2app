@@ -1,0 +1,156 @@
+/* Pagina de inicio del portal (plantillas de clases grupales) y boton flotante de WhatsApp.
+   Estructura y espaciado comunes; el color sale de las variables --app-* de la plantilla activa
+   y cada plantilla afina tipografia, portada y tarjetas en su propio archivo. */
+html:has(.nexus-landing) { scroll-behavior: smooth; }
+
+.nexus-landing {
+  --lx-pad: clamp(1rem, 5vw, 4rem); --lx-nav-ink: var(--app-text-primary);
+  color: var(--app-text-primary); min-height: 100vh;
+}
+.nexus-landing[data-hero='media'] { --lx-nav-ink: #fff; }
+.nexus-landing a { text-decoration: none; }
+.nexus-landing section[id] { scroll-margin-top: 5rem; }
+
+/* Menu */
+.nexus-landing-nav {
+  position: fixed; inset: 0 0 auto 0; z-index: 40; display: flex; align-items: center; justify-content: space-between; gap: 1.5rem;
+  padding: .85rem var(--lx-pad); color: var(--lx-nav-ink);
+  transition: background-color .3s ease, box-shadow .3s ease, color .3s ease, padding .3s ease;
+}
+.nexus-landing-nav.is-scrolled {
+  --lx-nav-ink: var(--app-text-primary); padding-block: .6rem; background: var(--app-surface-solid);
+  box-shadow: 0 1px 0 var(--app-border), 0 14px 30px -22px rgba(0, 0, 0, .45);
+}
+.nexus-landing-brand { display: inline-flex; align-items: center; color: inherit; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; min-height: 44px; }
+.nexus-landing-brand img { display: block; height: 44px; width: auto; max-width: 180px; object-fit: contain; }
+.nexus-landing-nav nav { display: flex; align-items: center; gap: clamp(1rem, 3vw, 2.2rem); margin-inline: auto; }
+.nexus-landing-nav nav a { color: inherit; font-size: .78rem; letter-spacing: .18em; text-transform: uppercase; opacity: .85; padding: .4rem 0; transition: opacity .2s ease; }
+.nexus-landing-nav nav a:hover { opacity: 1; }
+.nexus-landing-nav-actions { display: flex; align-items: center; gap: .6rem; }
+
+/* Botones */
+.nexus-landing-login, .nexus-landing-reserve {
+  display: inline-flex; align-items: center; justify-content: center; gap: .4rem; min-height: 40px; padding: .45rem 1.15rem; white-space: nowrap;
+  border-radius: 999px; font-size: .78rem; font-weight: 600; letter-spacing: .12em; text-transform: uppercase; cursor: pointer;
+  transition: transform .25s ease, background-color .25s ease, color .25s ease, border-color .25s ease, box-shadow .25s ease;
+}
+.nexus-landing-login { color: var(--lx-nav-ink); border: 1px solid currentColor; background: transparent; }
+.nexus-landing-login:hover { background: color-mix(in srgb, currentColor 12%, transparent); }
+.nexus-landing-reserve { color: var(--app-on-primary, #fff); background: var(--app-primary); border: 1px solid transparent; }
+.nexus-landing-reserve:hover { background: var(--app-primary-hover, var(--app-primary)); transform: translateY(-1px); }
+.nexus-landing-login.is-large, .nexus-landing-reserve.is-large { min-height: 50px; padding-inline: 1.9rem; font-size: .84rem; }
+.nexus-landing-login:focus-visible, .nexus-landing-reserve:focus-visible, .nexus-landing-exp:focus-visible, .nexus-landing-nav a:focus-visible {
+  outline: 2px solid var(--app-primary); outline-offset: 3px;
+}
+
+/* Portada */
+.nexus-landing-hero {
+  position: relative; isolation: isolate; overflow: hidden; display: grid; place-items: center; text-align: center;
+  min-height: min(92vh, 840px); padding: 7.5rem var(--lx-pad) 4.5rem;
+}
+.nexus-landing-hero-media { position: absolute; inset: 0; z-index: -1; }
+.nexus-landing-hero-media img, .nexus-landing-hero-media video { width: 100%; height: 100%; object-fit: cover; display: block; }
+.nexus-landing[data-hero='media'] .nexus-landing-hero-media::after {
+  content: ''; position: absolute; inset: 0;
+  background: linear-gradient(180deg, rgba(0, 0, 0, .6) 0%, rgba(0, 0, 0, .34) 38%, rgba(0, 0, 0, .72) 100%);
+}
+.nexus-landing-hero-art { position: absolute; inset: 0; background: var(--app-background); }
+.nexus-landing-hero-copy { max-width: 62rem; display: grid; gap: 1.3rem; justify-items: center; }
+.nexus-landing[data-hero='media'] .nexus-landing-hero-copy { color: #fff; }
+.nexus-landing-hero-copy h1 { font-size: clamp(2.7rem, 8.4vw, 6rem); line-height: 1; letter-spacing: -.02em; margin: 0; max-width: 16ch; text-wrap: balance; }
+.nexus-landing-hero-copy p { margin: 0; max-width: 46ch; font-size: clamp(1rem, 1.8vw, 1.2rem); line-height: 1.6; opacity: .9; text-wrap: pretty; }
+.nexus-landing-cta { display: flex; flex-wrap: wrap; justify-content: center; gap: .8rem; margin-top: .6rem; }
+.nexus-landing[data-hero='media'] .nexus-landing-cta .nexus-landing-login { color: #fff; }
+
+/* Secciones */
+.nexus-landing-section { max-width: 1240px; margin-inline: auto; padding: clamp(3.5rem, 9vw, 7rem) var(--lx-pad); }
+.nexus-landing-heading { text-align: center; margin-bottom: clamp(2rem, 5vw, 3.6rem); }
+.nexus-landing-kicker { display: block; font-size: .8rem; font-weight: 600; letter-spacing: .38em; text-transform: uppercase; padding-left: .38em; }
+.nexus-landing-ornament { position: relative; display: block; width: min(300px, 70%); height: 9px; margin: 1.1rem auto; opacity: .55; color: var(--app-primary); }
+.nexus-landing-ornament::before {
+  content: ''; position: absolute; inset: 0;
+  background: linear-gradient(currentColor, currentColor) left center / 42% 1px no-repeat, linear-gradient(currentColor, currentColor) right center / 42% 1px no-repeat;
+}
+.nexus-landing-ornament::after { content: ''; position: absolute; left: 50%; top: 50%; width: 7px; height: 7px; border: 1px solid currentColor; transform: translate(-50%, -50%) rotate(45deg); }
+.nexus-landing-heading p { margin: 0 auto; max-width: 40ch; color: var(--app-text-secondary); font-size: 1.02rem; }
+
+/* Experiencias */
+.nexus-landing-experiences { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(260px, 100%), 1fr)); gap: clamp(1.3rem, 3vw, 2.4rem); }
+.nexus-landing-exp { position: relative; display: block; color: inherit; }
+.nexus-landing-exp-media {
+  position: relative; display: block; aspect-ratio: 4 / 5; overflow: hidden; background: var(--app-surface-muted);
+  border-radius: clamp(5rem, 16vw, 9rem) clamp(5rem, 16vw, 9rem) 1.4rem 1.4rem;
+}
+.nexus-landing-exp-media img { width: 100%; height: 100%; object-fit: cover; display: block; transition: transform .9s cubic-bezier(.2, .7, .2, 1); }
+.nexus-landing-exp:hover .nexus-landing-exp-media img { transform: scale(1.05); }
+.nexus-landing-exp-initial { position: absolute; inset: 0; display: grid; place-items: center; font-size: 5rem; opacity: .35; color: var(--app-primary); }
+.nexus-landing-exp-index { position: absolute; top: 1.1rem; left: 50%; transform: translateX(-50%); font-size: .72rem; letter-spacing: .3em; color: #fff; text-shadow: 0 1px 6px rgba(0, 0, 0, .5); }
+.nexus-landing-exp h3 { margin: 1.15rem 0 .35rem; font-size: 1.05rem; letter-spacing: .14em; text-transform: uppercase; text-align: center; }
+.nexus-landing-exp p { margin: 0 auto; max-width: 32ch; text-align: center; color: var(--app-text-secondary); font-size: .92rem; line-height: 1.55; }
+.nexus-landing-link { display: block; margin-top: .9rem; text-align: center; font-size: .74rem; font-weight: 600; letter-spacing: .2em; text-transform: uppercase; color: var(--app-primary); }
+.nexus-landing-link span { display: inline-block; transition: transform .25s ease; }
+.nexus-landing-exp:hover .nexus-landing-link span { transform: translateX(4px); }
+
+/* Planes */
+.nexus-landing-plans { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(240px, 100%), 1fr)); gap: 1.2rem; }
+.nexus-landing-plan {
+  display: flex; flex-direction: column; gap: .35rem; padding: 1.6rem 1.4rem; border: 1px solid var(--app-border); border-radius: 1.4rem;
+  background: var(--app-surface); box-shadow: var(--app-shadow-sm, none); transition: transform .3s ease, box-shadow .3s ease, border-color .3s ease;
+}
+.nexus-landing-plan:hover { transform: translateY(-3px); border-color: var(--app-border-strong, var(--app-primary)); }
+.nexus-landing-plan h3 { margin: 0; font-size: .95rem; letter-spacing: .16em; text-transform: uppercase; }
+.nexus-landing-plan p { margin: 0; color: var(--app-text-secondary); font-size: .9rem; }
+.nexus-landing-plan .nexus-landing-plan-classes { color: var(--app-primary); font-weight: 600; letter-spacing: .04em; margin-top: .3rem; }
+.nexus-landing-plan .nexus-landing-plan-price { color: var(--app-text-primary); font-size: 1.7rem; font-weight: 600; font-variant-numeric: tabular-nums; margin-top: .4rem; }
+.nexus-landing-plan .nexus-landing-plan-each { font-size: .82rem; }
+.nexus-landing-plan .nexus-landing-plan-cycle { font-size: .82rem; margin-bottom: .5rem; }
+.nexus-landing-plan ul { margin: 0 0 1rem; padding: 0; list-style: none; display: grid; gap: .3rem; color: var(--app-text-secondary); font-size: .85rem; }
+.nexus-landing-plan li::before { content: '·'; margin-right: .5rem; color: var(--app-primary); }
+.nexus-landing-plan .nexus-landing-reserve { margin-top: auto; }
+
+/* Contacto */
+.nexus-landing-contact-card {
+  max-width: 44rem; margin-inline: auto; padding: clamp(1.4rem, 4vw, 2.2rem); border: 1px solid var(--app-border); border-radius: 1.6rem;
+  background: var(--app-surface); display: grid; gap: 1.4rem;
+}
+.nexus-landing-contact-card ul { margin: 0; padding: 0; list-style: none; display: grid; gap: .9rem; }
+.nexus-landing-contact-card li { display: flex; align-items: flex-start; gap: .8rem; color: var(--app-text-secondary); line-height: 1.5; }
+.nexus-landing-contact-card li svg { flex: none; margin-top: .15rem; color: var(--app-primary); }
+.nexus-landing-contact-card a { color: inherit; text-decoration: underline; text-underline-offset: 3px; }
+.nexus-landing-contact-actions { display: flex; flex-wrap: wrap; gap: .7rem; }
+.nexus-landing-contact-actions a { text-decoration: none; }
+.nexus-landing-contact-actions .nexus-landing-login { color: var(--app-text-primary); }
+.nexus-landing-footer { padding: 2rem var(--lx-pad) 6.5rem; text-align: center; color: var(--app-text-muted); font-size: .8rem; letter-spacing: .08em; }
+
+/* Aparicion suave: solo si el navegador puede observar; en reposo todo es visible */
+.nexus-reveal { transition: opacity .85s cubic-bezier(.2, .7, .2, 1) var(--reveal-delay, 0ms), transform .85s cubic-bezier(.2, .7, .2, 1) var(--reveal-delay, 0ms); }
+.nexus-landing[data-motion='on'] .nexus-reveal:not(.is-in) { opacity: 0; transform: translateY(18px); }
+
+/* Boton flotante de WhatsApp */
+.nexus-whatsapp-fab {
+  position: fixed; right: 1.2rem; bottom: 5.4rem; z-index: 45; width: 56px; height: 56px; display: grid; place-items: center; border-radius: 50%;
+  background: var(--app-primary); color: var(--app-on-primary, #fff); box-shadow: 0 12px 28px -8px rgba(0, 0, 0, .5), 0 0 0 1px rgba(255, 255, 255, .08) inset;
+  transition: transform .25s ease, box-shadow .25s ease; animation: nexus-fab-ring 3.2s ease-out infinite;
+}
+.nexus-whatsapp-fab:hover { transform: scale(1.07); box-shadow: 0 16px 34px -8px rgba(0, 0, 0, .55); }
+.nexus-whatsapp-fab:focus-visible { outline: 3px solid var(--app-text-primary); outline-offset: 3px; }
+.nexus-landing ~ .nexus-whatsapp-fab { bottom: 1.2rem; }
+@media (min-width: 769px) { .nexus-whatsapp-fab { bottom: 1.4rem; right: 1.6rem; } }
+@keyframes nexus-fab-ring { 0% { box-shadow: 0 12px 28px -8px rgba(0, 0, 0, .5), 0 0 0 0 color-mix(in srgb, var(--app-primary) 45%, transparent); } 70%, 100% { box-shadow: 0 12px 28px -8px rgba(0, 0, 0, .5), 0 0 0 16px transparent; } }
+
+@media (max-width: 860px) {
+  .nexus-landing-nav { flex-wrap: wrap; row-gap: .2rem; }
+  .nexus-landing-nav nav { order: 3; width: 100%; margin: 0; justify-content: center; overflow-x: auto; gap: 1.4rem; padding-bottom: .2rem; }
+  .nexus-landing-hero { padding-top: 9.5rem; }
+  .nexus-landing-nav-actions .nexus-landing-reserve { padding-inline: .9rem; }
+}
+@media (max-width: 480px) {
+  .nexus-landing-brand img { height: 36px; max-width: 140px; }
+  .nexus-landing-login:not(.is-large) { padding-inline: .8rem; }
+}
+.nexus-client-theme[data-reduced-motion='true'] .nexus-landing *,
+.nexus-client-theme[data-reduced-motion='true'] .nexus-whatsapp-fab { animation: none !important; transition: none !important; }
+@media (prefers-reduced-motion: reduce) {
+  html:has(.nexus-landing) { scroll-behavior: auto; }
+  .nexus-landing *, .nexus-whatsapp-fab { animation: none !important; transition: none !important; }
+}

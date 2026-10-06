@@ -783,6 +783,11 @@ class OrganizationUpdate(BaseModel):
     portal_show_prices: Optional[bool] = None
     portal_show_hours: Optional[bool] = None
     portal_show_map: Optional[bool] = None
+    # NEXUS_PORTAL_LANDING_V1: inicio del portal (plantillas de clases grupales), boton de WhatsApp y textos.
+    portal_landing_enabled: Optional[bool] = None
+    portal_whatsapp_button: Optional[bool] = None
+    portal_show_plans: Optional[bool] = None
+    portal_experiences_label: Optional[str] = Field(default=None, max_length=40)
     portal_background_type: Optional[str] = None
     portal_background_overlay: Optional[str] = None
     catalog_enabled: Optional[bool] = None
@@ -2982,6 +2987,9 @@ async def update_organization_profile(
         if selection_error == "premium_template_not_contracted":
             raise HTTPException(status_code=403, detail="Premium portal templates are not contracted")
 
+    if "portal_experiences_label" in update_data:
+        label = update_data["portal_experiences_label"].strip()[:40]
+        update_data["portal_experiences_label"] = label or "Experiencias"
     if "portal_background_type" in update_data and update_data["portal_background_type"] not in {"none", "image", "video"}:
         raise HTTPException(status_code=400, detail="portal_background_type must be none, image or video")
     if "portal_background_overlay" in update_data and update_data["portal_background_overlay"] not in {"light", "dark", "none"}:
@@ -9630,6 +9638,11 @@ api_router.include_router(
     build_organization_background_media_router(db, get_current_user, require_management_role, resolve_team_organization),
     tags=["organizations"],
 )
+
+# NEXUS_PORTAL_LANDING_V1
+from portal_landing import build_portal_landing_router
+
+api_router.include_router(build_portal_landing_router(db), tags=["public-booking"])
 
 # NEXUS_SERVICE_PHOTOS_V1
 from service_media import build_service_media_router

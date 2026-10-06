@@ -5,6 +5,7 @@ import { toast } from 'sonner';
 import { organizationAPI } from '../api';
 import { PREMIUM_TEMPLATE_IMPLEMENTATIONS, PREMIUM_TEMPLATE_KEYS } from '../portal-templates';
 import { AccessibleModal } from './design/AccessibleModal';
+import PortalHeroImageField from './PortalHeroImageField';
 
 // Briefs for templates still in the roadmap (no visual implementation yet).
 // Shown as "coming soon" tiles so managers see the full premium catalog,
@@ -86,7 +87,7 @@ function TemplatePreviewModal({ template, onClose }) {
   );
 }
 
-export default function PremiumTemplateSelector({ organizationId, currentTemplate = 'classic', contracted = false, onTemplateChange, onRequestPremium }) {
+export default function PremiumTemplateSelector({ organizationId, currentTemplate = 'classic', contracted = false, organization, onOrganizationChange, onTemplateChange, onRequestPremium }) {
   const [saving, setSaving] = useState(false);
   const [selectedTemplate, setSelectedTemplate] = useState(currentTemplate);
   const [previewKey, setPreviewKey] = useState(null);
@@ -164,6 +165,11 @@ export default function PremiumTemplateSelector({ organizationId, currentTemplat
                 isSelected ? 'border-[var(--app-primary)] bg-[var(--app-primary)]/10' : 'border-[var(--app-border)] bg-[var(--app-surface-solid)]'
               } ${locked ? 'opacity-90' : ''}`}
             >
+              {template.flagship && (
+                <span className="absolute top-3 left-3 z-10 inline-flex items-center gap-1 rounded-full bg-[var(--app-primary)] px-2 py-0.5 text-[10px] font-semibold text-[var(--app-on-primary,#fff)]" data-testid={`flagship-${template.key}`}>
+                  <Sparkles size={10} /> Signature
+                </span>
+              )}
               {locked && (
                 <span className="absolute top-3 right-3 z-10 inline-flex items-center gap-1 rounded-full bg-black/60 px-2 py-0.5 text-[10px] font-medium text-white">
                   <Lock size={10} /> Premium
@@ -183,6 +189,9 @@ export default function PremiumTemplateSelector({ organizationId, currentTemplat
                   {isSelected && <Check size={18} className="text-[var(--app-primary)]" />}
                 </div>
                 <p className="text-xs text-[var(--app-text-secondary)]">{theme.description}</p>
+                {template.category === 'group' && (
+                  <span className="inline-block rounded-full border border-[var(--app-border)] px-2 py-0.5 text-[10px] font-medium text-[var(--app-text-secondary)]" data-testid={`group-chip-${template.key}`}>Clases grupales</span>
+                )}
               </div>
               <div className="mt-3 flex gap-2">
                 <button
@@ -224,6 +233,10 @@ export default function PremiumTemplateSelector({ organizationId, currentTemplat
           );
         })}
       </div>
+
+      {contracted && organization && PREMIUM_TEMPLATE_IMPLEMENTATIONS[pending ?? selectedTemplate]?.theme?.landing && (
+        <PortalHeroImageField organizationId={organizationId} organization={organization} onChanged={onOrganizationChange} />
+      )}
 
       {contracted && (
         <div className="flex flex-wrap items-center gap-3">

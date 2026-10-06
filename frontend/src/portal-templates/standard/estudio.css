@@ -1,0 +1,159 @@
+/* Estudio: quiet monochrome stone and ink, soft corners, hairlines. Free group-class template (transitions only). */
+.nexus-client-theme[data-client-theme='estudio']:not([data-portal-template]) {
+  --es-bg: #F7F6F4; --es-panel: #FFFFFF; --es-tint: #F0EEEA; --es-ink: #1E1A18; --es-soft: #5E5650;
+  --es-muted: #6C645E; --es-line: rgba(30,26,24,.11); --es-clay: #9A5A4F;
+  color: var(--es-ink); font-family: Outfit, Inter, 'Segoe UI', sans-serif; color-scheme: light;
+}
+.nexus-client-theme[data-client-theme='estudio']:not([data-portal-template]) h1,
+.nexus-client-theme[data-client-theme='estudio']:not([data-portal-template]) h2,
+.nexus-client-theme[data-client-theme='estudio']:not([data-portal-template]) h3 { color: var(--es-ink); font-family: Outfit, Inter, sans-serif; font-weight: 500; letter-spacing: -.02em; }
+.nexus-client-theme[data-client-theme='estudio']:not([data-portal-template]) .nexus-booking-hero { padding: clamp(2.4rem,7vw,4.5rem) 1rem 2rem; text-align: left; }
+.nexus-client-theme[data-client-theme='estudio']:not([data-portal-template]) .nexus-booking-hero > small,
+.nexus-client-theme[data-client-theme='estudio']:not([data-portal-template]) .nexus-portal-deep > header small { color: var(--es-clay); font-size: .7rem; font-weight: 600; letter-spacing: .22em; text-transform: uppercase; }
+.nexus-client-theme[data-client-theme='estudio']:not([data-portal-template]) .nexus-booking-hero h1,
+.nexus-client-theme[data-client-theme='estudio']:not([data-portal-template]) .nexus-portal-deep > header h1,
+.nexus-client-theme[data-client-theme='estudio']:not([data-portal-template]) .nexus-portal-login h1 { max-width: 16ch; font-size: clamp(2.2rem,5.6vw,4.2rem); line-height: 1.06; }
+.nexus-client-theme[data-client-theme='estudio']:not([data-portal-template]) .nexus-booking-hero p,
+.nexus-client-theme[data-client-theme='estudio']:not([data-portal-template]) .nexus-booking-hero > div { color: var(--es-soft); }
+.nexus-client-theme[data-client-theme='estudio']:not([data-portal-template]) .nexus-directions-link {
+  display: inline-flex; align-items: center; gap: .35rem; padding: .28rem .75rem; border: 1px solid var(--es-line);
+  border-radius: 999px; background: #fff; color: var(--es-ink); text-decoration: none; transition: border-color .2s ease;
+}
+.nexus-client-theme[data-client-theme='estudio']:not([data-portal-template]) .nexus-directions-link:hover { border-color: rgba(30,26,24,.4); }
+
+.nexus-client-theme[data-client-theme='estudio']:not([data-portal-template]) .nexus-booking-layout > main,
+.nexus-client-theme[data-client-theme='estudio']:not([data-portal-template]) .nexus-booking-summary,
+.nexus-client-theme[data-client-theme='estudio']:not([data-portal-template]) .nexus-portal-card,
+.nexus-client-theme[data-client-theme='estudio']:not([data-portal-template]) .nexus-next-appointment,
+.nexus-client-theme[data-client-theme='estudio']:not([data-portal-template]) .nexus-portal-login > section,
+.nexus-client-theme[data-client-theme='estudio']:not([data-portal-template]) .nexus-booking-success > section {
+  border: 1px solid var(--es-line); border-radius: 1.25rem; background: var(--es-panel); color: var(--es-ink);
+  box-shadow: 0 1px 2px rgba(30,26,24,.04), 0 14px 32px -20px rgba(30,26,24,.18);
+}
+.nexus-client-theme[data-client-theme='estudio']:not([data-portal-template]) .nexus-booking-step > header > svg,
+.nexus-client-theme[data-client-theme='estudio']:not([data-portal-template]) .nexus-choice-icon { color: var(--es-ink); }
+.nexus-client-theme[data-client-theme='estudio']:not([data-portal-template]) .nexus-booking-step header p,
+.nexus-client-theme[data-client-theme='estudio']:not([data-portal-template]) .nexus-booking-summary > small,
+.nexus-client-theme[data-client-theme='estudio']:not([data-portal-template]) .nexus-booking-summary span,
+.nexus-client-theme[data-client-theme='estudio']:not([data-portal-template]) .nexus-choice-grid small { color: var(--es-muted); }
+.nexus-client-theme[data-client-theme='estudio']:not([data-portal-template]) .nexus-booking-summary > div,
+.nexus-client-theme[data-client-theme='estudio']:not([data-portal-template]) .nexus-stepper,
+.nexus-client-theme[data-client-theme='estudio']:not([data-portal-template]) .nexus-booking-actions { border-color: var(--es-line); }
+.nexus-client-theme[data-client-theme='estudio']:not([data-portal-template]) .nexus-booking-summary footer,
+.nexus-client-theme[data-client-theme='estudio']:not([data-portal-template]) .nexus-booking-summary footer span { color: var(--es-soft); }
+.nexus-client-theme[data-client-theme='estudio']:not([data-portal-template]) .nexus-booking-summary footer b,
+.nexus-client-theme[data-client-theme='estudio']:not([data-portal-template]) .nexus-choice-grid b { color: var(--es-ink); }
+.nexus-client-theme[data-client-theme='estudio']:not([data-portal-template]) .nexus-choice-grid em { color: var(--es-clay); }
+.nexus-client-theme[data-client-theme='estudio']:not([data-portal-template]) .nexus-choice-icon { background: var(--es-tint); border-radius: 12px; }
+
+.nexus-client-theme[data-client-theme='estudio']:not([data-portal-template]) .nexus-stepper { margin: .7rem; padding: .28rem; border: 0; border-radius: 999px; background: var(--es-tint); gap: .2rem; }
+.nexus-client-theme[data-client-theme='estudio']:not([data-portal-template]) .nexus-stepper button { color: var(--es-muted); border-radius: 999px; transition: background .2s ease, color .2s ease; }
+.nexus-client-theme[data-client-theme='estudio']:not([data-portal-template]) .nexus-stepper button > span { border-radius: 50%; background: rgba(30,26,24,.08); color: var(--es-soft); }
+.nexus-client-theme[data-client-theme='estudio']:not([data-portal-template]) .nexus-stepper button.is-current { color: var(--es-ink); background: #fff; box-shadow: 0 1px 2px rgba(30,26,24,.1); }
+.nexus-client-theme[data-client-theme='estudio']:not([data-portal-template]) .nexus-stepper button.is-current > span,
+.nexus-client-theme[data-client-theme='estudio']:not([data-portal-template]) .nexus-stepper button.is-complete > span { background: var(--es-ink); color: #fff; }
+.nexus-client-theme[data-client-theme='estudio']:not([data-portal-template]) .nexus-stepper button.is-complete { color: var(--es-soft); }
+
+.nexus-client-theme[data-client-theme='estudio']:not([data-portal-template]) .nexus-choice-grid > button,
+.nexus-client-theme[data-client-theme='estudio']:not([data-portal-template]) .nexus-slots button,
+.nexus-client-theme[data-client-theme='estudio']:not([data-portal-template]) .nexus-portal-history article { border: 1px solid var(--es-line); border-radius: 1rem; background: #fff; color: var(--es-ink); transition: border-color .2s ease, box-shadow .2s ease; }
+.nexus-client-theme[data-client-theme='estudio']:not([data-portal-template]) .nexus-choice-grid > button:hover,
+.nexus-client-theme[data-client-theme='estudio']:not([data-portal-template]) .nexus-slots button:hover,
+.nexus-client-theme[data-client-theme='estudio']:not([data-portal-template]) .nexus-portal-history article:hover { border-color: rgba(30,26,24,.4); }
+.nexus-client-theme[data-client-theme='estudio']:not([data-portal-template]) .nexus-choice-grid > button.is-selected { border-color: var(--es-ink); box-shadow: 0 0 0 3px rgba(30,26,24,.08); }
+.nexus-client-theme[data-client-theme='estudio']:not([data-portal-template]) .nexus-slots button.is-selected { border-color: var(--es-ink); background: var(--es-ink); color: #fff; }
+.nexus-client-theme[data-client-theme='estudio']:not([data-portal-template]) .nexus-slots button.is-closed,
+.nexus-client-theme[data-client-theme='estudio']:not([data-portal-template]) .nexus-slots button:disabled { border-style: dashed; background: transparent; color: var(--es-muted); opacity: .75; }
+.nexus-client-theme[data-client-theme='estudio']:not([data-portal-template]) .nexus-slots button { border-radius: .9rem; font-variant-numeric: tabular-nums; }
+.nexus-client-theme[data-client-theme='estudio']:not([data-portal-template]) .nexus-slots h3 { color: var(--es-soft); font-weight: 600; letter-spacing: .08em; text-transform: uppercase; font-size: .7rem; }
+.nexus-client-theme[data-client-theme='estudio']:not([data-portal-template]) .nexus-slot-skeleton { background: var(--es-tint); color: var(--es-muted); border-radius: .9rem; }
+.nexus-client-theme[data-client-theme='estudio']:not([data-portal-template]) .nexus-booking-window-note,
+.nexus-client-theme[data-client-theme='estudio']:not([data-portal-template]) .nexus-policy-box { padding: .75rem 1rem; border: 1px solid var(--es-line); border-radius: .95rem; background: var(--es-tint); color: var(--es-soft); font-size: .82rem; }
+.nexus-client-theme[data-client-theme='estudio']:not([data-portal-template]) .nexus-policy-box strong { color: var(--es-ink); }
+
+.nexus-client-theme[data-client-theme='estudio']:not([data-portal-template]) .nexus-action-button,
+.nexus-client-theme[data-client-theme='estudio']:not([data-portal-template]) .nexus-portal-deep button { border-radius: 999px; }
+.nexus-client-theme[data-client-theme='estudio']:not([data-portal-template]) .nexus-action-button { min-height: 46px; padding-inline: 1.6rem; font-weight: 500; letter-spacing: .01em; transition: background-color .2s ease, color .2s ease, border-color .2s ease, transform .2s ease; }
+.nexus-client-theme[data-client-theme='estudio']:not([data-portal-template]) .nexus-action-primary { background: var(--es-ink); color: #fff; border: 0; box-shadow: none; }
+.nexus-client-theme[data-client-theme='estudio']:not([data-portal-template]) .nexus-action-primary:hover:not(:disabled) { background: #3A332F; transform: translateY(-1px); }
+.nexus-client-theme[data-client-theme='estudio']:not([data-portal-template]) .nexus-action-secondary { border: 1px solid rgba(30,26,24,.2); background: transparent; color: var(--es-ink); }
+.nexus-client-theme[data-client-theme='estudio']:not([data-portal-template]) .nexus-action-secondary:hover:not(:disabled) { background: var(--es-tint); }
+.nexus-client-theme[data-client-theme='estudio']:not([data-portal-template]) button:disabled { cursor: not-allowed; opacity: .5; }
+.nexus-client-theme[data-client-theme='estudio']:not([data-portal-template]) .nexus-text-link,
+.nexus-client-theme[data-client-theme='estudio']:not([data-portal-template]) .nexus-portal-login a { color: var(--es-ink); text-decoration: underline; text-underline-offset: 3px; }
+
+.nexus-client-theme[data-client-theme='estudio']:not([data-portal-template]) input,
+.nexus-client-theme[data-client-theme='estudio']:not([data-portal-template]) select,
+.nexus-client-theme[data-client-theme='estudio']:not([data-portal-template]) textarea,
+.nexus-client-theme[data-client-theme='estudio']:not([data-portal-template]) .nexus-portal-login .PhoneInput { border: 1px solid rgba(30,26,24,.18); border-radius: .95rem; background: #fff; color: var(--es-ink); transition: border-color .2s ease, box-shadow .2s ease; }
+.nexus-client-theme[data-client-theme='estudio']:not([data-portal-template]) input:hover,
+.nexus-client-theme[data-client-theme='estudio']:not([data-portal-template]) select:hover,
+.nexus-client-theme[data-client-theme='estudio']:not([data-portal-template]) textarea:hover { border-color: rgba(30,26,24,.32); }
+.nexus-client-theme[data-client-theme='estudio']:not([data-portal-template]) input:focus,
+.nexus-client-theme[data-client-theme='estudio']:not([data-portal-template]) select:focus,
+.nexus-client-theme[data-client-theme='estudio']:not([data-portal-template]) textarea:focus,
+.nexus-client-theme[data-client-theme='estudio']:not([data-portal-template]) .PhoneInput:focus-within { border-color: var(--es-ink); box-shadow: 0 0 0 3px rgba(30,26,24,.1); outline: none; }
+.nexus-client-theme[data-client-theme='estudio']:not([data-portal-template]) input::placeholder,
+.nexus-client-theme[data-client-theme='estudio']:not([data-portal-template]) textarea::placeholder { color: #8A827C; }
+.nexus-client-theme[data-client-theme='estudio']:not([data-portal-template]) input[type='checkbox'] { accent-color: var(--es-ink); }
+.nexus-client-theme[data-client-theme='estudio']:not([data-portal-template]) .nexus-client-form label,
+.nexus-client-theme[data-client-theme='estudio']:not([data-portal-template]) .nexus-public-field,
+.nexus-client-theme[data-client-theme='estudio']:not([data-portal-template]) .nexus-portal-login label { color: var(--es-soft); }
+.nexus-client-theme[data-client-theme='estudio']:not([data-portal-template]) .nexus-public-error { color: #A8283C; padding: .55rem .85rem; border: 1px solid rgba(168,40,60,.25); border-radius: .85rem; background: rgba(168,40,60,.05); }
+
+.nexus-client-theme[data-client-theme='estudio']:not([data-portal-template]) [class~='fixed'][class~='inset-0']:not([aria-hidden='true']) { background: rgba(30,26,24,.42) !important; backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); }
+.nexus-client-theme[data-client-theme='estudio']:not([data-portal-template]) [class~='fixed'][class~='inset-0']:not([aria-hidden='true']) > [class~='bg-zinc-900'] { border: 1px solid var(--es-line); border-radius: 1.4rem; background: #fff; color: var(--es-ink); box-shadow: 0 32px 70px -26px rgba(30,26,24,.45); }
+.nexus-client-theme[data-client-theme='estudio']:not([data-portal-template]) [class~='fixed'][class~='inset-0']:not([aria-hidden='true']) [class~='text-white'] { color: var(--es-ink) !important; }
+.nexus-client-theme[data-client-theme='estudio']:not([data-portal-template]) [class~='fixed'][class~='inset-0']:not([aria-hidden='true']) [class~='text-zinc-400'] { color: var(--es-soft) !important; }
+.nexus-client-theme[data-client-theme='estudio']:not([data-portal-template]) [class~='fixed'][class~='inset-0']:not([aria-hidden='true']) [class~='text-zinc-500'] { color: var(--es-muted) !important; }
+.nexus-client-theme[data-client-theme='estudio']:not([data-portal-template]) [class~='fixed'][class~='inset-0']:not([aria-hidden='true']) [class~='bg-white/5'] { background: var(--es-tint) !important; }
+.nexus-client-theme[data-client-theme='estudio']:not([data-portal-template]) [class~='fixed'][class~='inset-0']:not([aria-hidden='true']) [class~='border-white/10'] { border-color: var(--es-line) !important; }
+.nexus-client-theme[data-client-theme='estudio']:not([data-portal-template]) [class~='fixed'][class~='inset-0']:not([aria-hidden='true']) [class~='bg-blue-600'],
+.nexus-client-theme[data-client-theme='estudio']:not([data-portal-template]) [class~='fixed'][class~='inset-0']:not([aria-hidden='true']) [class~='bg-blue-500'] { background: var(--es-ink) !important; color: #fff !important; }
+
+.nexus-client-theme[data-client-theme='estudio']:not([data-portal-template]) .nexus-status-badge { border: 1px solid currentColor; border-radius: 999px; font-weight: 600; }
+.nexus-client-theme[data-client-theme='estudio']:not([data-portal-template]) .nexus-status-success,
+.nexus-client-theme[data-client-theme='estudio']:not([data-portal-template]) [class~='text-green-400'],
+.nexus-client-theme[data-client-theme='estudio']:not([data-portal-template]) [class~='text-emerald-400'] { color: #176B4D !important; }
+.nexus-client-theme[data-client-theme='estudio']:not([data-portal-template]) [class~='bg-green-500/20'],
+.nexus-client-theme[data-client-theme='estudio']:not([data-portal-template]) [class~='bg-emerald-500/20'] { background-color: rgba(23,107,77,.1) !important; }
+.nexus-client-theme[data-client-theme='estudio']:not([data-portal-template]) .nexus-status-warning,
+.nexus-client-theme[data-client-theme='estudio']:not([data-portal-template]) [class~='text-orange-400'] { color: #8F5A00 !important; }
+.nexus-client-theme[data-client-theme='estudio']:not([data-portal-template]) [class~='bg-orange-500/20'] { background-color: rgba(143,90,0,.1) !important; }
+.nexus-client-theme[data-client-theme='estudio']:not([data-portal-template]) .nexus-status-danger,
+.nexus-client-theme[data-client-theme='estudio']:not([data-portal-template]) [class~='text-red-400'] { color: #A8283C !important; }
+.nexus-client-theme[data-client-theme='estudio']:not([data-portal-template]) .nexus-status-info,
+.nexus-client-theme[data-client-theme='estudio']:not([data-portal-template]) [class~='text-blue-400'] { color: #3A332F !important; }
+.nexus-client-theme[data-client-theme='estudio']:not([data-portal-template]) .nexus-status-neutral,
+.nexus-client-theme[data-client-theme='estudio']:not([data-portal-template]) [class~='text-zinc-400'],
+.nexus-client-theme[data-client-theme='estudio']:not([data-portal-template]) [class~='text-zinc-500'] { color: var(--es-muted) !important; }
+.nexus-client-theme[data-client-theme='estudio']:not([data-portal-template]) :focus-visible { outline: 2px solid var(--es-ink); outline-offset: 3px; }
+.nexus-client-theme[data-client-theme='estudio']:not([data-portal-template]) .nexus-booking-success > section > span { background: var(--es-tint); color: var(--es-ink); border-radius: 50%; }
+.nexus-client-theme[data-client-theme='estudio']:not([data-portal-template]) .nexus-booking-success small { color: var(--es-clay); }
+.nexus-client-theme[data-client-theme='estudio']:not([data-portal-template]) .nexus-booking-receipt > div { background: var(--es-tint); border-radius: .95rem; }
+.nexus-client-theme[data-client-theme='estudio']:not([data-portal-template]) .nexus-booking-receipt em { color: var(--es-muted); }
+.nexus-client-theme[data-client-theme='estudio']:not([data-portal-template]) .nexus-avatar,
+.nexus-client-theme[data-client-theme='estudio']:not([data-portal-template]) .nexus-choice-grid img { background: var(--es-ink); color: #fff; border-radius: 50%; }
+.nexus-client-theme[data-client-theme='estudio']:not([data-portal-template]) .nexus-portal-deep > header img { border: 2px solid #fff; border-radius: 50%; object-fit: cover; box-shadow: 0 0 0 1px var(--es-line); }
+
+.nexus-client-theme[data-client-theme='estudio']:not([data-portal-template]) .nexus-landing { font-family: Outfit, Inter, 'Segoe UI', sans-serif; }
+.nexus-client-theme[data-client-theme='estudio']:not([data-portal-template]) .nexus-landing-nav.is-scrolled { background: rgba(247,246,244,.92); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); }
+.nexus-client-theme[data-client-theme='estudio']:not([data-portal-template]) .nexus-landing-hero-art { background: linear-gradient(180deg, #F7F6F4, #EEECE8); }
+.nexus-client-theme[data-client-theme='estudio']:not([data-portal-template]) .nexus-landing-hero-copy h1 { font-weight: 500; letter-spacing: -.03em; }
+.nexus-client-theme[data-client-theme='estudio']:not([data-portal-template]) .nexus-landing-kicker,
+.nexus-client-theme[data-client-theme='estudio']:not([data-portal-template]) .nexus-landing-exp h3,
+.nexus-client-theme[data-client-theme='estudio']:not([data-portal-template]) .nexus-landing-plan h3 { font-weight: 600; }
+.nexus-client-theme[data-client-theme='estudio']:not([data-portal-template]) .nexus-landing-plan,
+.nexus-client-theme[data-client-theme='estudio']:not([data-portal-template]) .nexus-landing-contact-card { background: #fff; box-shadow: 0 1px 2px rgba(30,26,24,.04), 0 14px 32px -20px rgba(30,26,24,.18); }
+.nexus-client-theme[data-client-theme='estudio']:not([data-portal-template]) .nexus-landing-contact-actions .nexus-landing-login { border-color: rgba(30,26,24,.25); }
+
+@media (max-width: 560px) {
+  .nexus-client-theme[data-client-theme='estudio']:not([data-portal-template]) .nexus-booking-hero { padding: 2rem .35rem 1.5rem; }
+  .nexus-client-theme[data-client-theme='estudio']:not([data-portal-template]) .nexus-booking-hero h1 { font-size: clamp(2rem,10vw,3rem); }
+  .nexus-client-theme[data-client-theme='estudio']:not([data-portal-template]) .nexus-booking-layout > main,
+.nexus-client-theme[data-client-theme='estudio']:not([data-portal-template]) .nexus-booking-summary,
+.nexus-client-theme[data-client-theme='estudio']:not([data-portal-template]) .nexus-portal-card,
+.nexus-client-theme[data-client-theme='estudio']:not([data-portal-template]) .nexus-next-appointment,
+.nexus-client-theme[data-client-theme='estudio']:not([data-portal-template]) .nexus-portal-login > section,
+.nexus-client-theme[data-client-theme='estudio']:not([data-portal-template]) .nexus-booking-success > section { border-radius: 1.05rem; }
+}

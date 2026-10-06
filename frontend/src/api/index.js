@@ -616,6 +616,7 @@ export const publicAPI = {
   acceptInvitation: (data) => axios.post(`${API}/public/invitations/accept`, data, { timeout: 15000 }),
   getOrganization: (orgId) => axios.get(`${API}/public/${orgId}/organization`),
   getServices: (orgId) => axios.get(`${API}/public/${orgId}/services`),
+  getMembershipPlans: (orgId) => axios.get(`${API}/public/${orgId}/membership-plans`),
   getBarbers: (orgId) => axios.get(`${API}/public/${orgId}/barbers`),
   getAvailability: (orgId, barberId, date, serviceId) => axios.get(`${API}/public/${orgId}/availability`, { params: { barber_id: barberId, date, service_id: serviceId } }),
   getClassSessions: (orgId, params = {}) => axios.get(`${API}/public/${orgId}/class-sessions`, { params }),

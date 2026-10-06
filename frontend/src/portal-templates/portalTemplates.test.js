@@ -11,12 +11,13 @@ import {
 test('template registries retain legacy standard keys and add vertical-safe standard choices', () => {
   expect(STANDARD_TEMPLATE_KEYS).toEqual([
     'classic', 'feminine', 'professional', 'cyberpunk', 'underground', 'neutral', 'minimalist_purple',
-    'nail-studio', 'bloom-garden', 'wellness', 'movement', 'clinical', 'pet-care',
+    'nail-studio', 'bloom-garden', 'wellness', 'movement', 'clinical', 'pet-care', 'estudio',
   ]);
   expect(PREMIUM_TEMPLATE_KEYS).toEqual([
     'barberia-real', 'bloom', 'ignition', 'claridad', 'noir', 'atelier', 'recreo',
+    'obsidiana', 'porcelana', 'voltaje', 'cadencia', 'aliento',
   ]);
-  expect(PORTAL_TEMPLATE_KEYS).toHaveLength(20);
+  expect(PORTAL_TEMPLATE_KEYS).toHaveLength(26);
   expect(PORTAL_TEMPLATE_METADATA.noir).toEqual({ key: 'noir', tier: 'premium' });
   expect(PORTAL_TEMPLATE_METADATA.neutral).toEqual({ key: 'neutral', tier: 'standard' });
 });

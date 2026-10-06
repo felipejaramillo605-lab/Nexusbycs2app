@@ -75,7 +75,7 @@ const RevenueDashboard = lazy(() => import('./pages/RevenueDashboard'));
 const SettlementsDashboard = lazy(() => import('./pages/SettlementsDashboard'));
 const AppointmentsHistory = lazy(() => import('./pages/AppointmentsHistory'));
 const BusinessProfile = lazy(() => import('./pages/BusinessProfile'));
-const BookingFlow = lazy(() => import('./pages/BookingFlow'));
+const BookEntry = lazy(() => import('./pages/BookEntry'));
 const CustomerPortal = lazy(() => import('./pages/CustomerPortal'));
 const ClientCatalog = lazy(() => import('./pages/ClientCatalog'));
 const ClientCart = lazy(() => import('./pages/ClientCart'));
@@ -154,7 +154,7 @@ function AppRouter() {
         <Route path="/reset-password" element={<ResetPassword />} />
         <Route path="/pending-approval" element={<PendingApproval />} />
         <Route path="/auth/callback" element={<AuthCallback />} />
-        <Route path="/book/:orgId" element={<ClientPortalThemeWrapper><BookingFlow /></ClientPortalThemeWrapper>} />
+        <Route path="/book/:orgId" element={<ClientPortalThemeWrapper><BookEntry /></ClientPortalThemeWrapper>} />
         <Route path="/portal/:orgId" element={<ClientPortalThemeWrapper><CustomerPortal /></ClientPortalThemeWrapper>} />
 
         {/* NEXUS_PRODUCT_CATALOG_V11 */}

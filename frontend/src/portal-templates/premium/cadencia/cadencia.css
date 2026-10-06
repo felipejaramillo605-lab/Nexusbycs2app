@@ -1,0 +1,271 @@
+/* Cadencia: warm black studio with an infrared glow, soft rose metal and quiet serif type. Group-class template (premium). */
+.nexus-client-theme[data-portal-template='cadencia'] {
+  --cd-bg: #100D0D; --cd-panel: #181414; --cd-raised: #211B1B; --cd-ink: #F4EEEA;
+  --cd-soft: #CDBFB8; --cd-muted: #A8998F; --cd-line: rgba(244,238,234,.1);
+  --cd-rose: #C98F82; --cd-rose-hi: #DDA79B; --cd-heat: #E3A56B;
+  position: relative; isolation: isolate; min-height: 100vh; overflow: clip;
+  background: var(--cd-bg); color: var(--cd-ink); font-family: Outfit, Inter, 'Segoe UI', sans-serif;
+  color-scheme: dark; animation: cd-fade-in .8s ease both;
+}
+
+.nexus-client-theme[data-portal-template='cadencia']::before {
+  content: ''; position: fixed; inset: 0; z-index: -1; pointer-events: none;
+  background:
+    radial-gradient(120% 55% at 50% 118%, rgba(201,120,92,.38), rgba(201,120,92,.1) 48%, transparent 72%),
+    radial-gradient(60% 40% at 8% 0%, rgba(201,143,130,.1), transparent 70%);
+  animation: cd-breathe 8s ease-in-out infinite alternate;
+}
+.nexus-client-theme[data-portal-template='cadencia']::after {
+  content: ''; position: fixed; inset: 0; z-index: -1; pointer-events: none;
+  background: linear-gradient(180deg, rgba(16,13,13,.55), transparent 22%, transparent 70%, rgba(16,13,13,.35));
+}
+.nexus-client-theme[data-portal-template='cadencia']:has(> [aria-hidden='true'] > :is(img, video))::before { opacity: .55; }
+.nexus-client-theme[data-portal-template='cadencia'] h1,
+.nexus-client-theme[data-portal-template='cadencia'] h2,
+.nexus-client-theme[data-portal-template='cadencia'] h3,
+.nexus-public-experience[data-portal-template='cadencia'] .nexus-public-brand-tenant strong {
+  color: var(--cd-ink); font-family: Fraunces, Georgia, serif; font-weight: 500; letter-spacing: -.01em;
+}
+.nexus-client-theme[data-portal-template='cadencia'] .nexus-booking-deep,
+.nexus-client-theme[data-portal-template='cadencia'] .nexus-portal-deep,
+.nexus-client-theme[data-portal-template='cadencia'] .nexus-portal-login,
+.nexus-client-theme[data-portal-template='cadencia'] .nexus-booking-success { color: var(--cd-ink); }
+
+.nexus-client-theme[data-portal-template='cadencia'] .nexus-booking-hero { padding: clamp(2.8rem,8vw,5.5rem) 1rem 2.2rem; text-align: left; }
+.nexus-client-theme[data-portal-template='cadencia'] .nexus-booking-hero > * { animation: cd-rise .8s cubic-bezier(.2,.7,.2,1) both; }
+.nexus-client-theme[data-portal-template='cadencia'] .nexus-booking-hero > :nth-child(2) { animation-delay: .07s; }
+.nexus-client-theme[data-portal-template='cadencia'] .nexus-booking-hero > :nth-child(3) { animation-delay: .14s; }
+.nexus-client-theme[data-portal-template='cadencia'] .nexus-booking-hero > :nth-child(n+4) { animation-delay: .2s; }
+.nexus-client-theme[data-portal-template='cadencia'] .nexus-booking-hero > small,
+.nexus-client-theme[data-portal-template='cadencia'] .nexus-portal-deep > header small {
+  color: var(--cd-rose); font-size: .72rem; font-weight: 500; letter-spacing: .3em; text-transform: uppercase;
+}
+.nexus-client-theme[data-portal-template='cadencia'] .nexus-booking-hero h1,
+.nexus-client-theme[data-portal-template='cadencia'] .nexus-portal-deep > header h1,
+.nexus-client-theme[data-portal-template='cadencia'] .nexus-portal-login h1 {
+  max-width: 15ch; font-size: clamp(2.4rem,6.4vw,4.8rem); line-height: 1.04; letter-spacing: -.02em;
+}
+.nexus-client-theme[data-portal-template='cadencia'] .nexus-booking-hero p,
+.nexus-client-theme[data-portal-template='cadencia'] .nexus-booking-hero > div { color: var(--cd-soft); }
+.nexus-client-theme[data-portal-template='cadencia'] .nexus-directions-link {
+  display: inline-flex; align-items: center; gap: .35rem; padding: .3rem .8rem; border: 1px solid var(--cd-line);
+  border-radius: 999px; color: var(--cd-ink); text-decoration: none; transition: border-color .25s ease, background .25s ease;
+}
+.nexus-client-theme[data-portal-template='cadencia'] .nexus-directions-link:hover { border-color: rgba(201,143,130,.55); background: rgba(201,143,130,.08); }
+
+.nexus-client-theme[data-portal-template='cadencia'] .nexus-booking-layout > main,
+.nexus-client-theme[data-portal-template='cadencia'] .nexus-booking-summary,
+.nexus-client-theme[data-portal-template='cadencia'] .nexus-portal-card,
+.nexus-client-theme[data-portal-template='cadencia'] .nexus-next-appointment,
+.nexus-client-theme[data-portal-template='cadencia'] .nexus-portal-login > section,
+.nexus-client-theme[data-portal-template='cadencia'] .nexus-booking-success > section {
+  position: relative; border: 1px solid var(--cd-line); border-radius: 1.4rem;
+  background: linear-gradient(180deg, rgba(28,23,23,.82), rgba(20,16,16,.82));
+  backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
+  color: var(--cd-ink); box-shadow: 0 28px 64px rgba(0,0,0,.45), inset 0 1px 0 rgba(255,255,255,.04);
+  animation: cd-rise .8s cubic-bezier(.2,.7,.2,1) both;
+}
+.nexus-client-theme[data-portal-template='cadencia'] .nexus-booking-layout > main:nth-child(2),
+.nexus-client-theme[data-portal-template='cadencia'] .nexus-booking-summary:nth-child(2),
+.nexus-client-theme[data-portal-template='cadencia'] .nexus-portal-card:nth-child(2),
+.nexus-client-theme[data-portal-template='cadencia'] .nexus-next-appointment:nth-child(2),
+.nexus-client-theme[data-portal-template='cadencia'] .nexus-portal-login > section:nth-child(2),
+.nexus-client-theme[data-portal-template='cadencia'] .nexus-booking-success > section:nth-child(2) { animation-delay: .1s; }
+.nexus-client-theme[data-portal-template='cadencia'] .nexus-booking-layout > main:nth-child(3),
+.nexus-client-theme[data-portal-template='cadencia'] .nexus-booking-summary:nth-child(3),
+.nexus-client-theme[data-portal-template='cadencia'] .nexus-portal-card:nth-child(3),
+.nexus-client-theme[data-portal-template='cadencia'] .nexus-next-appointment:nth-child(3),
+.nexus-client-theme[data-portal-template='cadencia'] .nexus-portal-login > section:nth-child(3),
+.nexus-client-theme[data-portal-template='cadencia'] .nexus-booking-success > section:nth-child(3) { animation-delay: .2s; }
+.nexus-client-theme[data-portal-template='cadencia'] .nexus-booking-step > header > svg,
+.nexus-client-theme[data-portal-template='cadencia'] .nexus-choice-icon { color: var(--cd-rose); }
+.nexus-client-theme[data-portal-template='cadencia'] .nexus-booking-step header p,
+.nexus-client-theme[data-portal-template='cadencia'] .nexus-booking-summary > small { color: var(--cd-muted); }
+.nexus-client-theme[data-portal-template='cadencia'] .nexus-booking-summary > div { border-bottom-color: var(--cd-line); }
+.nexus-client-theme[data-portal-template='cadencia'] .nexus-booking-summary footer b,
+.nexus-client-theme[data-portal-template='cadencia'] .nexus-choice-grid b,
+.nexus-client-theme[data-portal-template='cadencia'] .nexus-choice-grid em { color: var(--cd-rose-hi); }
+.nexus-client-theme[data-portal-template='cadencia'] .nexus-choice-icon { background: rgba(201,143,130,.12); border-radius: 14px; }
+
+.nexus-client-theme[data-portal-template='cadencia'] .nexus-stepper { border-bottom-color: var(--cd-line); gap: .3rem; }
+.nexus-client-theme[data-portal-template='cadencia'] .nexus-stepper button { color: var(--cd-muted); border-radius: 999px; transition: background .25s ease, color .25s ease; }
+.nexus-client-theme[data-portal-template='cadencia'] .nexus-stepper button > span { border-radius: 50%; background: var(--cd-raised); border: 1px solid var(--cd-line); }
+.nexus-client-theme[data-portal-template='cadencia'] .nexus-stepper button.is-current { color: var(--cd-ink); background: rgba(201,143,130,.12); }
+.nexus-client-theme[data-portal-template='cadencia'] .nexus-stepper button.is-current > span,
+.nexus-client-theme[data-portal-template='cadencia'] .nexus-stepper button.is-complete > span { background: var(--cd-rose); border-color: var(--cd-rose); color: #1A0F0D; }
+.nexus-client-theme[data-portal-template='cadencia'] .nexus-stepper button.is-complete { color: var(--cd-soft); }
+
+.nexus-client-theme[data-portal-template='cadencia'] .nexus-choice-grid > button,
+.nexus-client-theme[data-portal-template='cadencia'] .nexus-slots button,
+.nexus-client-theme[data-portal-template='cadencia'] .nexus-portal-history article {
+  border: 1px solid var(--cd-line); border-radius: 1.1rem; background: rgba(33,27,27,.7); color: var(--cd-ink);
+  transition: border-color .25s ease, background .25s ease, box-shadow .25s ease, transform .25s ease;
+}
+.nexus-client-theme[data-portal-template='cadencia'] .nexus-choice-grid > button:hover,
+.nexus-client-theme[data-portal-template='cadencia'] .nexus-slots button:hover,
+.nexus-client-theme[data-portal-template='cadencia'] .nexus-portal-history article:hover { border-color: rgba(201,143,130,.5); transform: translateY(-1px); }
+.nexus-client-theme[data-portal-template='cadencia'] .nexus-choice-grid > button.is-selected {
+  border-color: var(--cd-rose); background: rgba(201,143,130,.1); box-shadow: 0 0 0 4px rgba(201,143,130,.13); color: var(--cd-ink);
+}
+.nexus-client-theme[data-portal-template='cadencia'] .nexus-slots button.is-selected { border-color: var(--cd-rose); background: var(--cd-rose); color: #1A0F0D; box-shadow: 0 8px 22px rgba(201,143,130,.28); }
+.nexus-client-theme[data-portal-template='cadencia'] .nexus-slots button.is-closed,
+.nexus-client-theme[data-portal-template='cadencia'] .nexus-slots button:disabled { border-style: dashed; background: transparent; color: var(--cd-muted); opacity: .6; transform: none; }
+.nexus-client-theme[data-portal-template='cadencia'] .nexus-slots button { border-radius: .95rem; font-variant-numeric: tabular-nums; }
+.nexus-client-theme[data-portal-template='cadencia'] .nexus-slots h3 { color: var(--cd-soft); font-family: Outfit, Inter, sans-serif; font-weight: 500; letter-spacing: .06em; text-transform: uppercase; font-size: .72rem; }
+.nexus-client-theme[data-portal-template='cadencia'] .nexus-slot-skeleton { background: var(--cd-raised); color: var(--cd-muted); border-radius: .95rem; animation: cd-pulse 1.8s ease-in-out infinite; }
+.nexus-client-theme[data-portal-template='cadencia'] .nexus-booking-window-note,
+.nexus-client-theme[data-portal-template='cadencia'] .nexus-policy-box {
+  padding: .8rem 1rem; border: 1px solid rgba(201,143,130,.3); border-radius: 1rem; background: rgba(201,143,130,.07); color: var(--cd-soft); font-size: .82rem;
+}
+.nexus-client-theme[data-portal-template='cadencia'] .nexus-policy-box strong { color: var(--cd-ink); }
+
+.nexus-client-theme[data-portal-template='cadencia'] .nexus-action-button,
+.nexus-client-theme[data-portal-template='cadencia'] .nexus-portal-deep button { border-radius: 999px; }
+.nexus-client-theme[data-portal-template='cadencia'] .nexus-action-button {
+  min-height: 48px; padding-inline: 1.7rem; font-family: Fraunces, Georgia, serif; font-weight: 600; letter-spacing: .02em;
+  transition: transform .25s ease, box-shadow .25s ease, background-color .25s ease, color .25s ease, border-color .25s ease;
+}
+.nexus-client-theme[data-portal-template='cadencia'] .nexus-action-primary { background: var(--cd-rose); color: #1A0F0D; border: 0; box-shadow: 0 10px 28px rgba(201,143,130,.22); }
+.nexus-client-theme[data-portal-template='cadencia'] .nexus-action-primary:hover:not(:disabled) { background: var(--cd-rose-hi); transform: translateY(-1px); box-shadow: 0 14px 34px rgba(201,143,130,.34); }
+.nexus-client-theme[data-portal-template='cadencia'] .nexus-action-primary:active:not(:disabled) { transform: translateY(0) scale(.99); }
+.nexus-client-theme[data-portal-template='cadencia'] .nexus-action-secondary { border: 1px solid rgba(244,238,234,.22); background: transparent; color: var(--cd-ink); }
+.nexus-client-theme[data-portal-template='cadencia'] .nexus-action-secondary:hover:not(:disabled) { border-color: var(--cd-rose); background: rgba(201,143,130,.08); }
+.nexus-client-theme[data-portal-template='cadencia'] button:disabled { cursor: not-allowed; opacity: .5; }
+.nexus-client-theme[data-portal-template='cadencia'] .nexus-text-link,
+.nexus-client-theme[data-portal-template='cadencia'] .nexus-portal-login a { color: var(--cd-rose-hi); }
+
+.nexus-client-theme[data-portal-template='cadencia'] input,
+.nexus-client-theme[data-portal-template='cadencia'] select,
+.nexus-client-theme[data-portal-template='cadencia'] textarea,
+.nexus-client-theme[data-portal-template='cadencia'] .nexus-portal-login .PhoneInput {
+  border: 1px solid rgba(244,238,234,.14); border-radius: .95rem; background: rgba(255,255,255,.035); color: var(--cd-ink);
+  transition: border-color .25s ease, box-shadow .25s ease, background .25s ease;
+}
+.nexus-client-theme[data-portal-template='cadencia'] input:hover,
+.nexus-client-theme[data-portal-template='cadencia'] select:hover,
+.nexus-client-theme[data-portal-template='cadencia'] textarea:hover { border-color: rgba(244,238,234,.26); }
+.nexus-client-theme[data-portal-template='cadencia'] input:focus,
+.nexus-client-theme[data-portal-template='cadencia'] select:focus,
+.nexus-client-theme[data-portal-template='cadencia'] textarea:focus,
+.nexus-client-theme[data-portal-template='cadencia'] .PhoneInput:focus-within {
+  border-color: var(--cd-rose); background: rgba(255,255,255,.055); box-shadow: 0 0 0 4px rgba(201,143,130,.16); outline: none;
+}
+.nexus-client-theme[data-portal-template='cadencia'] input::placeholder,
+.nexus-client-theme[data-portal-template='cadencia'] textarea::placeholder { color: #8A7C73; }
+.nexus-client-theme[data-portal-template='cadencia'] input[type='date'] { color-scheme: dark; }
+.nexus-client-theme[data-portal-template='cadencia'] input[type='checkbox'] { accent-color: var(--cd-rose); border-radius: .35rem; }
+.nexus-client-theme[data-portal-template='cadencia'] .nexus-client-form label,
+.nexus-client-theme[data-portal-template='cadencia'] .nexus-public-field,
+.nexus-client-theme[data-portal-template='cadencia'] .nexus-portal-login label { color: var(--cd-soft); letter-spacing: .01em; }
+.nexus-client-theme[data-portal-template='cadencia'] .nexus-public-error { color: #F3A7A0; padding: .6rem .9rem; border: 1px solid rgba(243,167,160,.3); border-radius: .85rem; background: rgba(243,167,160,.07); }
+
+.nexus-client-theme[data-portal-template='cadencia'] [class~='fixed'][class~='inset-0']:not([aria-hidden='true']) { background: rgba(10,7,7,.72) !important; backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); animation: cd-fade-in .25s ease both; }
+.nexus-client-theme[data-portal-template='cadencia'] [class~='fixed'][class~='inset-0']:not([aria-hidden='true']) > [class~='bg-zinc-900'] {
+  border: 1px solid var(--cd-line); border-radius: 1.5rem; background: linear-gradient(180deg, #1D1717, #151111);
+  box-shadow: 0 40px 90px rgba(0,0,0,.6); color: var(--cd-ink); animation: cd-pop .35s cubic-bezier(.2,.9,.3,1) both;
+}
+.nexus-client-theme[data-portal-template='cadencia'] [class~='fixed'][class~='inset-0']:not([aria-hidden='true']) [class~='text-zinc-400'] { color: var(--cd-soft) !important; }
+.nexus-client-theme[data-portal-template='cadencia'] [class~='fixed'][class~='inset-0']:not([aria-hidden='true']) [class~='text-zinc-500'] { color: var(--cd-muted) !important; }
+
+.nexus-client-theme[data-portal-template='cadencia'] .nexus-status-badge { border: 1px solid currentColor; border-radius: 999px; font-weight: 500; }
+.nexus-client-theme[data-portal-template='cadencia'] .nexus-status-success,
+.nexus-client-theme[data-portal-template='cadencia'] [class~='text-green-400'],
+.nexus-client-theme[data-portal-template='cadencia'] [class~='text-emerald-400'] { color: #9FD8BE !important; }
+.nexus-client-theme[data-portal-template='cadencia'] [class~='bg-green-500/20'],
+.nexus-client-theme[data-portal-template='cadencia'] [class~='bg-emerald-500/20'] { background-color: rgba(159,216,190,.12) !important; }
+.nexus-client-theme[data-portal-template='cadencia'] .nexus-status-warning,
+.nexus-client-theme[data-portal-template='cadencia'] [class~='text-orange-400'] { color: #EBC08A !important; }
+.nexus-client-theme[data-portal-template='cadencia'] [class~='bg-orange-500/20'] { background-color: rgba(235,192,138,.13) !important; }
+.nexus-client-theme[data-portal-template='cadencia'] .nexus-status-danger,
+.nexus-client-theme[data-portal-template='cadencia'] [class~='text-red-400'] { color: #F3A7A0 !important; }
+.nexus-client-theme[data-portal-template='cadencia'] .nexus-status-info,
+.nexus-client-theme[data-portal-template='cadencia'] [class~='text-blue-400'] { color: #C9B9F0 !important; }
+.nexus-client-theme[data-portal-template='cadencia'] .nexus-status-neutral,
+.nexus-client-theme[data-portal-template='cadencia'] [class~='text-zinc-400'] { color: var(--cd-soft) !important; }
+.nexus-client-theme[data-portal-template='cadencia'] :focus-visible { outline: 2px solid var(--cd-rose-hi); outline-offset: 3px; }
+.nexus-client-theme[data-portal-template='cadencia'] .nexus-booking-success > section { border-top: 1px solid rgba(201,143,130,.5); }
+.nexus-client-theme[data-portal-template='cadencia'] .nexus-booking-success > section > span { background: rgba(201,143,130,.14); color: var(--cd-rose-hi); border-radius: 50%; }
+.nexus-client-theme[data-portal-template='cadencia'] .nexus-booking-success small { color: var(--cd-rose-hi); }
+.nexus-client-theme[data-portal-template='cadencia'] .nexus-booking-receipt > div { background: rgba(255,255,255,.04); border: 1px solid var(--cd-line); border-radius: 1rem; }
+.nexus-client-theme[data-portal-template='cadencia'] .nexus-booking-receipt em { color: var(--cd-muted); }
+.nexus-client-theme[data-portal-template='cadencia'] .nexus-portal-deep > header img,
+.nexus-public-experience[data-portal-template='cadencia'] .nexus-public-brand-tenant-logo { border: 1px solid rgba(201,143,130,.55); border-radius: 50%; object-fit: cover; box-shadow: 0 0 0 4px rgba(201,143,130,.1); }
+.nexus-client-theme[data-portal-template='cadencia'] .nexus-avatar,
+.nexus-client-theme[data-portal-template='cadencia'] .nexus-choice-grid img { background: var(--cd-rose); color: #1A0F0D; border-radius: 50%; }
+
+.nexus-client-theme[data-portal-template='cadencia'] .nexus-landing { font-family: Outfit, Inter, 'Segoe UI', sans-serif; }
+.nexus-client-theme[data-portal-template='cadencia'] .nexus-landing-brand,
+.nexus-client-theme[data-portal-template='cadencia'] .nexus-landing-nav nav a,
+.nexus-client-theme[data-portal-template='cadencia'] .nexus-landing-kicker,
+.nexus-client-theme[data-portal-template='cadencia'] .nexus-landing-exp h3,
+.nexus-client-theme[data-portal-template='cadencia'] .nexus-landing-plan h3 {
+  font-family: Fraunces, Georgia, serif; font-weight: 500;
+}
+.nexus-client-theme[data-portal-template='cadencia'] .nexus-landing-nav.is-scrolled { background: rgba(16,13,13,.86); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); }
+.nexus-client-theme[data-portal-template='cadencia'] .nexus-landing-hero-art {
+  background:
+    radial-gradient(120% 70% at 50% 122%, rgba(201,120,92,.5), rgba(201,120,92,.12) 50%, transparent 76%),
+    radial-gradient(60% 50% at 82% 0%, rgba(201,143,130,.16), transparent 70%), #100D0D;
+  animation: cd-breathe 8s ease-in-out infinite alternate;
+}
+.nexus-client-theme[data-portal-template='cadencia'] .nexus-landing-hero-copy > * { animation: cd-rise .9s cubic-bezier(.2,.7,.2,1) both; }
+.nexus-client-theme[data-portal-template='cadencia'] .nexus-landing-hero-copy > :nth-child(2) { animation-delay: .08s; }
+.nexus-client-theme[data-portal-template='cadencia'] .nexus-landing-hero-copy > :nth-child(3) { animation-delay: .16s; }
+.nexus-client-theme[data-portal-template='cadencia'] .nexus-landing-hero-copy h1 { font-family: Fraunces, Georgia, serif; font-weight: 500; }
+.nexus-client-theme[data-portal-template='cadencia'] .nexus-landing-exp-media { box-shadow: 0 0 0 1px rgba(244,238,234,.12), 0 30px 60px -30px rgba(0,0,0,.7); }
+.nexus-client-theme[data-portal-template='cadencia'] .nexus-landing-exp-initial { font-family: Fraunces, Georgia, serif; }
+.nexus-client-theme[data-portal-template='cadencia'] .nexus-landing-plan,
+.nexus-client-theme[data-portal-template='cadencia'] .nexus-landing-contact-card {
+  background: linear-gradient(180deg, rgba(28,23,23,.82), rgba(20,16,16,.82)); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
+  box-shadow: 0 24px 56px rgba(0,0,0,.4), inset 0 1px 0 rgba(255,255,255,.04);
+}
+.nexus-client-theme[data-portal-template='cadencia'] .nexus-landing-plan .nexus-landing-plan-price { font-family: Fraunces, Georgia, serif; font-weight: 500; }
+.nexus-client-theme[data-portal-template='cadencia'] .nexus-landing-footer { color: var(--cd-muted); }
+
+.nexus-public-experience[data-portal-template='cadencia'] { background: radial-gradient(120% 55% at 50% 118%, rgba(201,120,92,.3), transparent 70%), #100D0D; color: #F4EEEA; font-family: Outfit, Inter, 'Segoe UI', sans-serif; }
+.nexus-public-experience[data-portal-template='cadencia'] .nexus-public-orb { border: 1px solid rgba(201,143,130,.22); background: radial-gradient(circle at 35% 35%, rgba(201,143,130,.16), rgba(227,165,107,.06) 70%); filter: none; }
+.nexus-public-experience[data-portal-template='cadencia'] .nexus-public-brand { border: 1px solid rgba(244,238,234,.1); border-radius: 1.3rem; background: rgba(24,20,20,.8); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px); color: #F4EEEA; box-shadow: 0 18px 44px rgba(0,0,0,.45); }
+.nexus-public-experience[data-portal-template='cadencia'] .nexus-public-brand-tenant-badge { border: 0; border-radius: 999px; background: #C98F82; color: #1A0F0D; }
+.nexus-public-experience[data-portal-template='cadencia'] .nexus-public-brand-provider-badge { background: #E3A56B; color: #1A0F0D; }
+.nexus-public-experience[data-portal-template='cadencia'] .nexus-public-brand-provider { opacity: 1; }
+.nexus-public-experience[data-portal-template='cadencia'] .nexus-public-brand-provider small,
+.nexus-public-experience[data-portal-template='cadencia'] .nexus-public-brand-tenant small,
+.nexus-public-experience[data-portal-template='cadencia'] .nexus-public-footer { color: #A8998F; }
+
+.nexus-client-theme[data-portal-template='cadencia'] > [aria-hidden='true'] > img,
+.nexus-client-theme[data-portal-template='cadencia'] > [aria-hidden='true'] > video { filter: saturate(.9) contrast(1.05) brightness(.85); }
+.nexus-client-theme[data-portal-template='cadencia'] > [aria-hidden='true'] > img ~ [class~='absolute'][class~='inset-0'],
+.nexus-client-theme[data-portal-template='cadencia'] > [aria-hidden='true'] > video ~ [class~='absolute'][class~='inset-0'] {
+  background: linear-gradient(180deg, rgba(16,13,13,.62), rgba(16,13,13,.88)) !important;
+}
+
+@keyframes cd-fade-in { from { opacity: 0; } to { opacity: 1; } }
+@keyframes cd-rise { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
+@keyframes cd-pop { from { opacity: 0; transform: translateY(10px) scale(.97); } to { opacity: 1; transform: none; } }
+@keyframes cd-breathe { from { opacity: .7; transform: scale(1); } to { opacity: 1; transform: scale(1.06); } }
+@keyframes cd-pulse { 50% { opacity: .55; } }
+
+.nexus-client-theme[data-portal-template='cadencia'][data-reduced-motion='true'],
+.nexus-client-theme[data-portal-template='cadencia'][data-reduced-motion='true'] *,
+.nexus-client-theme[data-portal-template='cadencia'][data-reduced-motion='true'] *::before,
+.nexus-client-theme[data-portal-template='cadencia'][data-reduced-motion='true'] *::after {
+  animation: none !important; scroll-behavior: auto !important; transition: none !important;
+}
+@media (prefers-reduced-motion: reduce) {
+  .nexus-client-theme[data-portal-template='cadencia'],
+.nexus-client-theme[data-portal-template='cadencia'] *,
+.nexus-client-theme[data-portal-template='cadencia'] *::before,
+.nexus-client-theme[data-portal-template='cadencia'] *::after { animation: none !important; scroll-behavior: auto !important; transition: none !important; }
+}
+@media (max-width: 560px) {
+  .nexus-client-theme[data-portal-template='cadencia'] .nexus-booking-hero { padding: 2.1rem .35rem 1.6rem; }
+  .nexus-client-theme[data-portal-template='cadencia'] .nexus-booking-hero h1 { font-size: clamp(2.1rem,10.5vw,3.2rem); }
+  .nexus-client-theme[data-portal-template='cadencia'] .nexus-booking-layout > main,
+.nexus-client-theme[data-portal-template='cadencia'] .nexus-booking-summary,
+.nexus-client-theme[data-portal-template='cadencia'] .nexus-portal-card,
+.nexus-client-theme[data-portal-template='cadencia'] .nexus-next-appointment,
+.nexus-client-theme[data-portal-template='cadencia'] .nexus-portal-login > section,
+.nexus-client-theme[data-portal-template='cadencia'] .nexus-booking-success > section { border-radius: 1.15rem; backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); }
+  .nexus-client-theme[data-portal-template='cadencia'] .nexus-action-button { padding-inline: 1.2rem; }
+  .nexus-public-experience[data-portal-template='cadencia'] .nexus-public-brand { margin-inline: .35rem; }
+}
