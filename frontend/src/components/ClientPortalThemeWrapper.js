@@ -1,6 +1,8 @@
 import React from 'react';
 import { useClientPortalOrganizationTheme } from '../hooks/useClientPortalOrganizationTheme';
 import OnboardingTour from './onboarding/OnboardingTour';
+import PortalWhatsAppButton from './PortalWhatsAppButton';
+import '../portal-templates/landing.css';
 import '../portal-templates/premium/barberia-real/barberia-real.css';
 import '../portal-templates/premium/bloom/bloom.css';
 import '../portal-templates/premium/ignition/ignition.css';
@@ -25,6 +27,8 @@ export const ClientPortalThemeWrapper = ({ children }) => {
     backgroundOverlay,
     showBackground,
     handleMouseMove,
+    organization,
+    orgId,
   } = useClientPortalOrganizationTheme();
 
   return (
@@ -43,6 +47,7 @@ export const ClientPortalThemeWrapper = ({ children }) => {
       </div>}
       <OnboardingTour role="client" />
       {children}
+      <PortalWhatsAppButton organization={organization?.organization_id === orgId ? organization : null} />
     </div>
   );
 };

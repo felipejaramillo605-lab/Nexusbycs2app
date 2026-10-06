@@ -136,6 +136,17 @@
 .nexus-client-theme[data-client-theme='estudio']:not([data-portal-template]) .nexus-choice-grid img { background: var(--es-ink); color: #fff; border-radius: 50%; }
 .nexus-client-theme[data-client-theme='estudio']:not([data-portal-template]) .nexus-portal-deep > header img { border: 2px solid #fff; border-radius: 50%; object-fit: cover; box-shadow: 0 0 0 1px var(--es-line); }
 
+.nexus-client-theme[data-client-theme='estudio']:not([data-portal-template]) .nexus-landing { font-family: Outfit, Inter, 'Segoe UI', sans-serif; }
+.nexus-client-theme[data-client-theme='estudio']:not([data-portal-template]) .nexus-landing-nav.is-scrolled { background: rgba(247,246,244,.92); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); }
+.nexus-client-theme[data-client-theme='estudio']:not([data-portal-template]) .nexus-landing-hero-art { background: linear-gradient(180deg, #F7F6F4, #EEECE8); }
+.nexus-client-theme[data-client-theme='estudio']:not([data-portal-template]) .nexus-landing-hero-copy h1 { font-weight: 500; letter-spacing: -.03em; }
+.nexus-client-theme[data-client-theme='estudio']:not([data-portal-template]) .nexus-landing-kicker,
+.nexus-client-theme[data-client-theme='estudio']:not([data-portal-template]) .nexus-landing-exp h3,
+.nexus-client-theme[data-client-theme='estudio']:not([data-portal-template]) .nexus-landing-plan h3 { font-weight: 600; }
+.nexus-client-theme[data-client-theme='estudio']:not([data-portal-template]) .nexus-landing-plan,
+.nexus-client-theme[data-client-theme='estudio']:not([data-portal-template]) .nexus-landing-contact-card { background: #fff; box-shadow: 0 1px 2px rgba(30,26,24,.04), 0 14px 32px -20px rgba(30,26,24,.18); }
+.nexus-client-theme[data-client-theme='estudio']:not([data-portal-template]) .nexus-landing-contact-actions .nexus-landing-login { border-color: rgba(30,26,24,.25); }
+
 @media (max-width: 560px) {
   .nexus-client-theme[data-client-theme='estudio']:not([data-portal-template]) .nexus-booking-hero { padding: 2rem .35rem 1.5rem; }
   .nexus-client-theme[data-client-theme='estudio']:not([data-portal-template]) .nexus-booking-hero h1 { font-size: clamp(2rem,10vw,3rem); }

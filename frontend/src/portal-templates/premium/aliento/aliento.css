@@ -204,6 +204,37 @@
 .nexus-client-theme[data-portal-template='aliento'] .nexus-avatar,
 .nexus-client-theme[data-portal-template='aliento'] .nexus-choice-grid img { background: var(--al-violet); color: #fff; border-radius: 50%; }
 
+.nexus-client-theme[data-portal-template='aliento'] .nexus-landing { font-family: Outfit, Inter, 'Segoe UI', sans-serif; }
+.nexus-client-theme[data-portal-template='aliento'] .nexus-landing-brand,
+.nexus-client-theme[data-portal-template='aliento'] .nexus-landing-nav nav a,
+.nexus-client-theme[data-portal-template='aliento'] .nexus-landing-kicker,
+.nexus-client-theme[data-portal-template='aliento'] .nexus-landing-exp h3,
+.nexus-client-theme[data-portal-template='aliento'] .nexus-landing-plan h3 {
+  font-family: Fraunces, Georgia, serif; font-weight: 500;
+}
+.nexus-client-theme[data-portal-template='aliento'] .nexus-landing-nav.is-scrolled { background: rgba(244,242,248,.86); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); }
+.nexus-client-theme[data-portal-template='aliento'] .nexus-landing-hero-art {
+  background:
+    radial-gradient(60% 60% at 12% 8%, rgba(150,130,210,.3), transparent 70%),
+    radial-gradient(55% 55% at 92% 96%, rgba(233,185,163,.38), transparent 70%),
+    linear-gradient(180deg, #F4F2F8, #ECE8F3);
+}
+.nexus-client-theme[data-portal-template='aliento'] .nexus-landing-hero-art::before {
+  content: ''; position: absolute; left: 50%; top: 50%; width: min(70vmin, 36rem); aspect-ratio: 1; border-radius: 50%;
+  border: 1px solid rgba(91,75,138,.28); transform: translate(-50%, -50%);
+  box-shadow: 0 0 0 2.2rem rgba(91,75,138,.04), 0 0 0 4.6rem rgba(91,75,138,.025); animation: al-ring 8s ease-in-out infinite alternate;
+}
+.nexus-client-theme[data-portal-template='aliento'] .nexus-landing-hero-copy > * { animation: al-rise .9s cubic-bezier(.2,.7,.2,1) both; }
+.nexus-client-theme[data-portal-template='aliento'] .nexus-landing-hero-copy > :nth-child(2) { animation-delay: .08s; }
+.nexus-client-theme[data-portal-template='aliento'] .nexus-landing-hero-copy > :nth-child(3) { animation-delay: .16s; }
+.nexus-client-theme[data-portal-template='aliento'] .nexus-landing-hero-copy h1 { font-family: Fraunces, Georgia, serif; font-weight: 500; }
+.nexus-client-theme[data-portal-template='aliento'] .nexus-landing-exp-media { box-shadow: 0 24px 44px -26px rgba(91,75,138,.45); }
+.nexus-client-theme[data-portal-template='aliento'] .nexus-landing-exp-initial { font-family: Fraunces, Georgia, serif; }
+.nexus-client-theme[data-portal-template='aliento'] .nexus-landing-plan,
+.nexus-client-theme[data-portal-template='aliento'] .nexus-landing-contact-card { background: rgba(255,255,255,.94); box-shadow: 0 1px 2px rgba(35,29,51,.05), 0 22px 44px -22px rgba(91,75,138,.28); }
+.nexus-client-theme[data-portal-template='aliento'] .nexus-landing-plan .nexus-landing-plan-price { font-family: Fraunces, Georgia, serif; font-weight: 500; }
+.nexus-client-theme[data-portal-template='aliento'] .nexus-landing-contact-actions .nexus-landing-login { border-color: rgba(91,75,138,.4); color: var(--al-violet); }
+
 .nexus-public-experience[data-portal-template='aliento'] { background: radial-gradient(60% 50% at 0% 0%, rgba(150,130,210,.2), transparent 70%), radial-gradient(55% 45% at 100% 100%, rgba(233,185,163,.22), transparent 70%), linear-gradient(180deg, #F4F2F8, #ECE8F3); color: #231D33; font-family: Outfit, Inter, 'Segoe UI', sans-serif; }
 .nexus-public-experience[data-portal-template='aliento'] .nexus-public-orb { border: 1px solid rgba(91,75,138,.2); background: radial-gradient(circle at 35% 35%, rgba(150,130,210,.2), rgba(233,185,163,.12) 70%); filter: none; }
 .nexus-public-experience[data-portal-template='aliento'] .nexus-public-brand { border: 1px solid rgba(35,29,51,.1); border-radius: 1.4rem; background: rgba(255,255,255,.92); color: #231D33; box-shadow: 0 1px 2px rgba(35,29,51,.05), 0 22px 44px -22px rgba(91,75,138,.3); }

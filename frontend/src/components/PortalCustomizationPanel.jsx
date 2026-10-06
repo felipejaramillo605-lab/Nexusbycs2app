@@ -1,14 +1,19 @@
 // NEXUS_PORTAL_PERSONALIZATION_V1
 import React, { useEffect, useState } from 'react';
-import { Image, MessageSquare, Save, Users, Tag, Clock, MapPin, ShoppingBag, Film, Trash2 } from 'lucide-react';
+import { Image, MessageSquare, Save, Users, Tag, Clock, MapPin, ShoppingBag, Film, Trash2, MessageCircle, LayoutTemplate, Ticket } from 'lucide-react';
 import { toast } from 'sonner';
 import { organizationAPI } from '../api';
+import { IMAGE_SPECS } from '../lib/portalLanding';
+import { ImageSpecNote } from './PortalHeroImageField';
 
 const TOGGLES = [
   { key: 'portal_show_team', label: 'Mostrar equipo', hint: 'Fotos y nombres de tus profesionales en el portal del cliente', icon: Users },
   { key: 'portal_show_prices', label: 'Mostrar precios', hint: 'Precio de cada servicio visible antes de agendar', icon: Tag },
   { key: 'portal_show_hours', label: 'Mostrar horario', hint: 'Horario de atención en la pantalla de bienvenida', icon: Clock },
   { key: 'portal_show_map', label: 'Mostrar ubicación', hint: 'Dirección y enlace a mapa en el portal', icon: MapPin },
+  { key: 'portal_landing_enabled', label: 'Página de inicio', hint: 'Plantillas de clases grupales: portada con experiencias, planes y contacto antes de reservar', icon: LayoutTemplate },
+  { key: 'portal_show_plans', label: 'Mostrar planes', hint: 'Planes de membresía activos en la página de inicio', icon: Ticket },
+  { key: 'portal_whatsapp_button', label: 'Botón flotante de WhatsApp', hint: 'Abre el WhatsApp configurado en el perfil del negocio, en todo el portal', icon: MessageCircle },
   { key: 'catalog_enabled', label: 'Catálogo de productos', hint: 'Permite vender productos desde el portal del cliente (ropa, cosméticos, etc.)', icon: ShoppingBag },
 ];
 
@@ -21,6 +26,10 @@ export default function PortalCustomizationPanel({ organizationId, initial, onSa
     portal_show_hours: true,
     portal_show_map: false,
     catalog_enabled: false,
+    portal_landing_enabled: true,
+    portal_show_plans: true,
+    portal_whatsapp_button: false,
+    portal_experiences_label: '',
     portal_background_type: 'none',
     portal_background_url: '',
     portal_background_overlay: 'dark',
@@ -39,6 +48,10 @@ export default function PortalCustomizationPanel({ organizationId, initial, onSa
       portal_show_hours: initial.portal_show_hours ?? true,
       portal_show_map: initial.portal_show_map ?? false,
       catalog_enabled: initial.catalog_enabled ?? false,
+      portal_landing_enabled: initial.portal_landing_enabled ?? true,
+      portal_show_plans: initial.portal_show_plans ?? true,
+      portal_whatsapp_button: initial.portal_whatsapp_button ?? false,
+      portal_experiences_label: initial.portal_experiences_label || '',
       portal_background_type: initial.portal_background_type || 'none',
       portal_background_url: initial.portal_background_url || '',
       portal_background_overlay: initial.portal_background_overlay || 'dark',
@@ -58,6 +71,10 @@ export default function PortalCustomizationPanel({ organizationId, initial, onSa
         portal_show_hours: form.portal_show_hours,
         portal_show_map: form.portal_show_map,
         catalog_enabled: form.catalog_enabled,
+        portal_landing_enabled: form.portal_landing_enabled,
+        portal_show_plans: form.portal_show_plans,
+        portal_whatsapp_button: form.portal_whatsapp_button,
+        portal_experiences_label: form.portal_experiences_label.trim() || 'Experiencias',
         portal_background_type: form.portal_background_type,
         portal_background_overlay: form.portal_background_overlay,
       };
@@ -149,7 +166,8 @@ export default function PortalCustomizationPanel({ organizationId, initial, onSa
 
         <section className="rounded-xl border border-[var(--app-border)] p-4 space-y-3">
           <div className="flex items-center gap-2 text-sm font-medium text-[var(--app-text-primary)]"><Film size={15}/>Fondo del portal</div>
-          <p className="text-xs text-[var(--app-text-secondary)]">Clásico conserva el gradiente. Cinemático permite imagen o video corto; Editorial usa una imagen con overlay sutil.</p>
+          <p className="text-xs text-[var(--app-text-secondary)]">Clásico conserva el gradiente. Cinemático permite imagen o video corto; Editorial usa una imagen con overlay sutil. En las plantillas de clases grupales esta imagen es la portada de la página de inicio.</p>
+          <ImageSpecNote spec={IMAGE_SPECS.hero} />
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
             {[['none','Clásico'],['cinematic','Cinemático'],['editorial','Editorial']].map(([preset,label]) => <button key={preset} type="button" onClick={() => setForm(current => ({ ...current, portal_background_type: preset === 'none' ? 'none' : current.portal_background_type === 'video' && preset === 'cinematic' ? 'video' : 'image', portal_background_overlay: preset === 'cinematic' ? 'dark' : preset === 'editorial' ? 'light' : 'dark' }))} className={`rounded-lg border px-3 py-2 text-sm ${((preset === 'none' && form.portal_background_type === 'none') || (preset !== 'none' && form.portal_background_type !== 'none')) ? 'border-[var(--app-primary)]' : 'border-[var(--app-border)]'}`}>{label}</button>)}
           </div>
@@ -160,6 +178,20 @@ export default function PortalCustomizationPanel({ organizationId, initial, onSa
           </>}
           {form.portal_background_url && <button type="button" onClick={removeBackground} className="inline-flex items-center gap-2 text-xs text-red-400"><Trash2 size={14}/>Quitar fondo</button>}
         </section>
+
+        <label className="block">
+          <span className="text-sm font-medium text-[var(--app-text-primary)]">Nombre de la sección de clases</span>
+          <span className="block text-xs text-[var(--app-text-secondary)] mb-2">Así se llama en el portal lo que aquí configuras como clases (por ejemplo Experiencias, Disciplinas o Clases). Cada clase, su foto y su descripción se editan en Servicios → Clases.</span>
+          <input
+            value={form.portal_experiences_label}
+            onChange={e => setForm({ ...form, portal_experiences_label: e.target.value.slice(0, 40) })}
+            placeholder="Experiencias"
+            maxLength={40}
+            data-testid="experiences-label-input"
+            className="w-full rounded-xl border border-[var(--app-border)] bg-transparent px-3 py-2 text-sm text-[var(--app-text-primary)] focus:border-[var(--app-primary)] focus:ring-1 focus:ring-[var(--app-primary)] outline-none"
+          />
+          <span className="mt-2 block"><ImageSpecNote spec={IMAGE_SPECS.experience} /></span>
+        </label>
 
         <div>
           <span className="text-sm font-medium text-[var(--app-text-primary)]">Qué mostrar en el portal</span>

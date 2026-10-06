@@ -4,10 +4,11 @@ import { CLIENT_PORTAL_THEMES } from '../constants/clientPortalThemes';
 import { toast } from 'sonner';
 import { organizationAPI } from '../api';
 import { getBusinessProfile } from '../lib/businessProfiles';
+import PortalHeroImageField from './PortalHeroImageField';
 
 // El portal publico usa la plantilla premium si hay una activa (portal_template) y, si no, este tema normal.
 // Por eso elegir un tema normal debe guardar tambien portal_template = 'classic'; si no, la premium sigue ganando.
-export default function PortalThemeSelector({ organizationId, currentTheme = 'classic', businessType = 'barbershop', premiumActive = false, onThemeChange, onTemplateReset }) {
+export default function PortalThemeSelector({ organizationId, currentTheme = 'classic', businessType = 'barbershop', premiumActive = false, organization, onOrganizationChange, onThemeChange, onTemplateReset }) {
   const [saving, setSaving] = useState(false);
   const [selectedTheme, setSelectedTheme] = useState(premiumActive ? null : currentTheme);
 
@@ -122,6 +123,10 @@ export default function PortalThemeSelector({ organizationId, currentTheme = 'cl
           );
         })}
       </div>
+
+      {organization && selectedTheme && CLIENT_PORTAL_THEMES[selectedTheme]?.landing && (
+        <PortalHeroImageField organizationId={organizationId} organization={organization} onChanged={onOrganizationChange} />
+      )}
 
       {premiumActive && (
         <p className="text-sm text-[var(--app-primary)]" data-testid="premium-active-notice">

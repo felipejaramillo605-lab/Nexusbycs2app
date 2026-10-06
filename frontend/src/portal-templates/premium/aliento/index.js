@@ -45,6 +45,8 @@ const ALIENTO_THEME = Object.freeze({
   accentSecondary: '#E9B9A3',
   textPrimary: '#231D33',
   textSecondary: '#4A4260',
+  category: 'group',
+  landing: true,
   textShadow: 'none',
   boxShadow: '0 22px 44px -22px rgba(91,75,138,.28)',
   surface: '#FFFFFF',
