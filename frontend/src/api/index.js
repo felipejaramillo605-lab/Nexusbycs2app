@@ -401,6 +401,29 @@ export const membershipPlanAPI = {
   update: (id, data) => api.put(`/membership-plans/${id}`, data),
 };
 
+export const payrollAPI = {
+  getSettings: (params = {}) => api.get('/payroll/settings', { params }),
+  saveSettings: (data) => api.put('/payroll/settings', data),
+  listExtras: (params = {}) => api.get('/payroll/extras', { params }),
+  createExtra: (data) => api.post('/payroll/extras', data),
+  updateExtra: (id, data) => api.put(`/payroll/extras/${id}`, data),
+  deleteExtra: (id, params = {}) => api.delete(`/payroll/extras/${id}`, { params }),
+  listContracts: (params = {}) => api.get('/payroll/contracts', { params }),
+  saveContract: (barberId, data) => api.put(`/payroll/contracts/${barberId}`, data),
+  listRuns: (params = {}) => api.get('/payroll/runs', { params }),
+  createRun: (data) => api.post('/payroll/runs', data),
+  getRun: (id, params = {}) => api.get(`/payroll/runs/${id}`, { params }),
+  saveLine: (id, barberId, data, params = {}) => api.put(`/payroll/runs/${id}/lines/${barberId}`, data, { params }),
+  approve: (id, params = {}) => api.post(`/payroll/runs/${id}/approve`, {}, { params }),
+  pay: (id, params = {}) => api.post(`/payroll/runs/${id}/pay`, {}, { params }),
+  cancel: (id, params = {}) => api.post(`/payroll/runs/${id}/cancel`, {}, { params }),
+  reopen: (id, data, params = {}) => api.post(`/payroll/runs/${id}/reopen`, data, { params }),
+  downloadReport: (id, params = {}) => api.get(`/payroll/runs/${id}/report.xlsx`, { params, responseType: 'blob' }),
+  downloadSlip: (id, barberId, params = {}) => api.get(`/payroll/runs/${id}/slips/${barberId}.pdf`, { params, responseType: 'blob' }),
+  mySlips: () => api.get('/staff/payroll/slips'),
+  downloadMySlip: (id) => api.get(`/staff/payroll/slips/${id}.pdf`, { responseType: 'blob' }),
+};
+
 export const capacityAPI = {
   weekly: (params = {}) => api.get('/capacity/weekly', { params }),
 };

@@ -52,6 +52,7 @@ const ProfessionalMetrics = lazy(() => import('./pages/ProfessionalMetrics'));
 const StaffReviews = lazy(() => import('./pages/StaffReviews'));
 const InventoryCountSheet = lazy(() => import('./pages/InventoryCountSheet'));
 const ManagerCapacity = lazy(() => import('./pages/ManagerCapacity'));
+const PayrollPage = lazy(() => import('./pages/PayrollPage'));
 const OwnerOrganizationOnboarding = lazy(() => import('./pages/OwnerOrganizationOnboarding'));
 const ManagerOrganizationOnboarding = lazy(() => import('./pages/ManagerOrganizationOnboarding'));
 const NexusAI = lazy(() => import('./pages/NexusAI'));
@@ -257,6 +258,10 @@ function AppRouter() {
           }
         />
 
+        <Route
+          path="/manager/payroll"
+          element={<ProtectedRoute allowedRoles={['owner', 'manager', 'admin']}><Suspense fallback={<PageLoader />}><PayrollPage /></Suspense></ProtectedRoute>}
+        />
         <Route
           path="/manager/capacity"
           element={<ProtectedRoute allowedRoles={['owner', 'manager', 'admin']}><Suspense fallback={<PageLoader />}><ManagerCapacity /></Suspense></ProtectedRoute>}
