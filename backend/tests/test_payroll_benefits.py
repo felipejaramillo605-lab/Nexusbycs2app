@@ -167,7 +167,7 @@ def test_preview_and_export_with_validation_and_disclaimer():
         client.get("/api/payroll/benefits/prima", params={"year": 2026, "semester": 2}, headers=H("ana")).status_code
         == 403
     )
-    xlsx = client.get("/api/payroll/benefits/prima/export.xlsx", params={"year": 2026, "semester": 2}, headers=H())
+    xlsx = client.get("/api/payroll/benefits/prima/export/xlsx", params={"year": 2026, "semester": 2}, headers=H())
     sheet = load_workbook(BytesIO(xlsx.content)).active
     assert sheet["A1"].value == "Barbería Norte" and sheet["A6"].value == "Ana" and "agosto" in sheet["C6"].value
     assert str(sheet["D8"].value).startswith("=SUM")
@@ -197,7 +197,7 @@ def test_applying_prima_creates_approved_non_salary_novelties_once():
 def test_sabana_lists_every_approved_month_per_employee_with_the_warning():
     _, client = build([run(1), run(2, "paid"), run(3, "draft")])
     sheet = load_workbook(
-        BytesIO(client.get("/api/payroll/sabana.xlsx", params={"year": 2026}, headers=H()).content)
+        BytesIO(client.get("/api/payroll/sabana/xlsx", params={"year": 2026}, headers=H()).content)
     ).active
     assert "ni para la UGPP" in sheet["A3"].value
     rows = [[c.value for c in row] for row in sheet.iter_rows(min_row=6) if row[0].value]
@@ -210,11 +210,11 @@ def test_dispersion_lists_missing_bank_data_and_only_approved_runs_produce_the_f
     preview = client.get("/api/payroll/runs/pay_2026_10/dispersion", headers=H()).json()
     assert [r["name"] for r in preview["ready"]] == ["Ana"] and preview["missing"] == ["Luis"]
     assert preview["total"] == preview["ready"][0]["amount"] and "no es un formato bancario" in preview["note"]
-    file = client.get("/api/payroll/runs/pay_2026_10/dispersion.csv", headers=H())
+    file = client.get("/api/payroll/runs/pay_2026_10/dispersion/csv", headers=H())
     text = file.content.decode("utf-8-sig").splitlines()
     assert text[0] == "documento;nombre;banco;tipo_cuenta;numero_cuenta;valor_neto;referencia"
     assert text[1].startswith("123;Ana;Bancolombia;savings;123456789;") and len(text) == 2
-    assert client.get("/api/payroll/runs/pay_2026_11/dispersion.csv", headers=H()).status_code == 409
+    assert client.get("/api/payroll/runs/pay_2026_11/dispersion/csv", headers=H()).status_code == 409
     assert client.get("/api/payroll/runs/nada/dispersion", headers=H()).status_code == 404
 
 
