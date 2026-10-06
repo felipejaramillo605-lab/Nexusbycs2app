@@ -164,6 +164,11 @@ export default function PremiumTemplateSelector({ organizationId, currentTemplat
                 isSelected ? 'border-[var(--app-primary)] bg-[var(--app-primary)]/10' : 'border-[var(--app-border)] bg-[var(--app-surface-solid)]'
               } ${locked ? 'opacity-90' : ''}`}
             >
+              {template.flagship && (
+                <span className="absolute top-3 left-3 z-10 inline-flex items-center gap-1 rounded-full bg-[var(--app-primary)] px-2 py-0.5 text-[10px] font-semibold text-[var(--app-on-primary,#fff)]" data-testid={`flagship-${template.key}`}>
+                  <Sparkles size={10} /> Signature
+                </span>
+              )}
               {locked && (
                 <span className="absolute top-3 right-3 z-10 inline-flex items-center gap-1 rounded-full bg-black/60 px-2 py-0.5 text-[10px] font-medium text-white">
                   <Lock size={10} /> Premium

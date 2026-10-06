@@ -24,7 +24,8 @@ class PortalTemplateGatingTests(unittest.TestCase):
             "nail-studio", "bloom-garden", "wellness", "movement", "clinical", "pet-care"
         ))
         self.assertEqual(PREMIUM_TEMPLATE_KEYS, (
-            "barberia-real", "bloom", "ignition", "claridad", "noir", "atelier", "recreo"
+            "barberia-real", "bloom", "ignition", "claridad", "noir", "atelier", "recreo",
+            "obsidiana", "porcelana", "voltaje"
         ))
         self.assertEqual(ALLOWED_PORTAL_TEMPLATES, frozenset((*STANDARD_TEMPLATE_KEYS, *PREMIUM_TEMPLATE_KEYS)))
 

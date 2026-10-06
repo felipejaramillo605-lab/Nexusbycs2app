@@ -5,6 +5,9 @@ import '../portal-templates/premium/barberia-real/barberia-real.css';
 import '../portal-templates/premium/bloom/bloom.css';
 import '../portal-templates/premium/ignition/ignition.css';
 import '../portal-templates/premium/noir/noir.css';
+import '../portal-templates/premium/obsidiana/obsidiana.css';
+import '../portal-templates/premium/porcelana/porcelana.css';
+import '../portal-templates/premium/voltaje/voltaje.css';
 
 export const ClientPortalThemeWrapper = ({ children }) => {
   const {

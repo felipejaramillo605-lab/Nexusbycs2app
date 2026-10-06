@@ -24,6 +24,9 @@ PREMIUM_TEMPLATE_KEYS = (
     "noir",
     "atelier",
     "recreo",
+    "obsidiana",
+    "porcelana",
+    "voltaje",
 )
 
 ALLOWED_PORTAL_TEMPLATES = frozenset((*STANDARD_TEMPLATE_KEYS, *PREMIUM_TEMPLATE_KEYS))
