@@ -420,6 +420,33 @@ export const hrAPI = {
   myNovelties: () => api.get('/staff/hr/novelties'),
 };
 
+export const wellbeingAPI = {
+  myWallet: () => api.get('/staff/benefits'),
+  redeem: (id) => api.post(`/staff/benefits/${id}/redeem`),
+  myReferrals: () => api.get('/staff/referrals'),
+  submitReferral: (data) => api.post('/staff/referrals', data),
+  submitReport: (data) => api.post('/staff/ethics/reports', data),
+  reportStatus: (code) => api.get(`/staff/ethics/reports/${encodeURIComponent(code)}`),
+  myBeneficiaries: () => api.get('/staff/beneficiaries'),
+  addBeneficiary: (data) => api.post('/staff/beneficiaries', data),
+  removeBeneficiary: (id) => api.delete(`/staff/beneficiaries/${id}`),
+  benefits: (params = {}) => api.get('/hr/benefits', { params }),
+  createBenefit: (data) => api.post('/hr/benefits', data),
+  updateBenefit: (id, data) => api.put(`/hr/benefits/${id}`, data),
+  archiveBenefit: (id, params = {}) => api.delete(`/hr/benefits/${id}`, { params }),
+  grantPoints: (data) => api.post('/hr/benefits/grant', data),
+  decideRedemption: (id, data, params = {}) => api.post(`/hr/benefits/redemptions/${id}/decide`, data, { params }),
+  vacancies: (params = {}) => api.get('/hr/vacancies', { params }),
+  createVacancy: (data) => api.post('/hr/vacancies', data),
+  toggleVacancy: (id, params = {}) => api.post(`/hr/vacancies/${id}/toggle`, {}, { params }),
+  referrals: (params = {}) => api.get('/hr/referrals', { params }),
+  moveReferral: (id, data, params = {}) => api.post(`/hr/referrals/${id}/stage`, data, { params }),
+  ethicsInbox: (params = {}) => api.get('/hr/ethics', { params }),
+  respondEthics: (id, data, params = {}) => api.post(`/hr/ethics/${id}/respond`, data, { params }),
+  escalateEthics: (id, data, params = {}) => api.post(`/hr/ethics/${id}/escalate`, data, { params }),
+  beneficiaries: (params = {}) => api.get('/hr/beneficiaries', { params }),
+};
+
 export const payrollAPI = {
   getSettings: (params = {}) => api.get('/payroll/settings', { params }),
   saveSettings: (data) => api.put('/payroll/settings', data),

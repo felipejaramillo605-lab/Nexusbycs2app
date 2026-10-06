@@ -55,6 +55,8 @@ const ManagerCapacity = lazy(() => import('./pages/ManagerCapacity'));
 const PayrollPage = lazy(() => import('./pages/PayrollPage'));
 const ManagerHR = lazy(() => import('./pages/ManagerHR'));
 const StaffSelfService = lazy(() => import('./pages/StaffSelfService'));
+const ManagerWellbeing = lazy(() => import('./pages/ManagerWellbeing'));
+const StaffWellbeing = lazy(() => import('./pages/StaffWellbeing'));
 const OwnerOrganizationOnboarding = lazy(() => import('./pages/OwnerOrganizationOnboarding'));
 const ManagerOrganizationOnboarding = lazy(() => import('./pages/ManagerOrganizationOnboarding'));
 const NexusAI = lazy(() => import('./pages/NexusAI'));
@@ -261,6 +263,10 @@ function AppRouter() {
         />
 
         <Route
+          path="/manager/wellbeing"
+          element={<ProtectedRoute allowedRoles={['owner', 'manager', 'admin']}><Suspense fallback={<PageLoader />}><ManagerWellbeing /></Suspense></ProtectedRoute>}
+        />
+        <Route
           path="/manager/hr"
           element={<ProtectedRoute allowedRoles={['owner', 'manager', 'admin']}><Suspense fallback={<PageLoader />}><ManagerHR /></Suspense></ProtectedRoute>}
         />
@@ -382,6 +388,7 @@ function AppRouter() {
 
         <Route path="/inventory/count/:countId" element={<ProtectedRoute allowedRoles={['manager', 'admin', 'staff']}><Suspense fallback={<PageLoader />}><InventoryCountSheet /></Suspense></ProtectedRoute>} />
 
+        <Route path="/staff/bienestar" element={<ProtectedRoute requiredRole="staff"><Suspense fallback={<PageLoader />}><StaffWellbeing /></Suspense></ProtectedRoute>} />
         <Route path="/staff/autogestion" element={<ProtectedRoute requiredRole="staff"><Suspense fallback={<PageLoader />}><StaffSelfService /></Suspense></ProtectedRoute>} />
 
         {/* NEXUS_GUIDE_V9 */}

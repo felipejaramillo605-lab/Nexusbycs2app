@@ -53,7 +53,7 @@ describe('StaffNav and Metrics route access', () => {
     const more = host.querySelector('button.nexus-staff-more');
     await act(async () => more.click());
     const panel = host.querySelector('[data-testid="staff-more-panel"]');
-    expect([...panel.querySelectorAll('[role="menuitem"]')].map(item => item.textContent)).toEqual(['Autogestión', 'Guía', 'Cuenta', 'Salir']);
+    expect([...panel.querySelectorAll('[role="menuitem"]')].map(item => item.textContent)).toEqual(['Autogestión', 'Bienestar', 'Guía', 'Cuenta', 'Salir']);
     expect(more.getAttribute('aria-expanded')).toBe('true');
   });
 

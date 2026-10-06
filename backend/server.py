@@ -9484,6 +9484,14 @@ api_router.include_router(
     tags=["hr"],
 )
 
+# Bienestar: billetera de beneficios, referidos, linea etica anonima (cifrada) y beneficiarios
+from hr_wellbeing import build_wellbeing_router, ensure_wellbeing_indexes
+
+api_router.include_router(
+    build_wellbeing_router(db, get_current_user, require_management_role, resolve_team_organization),
+    tags=["hr"],
+)
+
 # Novedades de nomina: horas extra y recargos con topes legales, bonos y compensacion variable
 from payroll_novelties import build_novelties_router, ensure_novelty_indexes
 
@@ -9881,6 +9889,7 @@ async def create_application_indexes():
     await ensure_physical_count_indexes(db)
     await ensure_payroll_indexes(db)
     await ensure_hr_indexes(db)
+    await ensure_wellbeing_indexes(db)
     await ensure_novelty_indexes(db)
     await ensure_purchase_receipt_indexes(db)
     await ensure_subscription_indexes(db)
