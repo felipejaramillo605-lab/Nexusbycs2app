@@ -9492,6 +9492,14 @@ api_router.include_router(
     tags=["payroll"],
 )
 
+# Prestaciones sociales (prima, cesantias, intereses), sabana de nomina y archivo de dispersion (consulta interna)
+from payroll_benefits import build_benefits_router
+
+api_router.include_router(
+    build_benefits_router(db, get_current_user, require_management_role, resolve_team_organization),
+    tags=["payroll"],
+)
+
 # Segmentos calculados de clientes (primera visita, inactivos, cumpleaños, no-show, miembros...)
 from client_segments import build_segment_router
 

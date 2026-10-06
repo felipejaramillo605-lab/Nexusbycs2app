@@ -62,6 +62,9 @@ class ContractIn(BaseModel):
     start_date: Optional[str] = None
     birth_date: Optional[str] = None
     cost_center: Optional[str] = Field(default=None, max_length=60)
+    bank_name: Optional[str] = Field(default=None, max_length=60)
+    account_type: Optional[Literal["savings", "checking"]] = None
+    account_number: Optional[str] = Field(default=None, max_length=30)
     document: Optional[str] = Field(default=None, max_length=30)
     position: Optional[str] = Field(default=None, max_length=60)
     notes: Optional[str] = Field(default=None, max_length=300)
