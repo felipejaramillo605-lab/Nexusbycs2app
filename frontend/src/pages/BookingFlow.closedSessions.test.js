@@ -93,3 +93,45 @@ test('no directions link when the map is off', async () => {
   await mount({ organization: { name: 'Org', address: 'Calle 10 # 5-20', portal_show_map: false } });
   expect(container.querySelector('[data-testid="portal-directions-link"]')).toBeNull();
 });
+
+const PRICED = { services: [{ service_id: 's1', name: 'Corte', price: 25000, duration: 30 }], step: 1 };
+
+test('prices, team details and hours follow the portal switches', async () => {
+  await mount({ ...PRICED, organization: { name: 'Org', business_hours: 'Lun-Vie 9-6', portal_show_prices: false, portal_show_hours: false } });
+  expect(container.textContent).not.toContain('25.000');
+  expect(container.querySelector('[data-testid="portal-hours"]')).toBeNull();
+});
+
+test('everything stays visible when the switches were never turned off', async () => {
+  await mount({ ...PRICED, organization: { name: 'Org', business_hours: 'Lun-Vie 9-6' } });
+  expect(container.textContent).toContain('25.000');
+  expect(container.querySelector('[data-testid="portal-hours"]').textContent).toContain('Lun-Vie 9-6');
+});
+
+test('with the team switch off professionals show only their name', async () => {
+  const pro = { barber_id: 'b1', name: 'Fausto', avatar: 'https://x/y.png', start_time: '09:00', end_time: '18:00', available_days: [1] };
+  await mount({ step: 2, eligible: [pro], days: ['Dom', 'Lun'], organization: { name: 'Org', portal_show_team: false } });
+  expect(container.querySelector('img')).toBeNull();
+  expect(container.textContent).toContain('Fausto');
+  expect(container.textContent).not.toContain('09:00');
+});
+
+test('a service with deposit and no-show rules asks for explicit acceptance on the data step', async () => {
+  const service = { name: 'Corte', price: 50000, duration: 30, deposit_percent: 30, no_show_policy: 'Se pierde el depósito', cancellation_cutoff_hours: 24 };
+  const setPolicyAcceptedChoice = jest.fn();
+  await mount({ step: 4, selectedService: service, isGroupService: false, setPolicyAcceptedChoice, policyAccepted: false });
+  const box = container.querySelector('[data-testid="booking-policy"]');
+  expect(box.textContent).toContain('Depósito: 30% del valor');
+  expect(box.textContent).toContain('15.000');
+  expect(box.textContent).toContain('Cancelación sin costo hasta 24 horas antes');
+  expect(box.textContent).toContain('Se pierde el depósito');
+  await act(async () => {
+    container.querySelector('[data-testid="booking-policy-checkbox"]').click();
+  });
+  expect(setPolicyAcceptedChoice).toHaveBeenCalledWith(true);
+});
+
+test('services without rules show no conditions box', async () => {
+  await mount({ step: 4, selectedService: { name: 'Corte', price: 50000, duration: 30 }, isGroupService: false });
+  expect(container.querySelector('[data-testid="booking-policy"]')).toBeNull();
+});
