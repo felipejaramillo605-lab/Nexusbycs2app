@@ -9468,6 +9468,46 @@ api_router.include_router(
     tags=["capacity"],
 )
 
+# Nomina: contratos del staff, auxilios extras, corridas, Excel y colillas (no reemplaza un software de nomina)
+from payroll import build_payroll_router, ensure_payroll_indexes
+
+api_router.include_router(
+    build_payroll_router(db, get_current_user, require_management_role, resolve_team_organization),
+    tags=["payroll"],
+)
+
+# Ausentismos y vacaciones (solicitudes del empleado, aprobacion del manager, calendario del equipo)
+from hr_absences import build_hr_router, ensure_hr_indexes
+
+api_router.include_router(
+    build_hr_router(db, get_current_user, require_management_role, resolve_team_organization),
+    tags=["hr"],
+)
+
+# Bienestar: billetera de beneficios, referidos, linea etica anonima (cifrada) y beneficiarios
+from hr_wellbeing import build_wellbeing_router, ensure_wellbeing_indexes
+
+api_router.include_router(
+    build_wellbeing_router(db, get_current_user, require_management_role, resolve_team_organization),
+    tags=["hr"],
+)
+
+# Novedades de nomina: horas extra y recargos con topes legales, bonos y compensacion variable
+from payroll_novelties import build_novelties_router, ensure_novelty_indexes
+
+api_router.include_router(
+    build_novelties_router(db, get_current_user, require_management_role, resolve_team_organization),
+    tags=["payroll"],
+)
+
+# Prestaciones sociales (prima, cesantias, intereses), sabana de nomina y archivo de dispersion (consulta interna)
+from payroll_benefits import build_benefits_router
+
+api_router.include_router(
+    build_benefits_router(db, get_current_user, require_management_role, resolve_team_organization),
+    tags=["payroll"],
+)
+
 # Segmentos calculados de clientes (primera visita, inactivos, cumpleaños, no-show, miembros...)
 from client_segments import build_segment_router
 
@@ -9847,6 +9887,10 @@ async def create_application_indexes():
     await ensure_inventory_reorder_indexes(db)
     await ensure_inventory_locations_indexes(db)
     await ensure_physical_count_indexes(db)
+    await ensure_payroll_indexes(db)
+    await ensure_hr_indexes(db)
+    await ensure_wellbeing_indexes(db)
+    await ensure_novelty_indexes(db)
     await ensure_purchase_receipt_indexes(db)
     await ensure_subscription_indexes(db)
     await ensure_billing_hub_indexes(db)

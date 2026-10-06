@@ -401,6 +401,86 @@ export const membershipPlanAPI = {
   update: (id, data) => api.put(`/membership-plans/${id}`, data),
 };
 
+export const hrAPI = {
+  mySummary: () => api.get('/staff/hr/summary'),
+  vacationCalc: (params) => api.get('/staff/hr/vacation-calc', { params }),
+  uploadDocument: (file) => {
+    const form = new FormData();
+    form.append('file', file);
+    return api.post('/staff/hr/documents', form, { headers: { 'Content-Type': 'multipart/form-data' } });
+  },
+  createRequest: (data) => api.post('/staff/hr/requests', data),
+  cancelRequest: (id) => api.delete(`/staff/hr/requests/${id}`),
+  listRequests: (params = {}) => api.get('/hr/requests', { params }),
+  decide: (id, data, params = {}) => api.post(`/hr/requests/${id}/decide`, data, { params }),
+  calendar: (params) => api.get('/hr/calendar', { params }),
+  overview: (params = {}) => api.get('/hr/overview', { params }),
+  downloadDocument: (id, params = {}) => api.get(`/hr/documents/${id}`, { params, responseType: 'blob' }),
+  requestOvertime: (data) => api.post('/staff/hr/overtime', data),
+  myNovelties: () => api.get('/staff/hr/novelties'),
+};
+
+export const wellbeingAPI = {
+  myWallet: () => api.get('/staff/benefits'),
+  redeem: (id) => api.post(`/staff/benefits/${id}/redeem`),
+  myReferrals: () => api.get('/staff/referrals'),
+  submitReferral: (data) => api.post('/staff/referrals', data),
+  submitReport: (data) => api.post('/staff/ethics/reports', data),
+  reportStatus: (code) => api.get(`/staff/ethics/reports/${encodeURIComponent(code)}`),
+  myBeneficiaries: () => api.get('/staff/beneficiaries'),
+  addBeneficiary: (data) => api.post('/staff/beneficiaries', data),
+  removeBeneficiary: (id) => api.delete(`/staff/beneficiaries/${id}`),
+  benefits: (params = {}) => api.get('/hr/benefits', { params }),
+  createBenefit: (data) => api.post('/hr/benefits', data),
+  updateBenefit: (id, data) => api.put(`/hr/benefits/${id}`, data),
+  archiveBenefit: (id, params = {}) => api.delete(`/hr/benefits/${id}`, { params }),
+  grantPoints: (data) => api.post('/hr/benefits/grant', data),
+  decideRedemption: (id, data, params = {}) => api.post(`/hr/benefits/redemptions/${id}/decide`, data, { params }),
+  vacancies: (params = {}) => api.get('/hr/vacancies', { params }),
+  createVacancy: (data) => api.post('/hr/vacancies', data),
+  toggleVacancy: (id, params = {}) => api.post(`/hr/vacancies/${id}/toggle`, {}, { params }),
+  referrals: (params = {}) => api.get('/hr/referrals', { params }),
+  moveReferral: (id, data, params = {}) => api.post(`/hr/referrals/${id}/stage`, data, { params }),
+  ethicsInbox: (params = {}) => api.get('/hr/ethics', { params }),
+  respondEthics: (id, data, params = {}) => api.post(`/hr/ethics/${id}/respond`, data, { params }),
+  escalateEthics: (id, data, params = {}) => api.post(`/hr/ethics/${id}/escalate`, data, { params }),
+  beneficiaries: (params = {}) => api.get('/hr/beneficiaries', { params }),
+};
+
+export const payrollAPI = {
+  getSettings: (params = {}) => api.get('/payroll/settings', { params }),
+  saveSettings: (data) => api.put('/payroll/settings', data),
+  listExtras: (params = {}) => api.get('/payroll/extras', { params }),
+  createExtra: (data) => api.post('/payroll/extras', data),
+  updateExtra: (id, data) => api.put(`/payroll/extras/${id}`, data),
+  deleteExtra: (id, params = {}) => api.delete(`/payroll/extras/${id}`, { params }),
+  listContracts: (params = {}) => api.get('/payroll/contracts', { params }),
+  saveContract: (barberId, data) => api.put(`/payroll/contracts/${barberId}`, data),
+  listRuns: (params = {}) => api.get('/payroll/runs', { params }),
+  createRun: (data) => api.post('/payroll/runs', data),
+  getRun: (id, params = {}) => api.get(`/payroll/runs/${id}`, { params }),
+  saveLine: (id, barberId, data, params = {}) => api.put(`/payroll/runs/${id}/lines/${barberId}`, data, { params }),
+  approve: (id, params = {}) => api.post(`/payroll/runs/${id}/approve`, {}, { params }),
+  pay: (id, params = {}) => api.post(`/payroll/runs/${id}/pay`, {}, { params }),
+  cancel: (id, params = {}) => api.post(`/payroll/runs/${id}/cancel`, {}, { params }),
+  reopen: (id, data, params = {}) => api.post(`/payroll/runs/${id}/reopen`, data, { params }),
+  downloadReport: (id, params = {}) => api.get(`/payroll/runs/${id}/report.xlsx`, { params, responseType: 'blob' }),
+  downloadSlip: (id, barberId, params = {}) => api.get(`/payroll/runs/${id}/slips/${barberId}.pdf`, { params, responseType: 'blob' }),
+  mySlips: () => api.get('/staff/payroll/slips'),
+  downloadMySlip: (id) => api.get(`/staff/payroll/slips/${id}.pdf`, { responseType: 'blob' }),
+  noveltyReference: (params = {}) => api.get('/payroll/novelties/reference', { params }),
+  listNovelties: (params = {}) => api.get('/payroll/novelties', { params }),
+  registerOvertime: (data) => api.post('/payroll/novelties/overtime', data),
+  registerBonus: (data) => api.post('/payroll/novelties/bonus', data),
+  decideNovelty: (id, data, params = {}) => api.post(`/payroll/novelties/${id}/decide`, data, { params }),
+  benefitPreview: (kind, params) => api.get(`/payroll/benefits/${kind}`, { params }),
+  downloadBenefit: (kind, params) => api.get(`/payroll/benefits/${kind}/export.xlsx`, { params, responseType: 'blob' }),
+  applyBenefit: (data) => api.post('/payroll/benefits/apply', data),
+  downloadSabana: (params) => api.get('/payroll/sabana.xlsx', { params, responseType: 'blob' }),
+  dispersionPreview: (id, params = {}) => api.get(`/payroll/runs/${id}/dispersion`, { params }),
+  downloadDispersion: (id, params = {}) => api.get(`/payroll/runs/${id}/dispersion.csv`, { params, responseType: 'blob' }),
+};
+
 export const capacityAPI = {
   weekly: (params = {}) => api.get('/capacity/weekly', { params }),
 };
