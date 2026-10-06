@@ -403,6 +403,8 @@ export const membershipPlanAPI = {
 
 export const marketingAPI = {
   sendCampaign: (data) => api.post('/marketing/campaigns', data),
+  getSegments: (params = {}) => api.get('/marketing/segments', { params }),
+  getSegmentClients: (key, params = {}) => api.get(`/marketing/segments/${key}`, { params }),
 };
 
 // NEXUS_MESSAGE_TEMPLATES_V1

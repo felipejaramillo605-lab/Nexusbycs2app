@@ -24,6 +24,9 @@ const MarketingCampaigns = () => {
   // NEXUS_CLIENT_BIRTHDAY_V1
   const [audience, setAudience] = useState('all'); // 'all' | 'birthdays'
   const [birthdayClients, setBirthdayClients] = useState([]);
+  const [segments, setSegments] = useState([]);
+  const [segmentKey, setSegmentKey] = useState('');
+  const [segmentClients, setSegmentClients] = useState([]);
   const [loadingBirthdays, setLoadingBirthdays] = useState(false);
   // NEXUS_BIRTHDAY_CAMPAIGN_V1
   const [campaign, setCampaign] = useState(null); // organization.birthday_campaign, cargado del backend
@@ -100,6 +103,33 @@ const MarketingCampaigns = () => {
     }
   }, [organizationId]);
 
+  // Segmentos calculados (primera visita, inactivos 30/60/90, alto valor, no-show, miembros...)
+  const loadSegments = useCallback(async () => {
+    if (!organizationId) return;
+    try {
+      const response = await marketingAPI.getSegments({ organization_id: organizationId });
+      setSegments(response.data?.segments || []);
+    } catch (error) {
+      setSegments([]);
+    }
+  }, [organizationId]);
+
+  const chooseSegment = async (key) => {
+    setSegmentKey(key);
+    setSelectedClients([]);
+    setSegmentClients([]);
+    if (!key) return;
+    setAudience('segment');
+    if (key.startsWith('inactive')) setSelectedTemplate(MESSAGE_TEMPLATES.REACTIVATION);
+    if (key === 'birthday_soon') setSelectedTemplate(MESSAGE_TEMPLATES.BIRTHDAY);
+    try {
+      const response = await marketingAPI.getSegmentClients(key, { organization_id: organizationId });
+      setSegmentClients(response.data?.clients || []);
+    } catch (error) {
+      toast.error('No fue posible cargar el segmento');
+    }
+  };
+
   const loadClients = useCallback(async () => {
     if (!organizationId) return;
     try {
@@ -123,10 +153,11 @@ const MarketingCampaigns = () => {
       loadClients();
       loadOrganizationName();
       loadBirthdays();
+      loadSegments();
       loadOrgServices();
       loadTemplates();
     }
-  }, [organizationId, loadClients, loadOrganizationName, loadBirthdays, loadOrgServices, loadTemplates]);
+  }, [organizationId, loadClients, loadOrganizationName, loadBirthdays, loadSegments, loadOrgServices, loadTemplates]);
 
   // NEXUS_MESSAGE_TEMPLATES_V1
   const PURPOSE_LABELS = { birthday: 'Cumpleaños', reactivation: 'Reactivación', promotion: 'Promoción', welcome: 'Bienvenida', custom: 'Personalizada' };
@@ -228,7 +259,9 @@ const MarketingCampaigns = () => {
     }
   };
 
-  const displayedClients = audience === 'birthdays'
+  const displayedClients = audience === 'segment'
+    ? segmentClients.filter(c => c.accepts_marketing && clients.some(client => client.client_id === c.client_id))
+    : audience === 'birthdays'
     ? birthdayClients.filter(c => clients.some(client => client.client_id === c.client_id))
       .map(c => ({ ...c, accepts_marketing: true }))
     : clients;
@@ -434,19 +467,37 @@ const MarketingCampaigns = () => {
             <div className="flex gap-2 mb-4">
               <button
                 data-testid="marketing-audience-all"
-                onClick={() => { setAudience('all'); setSelectedClients([]); }}
+                onClick={() => { setAudience('all'); setSegmentKey(''); setSelectedClients([]); }}
                 className={`flex-1 py-2 rounded-lg text-sm border transition-all ${audience === 'all' ? 'bg-[var(--app-primary)]/20 border-[var(--app-primary)] text-[var(--app-text-primary)]' : 'bg-white/5 border-[var(--app-border)] text-zinc-400'}`}
               >
                 Todos los clientes
               </button>
               <button
                 data-testid="marketing-audience-birthdays"
-                onClick={() => { setAudience('birthdays'); setSelectedClients([]); setSelectedTemplate(MESSAGE_TEMPLATES.BIRTHDAY); }}
+                onClick={() => { setAudience('birthdays'); setSegmentKey(''); setSelectedClients([]); setSelectedTemplate(MESSAGE_TEMPLATES.BIRTHDAY); }}
                 className={`flex-1 py-2 rounded-lg text-sm border transition-all flex items-center justify-center gap-1.5 ${audience === 'birthdays' ? 'bg-pink-500/20 border-pink-500 text-[var(--app-text-primary)]' : 'bg-white/5 border-[var(--app-border)] text-zinc-400'}`}
               >
                 <Cake size={14} /> Cumpleaños próximos ({birthdayClients.length})
               </button>
             </div>
+
+            {segments.length > 0 && (
+              <label className="block mb-4 text-sm text-zinc-400">
+                Segmento
+                <select
+                  data-testid="marketing-segment-select"
+                  value={segmentKey}
+                  onChange={(event) => chooseSegment(event.target.value)}
+                  className="nexus-field"
+                >
+                  <option value="">Sin segmento</option>
+                  {segments.map((segment) => (
+                    <option key={segment.key} value={segment.key}>{`${segment.label} (${segment.marketable_count} de ${segment.count} aceptan promociones)`}</option>
+                  ))}
+                </select>
+                {segmentKey && <span className="block mt-1 text-xs">{segments.find((s) => s.key === segmentKey)?.description}</span>}
+              </label>
+            )}
 
             {loadingBirthdays && audience === 'birthdays' ? (
               <div className="text-center py-12 text-zinc-400"><Loader2 className="animate-spin mx-auto mb-2" size={24} />Cargando cumpleaños...</div>

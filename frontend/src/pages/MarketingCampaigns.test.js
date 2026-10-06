@@ -59,3 +59,24 @@ test('reports a server-side consent rejection as a failed send', async () => {
   expect(toast.success).not.toHaveBeenCalled();
   expect(toast.error).toHaveBeenCalledWith(expect.stringContaining('No enviados: 1 WhatsApp'));
 });
+
+test('a segment lists only clients who accepted promotions and switches to the reactivation template', async () => {
+  marketingAPI.getSegments = jest.fn().mockResolvedValue({
+    data: { segments: [{ key: 'inactive_60', label: 'Inactivos 60 días', description: 'Su última visita fue hace 60 a 89 días.', count: 2, marketable_count: 1 }] },
+  });
+  marketingAPI.getSegmentClients = jest.fn().mockResolvedValue({
+    data: { clients: [{ client_id: 'c-a', name: 'Ana', phone: '300', accepts_marketing: true }, { client_id: 'c-z', name: 'Zoe', phone: '301', accepts_marketing: false }] },
+  });
+  await render();
+  const select = host.querySelector('[data-testid="marketing-segment-select"]');
+  expect(select.textContent).toContain('Inactivos 60 días (1 de 2 aceptan promociones)');
+  await act(async () => {
+    Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value').set.call(select, 'inactive_60');
+    select.dispatchEvent(new Event('change', { bubbles: true }));
+  });
+  expect(marketingAPI.getSegmentClients).toHaveBeenCalledWith('inactive_60', { organization_id: 'org-a' });
+  const rows = host.querySelectorAll('[data-testid="marketing-client-row"]');
+  expect(rows).toHaveLength(1);
+  expect(rows[0].textContent).toContain('Ana');
+  expect(host.textContent).not.toContain('Zoe');
+});
