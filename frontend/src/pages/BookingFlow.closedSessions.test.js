@@ -93,3 +93,25 @@ test('no directions link when the map is off', async () => {
   await mount({ organization: { name: 'Org', address: 'Calle 10 # 5-20', portal_show_map: false } });
   expect(container.querySelector('[data-testid="portal-directions-link"]')).toBeNull();
 });
+
+const PRICED = { services: [{ service_id: 's1', name: 'Corte', price: 25000, duration: 30 }], step: 1 };
+
+test('prices, team details and hours follow the portal switches', async () => {
+  await mount({ ...PRICED, organization: { name: 'Org', business_hours: 'Lun-Vie 9-6', portal_show_prices: false, portal_show_hours: false } });
+  expect(container.textContent).not.toContain('25.000');
+  expect(container.querySelector('[data-testid="portal-hours"]')).toBeNull();
+});
+
+test('everything stays visible when the switches were never turned off', async () => {
+  await mount({ ...PRICED, organization: { name: 'Org', business_hours: 'Lun-Vie 9-6' } });
+  expect(container.textContent).toContain('25.000');
+  expect(container.querySelector('[data-testid="portal-hours"]').textContent).toContain('Lun-Vie 9-6');
+});
+
+test('with the team switch off professionals show only their name', async () => {
+  const pro = { barber_id: 'b1', name: 'Fausto', avatar: 'https://x/y.png', start_time: '09:00', end_time: '18:00', available_days: [1] };
+  await mount({ step: 2, eligible: [pro], days: ['Dom', 'Lun'], organization: { name: 'Org', portal_show_team: false } });
+  expect(container.querySelector('img')).toBeNull();
+  expect(container.textContent).toContain('Fausto');
+  expect(container.textContent).not.toContain('09:00');
+});
