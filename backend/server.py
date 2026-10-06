@@ -94,6 +94,7 @@ from platform_billing_settings import build_platform_billing_router, ensure_plat
 from owner_third_party_matrix import build_third_party_matrix_router, ensure_third_party_matrix_indexes
 from owner_access_sessions import build_owner_access_sessions_router, ensure_owner_access_sessions_indexes
 from portal_templates import effective_portal_template, portal_template_selection_error
+from service_policy import acceptance_snapshot, clean_policy_fields, require_acceptance
 from transaction_export import build_transactions_csv, transactions_export_filename
 from platform_capabilities import (
     CAPABILITY as PORTAL_TEMPLATE_CAPABILITY,
@@ -545,6 +546,9 @@ class ServiceCreate(BaseModel):
     short_description: Optional[str] = Field(default=None, max_length=280)
     image_alt: Optional[str] = Field(default=None, max_length=180)
     image_focal_point: Optional[Literal["center", "top", "bottom"]] = None
+    # Deposito y politica de inasistencia (se registran; el cobro es manual en este primer corte)
+    deposit_percent: Optional[float] = None
+    no_show_policy: Optional[str] = None
 
 
 def _validate_group_service_fields(data: "ServiceCreate"):
@@ -638,6 +642,7 @@ class AppointmentCreate(BaseModel):
     marketing_consent: bool = False  # TCPA/Ley 1581 compliance
     # NEXUS_PRODUCT_CATALOG_V11: optional cart carried over from the client portal.
     cart_items: Optional[List[dict]] = None
+    policy_accepted: bool = False  # acepto deposito / politica de inasistencia del servicio
 
 
 class StaffWalkinAppointmentCreate(BaseModel):
@@ -3189,6 +3194,7 @@ async def create_service(
         "short_description": data.short_description.strip() if data.short_description else None,
         "image_alt": data.image_alt.strip() if data.image_alt else None,
         "image_focal_point": data.image_focal_point or "center",
+        **clean_policy_fields(data.deposit_percent, data.no_show_policy),
         "created_at": datetime.now(timezone.utc).isoformat(),
     }
     await db.services.insert_one(service_doc)
@@ -3237,6 +3243,8 @@ async def update_service(
     for field in ("booking_window_days", "cancellation_cutoff_hours", "short_description", "image_alt", "image_focal_point"):
         if field not in data.model_fields_set:
             update_data.pop(field, None)
+    if "deposit_percent" in data.model_fields_set or "no_show_policy" in data.model_fields_set:
+        update_data.update(clean_policy_fields(data.deposit_percent, data.no_show_policy))
     # NEXUS_GROUP_SERVICES_V1: no permitir bajar la capacidad por debajo de
     # cupos ya reservados en clases futuras -- evita overbooking retroactivo.
     if data.service_type == "group" and data.group_capacity:
@@ -8923,6 +8931,7 @@ async def create_public_appointment(org_id: str, data: AppointmentCreate, reques
     service = await db.services.find_one({"service_id": data.service_id, "organization_id": org_id}, {"_id": 0})
     if not service:
         raise HTTPException(status_code=404, detail="Service not found")
+    require_acceptance(service, data.policy_accepted)
 
     barber = await db.barbers.find_one(
         {
@@ -9026,6 +9035,7 @@ async def create_public_appointment(org_id: str, data: AppointmentCreate, reques
         "management_token_hash": management_token_hash,
         "cart_items": cart_snapshot or None,
         "cart_total": cart_total or None,
+        "policy_acceptance": acceptance_snapshot(service, data.policy_accepted),
         "created_at": datetime.now(timezone.utc).isoformat(),
     }
 

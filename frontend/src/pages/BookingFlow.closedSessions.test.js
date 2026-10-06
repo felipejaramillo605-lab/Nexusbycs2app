@@ -115,3 +115,23 @@ test('with the team switch off professionals show only their name', async () => 
   expect(container.textContent).toContain('Fausto');
   expect(container.textContent).not.toContain('09:00');
 });
+
+test('a service with deposit and no-show rules asks for explicit acceptance on the data step', async () => {
+  const service = { name: 'Corte', price: 50000, duration: 30, deposit_percent: 30, no_show_policy: 'Se pierde el depósito', cancellation_cutoff_hours: 24 };
+  const setPolicyAcceptedChoice = jest.fn();
+  await mount({ step: 4, selectedService: service, isGroupService: false, setPolicyAcceptedChoice, policyAccepted: false });
+  const box = container.querySelector('[data-testid="booking-policy"]');
+  expect(box.textContent).toContain('Depósito: 30% del valor');
+  expect(box.textContent).toContain('15.000');
+  expect(box.textContent).toContain('Cancelación sin costo hasta 24 horas antes');
+  expect(box.textContent).toContain('Se pierde el depósito');
+  await act(async () => {
+    container.querySelector('[data-testid="booking-policy-checkbox"]').click();
+  });
+  expect(setPolicyAcceptedChoice).toHaveBeenCalledWith(true);
+});
+
+test('services without rules show no conditions box', async () => {
+  await mount({ step: 4, selectedService: { name: 'Corte', price: 50000, duration: 30 }, isGroupService: false });
+  expect(container.querySelector('[data-testid="booking-policy"]')).toBeNull();
+});

@@ -11,6 +11,22 @@ import { confirmAction, DetailDrawer, EmptyState } from '../components/design';
 import { formatCOP as money } from '../lib/currency';
 import { getBusinessProfile } from '../lib/businessProfiles';
 
+const POLICY_INPUT = 'w-full px-4 py-3 bg-transparent border border-[var(--app-border)] rounded-xl text-[var(--app-text-primary)] focus:border-[var(--app-primary)] focus:ring-1 focus:ring-[var(--app-primary)] outline-none';
+
+// Deposito y politica de inasistencia: el cliente las ve y las acepta antes de reservar. El cobro es manual.
+const PolicyFields = ({ value, onChange }) => (
+  <div className="space-y-3 rounded-2xl border border-[var(--app-border)] p-4" data-testid="service-policy-fields">
+    <div className="font-medium text-[var(--app-text-primary)]">Condiciones de reserva (opcional)</div>
+    <p className="text-xs text-zinc-400">Si las defines, el cliente debe aceptarlas antes de reservar. Nexus registra la aceptación; el depósito se cobra de forma manual.</p>
+    <label className="text-sm text-zinc-400 block">Depósito (% del valor)
+      <input type="number" min="0" max="100" step="1" value={value.deposit_percent ?? ''} onChange={(e) => onChange({ deposit_percent: e.target.value })} placeholder="Ej: 30" className={`${POLICY_INPUT} mt-2`} data-testid="service-deposit-percent" />
+    </label>
+    <label className="text-sm text-zinc-400 block">Si el cliente no asiste
+      <textarea value={value.no_show_policy ?? ''} maxLength={300} rows={2} onChange={(e) => onChange({ no_show_policy: e.target.value })} placeholder="Ej: Se pierde el depósito si no avisas 24 horas antes" className={`${POLICY_INPUT} mt-2`} data-testid="service-no-show-policy" />
+    </label>
+  </div>
+);
+
 const ManagerServices = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
@@ -20,7 +36,7 @@ const ManagerServices = () => {
   const [loadError, setLoadError] = useState('');
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
-  const [newService, setNewService] = useState({ name: '', duration: 30, price: 0, service_type: 'individual', group_capacity: 8, drop_in_price: '', spot_layout: '', short_description: '' });
+  const [newService, setNewService] = useState({ name: '', duration: 30, price: 0, service_type: 'individual', group_capacity: 8, drop_in_price: '', spot_layout: '', short_description: '', deposit_percent: '', no_show_policy: '' });
   const [editingService, setEditingService] = useState(null);
   const [organizationName, setOrganizationName] = useState('');
   const [businessType, setBusinessType] = useState('barbershop');
@@ -85,9 +101,11 @@ const ManagerServices = () => {
         drop_in_price: newService.drop_in_price === '' ? null : parseFloat(newService.drop_in_price),
         spot_layout: newService.spot_layout.trim() ? newService.spot_layout.split(',').map(s => s.trim()).filter(Boolean) : null,
         short_description: newService.short_description.trim() || null,
+        deposit_percent: newService.deposit_percent === '' ? null : Number(newService.deposit_percent),
+        no_show_policy: newService.no_show_policy.trim() || null,
       }, { org_id: organizationId });
       setIsCreateDialogOpen(false);
-      setNewService({ name: '', duration: 30, price: 0, service_type: 'individual', group_capacity: 8, drop_in_price: '', spot_layout: '', short_description: '' });
+      setNewService({ name: '', duration: 30, price: 0, service_type: 'individual', group_capacity: 8, drop_in_price: '', spot_layout: '', short_description: '', deposit_percent: '', no_show_policy: '' });
       loadServices();
       toast.success('Servicio creado exitosamente');
     } catch (error) {
@@ -104,6 +122,8 @@ const ManagerServices = () => {
       price: service.price,
       photos: service.photos || [],
       short_description: service.short_description || '',
+      deposit_percent: service.deposit_percent ?? '',
+      no_show_policy: service.no_show_policy || '',
       image_alt: service.image_alt || '',
       image_focal_point: service.image_focal_point || 'center',
       cover_image_url: service.cover_image_url || service.photos?.[0] || '',
@@ -135,6 +155,8 @@ const ManagerServices = () => {
         booking_window_days: editingService.booking_window_days === '' ? null : Number(editingService.booking_window_days),
         cancellation_cutoff_hours: editingService.cancellation_cutoff_hours === '' ? null : Number(editingService.cancellation_cutoff_hours),
         short_description: editingService.short_description.trim() || null,
+        deposit_percent: editingService.deposit_percent === '' ? null : Number(editingService.deposit_percent),
+        no_show_policy: (editingService.no_show_policy || '').trim() || null,
         image_alt: editingService.image_alt.trim() || null,
         image_focal_point: editingService.image_focal_point || 'center',
       });
@@ -365,6 +387,7 @@ const ManagerServices = () => {
                   />
                   <p className="text-xs text-zinc-500 mt-1">Se muestra al descubrir una clase. Máximo 280 caracteres.</p>
                 </div>
+                {newService.service_type === 'individual' && <PolicyFields value={newService} onChange={(patch) => setNewService({ ...newService, ...patch })} />}
                 {/* NEXUS_GROUP_SERVICES_V1 */}
                 <div>
                   <label className="text-sm text-zinc-400 mb-2 block">Tipo de servicio</label>
@@ -508,6 +531,7 @@ const ManagerServices = () => {
                     />
                   </div>
                 )}
+                {editingService.service_type === 'individual' && <PolicyFields value={editingService} onChange={(patch) => setEditingService({ ...editingService, ...patch })} />}
                 {editingService.service_type === 'group' && (
                   <div className="space-y-3 rounded-2xl border border-[var(--app-border)] p-4 bg-white/[0.02]">
                     <div className="flex items-center gap-2 text-[var(--app-text-primary)]"><ImageIcon size={18} /><span className="font-medium">Presentación de la clase</span></div>
