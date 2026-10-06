@@ -401,6 +401,23 @@ export const membershipPlanAPI = {
   update: (id, data) => api.put(`/membership-plans/${id}`, data),
 };
 
+export const hrAPI = {
+  mySummary: () => api.get('/staff/hr/summary'),
+  vacationCalc: (params) => api.get('/staff/hr/vacation-calc', { params }),
+  uploadDocument: (file) => {
+    const form = new FormData();
+    form.append('file', file);
+    return api.post('/staff/hr/documents', form, { headers: { 'Content-Type': 'multipart/form-data' } });
+  },
+  createRequest: (data) => api.post('/staff/hr/requests', data),
+  cancelRequest: (id) => api.delete(`/staff/hr/requests/${id}`),
+  listRequests: (params = {}) => api.get('/hr/requests', { params }),
+  decide: (id, data, params = {}) => api.post(`/hr/requests/${id}/decide`, data, { params }),
+  calendar: (params) => api.get('/hr/calendar', { params }),
+  overview: (params = {}) => api.get('/hr/overview', { params }),
+  downloadDocument: (id, params = {}) => api.get(`/hr/documents/${id}`, { params, responseType: 'blob' }),
+};
+
 export const payrollAPI = {
   getSettings: (params = {}) => api.get('/payroll/settings', { params }),
   saveSettings: (data) => api.put('/payroll/settings', data),

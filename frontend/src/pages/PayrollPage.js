@@ -31,7 +31,7 @@ export default function PayrollPage() {
     <MotionPage>
       <PageHeader eyebrow="Finanzas" title="Nómina" description="Contratos del equipo, aportes, prestaciones, colillas y reporte mensual de gastos de personal." />
       <p role="note" className="mb-4 p-3 rounded-xl border border-[var(--app-border)] text-sm" data-testid="payroll-disclaimer">
-        Esta herramienta ayuda a organizar y estimar los costos de personal. <strong>No reemplaza un software de nómina</strong>, la nómina electrónica ante la DIAN, la liquidación de PILA ni la asesoría de un contador.
+        Esta herramienta ayuda a organizar y estimar los costos de personal. <strong>No reemplaza un software de nómina</strong> ni la asesoría de un contador, y <strong>esta app no sirve como soporte de nómina electrónica, facturas electrónicas ni para la UGPP</strong>.
       </p>
       <SegmentedControl
         value={tab}
@@ -297,7 +297,7 @@ function ContractsTab({ scope }) {
 
   const save = async () => {
     try {
-      const body = { ...scope, contract_type: editing.contract_type, pay_frequency: editing.pay_frequency || 'monthly', arl_risk_class: editing.arl_risk_class || 'I', start_date: editing.start_date || null, document: editing.document || null, position: editing.position || null };
+      const body = { ...scope, contract_type: editing.contract_type, pay_frequency: editing.pay_frequency || 'monthly', arl_risk_class: editing.arl_risk_class || 'I', start_date: editing.start_date || null, birth_date: editing.birth_date || null, cost_center: editing.cost_center || null, document: editing.document || null, position: editing.position || null };
       if (editing.contract_type === 'fixed_salary') body.base_salary = Number(editing.base_salary);
       await payrollAPI.saveContract(editing.barber_id, body);
       toast.success('Contrato guardado');
@@ -369,6 +369,8 @@ function ContractsTab({ scope }) {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-3">
               <label className="text-sm">Documento (para la colilla)<input className="nexus-field" value={editing.document || ''} onChange={(e) => setEditing({ ...editing, document: e.target.value })} /></label>
               <label className="text-sm">Cargo<input className="nexus-field" value={editing.position || ''} onChange={(e) => setEditing({ ...editing, position: e.target.value })} /></label>
+              <label className="text-sm">Fecha de nacimiento (cumpleaños del equipo)<input className="nexus-field" type="date" value={editing.birth_date || ''} onChange={(e) => setEditing({ ...editing, birth_date: e.target.value })} /></label>
+              <label className="text-sm">Centro de costos (opcional)<input className="nexus-field" value={editing.cost_center || ''} onChange={(e) => setEditing({ ...editing, cost_center: e.target.value })} placeholder="Ej: Sede Norte" /></label>
             </div>
             <footer className="flex gap-3 mt-4">
               <button type="button" className="nexus-button" onClick={() => setEditing(null)}>Cancelar</button>
