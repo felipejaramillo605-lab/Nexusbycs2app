@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { toast } from 'sonner';
 import { inventoryAPI, teamAPI } from '../api';
@@ -35,6 +35,7 @@ export default function InventoryCountsTab({ organizationId }) {
   const [assign, setAssign] = useState({ user_id: '', hours: 24 });
   const [comment, setComment] = useState('');
   const [busy, setBusy] = useState(false);
+  const activeId = useRef(null);
 
   const loadList = useCallback(async () => {
     try {
@@ -54,13 +55,14 @@ export default function InventoryCountsTab({ organizationId }) {
 
   const open = useCallback(
     async (countId) => {
+      activeId.current = countId;
       try {
         const [head, rev] = await Promise.all([
           inventoryAPI.getCount(countId, { organization_id: organizationId }),
           inventoryAPI.reviewCount(countId, { organization_id: organizationId }),
         ]);
         setDetail(head.data);
-        setReview(rev.data.items || []);
+        setReview([...(rev.data.items || [])].sort((a, b) => `${a.sku}${placeOf(a)}`.localeCompare(`${b.sku}${placeOf(b)}`)));
       } catch (error) {
         toast.error(messageOf(error, 'No fue posible abrir el conteo'));
       }
@@ -78,7 +80,7 @@ export default function InventoryCountsTab({ organizationId }) {
       await action();
       if (success) toast.success(success);
       await loadList();
-      if (detail) await open(detail.count_id);
+      if (activeId.current) await open(activeId.current);
     } catch (error) {
       const data = error?.response?.data?.detail;
       toast.error(data?.code === 'COUNT_NOT_READY' ? 'Aún hay artículos con conteos distintos, diferencias sin definir o sin contar.' : messageOf(error, 'No fue posible completar la acción'));
@@ -198,7 +200,7 @@ export default function InventoryCountsTab({ organizationId }) {
                       {a.revoked ? 'acceso retirado' : `hasta ${new Date(a.expires_at).toLocaleString('es-CO')}`}{a.submitted_at ? ' · envió su conteo' : ''}
                     </span>
                     {editable && !a.revoked && (
-                      <button type="button" className="underline" onClick={() => run(() => inventoryAPI.revokeCountAccess(detail.count_id, a.assignment_id, { organization_id: organizationId }), 'Acceso retirado')}>Retirar</button>
+                      <button type="button" className="nexus-link-action" onClick={() => run(() => inventoryAPI.revokeCountAccess(detail.count_id, a.assignment_id, { organization_id: organizationId }), 'Acceso retirado')}>Retirar</button>
                     )}
                   </li>
                 ))}
@@ -242,13 +244,13 @@ export default function InventoryCountsTab({ organizationId }) {
                         </td>
                         <td className="p-2 space-x-2 whitespace-nowrap">
                           {editable && row.counters.length > 0 && (
-                            <button type="button" className="underline" data-testid="recount-btn" onClick={() => run(() => inventoryAPI.requestRecount(detail.count_id, row.target_id, { organization_id: organizationId, note: comment || null }), 'Reconteo solicitado')}>Pedir reconteo</button>
+                            <button type="button" className="nexus-link-action" data-testid="recount-btn" onClick={() => run(() => inventoryAPI.requestRecount(detail.count_id, row.target_id, { organization_id: organizationId, note: comment || null }), 'Reconteo solicitado')}>Pedir reconteo</button>
                           )}
                           {editable && ['variance', 'resolved', 'dismissed'].includes(row.status) && (
                             <>
-                              {row.difference < 0 && <button type="button" className="underline" data-testid="loss-btn" onClick={() => run(() => inventoryAPI.resolveCountTarget(detail.count_id, row.target_id, { organization_id: organizationId, resolution: 'loss', comment }), 'Pérdida registrada')}>Es pérdida</button>}
-                              {row.difference > 0 && <button type="button" className="underline" data-testid="surplus-btn" onClick={() => run(() => inventoryAPI.resolveCountTarget(detail.count_id, row.target_id, { organization_id: organizationId, resolution: 'surplus', comment }), 'Excedente registrado')}>Es excedente</button>}
-                              <button type="button" className="underline" onClick={() => run(() => inventoryAPI.resolveCountTarget(detail.count_id, row.target_id, { organization_id: organizationId, resolution: 'dismiss', comment }), 'Diferencia descartada')}>Descartar</button>
+                              {row.difference < 0 && <button type="button" className="nexus-link-action" data-testid="loss-btn" onClick={() => run(() => inventoryAPI.resolveCountTarget(detail.count_id, row.target_id, { organization_id: organizationId, resolution: 'loss', comment }), 'Pérdida registrada')}>Es pérdida</button>}
+                              {row.difference > 0 && <button type="button" className="nexus-link-action" data-testid="surplus-btn" onClick={() => run(() => inventoryAPI.resolveCountTarget(detail.count_id, row.target_id, { organization_id: organizationId, resolution: 'surplus', comment }), 'Excedente registrado')}>Es excedente</button>}
+                              <button type="button" className="nexus-link-action" onClick={() => run(() => inventoryAPI.resolveCountTarget(detail.count_id, row.target_id, { organization_id: organizationId, resolution: 'dismiss', comment }), 'Diferencia descartada')}>Descartar</button>
                             </>
                           )}
                         </td>
