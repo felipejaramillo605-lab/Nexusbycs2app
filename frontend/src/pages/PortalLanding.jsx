@@ -139,7 +139,12 @@ export default function PortalLanding() {
           <div className="nexus-landing-plans">
             {plans.map((plan, index) => {
               const perClass = plan.classes_per_cycle ? Math.round(plan.price / plan.classes_per_cycle) : null;
-              const message = `Hola ${name}, quiero el plan ${plan.name}.`;
+              const details = [
+                plan.unlimited ? 'clases ilimitadas' : plan.classes_per_cycle ? `${plan.classes_per_cycle} ${plan.classes_per_cycle === 1 ? 'clase' : 'clases'}` : null,
+                showMoney ? formatCOP(plan.price) : null,
+                `vigencia ${formatCycle(plan.billing_cycle_days)}`,
+              ].filter(Boolean).join(' · ');
+              const message = `Hola ${name}, quiero el plan ${plan.name} (${details}). ¿Cómo puedo pagarlo?`;
               const planLink = whatsappHref(organization?.whatsapp_link || organization?.phone, message);
               return (
                 <article key={plan.plan_id} className="nexus-landing-plan nexus-reveal" style={{ '--reveal-delay': `${Math.min(index, 5) * 70}ms` }} data-testid="landing-plan">

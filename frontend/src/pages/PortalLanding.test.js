@@ -74,6 +74,25 @@ test('plans show classes, price per class and validity, and respect the price an
   expect(container.querySelector('#planes')).toBeNull();
 });
 
+test('"Quiero este plan" opens WhatsApp with a message naming the plan, classes, price and validity', async () => {
+  const plan = { plan_id: 'p1', name: 'Energía', price: 440000, billing_cycle_days: 30, classes_per_cycle: 8, unlimited: false, services: [{ service_id: 's1', name: 'Hot Barre' }] };
+  await mount({ organization: { ...org, whatsapp_link: 'https://wa.me/573115587587' }, services: [hotBarre], plans: [plan] });
+  const link = container.querySelector('[data-testid="landing-plan"] a.nexus-landing-reserve');
+  const url = new URL(link.getAttribute('href'));
+  expect(url.origin + url.pathname).toBe('https://wa.me/573115587587');
+  const text = url.searchParams.get('text');
+  expect(text).toContain('Moena Studios');
+  expect(text).toContain('plan Energía');
+  expect(text).toContain('8 clases');
+  expect(text).toMatch(/\$\s*440\.000/);
+  expect(text).toContain('vigencia 1 mes');
+  expect(link.getAttribute('target')).toBe('_blank');
+  act(() => root.unmount()); container.remove();
+  await mount({ organization: { ...org, whatsapp_link: 'https://wa.me/573115587587', portal_show_prices: false }, services: [hotBarre], plans: [plan] });
+  const hidden = new URL(container.querySelector('[data-testid="landing-plan"] a.nexus-landing-reserve').getAttribute('href')).searchParams.get('text');
+  expect(hidden).not.toContain('$');
+});
+
 test('uses the uploaded image as the cover and the predeterminate art when there is none', async () => {
   await mount({ organization: { ...org, portal_background_type: 'image', portal_background_url: '/hero.webp' } });
   expect(container.querySelector('.nexus-landing').getAttribute('data-hero')).toBe('media');
