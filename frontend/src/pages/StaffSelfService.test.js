@@ -25,6 +25,7 @@ jest.mock('../components/design', () => {
 
 const SUMMARY = {
   vacation: { accrued: 15, taken: 5, available: 10 },
+  fixed_contract: true,
   kinds: { vacation: { label: 'Vacaciones', evidence: false }, sick_leave: { label: 'Incapacidad médica', evidence: true }, permission: { label: 'Permiso', evidence: false } },
   requests: [{ request_id: 'r1', kind_label: 'Vacaciones', start_date: '2026-11-02', end_date: '2026-11-06', days: 5, paid: true, status: 'pending' }, { request_id: 'r2', kind_label: 'Permiso', start_date: '2026-10-20', end_date: '2026-10-20', days: 1, paid: false, status: 'approved', decision_note: 'Listo' }],
   disclaimer: 'No sirve como soporte de nómina electrónica, facturas electrónicas ni para la UGPP.',
@@ -122,4 +123,10 @@ test('an employee can report overtime hours for approval and sees the status', a
   await click(container.querySelector('[data-testid="overtime-submit"]'));
   expect(mockApi.requestOvertime).toHaveBeenCalledWith(expect.objectContaining({ kind: 'overtime_night', hours: 1.5 }));
   expect(container.querySelector('[data-testid="overtime-card"]').textContent).toContain('2 h extra al día y 12 h a la semana');
+});
+
+test('the overtime card is hidden for people without a fixed contract', async () => {
+  mockApi.mySummary.mockResolvedValue({ data: { ...SUMMARY, fixed_contract: false } });
+  await mount();
+  expect(container.querySelector('[data-testid="overtime-card"]')).toBeNull();
 });
