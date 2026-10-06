@@ -62,6 +62,11 @@ class ContractIn(BaseModel):
     start_date: Optional[str] = None
     birth_date: Optional[str] = None
     cost_center: Optional[str] = Field(default=None, max_length=60)
+    withholding_enabled: bool = False
+    withholding_dependents: bool = False
+    withholding_prepaid_health: float = Field(default=0, ge=0)
+    withholding_housing_interest: float = Field(default=0, ge=0)
+    withholding_voluntary: float = Field(default=0, ge=0)
     bank_name: Optional[str] = Field(default=None, max_length=60)
     account_type: Optional[Literal["savings", "checking"]] = None
     account_number: Optional[str] = Field(default=None, max_length=30)
@@ -122,6 +127,18 @@ def days_in_period(start: date, end: date, hire: Optional[date], frequency: str)
     return float(max(0, full - (hire.day - start.day)))  # quincena: dias desde el ingreso hasta el cierre
 
 
+def withholding_options(contract: dict) -> Optional[dict]:
+    """Opciones de la estimacion de retencion en la fuente del contrato (None = no se estima)."""
+    if not contract.get("withholding_enabled"):
+        return None
+    return {
+        "dependents": bool(contract.get("withholding_dependents")),
+        "prepaid_health": float(contract.get("withholding_prepaid_health") or 0),
+        "housing_interest": float(contract.get("withholding_housing_interest") or 0),
+        "voluntary": float(contract.get("withholding_voluntary") or 0),
+    }
+
+
 def selected_extras(extras: List[dict], barber_id: str) -> List[dict]:
     return [
         x
@@ -159,6 +176,7 @@ def recompute_line(line: dict, params: dict, exonerated: bool, extras: List[dict
         extras=selected_extras(extras, line["barber_id"]) if line.get("use_extras", True) else [],
         adjustments=line.get("adjustments") or [],
         exonerated=exonerated,
+        withholding=line.get("withholding"),
     )
     return {**line, "computed": computed}
 
@@ -228,7 +246,11 @@ def build_payroll_router(db, get_current_user, require_management_role, resolve_
                 raise HTTPException(
                     status_code=400, detail="El salario mínimo y el auxilio deben ser valores positivos"
                 )
-            overrides[str(year)] = {"smmlv": smmlv, "transport_aid": aid}
+            overrides[str(year)] = {
+                "smmlv": smmlv,
+                "transport_aid": aid,
+                **({"uvt": float(values["uvt"])} if float(values.get("uvt") or 0) > 0 else {}),
+            }
         doc = {
             "organization_id": org_id,
             "exonerated": data.exonerated,
@@ -484,6 +506,7 @@ def build_payroll_router(db, get_current_user, require_management_role, resolve_
                     "adjustments": novelty_adjustments,
                     "novelty_ids": novelty_ids,
                     "use_extras": True,
+                    "withholding": withholding_options(contract),
                 }
                 lines.append(recompute_line(line, params, exonerated, extras))
             else:

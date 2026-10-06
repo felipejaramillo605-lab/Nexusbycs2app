@@ -69,7 +69,7 @@ beforeEach(() => {
   mockApi.downloadReport.mockResolvedValue({ data: new Blob(['x']), headers: {} });
   mockApi.downloadSlip.mockResolvedValue({ data: new Blob(['x']), headers: {} });
   mockApi.listContracts.mockResolvedValue({ data: { items: [{ barber_id: 'b1', name: 'Ana', contract_type: 'service_commission', pay_frequency: 'monthly' }] } });
-  mockApi.getSettings.mockResolvedValue({ data: { exonerated: true, default_arl_class: 'I', params_overrides: {}, params: { year: 2026, smmlv: 1750905, transport_aid: 249095 }, risk_classes: { I: 'Riesgo I', II: 'Riesgo II' }, disclaimer: 'No reemplaza un software de nómina.' } });
+  mockApi.getSettings.mockResolvedValue({ data: { exonerated: true, default_arl_class: 'I', params_overrides: {}, params: { year: 2026, smmlv: 1750905, transport_aid: 249095, uvt: 52374 }, risk_classes: { I: 'Riesgo I', II: 'Riesgo II' }, disclaimer: 'No reemplaza un software de nómina.' } });
   mockApi.listExtras.mockResolvedValue({ data: { items: [{ extra_id: 'e1', name: 'Auxilio de internet', kind: 'fixed', value: 50000, constitutes_salary: false, applies_to: 'all', barber_ids: [], active: true }] } });
   mockApi.createExtra.mockResolvedValue({ data: {} });
   mockApi.deleteExtra.mockResolvedValue({ data: {} });
@@ -188,5 +188,16 @@ test('settings: saves the legal parameters for the current year with the exonera
   await click(tab('settings'));
   await setValue(container.querySelector('[data-testid="param-smmlv"]'), '1800000');
   await click(container.querySelector('[data-testid="save-settings"]'));
-  expect(mockApi.saveSettings).toHaveBeenCalledWith({ organization_id: 'org_a', exonerated: true, default_arl_class: 'I', params_overrides: { 2026: { smmlv: 1800000, transport_aid: 249095 } } });
+  expect(mockApi.saveSettings).toHaveBeenCalledWith({ organization_id: 'org_a', exonerated: true, default_arl_class: 'I', params_overrides: { 2026: { smmlv: 1800000, transport_aid: 249095, uvt: 52374 } } });
+});
+
+test('contracts: withholding estimate is opt-in and its options are saved', async () => {
+  await mount();
+  await click(tab('contracts'));
+  await click(container.querySelector('[data-testid="edit-contract"]'));
+  await setValue(container.querySelector('[data-testid="contract-type"]'), 'fixed_salary');
+  await setValue(container.querySelector('[data-testid="contract-salary"]'), '12000000');
+  await click(container.querySelector('[data-testid="withholding-enabled"]'));
+  await click(container.querySelector('[data-testid="save-contract"]'));
+  expect(mockApi.saveContract).toHaveBeenCalledWith('b1', expect.objectContaining({ withholding_enabled: true, withholding_dependents: false, withholding_voluntary: 0 }));
 });

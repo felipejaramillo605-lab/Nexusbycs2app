@@ -26,8 +26,8 @@ from typing import Dict, List, Optional
 
 # Valores por defecto por ano. Se pueden sobrescribir por organizacion (payroll_settings.params_overrides).
 DEFAULT_PARAMS: Dict[int, Dict[str, float]] = {
-    2025: {"smmlv": 1_423_500, "transport_aid": 200_000},
-    2026: {"smmlv": 1_750_905, "transport_aid": 249_095},
+    2025: {"smmlv": 1_423_500, "transport_aid": 200_000, "uvt": 49_799},
+    2026: {"smmlv": 1_750_905, "transport_aid": 249_095, "uvt": 52_374},
 }
 LATEST_YEAR = max(DEFAULT_PARAMS)
 
@@ -75,6 +75,7 @@ def params_for(year: int, overrides: Optional[dict] = None) -> dict:
         "year": year,
         "smmlv": float(custom.get("smmlv") or base["smmlv"]),
         "transport_aid": float(custom.get("transport_aid") or base["transport_aid"]),
+        "uvt": float(custom.get("uvt") or base["uvt"]),
         "is_default": not custom,
         "known_year": year in DEFAULT_PARAMS,
     }
@@ -104,6 +105,43 @@ def extra_amount(extra: dict, base_salary: float, factor: float) -> float:
     return monthly * factor
 
 
+# Retencion en la fuente por ingresos laborales, procedimiento 1 (art. 383 E.T.): (desde UVT, tarifa, UVT fijas)
+WITHHOLDING_TABLE = [
+    (95, 0.19, 0),
+    (150, 0.28, 10),
+    (360, 0.33, 69),
+    (640, 0.35, 162),
+    (945, 0.37, 268),
+    (2300, 0.39, 770),
+]
+WITHHOLDING_EXEMPT_25_CAP_UVT = 790 / 12  # tope mensual de la renta exenta del 25 %
+WITHHOLDING_TOTAL_CAP_UVT = 1340 / 12  # tope mensual de deducciones y rentas exentas
+
+
+def estimate_withholding(gross: float, mandatory: float, uvt: float, options: dict) -> dict:
+    """Estimacion mensual de la retencion en la fuente (procedimiento 1). Informativa: no es declaracion."""
+    income_net = max(0.0, gross - mandatory)  # ingresos menos aportes obligatorios (no constitutivos de renta)
+    deductions = 0.0
+    if options.get("dependents"):
+        deductions += min(0.10 * gross, 32 * uvt)
+    deductions += min(float(options.get("prepaid_health") or 0), 16 * uvt)
+    deductions += min(float(options.get("housing_interest") or 0), 100 * uvt)
+    voluntary = min(float(options.get("voluntary") or 0), 0.30 * gross, 3800 * uvt / 12)
+    exempt25 = min(0.25 * max(0.0, income_net - deductions - voluntary), WITHHOLDING_EXEMPT_25_CAP_UVT * uvt)
+    benefits = min(deductions + voluntary + exempt25, 0.40 * income_net, WITHHOLDING_TOTAL_CAP_UVT * uvt)
+    base = max(0.0, income_net - benefits)
+    base_uvt = base / uvt if uvt else 0.0
+    tax_uvt = 0.0
+    for threshold, rate, fixed in WITHHOLDING_TABLE:
+        if base_uvt > threshold:
+            tax_uvt = (base_uvt - threshold) * rate + fixed
+    return {
+        "base": money(base),
+        "base_uvt": round(base_uvt, 2),
+        "amount": round100_up(tax_uvt * uvt) if tax_uvt else 0.0,
+    }
+
+
 def validate_contract(base_salary: float, smmlv: float) -> None:
     if base_salary < smmlv - 0.5:
         raise ValueError(f"El salario básico no puede ser menor al salario mínimo (${smmlv:,.0f}).")
@@ -119,6 +157,7 @@ def compute_line(
     extras: Optional[List[dict]] = None,
     adjustments: Optional[List[dict]] = None,
     exonerated: bool = True,
+    withholding: Optional[dict] = None,
 ) -> dict:
     """Calcula una linea de nomina (un trabajador, un periodo). Devuelve todos los rubros desglosados."""
     smmlv = params["smmlv"]
@@ -199,6 +238,22 @@ def compute_line(
             {"code": "fsp", "label": f"Fondo de solidaridad pensional ({fsp_pct:g}%)", "amount": fsp}
         )
     employee_deductions.extend(deduction_rows)
+    withholding_note = None
+    if withholding is not None:
+        if frequency == "monthly":
+            gross_now = sum(e["amount"] for e in earnings)
+            mandatory = health_emp + pension_emp + fsp
+            result = estimate_withholding(gross_now, mandatory, params.get("uvt", 52_374), withholding)
+            if result["amount"] > 0:
+                employee_deductions.append(
+                    {"code": "withholding", "label": "Retención en la fuente (estimada)", "amount": result["amount"]}
+                )
+            withholding_note = (
+                f"Retención en la fuente estimada con base de {result['base_uvt']:g} UVT "
+                "(informativa; no es declaración)."
+            )
+        else:
+            withholding_note = "La retención en la fuente solo se estima en nóminas mensuales."
 
     exempt = bool(exonerated) and monthly_ibc_equivalent < EXONERATION_LIMIT_SMMLV * smmlv
     employer_contributions = [
@@ -245,7 +300,7 @@ def compute_line(
     employer_total = money(sum(c["amount"] for c in employer_contributions))
     provisions_total = money(sum(p["amount"] for p in provisions))
     net = money(gross - deductions_total)
-    notes = []
+    notes = [withholding_note] if withholding_note else []
     if not transport_eligible:
         notes.append("El salario supera 2 SMMLV: no aplica auxilio de transporte.")
     if exempt:

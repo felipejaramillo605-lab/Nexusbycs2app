@@ -312,7 +312,7 @@ function ContractsTab({ scope }) {
 
   const save = async () => {
     try {
-      const body = { ...scope, contract_type: editing.contract_type, pay_frequency: editing.pay_frequency || 'monthly', arl_risk_class: editing.arl_risk_class || 'I', start_date: editing.start_date || null, bank_name: editing.bank_name || null, account_type: editing.account_type || null, account_number: editing.account_number || null, birth_date: editing.birth_date || null, cost_center: editing.cost_center || null, document: editing.document || null, position: editing.position || null };
+      const body = { ...scope, contract_type: editing.contract_type, pay_frequency: editing.pay_frequency || 'monthly', arl_risk_class: editing.arl_risk_class || 'I', start_date: editing.start_date || null, bank_name: editing.bank_name || null, account_type: editing.account_type || null, account_number: editing.account_number || null, birth_date: editing.birth_date || null, withholding_enabled: !!editing.withholding_enabled, withholding_dependents: !!editing.withholding_dependents, withholding_prepaid_health: Number(editing.withholding_prepaid_health) || 0, withholding_housing_interest: Number(editing.withholding_housing_interest) || 0, withholding_voluntary: Number(editing.withholding_voluntary) || 0, cost_center: editing.cost_center || null, document: editing.document || null, position: editing.position || null };
       if (editing.contract_type === 'fixed_salary') body.base_salary = Number(editing.base_salary);
       await payrollAPI.saveContract(editing.barber_id, body);
       toast.success('Contrato guardado');
@@ -394,6 +394,15 @@ function ContractsTab({ scope }) {
                 </select>
               </label>
               <label className="text-sm">Número de cuenta<input className="nexus-field" value={editing.account_number || ''} onChange={(e) => setEditing({ ...editing, account_number: e.target.value })} /></label>
+              <label className="text-sm flex gap-2 sm:col-span-2"><input type="checkbox" checked={!!editing.withholding_enabled} onChange={(e) => setEditing({ ...editing, withholding_enabled: e.target.checked })} data-testid="withholding-enabled" /> Estimar retención en la fuente (informativo, solo nóminas mensuales)</label>
+              {editing.withholding_enabled && (
+                <>
+                  <label className="text-sm flex gap-2"><input type="checkbox" checked={!!editing.withholding_dependents} onChange={(e) => setEditing({ ...editing, withholding_dependents: e.target.checked })} /> Tiene dependientes</label>
+                  <label className="text-sm">Medicina prepagada mensual<input className="nexus-field" type="number" min="0" value={editing.withholding_prepaid_health || ''} onChange={(e) => setEditing({ ...editing, withholding_prepaid_health: e.target.value })} /></label>
+                  <label className="text-sm">Intereses de vivienda mensuales<input className="nexus-field" type="number" min="0" value={editing.withholding_housing_interest || ''} onChange={(e) => setEditing({ ...editing, withholding_housing_interest: e.target.value })} /></label>
+                  <label className="text-sm">Aportes voluntarios (pensión/AFC) mensuales<input className="nexus-field" type="number" min="0" value={editing.withholding_voluntary || ''} onChange={(e) => setEditing({ ...editing, withholding_voluntary: e.target.value })} /></label>
+                </>
+              )}
               <label className="text-sm">Centro de costos (opcional)<input className="nexus-field" value={editing.cost_center || ''} onChange={(e) => setEditing({ ...editing, cost_center: e.target.value })} placeholder="Ej: Sede Norte" /></label>
             </div>
             <footer className="flex gap-3 mt-4">
@@ -526,7 +535,7 @@ function SettingsTab({ scope }) {
     try {
       const { data: loaded } = await payrollAPI.getSettings(scope);
       setData(loaded);
-      setForm({ exonerated: loaded.exonerated, default_arl_class: loaded.default_arl_class, smmlv: loaded.params.smmlv, transport_aid: loaded.params.transport_aid });
+      setForm({ exonerated: loaded.exonerated, default_arl_class: loaded.default_arl_class, smmlv: loaded.params.smmlv, transport_aid: loaded.params.transport_aid, uvt: loaded.params.uvt });
     } catch (error) {
       toast.error(messageOf(error, 'No fue posible cargar los parámetros'));
     }
@@ -537,7 +546,7 @@ function SettingsTab({ scope }) {
   const year = data.params.year;
   const save = async () => {
     try {
-      await payrollAPI.saveSettings({ ...scope, exonerated: form.exonerated, default_arl_class: form.default_arl_class, params_overrides: { ...(data.params_overrides || {}), [year]: { smmlv: Number(form.smmlv), transport_aid: Number(form.transport_aid) } } });
+      await payrollAPI.saveSettings({ ...scope, exonerated: form.exonerated, default_arl_class: form.default_arl_class, params_overrides: { ...(data.params_overrides || {}), [year]: { smmlv: Number(form.smmlv), transport_aid: Number(form.transport_aid), uvt: Number(form.uvt) } } });
       toast.success('Parámetros guardados');
       await load();
     } catch (error) {
@@ -552,6 +561,7 @@ function SettingsTab({ scope }) {
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <label className="text-sm">Salario mínimo (SMMLV)<input className="nexus-field" type="number" value={form.smmlv} onChange={(e) => setForm({ ...form, smmlv: e.target.value })} data-testid="param-smmlv" /></label>
           <label className="text-sm">Auxilio de transporte<input className="nexus-field" type="number" value={form.transport_aid} onChange={(e) => setForm({ ...form, transport_aid: e.target.value })} data-testid="param-transport" /></label>
+          <label className="text-sm">UVT (para la retención en la fuente)<input className="nexus-field" type="number" value={form.uvt || ''} onChange={(e) => setForm({ ...form, uvt: e.target.value })} data-testid="param-uvt" /></label>
           <label className="text-sm">Clase de riesgo ARL por defecto
             <select className="nexus-field" value={form.default_arl_class} onChange={(e) => setForm({ ...form, default_arl_class: e.target.value })}>
               {Object.entries(data.risk_classes).map(([key, label]) => <option key={key} value={key}>{label}</option>)}
