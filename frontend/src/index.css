@@ -546,3 +546,4 @@ button,[role="button"]{-webkit-tap-highlight-color:transparent}button:focus-visi
 @media(max-width:560px){.nexus-po-modal .nexus-receipt-line{grid-template-columns:1fr}.nexus-po-modal .nexus-receipt-line input{width:100%}}
 .nexus-directions-link{display:inline-flex;align-items:center;gap:.35rem;color:var(--app-primary);font-weight:650;text-decoration:underline}
 .nexus-policy-box{display:grid;gap:.4rem;margin:.9rem 0;padding:.9rem 1rem;border:1px solid var(--app-border);border-radius:14px;background:var(--app-surface-muted);color:var(--app-text-primary);font-size:.85rem}.nexus-policy-box p{margin:0;color:var(--app-text-secondary)}
+.nexus-payroll-modal{width:min(760px,calc(100vw - 2rem));max-height:92vh;overflow-y:auto}.nexus-payroll-modal input,.nexus-payroll-modal select,.nexus-payroll-modal textarea{min-width:0;max-width:100%}
