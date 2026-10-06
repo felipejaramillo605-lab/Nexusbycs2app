@@ -124,3 +124,37 @@ def test_salary_below_the_minimum_is_rejected_and_unknown_years_use_the_latest_d
     subject.validate_contract(SMMLV, SMMLV)
     assert subject.params_for(2031)["smmlv"] == SMMLV and subject.params_for(2031)["known_year"] is False
     assert subject.params_for(2026, {"2026": {"smmlv": 2_000_000}})["smmlv"] == 2_000_000
+
+
+# ---------------------------------------------------------------- retencion en la fuente (estimada)
+
+
+def test_withholding_is_zero_for_low_salaries_and_follows_the_article_383_table():
+    uvt = P["uvt"]
+    assert uvt == 52_374
+    assert subject.estimate_withholding(3_000_000, 240_000, uvt, {})["amount"] == 0  # bajo 95 UVT
+    result = subject.estimate_withholding(10_000_000, 800_000, uvt, {})
+    assert 95 < result["base_uvt"] < 360 and result["amount"] > 0
+    big = subject.estimate_withholding(40_000_000, 3_200_000, uvt, {})
+    assert big["base"] >= 0.6 * (40_000_000 - 3_200_000) - 1  # manda el tope del 40 %
+
+
+def test_withholding_reliefs_reduce_the_base_and_the_tax():
+    uvt = P["uvt"]
+    plain = subject.estimate_withholding(12_000_000, 960_000, uvt, {})
+    relieved = subject.estimate_withholding(
+        12_000_000, 960_000, uvt, {"dependents": True, "prepaid_health": 400_000, "voluntary": 1_000_000}
+    )
+    assert relieved["base"] < plain["base"] and relieved["amount"] < plain["amount"]
+
+
+def test_withholding_is_only_applied_when_enabled_and_for_monthly_payrolls():
+    without = line(12_000_000)
+    assert "withholding" not in amounts(without["employee_deductions"])
+    enabled = line(12_000_000, withholding={})
+    assert amounts(enabled["employee_deductions"])["withholding"] > 0 and enabled["net_pay"] < without["net_pay"]
+    assert any("Retención en la fuente estimada" in note for note in enabled["notes"])
+    quincenal = line(12_000_000, frequency="biweekly", withholding={})
+    assert "withholding" not in amounts(quincenal["employee_deductions"])
+    assert any("solo se estima en nóminas mensuales" in note for note in quincenal["notes"])
+    assert "withholding" not in amounts(line(SMMLV, withholding={})["employee_deductions"])
