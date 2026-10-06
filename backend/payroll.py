@@ -18,6 +18,7 @@ from pydantic import BaseModel, Field
 
 import payroll_co
 from hr_absences import unpaid_days_in_period
+from payroll_novelties import collect_novelty_adjustments
 from payroll_reports import build_payroll_workbook, build_slip_pdf, period_label
 
 CONTRACT_TYPES = ("service_commission", "fixed_salary")
@@ -463,6 +464,9 @@ def build_payroll_router(db, get_current_user, require_management_role, resolve_
                     continue
                 hire = date.fromisoformat(contract["start_date"]) if contract.get("start_date") else None
                 days = days_in_period(start, end, hire, data.frequency)
+                novelty_adjustments, novelty_ids = await collect_novelty_adjustments(
+                    db, org_id, barber["barber_id"], start, end
+                )
                 unpaid = unpaid_days_in_period(unpaid_requests, barber["barber_id"], start, end)
                 if unpaid:
                     days = max(0.0, days - unpaid)
@@ -474,7 +478,8 @@ def build_payroll_router(db, get_current_user, require_management_role, resolve_
                     "frequency": data.frequency,
                     "arl_risk_class": contract.get("arl_risk_class") or settings.get("default_arl_class", "I"),
                     "days_worked": days,
-                    "adjustments": [],
+                    "adjustments": novelty_adjustments,
+                    "novelty_ids": novelty_ids,
                     "use_extras": True,
                 }
                 lines.append(recompute_line(line, params, exonerated, extras))
@@ -512,6 +517,11 @@ def build_payroll_router(db, get_current_user, require_management_role, resolve_
         }
         run["totals"] = compute_totals(lines)
         await db.payroll_runs.insert_one(dict(run))
+        for line in lines:
+            for novelty_id in line.get("novelty_ids") or []:
+                await db.payroll_novelties.update_one(
+                    {"novelty_id": novelty_id}, {"$set": {"applied_run_id": run["run_id"]}}
+                )
         return run
 
     @router.get("/payroll/runs", tags=["payroll"])
@@ -582,6 +592,12 @@ def build_payroll_router(db, get_current_user, require_management_role, resolve_
         run.update(extra or {})
         run[f"{new_status}_at"] = _now()
         run[f"{new_status}_by"] = user.user_id
+        if new_status == "cancelled":  # las novedades vuelven a quedar disponibles para otra nomina
+            for line in run["lines"]:
+                for novelty_id in line.get("novelty_ids") or []:
+                    await db.payroll_novelties.update_one(
+                        {"novelty_id": novelty_id}, {"$set": {"applied_run_id": None}}
+                    )
         return await save_run(run)
 
     @router.post("/payroll/runs/{run_id}/approve", tags=["payroll"])
