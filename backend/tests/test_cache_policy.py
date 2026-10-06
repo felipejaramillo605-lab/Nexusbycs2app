@@ -23,7 +23,7 @@ def make_app(tmp_path):
         subject.apply_cache_policy(request.url.path, response.headers)
         return response
 
-    @app.get("/api/payroll/runs/r1/report.xlsx")
+    @app.get("/api/payroll/runs/r1/report/xlsx")
     async def report():
         return Response(
             b"PK-private-payroll", media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
@@ -45,7 +45,7 @@ def make_app(tmp_path):
 
 
 def test_private_downloads_get_no_store(tmp_path):
-    response = make_app(tmp_path).get("/api/payroll/runs/r1/report.xlsx")
+    response = make_app(tmp_path).get("/api/payroll/runs/r1/report/xlsx")
     assert response.headers["cache-control"] == "no-store, private" and response.headers["pragma"] == "no-cache"
 
 

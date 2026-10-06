@@ -70,7 +70,7 @@ def build_inventory_audit_router(db, get_current_user, require_management_role, 
     async def audit_report(audit_id:str,authorization:Optional[str]=Header(None),session_token:Optional[str]=Cookie(None)):
         user=await get_current_user(authorization,session_token);header=await authorized_audit(user,audit_id);lines=await db.inventory_audit_lines.find({'audit_id':audit_id},{'_id':0}).to_list(100000);counted=[x for x in lines if x.get('counted_quantity') is not None];return {'audit_id':audit_id,'audit_number':header['audit_number'],'total_references':len(lines),'counted_references':len(counted),'pending_references':len(lines)-len(counted),'matching_references':sum(1 for x in counted if x.get('difference_quantity')==0),'shortage_references':sum(1 for x in counted if float(x.get('difference_quantity') or 0)<0),'surplus_references':sum(1 for x in counted if float(x.get('difference_quantity') or 0)>0),'system_value':round(sum(float(x.get('system_value') or 0) for x in lines),2),'counted_value':round(sum(float(x.get('counted_value') or 0) for x in counted),2),'difference_value':round(sum(float(x.get('difference_value') or 0) for x in counted),2),'accuracy_percent':round(100*sum(1 for x in counted if x.get('difference_quantity')==0)/len(counted),2) if counted else 0,'lines':lines}
 
-    @router.get('/inventory/audits/{audit_id}/count-sheet.xlsx')
+    @router.get('/inventory/audits/{audit_id}/count-sheet/xlsx')
     async def count_sheet(audit_id:str,authorization:Optional[str]=Header(None),session_token:Optional[str]=Cookie(None)):
         user=await get_current_user(authorization,session_token);header=await authorized_audit(user,audit_id);lines=await db.inventory_audit_lines.find({'audit_id':audit_id},{'_id':0}).sort('item_name_snapshot',1).to_list(100000)
         try: from openpyxl import Workbook; from openpyxl.styles import Font,PatternFill,Alignment,Protection
@@ -85,7 +85,7 @@ def build_inventory_audit_router(db, get_current_user, require_management_role, 
         for i,w in enumerate(widths,1): ws.column_dimensions[chr(64+i)].width=w
         out=BytesIO();wb.save(out);out.seek(0);name=f"{header['audit_number']}_acta_conteo.xlsx";return StreamingResponse(out,media_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',headers={'Content-Disposition':f'attachment; filename="{name}"'})
 
-    @router.get('/inventory/audits/{audit_id}/report.csv')
+    @router.get('/inventory/audits/{audit_id}/report/csv')
     async def report_csv(audit_id:str,authorization:Optional[str]=Header(None),session_token:Optional[str]=Cookie(None)):
         user=await get_current_user(authorization,session_token);header=await authorized_audit(user,audit_id);lines=await db.inventory_audit_lines.find({'audit_id':audit_id},{'_id':0}).sort('item_name_snapshot',1).to_list(100000);out=StringIO();w=csv.writer(out);w.writerow(['SKU','Producto','Unidad','Cantidad teórica','Cantidad contada','Diferencia','Costo unitario','Impacto económico','Observaciones']);[w.writerow([x['sku_snapshot'],x['item_name_snapshot'],x['unit_snapshot'],x['system_quantity'],x.get('counted_quantity'),x.get('difference_quantity'),x['unit_cost_snapshot'],x.get('difference_value'),x.get('observation')]) for x in lines];data=BytesIO(out.getvalue().encode('utf-8-sig'));return StreamingResponse(data,media_type='text/csv',headers={'Content-Disposition':f'attachment; filename="{header["audit_number"]}_diferencias.csv"'})
 

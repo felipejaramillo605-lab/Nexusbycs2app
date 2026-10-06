@@ -282,7 +282,7 @@ def build_benefits_router(db, get_current_user, require_management_role, resolve
             "note": NOTE,
         }
 
-    @router.get("/payroll/benefits/{kind}/export.xlsx", tags=["payroll"])
+    @router.get("/payroll/benefits/{kind}/export/xlsx", tags=["payroll"])
     async def export_benefit(
         kind: str,
         year: int,
@@ -344,7 +344,7 @@ def build_benefits_router(db, get_current_user, require_management_role, resolve
             created += 1
         return {"created": created, "skipped": len(rows) - created}
 
-    @router.get("/payroll/sabana.xlsx", tags=["payroll"])
+    @router.get("/payroll/sabana/xlsx", tags=["payroll"])
     async def sabana(
         year: int,
         organization_id: Optional[str] = None,
@@ -385,7 +385,7 @@ def build_benefits_router(db, get_current_user, require_management_role, resolve
             "note": "CSV genérico: no es un formato bancario oficial.",
         }
 
-    @router.get("/payroll/runs/{run_id}/dispersion.csv", tags=["payroll"])
+    @router.get("/payroll/runs/{run_id}/dispersion/csv", tags=["payroll"])
     async def dispersion_csv(
         run_id: str,
         organization_id: Optional[str] = None,
