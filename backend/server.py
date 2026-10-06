@@ -9450,6 +9450,14 @@ api_router.include_router(
     tags=["inventory"],
 )
 
+# Panel semanal de capacidad y demanda
+from capacity_panel import build_capacity_router
+
+api_router.include_router(
+    build_capacity_router(db, get_current_user, require_management_role, resolve_team_organization),
+    tags=["capacity"],
+)
+
 # Segmentos calculados de clientes (primera visita, inactivos, cumpleaños, no-show, miembros...)
 from client_segments import build_segment_router
 

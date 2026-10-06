@@ -401,6 +401,10 @@ export const membershipPlanAPI = {
   update: (id, data) => api.put(`/membership-plans/${id}`, data),
 };
 
+export const capacityAPI = {
+  weekly: (params = {}) => api.get('/capacity/weekly', { params }),
+};
+
 export const marketingAPI = {
   sendCampaign: (data) => api.post('/marketing/campaigns', data),
   getSegments: (params = {}) => api.get('/marketing/segments', { params }),
