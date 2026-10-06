@@ -216,3 +216,16 @@ def test_dispersion_lists_missing_bank_data_and_only_approved_runs_produce_the_f
     assert text[1].startswith("123;Ana;Bancolombia;savings;123456789;") and len(text) == 2
     assert client.get("/api/payroll/runs/pay_2026_11/dispersion.csv", headers=H()).status_code == 409
     assert client.get("/api/payroll/runs/nada/dispersion", headers=H()).status_code == 404
+
+
+def test_spreadsheet_and_csv_text_cannot_inject_formulas():
+    from payroll_reports import safe_text
+
+    assert safe_text('=HYPERLINK("http://malo")') == '\'=HYPERLINK("http://malo")'
+    assert safe_text("+57300") == "'+57300" and safe_text("@cmd") == "'@cmd" and safe_text("-1") == "'-1"
+    assert safe_text("=SUM(D6:D9)") == "=SUM(D6:D9)" and safe_text("Ana") == "Ana" and safe_text(12) == 12
+    evil = run(10)
+    evil["lines"][0]["name"] = "=1+1"
+    rows = subject.aggregate_benefit([evil], "prima", 2026, 2)
+    sheet = load_workbook(BytesIO(subject.build_benefit_workbook("Org", "prima", 2026, 2, rows))).active
+    assert sheet["A6"].value == "'=1+1" and sheet["A6"].data_type == "s"

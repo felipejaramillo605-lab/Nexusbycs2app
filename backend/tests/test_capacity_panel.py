@@ -175,3 +175,33 @@ def test_other_organizations_and_cancelled_sessions_are_left_out_and_staff_is_re
     assert body["totals"]["booked_hours"] == 0 and body["classes"]["sessions"] == 0
     assert api.get("/api/capacity/weekly", headers={"Authorization": "staff"}).status_code == 403
     assert api.get("/api/capacity/weekly", params={"week_start": "hoy"}).status_code == 400
+
+
+def test_group_classes_count_as_booked_hours_of_the_instructor():
+    sessions = [
+        {
+            "organization_id": "org_a",
+            "class_session_id": "c1",
+            "barber_id": "b1",
+            "service_id": "s1",
+            "date": "2026-10-07",
+            "time": "18:00",
+            "capacity": 10,
+            "booked_count": 4,
+            "status": "scheduled",
+        },
+        {
+            "organization_id": "org_a",
+            "class_session_id": "c2",
+            "barber_id": "b1",
+            "service_id": "s1",
+            "date": "2026-10-08",
+            "time": "18:00",
+            "capacity": 10,
+            "booked_count": 0,
+            "status": "cancelled",
+        },
+    ]
+    body = build(sessions=sessions).get("/api/capacity/weekly", params={"week_start": "2026-10-05"}).json()
+    assert body["professionals"][0]["booked_hours"] == 1  # clase de 60 min; la cancelada no cuenta
+    assert body["days"][2]["booked_hours"] == 1 and body["classes"]["sessions"] == 1

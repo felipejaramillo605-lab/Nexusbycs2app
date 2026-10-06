@@ -33,6 +33,19 @@ DISCLAIMER = (
 )
 
 
+def looks_like(content_type: str, data: bytes) -> bool:
+    """Comprueba la firma del archivo: el tipo que declara el navegador no basta."""
+    if content_type == "image/jpeg":
+        return data[:3] == b"\xff\xd8\xff"
+    if content_type == "image/png":
+        return data[:8] == b"\x89PNG\r\n\x1a\n"
+    if content_type == "image/webp":
+        return data[:4] == b"RIFF" and data[8:12] == b"WEBP"
+    if content_type == "application/pdf":
+        return data[:5] == b"%PDF-"
+    return False
+
+
 def _now() -> str:
     return datetime.now(timezone.utc).isoformat()
 
@@ -217,8 +230,12 @@ def build_hr_router(db, get_current_user, require_management_role, resolve_team_
             {"organization_id": org_id, "barber_id": barber["barber_id"]}, {"_id": 0}
         ).to_list(500)
         rows.sort(key=lambda r: r["created_at"], reverse=True)
+        contract = await db.payroll_contracts.find_one(
+            {"organization_id": org_id, "barber_id": barber["barber_id"]}, {"_id": 0, "contract_type": 1}
+        )
         return {
             "vacation": balance,
+            "fixed_contract": bool(contract and contract.get("contract_type") == "fixed_salary"),
             "requests": [public_view(r) for r in rows],
             "kinds": {k: {"label": v["label"], "evidence": v["evidence"]} for k, v in KINDS.items()},
             "disclaimer": DISCLAIMER,
@@ -252,6 +269,8 @@ def build_hr_router(db, get_current_user, require_management_role, resolve_team_
             raise HTTPException(status_code=413, detail="El archivo supera 5 MB")
         if not data:
             raise HTTPException(status_code=400, detail="El archivo está vacío")
+        if not looks_like(file.content_type, data):
+            raise HTTPException(status_code=400, detail="El contenido no corresponde a una foto o PDF válidos")
         doc = {
             "document_id": _id("hrdoc"),
             "organization_id": barber["organization_id"],

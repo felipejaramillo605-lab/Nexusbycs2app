@@ -46,6 +46,13 @@ FREQUENCY_ES = {"monthly": "Mensual", "biweekly": "Quincenal"}
 COP = '"$" #,##0;[Red]-"$" #,##0'
 
 
+def safe_text(value):
+    """Evita la inyeccion de formulas: un texto que empieza por = + - @ se guarda como texto literal."""
+    if isinstance(value, str) and value[:1] in ("=", "+", "-", "@") and not value.startswith("=SUM("):
+        return "'" + value
+    return value
+
+
 def period_label(run: dict) -> str:
     month = MONTHS_ES[int(run["month"]) - 1].capitalize()
     if run.get("frequency") == "biweekly":
@@ -102,7 +109,7 @@ def build_payroll_workbook(run: dict, organization_name: str) -> bytes:
         ws.row_dimensions[row].height = 30
 
     def body_cell(ws, row, col, value, money=False, strong=False, fill=None):
-        cell = ws.cell(row=row, column=col, value=value)
+        cell = ws.cell(row=row, column=col, value=safe_text(value))
         cell.font, cell.border = (bold if strong else base_font), border
         if money:
             cell.number_format = COP

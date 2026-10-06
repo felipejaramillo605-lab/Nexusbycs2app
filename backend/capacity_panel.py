@@ -75,6 +75,15 @@ def compute_week(barbers, services, appointments, sessions, waitlist_by_session,
         info["appointments"] += 1
         per_day[appointment["date"]]["booked"] += hours
 
+    # Las clases tambien ocupan el tiempo de quien las dicta: cuentan como horas reservadas de ese profesional
+    for session in sessions:
+        info = by_barber.get(session.get("barber_id"))
+        if not info or session.get("status") == "cancelled" or session.get("date") not in per_day:
+            continue
+        hours = duration.get(session.get("service_id"), DEFAULT_SERVICE_MINUTES) / 60
+        info["booked"] += hours
+        per_day[session["date"]]["booked"] += hours
+
     professionals = []
     for info in by_barber.values():
         total = info["appointments"] + info["cancellations"]

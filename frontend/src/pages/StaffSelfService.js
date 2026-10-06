@@ -152,7 +152,7 @@ export default function StaffSelfService() {
           ))}
         </div>
       </SurfaceCard>
-      {reference && (
+      {reference && data.fixed_contract && (
         <SurfaceCard>
           <div className="p-4 space-y-3" data-testid="overtime-card">
             <h2 className="text-lg">Horas extra y recargos</h2>
