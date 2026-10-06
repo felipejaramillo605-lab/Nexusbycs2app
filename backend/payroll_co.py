@@ -209,7 +209,7 @@ def compute_line(
         {"code": "pension", "label": "Pensión (12%)", "amount": round100_up(ibc * EMPLOYER_PENSION / 100)},
         {
             "code": "arl",
-            "label": f"ARL clase {risk} ({ARL_RATES[risk]:g}%)",
+            "label": f"ARL clase {risk} ({ARL_RATES[risk]:g}%)".replace(".", ","),
             "amount": round100_up(ibc * ARL_RATES[risk] / 100),
         },
         {"code": "ccf", "label": "Caja de compensación (4%)", "amount": round100_up(ibc * EMPLOYER_CCF / 100)},
