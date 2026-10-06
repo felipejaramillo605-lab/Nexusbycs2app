@@ -15,8 +15,9 @@ test('template registries retain legacy standard keys and add vertical-safe stan
   ]);
   expect(PREMIUM_TEMPLATE_KEYS).toEqual([
     'barberia-real', 'bloom', 'ignition', 'claridad', 'noir', 'atelier', 'recreo',
+    'obsidiana', 'porcelana', 'voltaje',
   ]);
-  expect(PORTAL_TEMPLATE_KEYS).toHaveLength(20);
+  expect(PORTAL_TEMPLATE_KEYS).toHaveLength(23);
   expect(PORTAL_TEMPLATE_METADATA.noir).toEqual({ key: 'noir', tier: 'premium' });
   expect(PORTAL_TEMPLATE_METADATA.neutral).toEqual({ key: 'neutral', tier: 'standard' });
 });

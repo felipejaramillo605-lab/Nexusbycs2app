@@ -1,0 +1,243 @@
+/* Voltaje: kinetic neo-brutalism in ultramarine, signal yellow and cyan. Signature template (scan band, ticker tape, glitch headline, offset shadows). */
+.nexus-client-theme[data-portal-template='voltaje'] {
+  --vt-bg: #08080C; --vt-panel: #111118; --vt-raised: #1A1A24; --vt-ink: #F5F5F7;
+  --vt-soft: #C4C6D2; --vt-muted: #A5A8B8; --vt-line: #2C2C3A;
+  --vt-blue: #3D5AFE; --vt-yellow: #FFD60A; --vt-cyan: #00E5FF;
+  position: relative; isolation: isolate; min-height: 100vh; overflow: clip; padding-bottom: 10px;
+  background:
+    linear-gradient(rgba(255,255,255,.035) 1px, transparent 1px) 0 0 / 44px 44px,
+    linear-gradient(90deg, rgba(255,255,255,.035) 1px, transparent 1px) 0 0 / 44px 44px,
+    radial-gradient(ellipse at 90% 0%, rgba(61,90,254,.28), transparent 32rem),
+    radial-gradient(ellipse at 0% 70%, rgba(0,229,255,.10), transparent 28rem),
+    var(--vt-bg);
+  color: var(--vt-ink); font-family: Outfit, Inter, 'Segoe UI', sans-serif;
+}
+
+.nexus-client-theme[data-portal-template='voltaje']::before {
+  content: ''; position: fixed; left: 0; right: 0; top: -20vh; height: 20vh; z-index: -1; pointer-events: none;
+  background: linear-gradient(180deg, transparent, rgba(0,229,255,.07) 55%, rgba(0,229,255,.16) 99%, transparent);
+  animation: vt-scan 7s linear infinite;
+}
+
+.nexus-client-theme[data-portal-template='voltaje']::after {
+  content: ''; position: fixed; left: 0; right: 0; bottom: 0; height: 10px; z-index: 1; pointer-events: none;
+  background: repeating-linear-gradient(-45deg, var(--vt-yellow) 0 14px, #08080C 14px 28px);
+  box-shadow: 0 -30px 60px rgba(8,8,12,.7);
+}
+.nexus-client-theme[data-portal-template='voltaje'] h1,
+.nexus-client-theme[data-portal-template='voltaje'] h2,
+.nexus-client-theme[data-portal-template='voltaje'] h3,
+.nexus-public-experience[data-portal-template='voltaje'] .nexus-public-brand-tenant strong {
+  color: var(--vt-ink); font-family: Anton, Impact, 'Arial Narrow', sans-serif; font-weight: 400; letter-spacing: .03em; text-transform: uppercase;
+}
+.nexus-client-theme[data-portal-template='voltaje'] .nexus-booking-deep,
+.nexus-client-theme[data-portal-template='voltaje'] .nexus-portal-deep,
+.nexus-client-theme[data-portal-template='voltaje'] .nexus-portal-login,
+.nexus-client-theme[data-portal-template='voltaje'] .nexus-booking-success { color: var(--vt-ink); }
+
+.nexus-client-theme[data-portal-template='voltaje'] .nexus-booking-hero {
+  position: relative; isolation: isolate; overflow: hidden; padding: clamp(2.6rem,7vw,5rem) 1rem 5.2rem; text-align: left;
+}
+.nexus-client-theme[data-portal-template='voltaje'] .nexus-booking-hero > * { position: relative; z-index: 1; animation: vt-slam .6s cubic-bezier(.2,.9,.2,1) both; }
+.nexus-client-theme[data-portal-template='voltaje'] .nexus-booking-hero > :nth-child(2) { animation-delay: .07s; }
+.nexus-client-theme[data-portal-template='voltaje'] .nexus-booking-hero > :nth-child(3) { animation-delay: .14s; }
+.nexus-client-theme[data-portal-template='voltaje'] .nexus-booking-hero > :nth-child(n+4) { animation-delay: .2s; }
+.nexus-client-theme[data-portal-template='voltaje'] .nexus-booking-hero::before {
+  content: ''; position: absolute; z-index: 0; right: -3rem; top: 8%; width: clamp(9rem,26vw,20rem); aspect-ratio: 1;
+  border: 3px solid var(--vt-blue); transform: rotate(14deg); box-shadow: 14px 14px 0 rgba(255,214,10,.9); pointer-events: none;
+  animation: vt-float 6s ease-in-out infinite alternate;
+}
+.nexus-client-theme[data-portal-template='voltaje'] .nexus-booking-hero::after {
+  content: 'RESERVA YA  \2726  SIN FILAS  \2726  TU TURNO  \2726  RESERVA YA  \2726  SIN FILAS  \2726  TU TURNO  \2726  RESERVA YA  \2726  SIN FILAS  \2726  TU TURNO  \2726  ' / '';
+  content: 'RESERVA YA  \2726  SIN FILAS  \2726  TU TURNO  \2726  RESERVA YA  \2726  SIN FILAS  \2726  TU TURNO  \2726  RESERVA YA  \2726  SIN FILAS  \2726  TU TURNO  \2726  ';
+  content: 'RESERVA YA  \2726  SIN FILAS  \2726  TU TURNO  \2726  RESERVA YA  \2726  SIN FILAS  \2726  TU TURNO  \2726  RESERVA YA  \2726  SIN FILAS  \2726  TU TURNO  \2726  ' / '';
+  position: absolute; left: 0; bottom: 1.1rem; z-index: 1; display: block; width: max-content; padding: .45rem 0;
+  background: var(--vt-yellow); color: #0A0A0A; font-family: Anton, Impact, sans-serif; font-size: 1.05rem; letter-spacing: .12em; white-space: pre;
+  box-shadow: 0 0 0 100vmax var(--vt-yellow); clip-path: inset(0 -100vmax); animation: vt-ticker 26s linear infinite; pointer-events: none;
+}
+.nexus-client-theme[data-portal-template='voltaje'] .nexus-booking-hero > small,
+.nexus-client-theme[data-portal-template='voltaje'] .nexus-portal-deep > header small {
+  display: inline-block; padding: .28rem .7rem; background: var(--vt-cyan); color: #04141A;
+  font-size: .74rem; font-weight: 700; letter-spacing: .22em; text-transform: uppercase; transform: skewX(-8deg);
+}
+.nexus-client-theme[data-portal-template='voltaje'] .nexus-booking-hero h1,
+.nexus-client-theme[data-portal-template='voltaje'] .nexus-portal-deep > header h1,
+.nexus-client-theme[data-portal-template='voltaje'] .nexus-portal-login h1 {
+  max-width: 14ch; margin-top: .6rem; font-size: clamp(2.7rem,9vw,6.4rem); line-height: .94;
+  text-shadow: 4px 4px 0 var(--vt-blue);
+}
+.nexus-client-theme[data-portal-template='voltaje'] .nexus-booking-hero h1:hover,
+.nexus-client-theme[data-portal-template='voltaje'] .nexus-portal-deep > header h1:hover { animation: vt-slam .6s both, vt-glitch .45s steps(2, end) 1; }
+.nexus-client-theme[data-portal-template='voltaje'] .nexus-booking-hero p,
+.nexus-client-theme[data-portal-template='voltaje'] .nexus-booking-hero > div { color: var(--vt-soft); }
+
+.nexus-client-theme[data-portal-template='voltaje'] .nexus-booking-layout > main,
+.nexus-client-theme[data-portal-template='voltaje'] .nexus-booking-summary,
+.nexus-client-theme[data-portal-template='voltaje'] .nexus-portal-card,
+.nexus-client-theme[data-portal-template='voltaje'] .nexus-next-appointment,
+.nexus-client-theme[data-portal-template='voltaje'] .nexus-portal-login > section,
+.nexus-client-theme[data-portal-template='voltaje'] .nexus-booking-success > section {
+  position: relative; border: 2px solid var(--vt-line); border-radius: 0; background: linear-gradient(180deg, var(--vt-panel), #0D0D13);
+  color: var(--vt-ink); box-shadow: 6px 6px 0 rgba(61,90,254,.9);
+  animation: vt-slam .55s cubic-bezier(.2,.9,.2,1) both; transition: transform .18s ease, box-shadow .18s ease, border-color .18s ease;
+}
+.nexus-client-theme[data-portal-template='voltaje'] .nexus-booking-layout > main:nth-child(2),
+.nexus-client-theme[data-portal-template='voltaje'] .nexus-booking-summary:nth-child(2),
+.nexus-client-theme[data-portal-template='voltaje'] .nexus-portal-card:nth-child(2),
+.nexus-client-theme[data-portal-template='voltaje'] .nexus-next-appointment:nth-child(2),
+.nexus-client-theme[data-portal-template='voltaje'] .nexus-portal-login > section:nth-child(2),
+.nexus-client-theme[data-portal-template='voltaje'] .nexus-booking-success > section:nth-child(2) { animation-delay: .09s; }
+.nexus-client-theme[data-portal-template='voltaje'] .nexus-booking-layout > main:nth-child(3),
+.nexus-client-theme[data-portal-template='voltaje'] .nexus-booking-summary:nth-child(3),
+.nexus-client-theme[data-portal-template='voltaje'] .nexus-portal-card:nth-child(3),
+.nexus-client-theme[data-portal-template='voltaje'] .nexus-next-appointment:nth-child(3),
+.nexus-client-theme[data-portal-template='voltaje'] .nexus-portal-login > section:nth-child(3),
+.nexus-client-theme[data-portal-template='voltaje'] .nexus-booking-success > section:nth-child(3) { animation-delay: .18s; }
+.nexus-client-theme[data-portal-template='voltaje'] .nexus-booking-layout > main:hover,
+.nexus-client-theme[data-portal-template='voltaje'] .nexus-booking-summary:hover,
+.nexus-client-theme[data-portal-template='voltaje'] .nexus-portal-card:hover,
+.nexus-client-theme[data-portal-template='voltaje'] .nexus-next-appointment:hover,
+.nexus-client-theme[data-portal-template='voltaje'] .nexus-portal-login > section:hover,
+.nexus-client-theme[data-portal-template='voltaje'] .nexus-booking-success > section:hover { transform: translate(-3px, -3px); border-color: var(--vt-yellow); box-shadow: 10px 10px 0 var(--vt-blue); }
+.nexus-client-theme[data-portal-template='voltaje'] .nexus-booking-layout > main::before,
+.nexus-client-theme[data-portal-template='voltaje'] .nexus-booking-summary::before,
+.nexus-client-theme[data-portal-template='voltaje'] .nexus-portal-card::before,
+.nexus-client-theme[data-portal-template='voltaje'] .nexus-next-appointment::before,
+.nexus-client-theme[data-portal-template='voltaje'] .nexus-portal-login > section::before,
+.nexus-client-theme[data-portal-template='voltaje'] .nexus-booking-success > section::before {
+  content: ''; position: absolute; top: -2px; left: -2px; width: 2.4rem; height: 6px; background: var(--vt-yellow); pointer-events: none;
+}
+
+.nexus-client-theme[data-portal-template='voltaje'] .nexus-choice-grid > button,
+.nexus-client-theme[data-portal-template='voltaje'] .nexus-slots button,
+.nexus-client-theme[data-portal-template='voltaje'] .nexus-portal-history article {
+  position: relative; border: 2px solid var(--vt-line); border-radius: 0; background: var(--vt-raised); color: var(--vt-ink);
+  box-shadow: 4px 4px 0 rgba(0,0,0,.6); transition: transform .15s ease, box-shadow .15s ease, border-color .15s ease, background .15s ease;
+}
+.nexus-client-theme[data-portal-template='voltaje'] .nexus-choice-grid > button:hover,
+.nexus-client-theme[data-portal-template='voltaje'] .nexus-slots button:hover,
+.nexus-client-theme[data-portal-template='voltaje'] .nexus-portal-history article:hover { transform: translate(-2px, -2px); border-color: var(--vt-cyan); box-shadow: 6px 6px 0 var(--vt-cyan); }
+.nexus-client-theme[data-portal-template='voltaje'] .nexus-choice-grid > button.is-selected,
+.nexus-client-theme[data-portal-template='voltaje'] .nexus-slots button.is-selected {
+  border-color: var(--vt-yellow); background: var(--vt-yellow); color: #0A0A0A; box-shadow: 6px 6px 0 var(--vt-blue);
+}
+.nexus-client-theme[data-portal-template='voltaje'] .nexus-slots button { font-family: Anton, Impact, sans-serif; font-weight: 400; letter-spacing: .06em; font-variant-numeric: tabular-nums; }
+
+.nexus-client-theme[data-portal-template='voltaje'] .nexus-action-button,
+.nexus-client-theme[data-portal-template='voltaje'] .nexus-portal-deep button { border-radius: 0; }
+.nexus-client-theme[data-portal-template='voltaje'] .nexus-action-button {
+  min-height: 50px; padding-inline: 1.8rem; font-family: Anton, Impact, sans-serif; font-weight: 400; font-size: 1.02rem;
+  letter-spacing: .12em; text-transform: uppercase; transform: skewX(-8deg);
+  transition: transform .15s ease, box-shadow .15s ease, background-color .15s ease, color .15s ease;
+}
+.nexus-client-theme[data-portal-template='voltaje'] .nexus-action-primary { background: var(--vt-yellow); color: #0A0A0A; border: 2px solid #0A0A0A; box-shadow: 5px 5px 0 var(--vt-blue); }
+.nexus-client-theme[data-portal-template='voltaje'] .nexus-action-primary:hover:not(:disabled) { transform: skewX(-8deg) translate(-2px, -2px); box-shadow: 8px 8px 0 var(--vt-cyan); background: #FFE55C; color: #0A0A0A; }
+.nexus-client-theme[data-portal-template='voltaje'] .nexus-action-primary:active:not(:disabled) { transform: skewX(-8deg) translate(3px, 3px); box-shadow: 1px 1px 0 var(--vt-blue); }
+.nexus-client-theme[data-portal-template='voltaje'] .nexus-action-secondary { border: 2px solid var(--vt-ink); background: transparent; color: var(--vt-ink); box-shadow: 4px 4px 0 rgba(255,255,255,.18); }
+.nexus-client-theme[data-portal-template='voltaje'] .nexus-action-secondary:hover:not(:disabled) { transform: skewX(-8deg) translate(-2px, -2px); background: var(--vt-ink); color: #0A0A0A; }
+.nexus-client-theme[data-portal-template='voltaje'] button:disabled { cursor: not-allowed; opacity: .5; }
+
+.nexus-client-theme[data-portal-template='voltaje'] input,
+.nexus-client-theme[data-portal-template='voltaje'] select,
+.nexus-client-theme[data-portal-template='voltaje'] textarea {
+  border: 2px solid var(--vt-line); border-radius: 0; background: #0B0B11; color: var(--vt-ink);
+  transition: border-color .15s ease, box-shadow .15s ease;
+}
+.nexus-client-theme[data-portal-template='voltaje'] input:focus,
+.nexus-client-theme[data-portal-template='voltaje'] select:focus,
+.nexus-client-theme[data-portal-template='voltaje'] textarea:focus { border-color: var(--vt-yellow); box-shadow: 4px 4px 0 var(--vt-blue); outline: none; }
+.nexus-client-theme[data-portal-template='voltaje'] input::placeholder,
+.nexus-client-theme[data-portal-template='voltaje'] textarea::placeholder { color: #8588A0; }
+.nexus-client-theme[data-portal-template='voltaje'] .nexus-client-form label,
+.nexus-client-theme[data-portal-template='voltaje'] .nexus-public-field,
+.nexus-client-theme[data-portal-template='voltaje'] .nexus-portal-login label { color: var(--vt-soft); text-transform: uppercase; letter-spacing: .1em; font-size: .8em; }
+
+.nexus-client-theme[data-portal-template='voltaje'] .nexus-stepper button { color: var(--vt-muted); }
+.nexus-client-theme[data-portal-template='voltaje'] .nexus-stepper button.is-current,
+.nexus-client-theme[data-portal-template='voltaje'] .nexus-stepper button.is-complete { color: var(--vt-yellow); }
+.nexus-client-theme[data-portal-template='voltaje'] .nexus-stepper button > span { border: 2px solid currentColor; background: var(--vt-raised); border-radius: 0; font-family: Anton, Impact, sans-serif; transform: skewX(-8deg); }
+.nexus-client-theme[data-portal-template='voltaje'] .nexus-stepper button.is-current > span,
+.nexus-client-theme[data-portal-template='voltaje'] .nexus-stepper button.is-complete > span { background: var(--vt-yellow); color: #0A0A0A; }
+.nexus-client-theme[data-portal-template='voltaje'] .nexus-stepper button.is-current > span { animation: vt-blink 1.6s steps(2, end) infinite; }
+
+.nexus-client-theme[data-portal-template='voltaje'] .nexus-status-badge { border: 2px solid currentColor; border-radius: 0; font-weight: 700; text-transform: uppercase; letter-spacing: .08em; }
+.nexus-client-theme[data-portal-template='voltaje'] .nexus-status-success,
+.nexus-client-theme[data-portal-template='voltaje'] [class~='text-green-400'],
+.nexus-client-theme[data-portal-template='voltaje'] [class~='text-emerald-400'] { color: #4DFFB0 !important; }
+.nexus-client-theme[data-portal-template='voltaje'] [class~='bg-green-500/20'],
+.nexus-client-theme[data-portal-template='voltaje'] [class~='bg-emerald-500/20'] { background-color: rgba(77,255,176,.12) !important; }
+.nexus-client-theme[data-portal-template='voltaje'] .nexus-status-warning,
+.nexus-client-theme[data-portal-template='voltaje'] [class~='text-orange-400'] { color: #FFD60A !important; }
+.nexus-client-theme[data-portal-template='voltaje'] [class~='bg-orange-500/20'] { background-color: rgba(255,214,10,.14) !important; }
+.nexus-client-theme[data-portal-template='voltaje'] .nexus-status-danger,
+.nexus-client-theme[data-portal-template='voltaje'] [class~='text-red-400'] { color: #FF7A90 !important; }
+.nexus-client-theme[data-portal-template='voltaje'] .nexus-status-info,
+.nexus-client-theme[data-portal-template='voltaje'] [class~='text-blue-400'] { color: #8FA2FF !important; }
+.nexus-client-theme[data-portal-template='voltaje'] .nexus-status-neutral,
+.nexus-client-theme[data-portal-template='voltaje'] [class~='text-zinc-400'] { color: var(--vt-muted) !important; }
+.nexus-client-theme[data-portal-template='voltaje'] :focus-visible { outline: 3px solid var(--vt-cyan); outline-offset: 3px; }
+.nexus-client-theme[data-portal-template='voltaje'] .nexus-booking-success > section { border-top: 6px solid var(--vt-yellow); }
+.nexus-client-theme[data-portal-template='voltaje'] .nexus-booking-success > section > span { color: var(--vt-yellow); }
+.nexus-client-theme[data-portal-template='voltaje'] .nexus-booking-receipt { border: 2px dashed var(--vt-line); border-radius: 0; background: #0B0B11; color: var(--vt-ink); }
+.nexus-client-theme[data-portal-template='voltaje'] .nexus-portal-deep > header img,
+.nexus-public-experience[data-portal-template='voltaje'] .nexus-public-brand-tenant-logo {
+  border: 3px solid var(--vt-yellow); border-radius: 0; box-shadow: 5px 5px 0 var(--vt-blue); object-fit: cover; filter: contrast(1.1) saturate(1.1);
+}
+
+.nexus-public-experience[data-portal-template='voltaje'] {
+  background: linear-gradient(rgba(255,255,255,.035) 1px, transparent 1px) 0 0 / 44px 44px, linear-gradient(90deg, rgba(255,255,255,.035) 1px, transparent 1px) 0 0 / 44px 44px, radial-gradient(ellipse at 90% 0%, rgba(61,90,254,.26), transparent 30rem), #08080C;
+  color: #F5F5F7; font-family: Outfit, Inter, 'Segoe UI', sans-serif;
+}
+.nexus-public-experience[data-portal-template='voltaje'] .nexus-public-orb { border: 3px solid #3D5AFE; border-radius: 0; background: transparent; filter: none; transform: rotate(14deg); box-shadow: 10px 10px 0 rgba(255,214,10,.85); }
+.nexus-public-experience[data-portal-template='voltaje'] .nexus-public-brand { border: 2px solid #2C2C3A; border-radius: 0; background: #111118; color: #F5F5F7; box-shadow: 6px 6px 0 rgba(61,90,254,.9); }
+.nexus-public-experience[data-portal-template='voltaje'] .nexus-public-brand-tenant-badge { border: 2px solid #FFD60A; border-radius: 0; background: #FFD60A; color: #0A0A0A; }
+.nexus-public-experience[data-portal-template='voltaje'] .nexus-public-brand-provider-badge { background: #00E5FF; color: #04141A; }
+.nexus-public-experience[data-portal-template='voltaje'] .nexus-public-brand-provider { opacity: 1; }
+.nexus-public-experience[data-portal-template='voltaje'] .nexus-public-brand-provider small,
+.nexus-public-experience[data-portal-template='voltaje'] .nexus-public-brand-tenant small,
+.nexus-public-experience[data-portal-template='voltaje'] .nexus-public-footer { color: #A5A8B8; }
+
+.nexus-client-theme[data-portal-template='voltaje'] > [aria-hidden='true'] > img,
+.nexus-client-theme[data-portal-template='voltaje'] > [aria-hidden='true'] > video { filter: contrast(1.2) saturate(1.15) brightness(.8); }
+.nexus-client-theme[data-portal-template='voltaje'] > [aria-hidden='true'] > img ~ [class~='absolute'][class~='inset-0'],
+.nexus-client-theme[data-portal-template='voltaje'] > [aria-hidden='true'] > video ~ [class~='absolute'][class~='inset-0'] {
+  background: linear-gradient(180deg, rgba(8,8,12,.72), rgba(8,8,12,.9)) !important;
+}
+
+@keyframes vt-scan { to { transform: translateY(140vh); } }
+@keyframes vt-ticker { to { transform: translateX(-33.333%); } }
+@keyframes vt-slam { from { opacity: 0; transform: translateY(26px) skewY(2deg); } to { opacity: 1; transform: none; } }
+@keyframes vt-float { from { transform: rotate(14deg) translateY(0); } to { transform: rotate(18deg) translateY(-14px); } }
+@keyframes vt-glitch {
+  0% { text-shadow: 4px 4px 0 var(--vt-blue); }
+  25% { text-shadow: -4px 2px 0 var(--vt-cyan), 4px -2px 0 var(--vt-yellow); transform: translateX(-2px); }
+  50% { text-shadow: 3px -3px 0 var(--vt-yellow), -3px 3px 0 var(--vt-cyan); transform: translateX(2px); }
+  75% { text-shadow: -2px -2px 0 var(--vt-cyan), 2px 2px 0 var(--vt-yellow); transform: translateX(-1px); }
+  100% { text-shadow: 4px 4px 0 var(--vt-blue); transform: none; }
+}
+@keyframes vt-blink { 50% { box-shadow: 0 0 0 5px rgba(255,214,10,.35); } }
+
+.nexus-client-theme[data-portal-template='voltaje'][data-reduced-motion='true'],
+.nexus-client-theme[data-portal-template='voltaje'][data-reduced-motion='true'] *,
+.nexus-client-theme[data-portal-template='voltaje'][data-reduced-motion='true'] *::before,
+.nexus-client-theme[data-portal-template='voltaje'][data-reduced-motion='true'] *::after {
+  animation: none !important; scroll-behavior: auto !important; transition: none !important;
+}
+@media (prefers-reduced-motion: reduce) {
+  .nexus-client-theme[data-portal-template='voltaje'],
+.nexus-client-theme[data-portal-template='voltaje'] *,
+.nexus-client-theme[data-portal-template='voltaje'] *::before,
+.nexus-client-theme[data-portal-template='voltaje'] *::after { animation: none !important; scroll-behavior: auto !important; transition: none !important; }
+}
+@media (max-width: 560px) {
+  .nexus-client-theme[data-portal-template='voltaje'] .nexus-booking-hero { padding: 2rem .35rem 4.6rem; }
+  .nexus-client-theme[data-portal-template='voltaje'] .nexus-booking-hero h1 { font-size: clamp(2.4rem,13vw,3.6rem); }
+  .nexus-client-theme[data-portal-template='voltaje'] .nexus-booking-layout > main,
+.nexus-client-theme[data-portal-template='voltaje'] .nexus-booking-summary,
+.nexus-client-theme[data-portal-template='voltaje'] .nexus-portal-card,
+.nexus-client-theme[data-portal-template='voltaje'] .nexus-next-appointment,
+.nexus-client-theme[data-portal-template='voltaje'] .nexus-portal-login > section,
+.nexus-client-theme[data-portal-template='voltaje'] .nexus-booking-success > section { box-shadow: 4px 4px 0 rgba(61,90,254,.9); }
+  .nexus-client-theme[data-portal-template='voltaje'] .nexus-action-button { padding-inline: 1.2rem; }
+  .nexus-public-experience[data-portal-template='voltaje'] .nexus-public-brand { margin-inline: .35rem; }
+}

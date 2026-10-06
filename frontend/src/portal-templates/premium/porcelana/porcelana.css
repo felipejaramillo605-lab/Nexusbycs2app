@@ -1,0 +1,285 @@
+/* Porcelana: cobalt glaze on white porcelain with a hairline gold frame. Signature template (rosette, tile field, corner brackets, drawn underline). */
+.nexus-client-theme[data-portal-template='porcelana'] {
+  --pc-bg: #F4F6F8; --pc-panel: #FFFFFF; --pc-raised: #FBFCFD; --pc-tint: #E9EEF3;
+  --pc-ink: #14232B; --pc-soft: #3F4F5B; --pc-muted: #566672; --pc-line: rgba(20,35,43,.13);
+  --pc-cobalt: #1F3FA6; --pc-cobalt-hi: #2A4FC4; --pc-gold: #B8893A;
+  position: relative; isolation: isolate; min-height: 100vh; overflow: clip; color-scheme: light;
+  background:
+    radial-gradient(circle at 1px 1px, rgba(31,63,166,.11) 1px, transparent 0) 0 0 / 24px 24px,
+    radial-gradient(ellipse at 88% 4%, rgba(31,63,166,.10), transparent 30rem),
+    radial-gradient(ellipse at 6% 60%, rgba(184,137,58,.08), transparent 28rem),
+    var(--pc-bg);
+  color: var(--pc-ink); font-family: Outfit, Inter, 'Segoe UI', sans-serif; animation: pc-fade-in .9s ease both;
+}
+
+.nexus-client-theme[data-portal-template='porcelana']::before {
+  content: ''; position: fixed; z-index: -1; pointer-events: none; top: -9rem; right: -9rem;
+  width: clamp(18rem,40vw,34rem); aspect-ratio: 1; border-radius: 50%;
+  background:
+    repeating-conic-gradient(from 0deg, rgba(31,63,166,.14) 0deg 3deg, transparent 3deg 15deg),
+    radial-gradient(circle, transparent 38%, rgba(31,63,166,.06) 39% 40%, transparent 41%);
+  -webkit-mask: radial-gradient(circle, transparent 20%, #000 21%, #000 62%, transparent 70%);
+  mask: radial-gradient(circle, transparent 20%, #000 21%, #000 62%, transparent 70%);
+  animation: pc-turn 90s linear infinite;
+}
+
+.nexus-client-theme[data-portal-template='porcelana']::after {
+  content: ''; position: fixed; inset: .7rem; z-index: 1; pointer-events: none;
+  border: 1px solid rgba(184,137,58,.42); border-radius: .35rem;
+  box-shadow: inset 0 0 0 4px rgba(244,246,248,.9), inset 0 0 0 5px rgba(31,63,166,.14);
+}
+.nexus-client-theme[data-portal-template='porcelana'] h1,
+.nexus-client-theme[data-portal-template='porcelana'] h2,
+.nexus-client-theme[data-portal-template='porcelana'] h3,
+.nexus-public-experience[data-portal-template='porcelana'] .nexus-public-brand-tenant strong {
+  color: var(--pc-ink); font-family: 'Playfair Display', Georgia, serif; font-weight: 700; letter-spacing: -.005em;
+}
+.nexus-client-theme[data-portal-template='porcelana'] .nexus-booking-deep,
+.nexus-client-theme[data-portal-template='porcelana'] .nexus-portal-deep,
+.nexus-client-theme[data-portal-template='porcelana'] .nexus-portal-login,
+.nexus-client-theme[data-portal-template='porcelana'] .nexus-booking-success { color: var(--pc-ink); }
+
+.nexus-client-theme[data-portal-template='porcelana'] .nexus-booking-hero { position: relative; isolation: isolate; padding: clamp(3rem,8vw,6rem) 1.4rem 2.6rem; text-align: left; }
+.nexus-client-theme[data-portal-template='porcelana'] .nexus-booking-hero > * { position: relative; z-index: 1; animation: pc-rise .8s cubic-bezier(.2,.7,.2,1) both; }
+.nexus-client-theme[data-portal-template='porcelana'] .nexus-booking-hero > :nth-child(2) { animation-delay: .08s; }
+.nexus-client-theme[data-portal-template='porcelana'] .nexus-booking-hero > :nth-child(3) { animation-delay: .16s; }
+.nexus-client-theme[data-portal-template='porcelana'] .nexus-booking-hero > :nth-child(n+4) { animation-delay: .24s; }
+.nexus-client-theme[data-portal-template='porcelana'] .nexus-booking-hero > small,
+.nexus-client-theme[data-portal-template='porcelana'] .nexus-portal-deep > header small {
+  display: inline-flex; align-items: center; gap: .8rem; color: var(--pc-cobalt);
+  font-size: .74rem; font-weight: 600; letter-spacing: .3em; text-transform: uppercase;
+}
+.nexus-client-theme[data-portal-template='porcelana'] .nexus-booking-hero > small::before,
+.nexus-client-theme[data-portal-template='porcelana'] .nexus-portal-deep > header small::before,
+.nexus-client-theme[data-portal-template='porcelana'] .nexus-booking-hero > small::after,
+.nexus-client-theme[data-portal-template='porcelana'] .nexus-portal-deep > header small::after {
+  content: ''; width: .42rem; height: .42rem; background: var(--pc-gold); transform: rotate(45deg);
+}
+.nexus-client-theme[data-portal-template='porcelana'] .nexus-booking-hero h1,
+.nexus-client-theme[data-portal-template='porcelana'] .nexus-portal-deep > header h1,
+.nexus-client-theme[data-portal-template='porcelana'] .nexus-portal-login h1 {
+  max-width: 16ch; font-size: clamp(2.3rem,6vw,4.5rem); line-height: 1.06; padding-bottom: .22em;
+  background: linear-gradient(var(--pc-gold), var(--pc-gold)) 0 100% / 0% 2px no-repeat;
+  animation: pc-rise .8s .06s cubic-bezier(.2,.7,.2,1) both, pc-underline 1.5s .7s cubic-bezier(.2,.7,.2,1) forwards;
+}
+.nexus-client-theme[data-portal-template='porcelana'] .nexus-booking-hero p,
+.nexus-client-theme[data-portal-template='porcelana'] .nexus-booking-hero > div { color: var(--pc-soft); }
+
+.nexus-client-theme[data-portal-template='porcelana'] .nexus-booking-layout > main,
+.nexus-client-theme[data-portal-template='porcelana'] .nexus-booking-summary,
+.nexus-client-theme[data-portal-template='porcelana'] .nexus-portal-card,
+.nexus-client-theme[data-portal-template='porcelana'] .nexus-next-appointment,
+.nexus-client-theme[data-portal-template='porcelana'] .nexus-portal-login > section,
+.nexus-client-theme[data-portal-template='porcelana'] .nexus-booking-success > section {
+  position: relative; border: 1px solid var(--pc-line); border-radius: .5rem; background: linear-gradient(180deg, #FFFFFF, #FBFCFD);
+  color: var(--pc-ink); box-shadow: 0 1px 0 #fff inset, 0 1px 2px rgba(20,35,43,.05), 0 10px 24px -10px rgba(20,35,43,.14), 0 34px 60px -30px rgba(31,63,166,.22);
+  animation: pc-rise .8s cubic-bezier(.2,.7,.2,1) both; transition: transform .35s cubic-bezier(.2,.7,.2,1), box-shadow .35s ease;
+}
+.nexus-client-theme[data-portal-template='porcelana'] .nexus-booking-layout > main:nth-child(2),
+.nexus-client-theme[data-portal-template='porcelana'] .nexus-booking-summary:nth-child(2),
+.nexus-client-theme[data-portal-template='porcelana'] .nexus-portal-card:nth-child(2),
+.nexus-client-theme[data-portal-template='porcelana'] .nexus-next-appointment:nth-child(2),
+.nexus-client-theme[data-portal-template='porcelana'] .nexus-portal-login > section:nth-child(2),
+.nexus-client-theme[data-portal-template='porcelana'] .nexus-booking-success > section:nth-child(2) { animation-delay: .12s; }
+.nexus-client-theme[data-portal-template='porcelana'] .nexus-booking-layout > main:nth-child(3),
+.nexus-client-theme[data-portal-template='porcelana'] .nexus-booking-summary:nth-child(3),
+.nexus-client-theme[data-portal-template='porcelana'] .nexus-portal-card:nth-child(3),
+.nexus-client-theme[data-portal-template='porcelana'] .nexus-next-appointment:nth-child(3),
+.nexus-client-theme[data-portal-template='porcelana'] .nexus-portal-login > section:nth-child(3),
+.nexus-client-theme[data-portal-template='porcelana'] .nexus-booking-success > section:nth-child(3) { animation-delay: .22s; }
+.nexus-client-theme[data-portal-template='porcelana'] .nexus-booking-layout > main:hover,
+.nexus-client-theme[data-portal-template='porcelana'] .nexus-booking-summary:hover,
+.nexus-client-theme[data-portal-template='porcelana'] .nexus-portal-card:hover,
+.nexus-client-theme[data-portal-template='porcelana'] .nexus-next-appointment:hover,
+.nexus-client-theme[data-portal-template='porcelana'] .nexus-portal-login > section:hover,
+.nexus-client-theme[data-portal-template='porcelana'] .nexus-booking-success > section:hover { transform: translateY(-3px); box-shadow: 0 1px 0 #fff inset, 0 2px 4px rgba(20,35,43,.06), 0 18px 34px -12px rgba(20,35,43,.18), 0 44px 70px -30px rgba(31,63,166,.3); }
+.nexus-client-theme[data-portal-template='porcelana'] .nexus-booking-layout > main::before,
+.nexus-client-theme[data-portal-template='porcelana'] .nexus-booking-summary::before,
+.nexus-client-theme[data-portal-template='porcelana'] .nexus-portal-card::before,
+.nexus-client-theme[data-portal-template='porcelana'] .nexus-next-appointment::before,
+.nexus-client-theme[data-portal-template='porcelana'] .nexus-portal-login > section::before,
+.nexus-client-theme[data-portal-template='porcelana'] .nexus-booking-success > section::before,
+.nexus-client-theme[data-portal-template='porcelana'] .nexus-booking-layout > main::after,
+.nexus-client-theme[data-portal-template='porcelana'] .nexus-booking-summary::after,
+.nexus-client-theme[data-portal-template='porcelana'] .nexus-portal-card::after,
+.nexus-client-theme[data-portal-template='porcelana'] .nexus-next-appointment::after,
+.nexus-client-theme[data-portal-template='porcelana'] .nexus-portal-login > section::after,
+.nexus-client-theme[data-portal-template='porcelana'] .nexus-booking-success > section::after {
+  content: ''; position: absolute; width: 16px; height: 16px; pointer-events: none; transition: width .35s ease, height .35s ease;
+}
+.nexus-client-theme[data-portal-template='porcelana'] .nexus-booking-layout > main::before,
+.nexus-client-theme[data-portal-template='porcelana'] .nexus-booking-summary::before,
+.nexus-client-theme[data-portal-template='porcelana'] .nexus-portal-card::before,
+.nexus-client-theme[data-portal-template='porcelana'] .nexus-next-appointment::before,
+.nexus-client-theme[data-portal-template='porcelana'] .nexus-portal-login > section::before,
+.nexus-client-theme[data-portal-template='porcelana'] .nexus-booking-success > section::before { top: 9px; left: 9px; border-top: 2px solid var(--pc-cobalt); border-left: 2px solid var(--pc-cobalt); }
+.nexus-client-theme[data-portal-template='porcelana'] .nexus-booking-layout > main::after,
+.nexus-client-theme[data-portal-template='porcelana'] .nexus-booking-summary::after,
+.nexus-client-theme[data-portal-template='porcelana'] .nexus-portal-card::after,
+.nexus-client-theme[data-portal-template='porcelana'] .nexus-next-appointment::after,
+.nexus-client-theme[data-portal-template='porcelana'] .nexus-portal-login > section::after,
+.nexus-client-theme[data-portal-template='porcelana'] .nexus-booking-success > section::after { right: 9px; bottom: 9px; border-right: 2px solid var(--pc-gold); border-bottom: 2px solid var(--pc-gold); }
+.nexus-client-theme[data-portal-template='porcelana'] .nexus-booking-layout > main:hover::before,
+.nexus-client-theme[data-portal-template='porcelana'] .nexus-booking-summary:hover::before,
+.nexus-client-theme[data-portal-template='porcelana'] .nexus-portal-card:hover::before,
+.nexus-client-theme[data-portal-template='porcelana'] .nexus-next-appointment:hover::before,
+.nexus-client-theme[data-portal-template='porcelana'] .nexus-portal-login > section:hover::before,
+.nexus-client-theme[data-portal-template='porcelana'] .nexus-booking-success > section:hover::before,
+.nexus-client-theme[data-portal-template='porcelana'] .nexus-booking-layout > main:hover::after,
+.nexus-client-theme[data-portal-template='porcelana'] .nexus-booking-summary:hover::after,
+.nexus-client-theme[data-portal-template='porcelana'] .nexus-portal-card:hover::after,
+.nexus-client-theme[data-portal-template='porcelana'] .nexus-next-appointment:hover::after,
+.nexus-client-theme[data-portal-template='porcelana'] .nexus-portal-login > section:hover::after,
+.nexus-client-theme[data-portal-template='porcelana'] .nexus-booking-success > section:hover::after { width: 30px; height: 30px; }
+
+.nexus-client-theme[data-portal-template='porcelana'] .nexus-choice-grid > button,
+.nexus-client-theme[data-portal-template='porcelana'] .nexus-slots button,
+.nexus-client-theme[data-portal-template='porcelana'] .nexus-portal-history article {
+  position: relative; border: 1px solid var(--pc-line); border-radius: .4rem; background: #FFFFFF; color: var(--pc-ink);
+  box-shadow: 0 1px 2px rgba(20,35,43,.06);
+  transition: transform .25s cubic-bezier(.2,.7,.2,1), border-color .25s ease, box-shadow .25s ease, background .25s ease;
+}
+.nexus-client-theme[data-portal-template='porcelana'] .nexus-choice-grid > button:hover,
+.nexus-client-theme[data-portal-template='porcelana'] .nexus-slots button:hover,
+.nexus-client-theme[data-portal-template='porcelana'] .nexus-portal-history article:hover { transform: translateY(-2px); border-color: var(--pc-cobalt); box-shadow: 0 10px 22px -10px rgba(31,63,166,.4); }
+.nexus-client-theme[data-portal-template='porcelana'] .nexus-choice-grid > button.is-selected,
+.nexus-client-theme[data-portal-template='porcelana'] .nexus-slots button.is-selected {
+  border-color: var(--pc-cobalt); background: linear-gradient(180deg, rgba(31,63,166,.08), rgba(31,63,166,.03)); color: var(--pc-ink);
+  box-shadow: inset 0 0 0 1px var(--pc-cobalt), 0 10px 22px -12px rgba(31,63,166,.5);
+}
+.nexus-client-theme[data-portal-template='porcelana'] .nexus-choice-grid > button.is-selected::after {
+  content: '\2713'; position: absolute; top: .4rem; right: .4rem; width: 1.15rem; height: 1.15rem; border-radius: 50%;
+  display: grid; place-items: center; background: var(--pc-cobalt); color: #fff; font-size: .78rem; font-weight: 700;
+  animation: pc-pop .35s cubic-bezier(.2,1.4,.4,1) both;
+}
+.nexus-client-theme[data-portal-template='porcelana'] .nexus-slots button { font-variant-numeric: tabular-nums; }
+
+.nexus-client-theme[data-portal-template='porcelana'] .nexus-action-button,
+.nexus-client-theme[data-portal-template='porcelana'] .nexus-portal-deep button { border-radius: 999px; }
+.nexus-client-theme[data-portal-template='porcelana'] .nexus-action-button {
+  min-height: 48px; padding-inline: 1.7rem; font-weight: 600; letter-spacing: .04em;
+  transition: transform .25s ease, box-shadow .25s ease, background-color .25s ease, color .25s ease;
+}
+.nexus-client-theme[data-portal-template='porcelana'] .nexus-action-primary {
+  background: linear-gradient(180deg, var(--pc-cobalt-hi), var(--pc-cobalt)); color: #FFFFFF; border: 0;
+  box-shadow: 0 1px 0 rgba(255,255,255,.3) inset, 0 12px 24px -10px rgba(31,63,166,.7);
+}
+.nexus-client-theme[data-portal-template='porcelana'] .nexus-action-primary:hover:not(:disabled) { transform: translateY(-2px); box-shadow: 0 1px 0 rgba(255,255,255,.3) inset, 0 18px 30px -10px rgba(31,63,166,.75); }
+.nexus-client-theme[data-portal-template='porcelana'] .nexus-action-primary:active:not(:disabled) { transform: translateY(0) scale(.985); }
+.nexus-client-theme[data-portal-template='porcelana'] .nexus-action-secondary { border: 1px solid var(--pc-cobalt); background: transparent; color: var(--pc-cobalt); }
+.nexus-client-theme[data-portal-template='porcelana'] .nexus-action-secondary:hover:not(:disabled) { background: rgba(31,63,166,.07); transform: translateY(-2px); }
+.nexus-client-theme[data-portal-template='porcelana'] button:disabled { cursor: not-allowed; opacity: .5; }
+
+.nexus-client-theme[data-portal-template='porcelana'] input,
+.nexus-client-theme[data-portal-template='porcelana'] select,
+.nexus-client-theme[data-portal-template='porcelana'] textarea {
+  border: 1px solid rgba(20,35,43,.22); border-radius: .4rem; background: #FFFFFF; color: var(--pc-ink);
+  transition: border-color .2s ease, box-shadow .2s ease;
+}
+.nexus-client-theme[data-portal-template='porcelana'] input:focus,
+.nexus-client-theme[data-portal-template='porcelana'] select:focus,
+.nexus-client-theme[data-portal-template='porcelana'] textarea:focus { border-color: var(--pc-cobalt); box-shadow: 0 0 0 3px rgba(31,63,166,.18); outline: none; }
+.nexus-client-theme[data-portal-template='porcelana'] input::placeholder,
+.nexus-client-theme[data-portal-template='porcelana'] textarea::placeholder { color: #6B7A85; }
+.nexus-client-theme[data-portal-template='porcelana'] .nexus-client-form label,
+.nexus-client-theme[data-portal-template='porcelana'] .nexus-public-field,
+.nexus-client-theme[data-portal-template='porcelana'] .nexus-portal-login label { color: var(--pc-soft); }
+
+.nexus-client-theme[data-portal-template='porcelana'] .nexus-stepper button { color: var(--pc-muted); }
+.nexus-client-theme[data-portal-template='porcelana'] .nexus-stepper button.is-current,
+.nexus-client-theme[data-portal-template='porcelana'] .nexus-stepper button.is-complete { color: var(--pc-cobalt); }
+.nexus-client-theme[data-portal-template='porcelana'] .nexus-stepper button > span { border: 1px solid currentColor; background: #fff; border-radius: 50%; }
+.nexus-client-theme[data-portal-template='porcelana'] .nexus-stepper button.is-current > span,
+.nexus-client-theme[data-portal-template='porcelana'] .nexus-stepper button.is-complete > span { background: var(--pc-cobalt); color: #fff; border-color: var(--pc-cobalt); }
+.nexus-client-theme[data-portal-template='porcelana'] .nexus-stepper button.is-current > span { animation: pc-ring 2.6s ease-out infinite; }
+
+.nexus-client-theme[data-portal-template='porcelana'] .nexus-status-badge { border: 1px solid currentColor; border-radius: 999px; font-weight: 600; }
+.nexus-client-theme[data-portal-template='porcelana'] .nexus-status-success,
+.nexus-client-theme[data-portal-template='porcelana'] [class~='text-green-400'],
+.nexus-client-theme[data-portal-template='porcelana'] [class~='text-emerald-400'] { color: #176B4D !important; }
+.nexus-client-theme[data-portal-template='porcelana'] [class~='bg-green-500/20'],
+.nexus-client-theme[data-portal-template='porcelana'] [class~='bg-emerald-500/20'] { background-color: rgba(23,107,77,.1) !important; }
+.nexus-client-theme[data-portal-template='porcelana'] .nexus-status-warning,
+.nexus-client-theme[data-portal-template='porcelana'] [class~='text-orange-400'] { color: #8F5A00 !important; }
+.nexus-client-theme[data-portal-template='porcelana'] [class~='bg-orange-500/20'] { background-color: rgba(143,90,0,.1) !important; }
+.nexus-client-theme[data-portal-template='porcelana'] .nexus-status-danger,
+.nexus-client-theme[data-portal-template='porcelana'] [class~='text-red-400'] { color: #B3243B !important; }
+.nexus-client-theme[data-portal-template='porcelana'] .nexus-status-info,
+.nexus-client-theme[data-portal-template='porcelana'] [class~='text-blue-400'] { color: var(--pc-cobalt) !important; }
+.nexus-client-theme[data-portal-template='porcelana'] .nexus-status-neutral,
+.nexus-client-theme[data-portal-template='porcelana'] [class~='text-zinc-400'],
+.nexus-client-theme[data-portal-template='porcelana'] [class~='text-zinc-500'],
+.nexus-client-theme[data-portal-template='porcelana'] [class~='text-gray-400'] { color: var(--pc-muted) !important; }
+.nexus-client-theme[data-portal-template='porcelana'] :focus-visible { outline: 2px solid var(--pc-cobalt); outline-offset: 3px; }
+.nexus-client-theme[data-portal-template='porcelana'] .nexus-booking-success > section { border-top: 3px solid var(--pc-gold); }
+.nexus-client-theme[data-portal-template='porcelana'] .nexus-booking-success > section > span { color: var(--pc-cobalt); }
+.nexus-client-theme[data-portal-template='porcelana'] .nexus-booking-receipt { border: 1px dashed rgba(20,35,43,.28); border-radius: .4rem; background: var(--pc-tint); color: var(--pc-ink); }
+.nexus-client-theme[data-portal-template='porcelana'] .nexus-portal-deep > header img,
+.nexus-public-experience[data-portal-template='porcelana'] .nexus-public-brand-tenant-logo {
+  border: 2px solid #fff; border-radius: 50%; box-shadow: 0 0 0 1px var(--pc-gold), 0 12px 24px -10px rgba(20,35,43,.4); object-fit: cover;
+}
+
+.nexus-public-experience[data-portal-template='porcelana'] {
+  background: radial-gradient(circle at 1px 1px, rgba(31,63,166,.11) 1px, transparent 0) 0 0 / 24px 24px, radial-gradient(ellipse at 88% 4%, rgba(31,63,166,.1), transparent 28rem), #F4F6F8;
+  color: #14232B; font-family: Outfit, Inter, 'Segoe UI', sans-serif;
+}
+.nexus-public-experience[data-portal-template='porcelana'] .nexus-public-orb { border: 1px solid rgba(31,63,166,.2); background: radial-gradient(circle at 35% 35%, rgba(31,63,166,.12), rgba(184,137,58,.08) 70%); filter: none; }
+.nexus-public-experience[data-portal-template='porcelana'] .nexus-public-brand {
+  border: 1px solid rgba(20,35,43,.13); border-radius: .5rem; background: #FFFFFF; color: #14232B;
+  box-shadow: 0 10px 24px -10px rgba(20,35,43,.16), 0 30px 54px -28px rgba(31,63,166,.25);
+}
+.nexus-public-experience[data-portal-template='porcelana'] .nexus-public-brand-tenant-badge { border: 2px solid #1F3FA6; border-radius: 999px; background: #1F3FA6; color: #FFFFFF; }
+.nexus-public-experience[data-portal-template='porcelana'] .nexus-public-brand-provider-badge { background: #B8893A; color: #14232B; }
+.nexus-public-experience[data-portal-template='porcelana'] .nexus-public-brand-provider { opacity: 1; }
+.nexus-public-experience[data-portal-template='porcelana'] .nexus-public-brand-provider small,
+.nexus-public-experience[data-portal-template='porcelana'] .nexus-public-brand-tenant small,
+.nexus-public-experience[data-portal-template='porcelana'] .nexus-public-footer { color: #566672; }
+
+.nexus-client-theme[data-portal-template='porcelana'] > [aria-hidden='true'] > img,
+.nexus-client-theme[data-portal-template='porcelana'] > [aria-hidden='true'] > video { filter: saturate(.8) brightness(1.05); }
+.nexus-client-theme[data-portal-template='porcelana'] > [aria-hidden='true'] > img ~ [class~='absolute'][class~='inset-0'],
+.nexus-client-theme[data-portal-template='porcelana'] > [aria-hidden='true'] > video ~ [class~='absolute'][class~='inset-0'] {
+  background: linear-gradient(180deg, rgba(244,246,248,.82), rgba(244,246,248,.92)) !important;
+}
+
+@keyframes pc-fade-in { from { opacity: 0; } to { opacity: 1; } }
+@keyframes pc-rise { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: none; } }
+@keyframes pc-underline { to { background-size: 36% 2px; } }
+@keyframes pc-turn { to { transform: rotate(360deg); } }
+@keyframes pc-pop { from { transform: scale(0); } to { transform: scale(1); } }
+@keyframes pc-ring { 0% { box-shadow: 0 0 0 0 rgba(31,63,166,.45); } 70%,
+100% { box-shadow: 0 0 0 11px rgba(31,63,166,0); } }
+
+.nexus-client-theme[data-portal-template='porcelana'][data-reduced-motion='true'],
+.nexus-client-theme[data-portal-template='porcelana'][data-reduced-motion='true'] *,
+.nexus-client-theme[data-portal-template='porcelana'][data-reduced-motion='true'] *::before,
+.nexus-client-theme[data-portal-template='porcelana'][data-reduced-motion='true'] *::after {
+  animation: none !important; scroll-behavior: auto !important; transition: none !important;
+}
+.nexus-client-theme[data-portal-template='porcelana'][data-reduced-motion='true'] .nexus-booking-hero h1 { background-size: 36% 2px; }
+@media (prefers-reduced-motion: reduce) {
+  .nexus-client-theme[data-portal-template='porcelana'],
+.nexus-client-theme[data-portal-template='porcelana'] *,
+.nexus-client-theme[data-portal-template='porcelana'] *::before,
+.nexus-client-theme[data-portal-template='porcelana'] *::after { animation: none !important; scroll-behavior: auto !important; transition: none !important; }
+  .nexus-client-theme[data-portal-template='porcelana'] .nexus-booking-hero h1 { background-size: 36% 2px; }
+}
+@media (max-width: 560px) {
+  .nexus-client-theme[data-portal-template='porcelana']::after { inset: .35rem; }
+  .nexus-client-theme[data-portal-template='porcelana'] .nexus-booking-hero { padding: 2.2rem .9rem 1.8rem; }
+  .nexus-client-theme[data-portal-template='porcelana'] .nexus-booking-hero h1 { font-size: clamp(2.05rem,10vw,3.1rem); }
+  .nexus-client-theme[data-portal-template='porcelana'] .nexus-action-button { padding-inline: 1.2rem; }
+  .nexus-client-theme[data-portal-template='porcelana'] .nexus-booking-layout > main::before,
+.nexus-client-theme[data-portal-template='porcelana'] .nexus-booking-summary::before,
+.nexus-client-theme[data-portal-template='porcelana'] .nexus-portal-card::before,
+.nexus-client-theme[data-portal-template='porcelana'] .nexus-next-appointment::before,
+.nexus-client-theme[data-portal-template='porcelana'] .nexus-portal-login > section::before,
+.nexus-client-theme[data-portal-template='porcelana'] .nexus-booking-success > section::before,
+.nexus-client-theme[data-portal-template='porcelana'] .nexus-booking-layout > main::after,
+.nexus-client-theme[data-portal-template='porcelana'] .nexus-booking-summary::after,
+.nexus-client-theme[data-portal-template='porcelana'] .nexus-portal-card::after,
+.nexus-client-theme[data-portal-template='porcelana'] .nexus-next-appointment::after,
+.nexus-client-theme[data-portal-template='porcelana'] .nexus-portal-login > section::after,
+.nexus-client-theme[data-portal-template='porcelana'] .nexus-booking-success > section::after { width: 12px; height: 12px; }
+  .nexus-public-experience[data-portal-template='porcelana'] .nexus-public-brand { margin-inline: .35rem; }
+}
