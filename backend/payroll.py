@@ -687,7 +687,7 @@ def build_payroll_router(db, get_current_user, require_management_role, resolve_
             "name": "Nexus",
         }
 
-    @router.get("/payroll/runs/{run_id}/report.xlsx", tags=["payroll"])
+    @router.get("/payroll/runs/{run_id}/report/xlsx", tags=["payroll"])
     async def report(
         run_id: str,
         organization_id: Optional[str] = None,
@@ -722,7 +722,7 @@ def build_payroll_router(db, get_current_user, require_management_role, resolve_
             headers={"Content-Disposition": f'attachment; filename="colilla_{run["number"]}_{safe}.pdf"'},
         )
 
-    @router.get("/payroll/runs/{run_id}/slips/{barber_id}.pdf", tags=["payroll"])
+    @router.get("/payroll/runs/{run_id}/slips/{barber_id}/pdf", tags=["payroll"])
     async def manager_slip(
         run_id: str,
         barber_id: str,
@@ -770,7 +770,7 @@ def build_payroll_router(db, get_current_user, require_management_role, resolve_
         items.sort(key=lambda item: item["number"], reverse=True)
         return {"items": items}
 
-    @router.get("/staff/payroll/slips/{run_id}.pdf", tags=["payroll"])
+    @router.get("/staff/payroll/slips/{run_id}/pdf", tags=["payroll"])
     async def my_slip_pdf(
         run_id: str, authorization: Optional[str] = Header(None), session_token: Optional[str] = Cookie(None)
     ):

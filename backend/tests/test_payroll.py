@@ -328,7 +328,7 @@ def test_excel_report_has_the_report_sheets_totals_and_corrections():
     rid = run["run_id"]
     client.post(f"/api/payroll/runs/{rid}/approve", headers=H())
     client.post(f"/api/payroll/runs/{rid}/reopen", json={"reason": "Ajuste de días"}, headers=H())
-    response = client.get(f"/api/payroll/runs/{rid}/report.xlsx", headers=H())
+    response = client.get(f"/api/payroll/runs/{rid}/report/xlsx", headers=H())
     assert response.status_code == 200 and "spreadsheetml" in response.headers["content-type"]
     assert "NOM-2026-10_gastos_de_personal.xlsx" in response.headers["content-disposition"]
     wb = load_workbook(BytesIO(response.content))
@@ -352,23 +352,23 @@ def test_manager_slip_pdf_and_staff_only_see_their_own_approved_slips():
     client.put("/api/payroll/contracts/b2", json={"contract_type": "service_commission"}, headers=H())
     run = make_run(client)
     rid = run["run_id"]
-    pdf = client.get(f"/api/payroll/runs/{rid}/slips/b1.pdf", headers=H())
+    pdf = client.get(f"/api/payroll/runs/{rid}/slips/b1/pdf", headers=H())
     assert (
         pdf.status_code == 200
         and pdf.content.startswith(b"%PDF")
         and "colilla_NOM-2026-10_Ana.pdf" in pdf.headers["content-disposition"]
     )
-    assert client.get(f"/api/payroll/runs/{rid}/slips/b2.pdf", headers=H()).content.startswith(
+    assert client.get(f"/api/payroll/runs/{rid}/slips/b2/pdf", headers=H()).content.startswith(
         b"%PDF"
     )  # contrato por servicio
-    assert client.get(f"/api/payroll/runs/{rid}/slips/nadie.pdf", headers=H()).status_code == 404
-    assert client.get(f"/api/payroll/runs/{rid}/slips/b1.pdf", headers=H("ana")).status_code == 403
+    assert client.get(f"/api/payroll/runs/{rid}/slips/nadie/pdf", headers=H()).status_code == 404
+    assert client.get(f"/api/payroll/runs/{rid}/slips/b1/pdf", headers=H("ana")).status_code == 403
 
     assert client.get("/api/staff/payroll/slips", headers=H("ana")).json()["items"] == []  # borrador: no visible
-    assert client.get(f"/api/staff/payroll/slips/{rid}.pdf", headers=H("ana")).status_code == 404
+    assert client.get(f"/api/staff/payroll/slips/{rid}/pdf", headers=H("ana")).status_code == 404
     client.post(f"/api/payroll/runs/{rid}/approve", headers=H())
     mine = client.get("/api/staff/payroll/slips", headers=H("ana")).json()["items"]
     assert len(mine) == 1 and mine[0]["net_pay"] > 0 and mine[0]["label"] == "Octubre de 2026"
-    assert client.get(f"/api/staff/payroll/slips/{rid}.pdf", headers=H("ana")).content.startswith(b"%PDF")
+    assert client.get(f"/api/staff/payroll/slips/{rid}/pdf", headers=H("ana")).content.startswith(b"%PDF")
     commission = client.get("/api/staff/payroll/slips", headers=H("luis")).json()["items"]
     assert commission[0]["commission_total"] == 800000 and commission[0]["contract_type"] == "service_commission"
