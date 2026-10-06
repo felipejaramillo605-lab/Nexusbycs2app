@@ -17,6 +17,7 @@ from fastapi.responses import Response
 from pydantic import BaseModel, Field
 
 import payroll_co
+from hr_absences import unpaid_days_in_period
 from payroll_reports import build_payroll_workbook, build_slip_pdf, period_label
 
 CONTRACT_TYPES = ("service_commission", "fixed_salary")
@@ -58,6 +59,8 @@ class ContractIn(BaseModel):
     pay_frequency: Literal["monthly", "biweekly"] = "monthly"
     arl_risk_class: Literal["I", "II", "III", "IV", "V"] = "I"
     start_date: Optional[str] = None
+    birth_date: Optional[str] = None
+    cost_center: Optional[str] = Field(default=None, max_length=60)
     document: Optional[str] = Field(default=None, max_length=30)
     position: Optional[str] = Field(default=None, max_length=60)
     notes: Optional[str] = Field(default=None, max_length=300)
@@ -357,11 +360,12 @@ def build_payroll_router(db, get_current_user, require_management_role, resolve_
                 payroll_co.validate_contract(float(data.base_salary), params["smmlv"])
             except ValueError as error:
                 raise HTTPException(status_code=400, detail=str(error))
-        if data.start_date:
-            try:
-                date.fromisoformat(data.start_date)
-            except ValueError:
-                raise HTTPException(status_code=400, detail="La fecha de ingreso debe ser AAAA-MM-DD")
+        for value, label in ((data.start_date, "La fecha de ingreso"), (data.birth_date, "La fecha de nacimiento")):
+            if value:
+                try:
+                    date.fromisoformat(value)
+                except ValueError:
+                    raise HTTPException(status_code=400, detail=f"{label} debe ser AAAA-MM-DD")
         doc = {
             "organization_id": org_id,
             "barber_id": barber_id,
@@ -440,6 +444,9 @@ def build_payroll_router(db, get_current_user, require_management_role, resolve_
         commissions = (
             await commission_totals(org_id, start, end) if data.frequency == "monthly" or data.half == 2 else {}
         )
+        unpaid_requests = await db.hr_requests.find(
+            {"organization_id": org_id, "status": "approved", "paid": False}, {"_id": 0}
+        ).to_list(5000)
         lines = []
         for barber in barbers:
             contract = contracts.get(barber["barber_id"]) or {"contract_type": "service_commission"}
@@ -449,12 +456,16 @@ def build_payroll_router(db, get_current_user, require_management_role, resolve_
                 "contract_type": contract["contract_type"],
                 "document": contract.get("document"),
                 "position": contract.get("position"),
+                "cost_center": contract.get("cost_center"),
             }
             if contract["contract_type"] == "fixed_salary":
                 if (contract.get("pay_frequency") or "monthly") != data.frequency:
                     continue
                 hire = date.fromisoformat(contract["start_date"]) if contract.get("start_date") else None
                 days = days_in_period(start, end, hire, data.frequency)
+                unpaid = unpaid_days_in_period(unpaid_requests, barber["barber_id"], start, end)
+                if unpaid:
+                    days = max(0.0, days - unpaid)
                 if days <= 0:
                     continue
                 line = {

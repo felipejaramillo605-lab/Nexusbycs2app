@@ -84,6 +84,7 @@ def build():
         payroll_extras=Coll(),
         payroll_contracts=Coll(),
         payroll_runs=Coll(),
+        hr_requests=Coll(),
         staff_settlements=Coll(
             [
                 {
