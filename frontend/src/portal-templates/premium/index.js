@@ -5,10 +5,12 @@ import { NOIR_TEMPLATE } from './noir';
 import { OBSIDIANA_TEMPLATE } from './obsidiana';
 import { PORCELANA_TEMPLATE } from './porcelana';
 import { VOLTAJE_TEMPLATE } from './voltaje';
+import { CADENCIA_TEMPLATE } from './cadencia';
+import { ALIENTO_TEMPLATE } from './aliento';
 
 export const PREMIUM_TEMPLATE_KEYS = Object.freeze([
   'barberia-real', 'bloom', 'ignition', 'claridad', 'noir', 'atelier', 'recreo',
-  'obsidiana', 'porcelana', 'voltaje',
+  'obsidiana', 'porcelana', 'voltaje', 'cadencia', 'aliento',
 ]);
 
 export const PREMIUM_TEMPLATE_IMPLEMENTATIONS = Object.freeze({
@@ -19,6 +21,8 @@ export const PREMIUM_TEMPLATE_IMPLEMENTATIONS = Object.freeze({
   obsidiana: OBSIDIANA_TEMPLATE,
   porcelana: PORCELANA_TEMPLATE,
   voltaje: VOLTAJE_TEMPLATE,
+  cadencia: CADENCIA_TEMPLATE,
+  aliento: ALIENTO_TEMPLATE,
 });
 
 export const PREMIUM_TEMPLATE_METADATA = Object.freeze(Object.fromEntries(

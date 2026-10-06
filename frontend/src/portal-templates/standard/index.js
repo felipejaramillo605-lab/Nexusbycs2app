@@ -11,15 +11,16 @@ import wellness from './wellness';
 import movement from './movement';
 import clinical from './clinical';
 import petCare from './pet-care';
+import estudio from './estudio';
 
 export const STANDARD_TEMPLATE_KEYS = Object.freeze([
   'classic', 'feminine', 'professional', 'cyberpunk', 'underground', 'neutral', 'minimalist_purple',
-  'nail-studio', 'bloom-garden', 'wellness', 'movement', 'clinical', 'pet-care',
+  'nail-studio', 'bloom-garden', 'wellness', 'movement', 'clinical', 'pet-care', 'estudio',
 ]);
 
 export const CLIENT_PORTAL_THEMES = Object.freeze({
   classic, feminine, professional, cyberpunk, underground, neutral, minimalist_purple,
-  'nail-studio': nailStudio, 'bloom-garden': bloomGarden, wellness, movement, clinical, 'pet-care': petCare,
+  'nail-studio': nailStudio, 'bloom-garden': bloomGarden, wellness, movement, clinical, 'pet-care': petCare, estudio,
 });
 
 export const getThemeColors = (themeKey = 'classic') => (

@@ -188,6 +188,9 @@ export default function PremiumTemplateSelector({ organizationId, currentTemplat
                   {isSelected && <Check size={18} className="text-[var(--app-primary)]" />}
                 </div>
                 <p className="text-xs text-[var(--app-text-secondary)]">{theme.description}</p>
+                {template.category === 'group' && (
+                  <span className="inline-block rounded-full border border-[var(--app-border)] px-2 py-0.5 text-[10px] font-medium text-[var(--app-text-secondary)]" data-testid={`group-chip-${template.key}`}>Clases grupales</span>
+                )}
               </div>
               <div className="mt-3 flex gap-2">
                 <button

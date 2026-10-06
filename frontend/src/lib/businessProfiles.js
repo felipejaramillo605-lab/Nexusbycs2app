@@ -20,7 +20,7 @@ export const BUSINESS_PROFILES = Object.freeze({
   lash_spa: Object.freeze({ label: 'Spa de pestañas', serviceIcon: Sparkles, recommendedThemes: ['feminine', 'minimalist_purple'], examples: ['Lifting de pestañas', 'Diseño de cejas'] }),
   beauty_salon: Object.freeze({ label: 'Salón de belleza', serviceIcon: Sparkles, recommendedThemes: ['bloom-garden', 'feminine'], examples: ['Maquillaje social', 'Tratamiento facial'] }),
   wellness_spa: Object.freeze({ label: 'Spa y bienestar', serviceIcon: Waves, recommendedThemes: ['wellness', 'neutral'], examples: ['Masaje relajante', 'Ritual de bienestar'] }),
-  pilates_studio: Object.freeze({ label: 'Estudio de pilates', serviceIcon: Dumbbell, recommendedThemes: ['movement', 'professional'], examples: ['Pilates reformer', 'Clase de movilidad'] }),
+  pilates_studio: Object.freeze({ label: 'Estudio de pilates', serviceIcon: Dumbbell, recommendedThemes: ['estudio', 'movement', 'professional'], examples: ['Pilates reformer', 'Clase de movilidad'] }),
   health_clinic: Object.freeze({ label: 'Consultorio', serviceIcon: Stethoscope, recommendedThemes: ['clinical', 'professional'], examples: ['Consulta inicial', 'Sesión de seguimiento'] }),
   professional_services: Object.freeze({ label: 'Servicios profesionales', serviceIcon: BriefcaseBusiness, recommendedThemes: ['professional', 'clinical'], examples: ['Asesoría inicial', 'Sesión de seguimiento'] }),
   pet_grooming: Object.freeze({ label: 'Grooming para mascotas', serviceIcon: PawPrint, recommendedThemes: ['pet-care', 'wellness'], examples: ['Baño y cepillado', 'Corte higiénico'] }),
