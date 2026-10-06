@@ -41,7 +41,10 @@ export default function InventoryCountSheet() {
     load();
   }, [load]);
 
-  const rows = sheet?.items || [];
+  const rows = useMemo(
+    () => [...(sheet?.items || [])].sort((a, b) => `${a.sku}${placeOf(a)}`.localeCompare(`${b.sku}${placeOf(b)}`)),
+    [sheet],
+  );
   const target = useMemo(() => rows.find((r) => r.target_id === form.target_id), [rows, form.target_id]);
   const locked = !!sheet?.submitted_at;
   const counted = rows.reduce((sum, r) => sum + r.entries.length, 0);
@@ -119,7 +122,7 @@ export default function InventoryCountSheet() {
     return (
       <main className="max-w-xl mx-auto p-4 space-y-3">
         <p role="alert" data-testid="count-error">{error}</p>
-        <Link to="/" className="underline">Volver al inicio</Link>
+        <Link to="/" className="nexus-link-action">Volver al inicio</Link>
       </main>
     );
   }
@@ -128,6 +131,7 @@ export default function InventoryCountSheet() {
   return (
     <main className="max-w-2xl mx-auto p-4 space-y-5" data-testid="count-sheet">
       <header>
+        <button type="button" className="nexus-link-action" onClick={() => window.history.back()}>← Volver</button>
         <h1 className="text-xl">{sheet.count_number} · {sheet.name}</h1>
         <p className="text-sm text-[var(--app-text-secondary)]">
           Tu acceso vence {new Date(sheet.expires_at).toLocaleString('es-CO')} · registros: {counted}
@@ -195,7 +199,7 @@ export default function InventoryCountSheet() {
                 <span>{e.quantity} {r.unit} · {CONDITIONS.find(([v]) => v === e.condition)?.[1]}{e.label_price != null ? ` · etiqueta ${e.label_price}` : ''}{e.code ? ` · ${e.code}` : ''}</span>
                 {!e.submitted && (
                   <span className="flex gap-3">
-                    <button type="button" className="underline" onClick={() => edit(r, e)}>Editar</button>
+                    <button type="button" className="nexus-link-action" onClick={() => edit(r, e)}>Editar</button>
                     <button type="button" aria-label="Eliminar registro" onClick={() => remove(e)}><Trash2 size={16} /></button>
                   </span>
                 )}

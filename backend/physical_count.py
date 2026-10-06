@@ -1020,8 +1020,9 @@ def build_physical_count_router(db, get_current_user, require_management_role, r
                     "inventory_count_loss" if summary["difference"] < 0 else "inventory_count_surplus",
                     "warning" if summary["difference"] < 0 else "info",
                     f"Posible {kind} de inventario",
-                    f"{label}: se contó {summary['counted']['total']} y el sistema dice {target['system_quantity']} "
-                    f"({summary['difference']:+}). Defínela como {kind} o pide un reconteo.",
+                    f"{label}: se contó {summary['counted']['total']:g} y el sistema dice "
+                    f"{target['system_quantity']:g} "
+                    f"({summary['difference']:+g}). Defínela como {kind} o pide un reconteo.",
                     count_id,
                     base + ":variance",
                 )
