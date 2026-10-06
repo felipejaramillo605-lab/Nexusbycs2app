@@ -3,6 +3,7 @@ export const estudio = {
   name: 'Estudio',
   description: 'Piedra y tinta: minimalista y sereno para clases grupales (pilates, yoga, barre)',
   category: 'group',
+  landing: true,
   bgStart: '#F7F6F4',
   bgEnd: '#EEECE8',
   accentPrimary: '#1E1A18',

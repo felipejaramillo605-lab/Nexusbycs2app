@@ -193,6 +193,35 @@
 .nexus-client-theme[data-portal-template='cadencia'] .nexus-avatar,
 .nexus-client-theme[data-portal-template='cadencia'] .nexus-choice-grid img { background: var(--cd-rose); color: #1A0F0D; border-radius: 50%; }
 
+.nexus-client-theme[data-portal-template='cadencia'] .nexus-landing { font-family: Outfit, Inter, 'Segoe UI', sans-serif; }
+.nexus-client-theme[data-portal-template='cadencia'] .nexus-landing-brand,
+.nexus-client-theme[data-portal-template='cadencia'] .nexus-landing-nav nav a,
+.nexus-client-theme[data-portal-template='cadencia'] .nexus-landing-kicker,
+.nexus-client-theme[data-portal-template='cadencia'] .nexus-landing-exp h3,
+.nexus-client-theme[data-portal-template='cadencia'] .nexus-landing-plan h3 {
+  font-family: Fraunces, Georgia, serif; font-weight: 500;
+}
+.nexus-client-theme[data-portal-template='cadencia'] .nexus-landing-nav.is-scrolled { background: rgba(16,13,13,.86); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); }
+.nexus-client-theme[data-portal-template='cadencia'] .nexus-landing-hero-art {
+  background:
+    radial-gradient(120% 70% at 50% 122%, rgba(201,120,92,.5), rgba(201,120,92,.12) 50%, transparent 76%),
+    radial-gradient(60% 50% at 82% 0%, rgba(201,143,130,.16), transparent 70%), #100D0D;
+  animation: cd-breathe 8s ease-in-out infinite alternate;
+}
+.nexus-client-theme[data-portal-template='cadencia'] .nexus-landing-hero-copy > * { animation: cd-rise .9s cubic-bezier(.2,.7,.2,1) both; }
+.nexus-client-theme[data-portal-template='cadencia'] .nexus-landing-hero-copy > :nth-child(2) { animation-delay: .08s; }
+.nexus-client-theme[data-portal-template='cadencia'] .nexus-landing-hero-copy > :nth-child(3) { animation-delay: .16s; }
+.nexus-client-theme[data-portal-template='cadencia'] .nexus-landing-hero-copy h1 { font-family: Fraunces, Georgia, serif; font-weight: 500; }
+.nexus-client-theme[data-portal-template='cadencia'] .nexus-landing-exp-media { box-shadow: 0 0 0 1px rgba(244,238,234,.12), 0 30px 60px -30px rgba(0,0,0,.7); }
+.nexus-client-theme[data-portal-template='cadencia'] .nexus-landing-exp-initial { font-family: Fraunces, Georgia, serif; }
+.nexus-client-theme[data-portal-template='cadencia'] .nexus-landing-plan,
+.nexus-client-theme[data-portal-template='cadencia'] .nexus-landing-contact-card {
+  background: linear-gradient(180deg, rgba(28,23,23,.82), rgba(20,16,16,.82)); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
+  box-shadow: 0 24px 56px rgba(0,0,0,.4), inset 0 1px 0 rgba(255,255,255,.04);
+}
+.nexus-client-theme[data-portal-template='cadencia'] .nexus-landing-plan .nexus-landing-plan-price { font-family: Fraunces, Georgia, serif; font-weight: 500; }
+.nexus-client-theme[data-portal-template='cadencia'] .nexus-landing-footer { color: var(--cd-muted); }
+
 .nexus-public-experience[data-portal-template='cadencia'] { background: radial-gradient(120% 55% at 50% 118%, rgba(201,120,92,.3), transparent 70%), #100D0D; color: #F4EEEA; font-family: Outfit, Inter, 'Segoe UI', sans-serif; }
 .nexus-public-experience[data-portal-template='cadencia'] .nexus-public-orb { border: 1px solid rgba(201,143,130,.22); background: radial-gradient(circle at 35% 35%, rgba(201,143,130,.16), rgba(227,165,107,.06) 70%); filter: none; }
 .nexus-public-experience[data-portal-template='cadencia'] .nexus-public-brand { border: 1px solid rgba(244,238,234,.1); border-radius: 1.3rem; background: rgba(24,20,20,.8); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px); color: #F4EEEA; box-shadow: 0 18px 44px rgba(0,0,0,.45); }

@@ -45,6 +45,8 @@ const CADENCIA_THEME = Object.freeze({
   accentSecondary: '#E3A56B',
   textPrimary: '#F4EEEA',
   textSecondary: '#CDBFB8',
+  category: 'group',
+  landing: true,
   textShadow: 'none',
   boxShadow: '0 28px 64px rgba(0,0,0,.45)',
   surface: '#181414',

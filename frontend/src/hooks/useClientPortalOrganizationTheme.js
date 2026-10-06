@@ -4,6 +4,7 @@ import { useOrganization } from '../context/OrganizationContext';
 import { CLIENT_PORTAL_THEMES, getThemeColors } from '../constants/clientPortalThemes';
 import { resolvePremiumPortalTemplate } from '../portal-templates';
 import { contrastSafeColors } from '../lib/themeContrast';
+import { isLandingActive } from '../lib/portalLanding';
 
 const hexToRgba = (hex, alpha) => {
   const value = String(hex || '').replace('#', '');
@@ -45,7 +46,9 @@ export function useClientPortalOrganizationTheme() {
   const backgroundType = organization?.organization_id === orgId ? organization?.portal_background_type : 'none';
   const backgroundUrl = organization?.organization_id === orgId ? organization?.portal_background_url : null;
   const backgroundOverlay = organization?.portal_background_overlay || 'dark';
-  const showBackground = !backgroundFailed && backgroundUrl && (backgroundType === 'image' || backgroundType === 'video');
+  // Con pagina de inicio, la imagen/video es la portada de esa pagina y no el fondo de todo el portal.
+  const landingActive = organization?.organization_id === orgId && isLandingActive(organization, theme);
+  const showBackground = !landingActive && !backgroundFailed && backgroundUrl && (backgroundType === 'image' || backgroundType === 'video');
 
   useEffect(() => { setBackgroundFailed(false); }, [backgroundUrl, backgroundType]);
 
@@ -165,6 +168,7 @@ export function useClientPortalOrganizationTheme() {
     backgroundUrl,
     backgroundOverlay,
     showBackground,
+    landingActive,
     handleMouseMove,
     themeVariables,
   };

@@ -1075,6 +1075,8 @@ const Settings = () => {
               currentTheme={profileData.client_portal_theme || 'classic'}
               businessType={profileData.business_type}
               premiumActive={PREMIUM_TEMPLATE_KEYS.includes(profileData.portal_template)}
+              organization={profileData}
+              onOrganizationChange={(updated) => setProfileData(current => ({ ...current, ...updated }))}
               onThemeChange={(theme) => {
                 setProfileData(current => ({ ...current, client_portal_theme: theme }));
               }}
@@ -1086,6 +1088,8 @@ const Settings = () => {
               organizationId={organizationId}
               currentTemplate={profileData.portal_template || 'classic'}
               contracted={!!profileData.premium_templates_contracted}
+              organization={profileData}
+              onOrganizationChange={(updated) => setProfileData(current => ({ ...current, ...updated }))}
               onTemplateChange={(template) => {
                 setProfileData(current => ({ ...current, portal_template: template }));
               }}

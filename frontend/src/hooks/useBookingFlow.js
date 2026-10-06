@@ -199,6 +199,22 @@ export function useBookingFlow() {
     }
   }, [orgId, loadOrganization, loadServices, loadBarbers]);
 
+  // Desde la pagina de inicio del portal: ?servicio=<id> deja elegida la clase y salta al paso del profesional.
+  useEffect(() => {
+    if (!services.length || selectedService) return;
+    let wanted = null;
+    try {
+      wanted = new URLSearchParams(window.location.search).get('servicio');
+    } catch {
+      wanted = null;
+    }
+    const match = wanted ? services.find((item) => item.service_id === wanted) : null;
+    if (match) {
+      selectService(match);
+      setStep(2);
+    }
+  }, [services, selectedService, selectService]);
+
   useEffect(() => {
     setSelectedTime('');
     setSlots([]);
