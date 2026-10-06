@@ -61,6 +61,7 @@ from security_observability import (
     record_security_event,
 )
 from audit_contracts import build_audit_log_router, ensure_audit_log_indexes, record_audit_event
+from cache_policy import apply_cache_policy
 from owner_view_mode import build_owner_view_router, enforce_view_mode, ensure_view_session_indexes
 from owner_account_management import (
     assert_organization_active,
@@ -9715,6 +9716,7 @@ async def request_security_and_headers(request: Request, call_next):
     response.headers["Permissions-Policy"] = "geolocation=(), microphone=(), camera=()"
     response.headers["Cross-Origin-Opener-Policy"] = "same-origin"
     response.headers["Cross-Origin-Resource-Policy"] = "same-site"
+    apply_cache_policy(request.url.path, response.headers)
     return response
 
 
