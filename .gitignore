@@ -123,3 +123,6 @@ frontend/node_modules/.cache/default-development/1.pack
 /patch_*/
 backend/seed_test_accounts.py
 frontend/node_modules/.cache/default-development/14.pack
+
+# Medios subidos en tiempo de ejecucion (datos de usuarios): nunca versionar
+/data/
