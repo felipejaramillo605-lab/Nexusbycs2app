@@ -9450,6 +9450,14 @@ api_router.include_router(
     tags=["inventory"],
 )
 
+# Segmentos calculados de clientes (primera visita, inactivos, cumpleaños, no-show, miembros...)
+from client_segments import build_segment_router
+
+api_router.include_router(
+    build_segment_router(db, get_current_user, require_management_role, resolve_team_organization),
+    tags=["marketing"],
+)
+
 # NEXUS_INVENTORY_REORDER_ALERTS_V1
 from inventory_reorder import build_inventory_reorder_router, ensure_inventory_reorder_indexes
 from low_stock_alerts import ensure_low_stock_alert_indexes
