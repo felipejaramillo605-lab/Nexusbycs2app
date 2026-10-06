@@ -424,6 +424,10 @@ export const inventoryAPI = {
   updateCatalogItem: (id, data) => api.put(`/inventory/catalog/items/${id}`, data),
   archiveCatalogItem: (id, params = {}) => api.delete(`/inventory/catalog/items/${id}`, { params }),
   migrateSkus: (params = {}) => api.post('/inventory/catalog/migrate-skus', {}, { params }),
+  getLocationOptions: (params = {}) => api.get('/inventory/locations/options', { params }),
+  stockByLocation: (params = {}) => api.get('/inventory/stock-by-location', { params }),
+  getItemLocations: (id, params = {}) => api.get(`/inventory/${id}/locations`, { params }),
+  saveItemLocations: (id, data) => api.put(`/inventory/${id}/locations`, data),
 };
 
 // NEXUS_COMMISSION_FOUNDATION_V1
