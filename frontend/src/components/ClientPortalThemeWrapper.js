@@ -8,6 +8,9 @@ import '../portal-templates/premium/noir/noir.css';
 import '../portal-templates/premium/obsidiana/obsidiana.css';
 import '../portal-templates/premium/porcelana/porcelana.css';
 import '../portal-templates/premium/voltaje/voltaje.css';
+import '../portal-templates/premium/cadencia/cadencia.css';
+import '../portal-templates/premium/aliento/aliento.css';
+import '../portal-templates/standard/estudio.css';
 
 export const ClientPortalThemeWrapper = ({ children }) => {
   const {

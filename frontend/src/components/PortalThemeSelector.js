@@ -114,6 +114,9 @@ export default function PortalThemeSelector({ organizationId, currentTheme = 'cl
                 <p className="text-xs text-[var(--app-text-secondary)]">
                   {theme.description}
                 </p>
+                {theme.category === 'group' && (
+                  <span className="inline-block rounded-full border border-[var(--app-border)] px-2 py-0.5 text-[10px] font-medium text-[var(--app-text-secondary)]" data-testid={`group-chip-${theme.key}`}>Clases grupales</span>
+                )}
               </div>
             </button>
           );

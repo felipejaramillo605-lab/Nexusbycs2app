@@ -14,6 +14,7 @@ STANDARD_TEMPLATE_KEYS = (
     "movement",
     "clinical",
     "pet-care",
+    "estudio",
 )
 
 PREMIUM_TEMPLATE_KEYS = (
@@ -27,6 +28,8 @@ PREMIUM_TEMPLATE_KEYS = (
     "obsidiana",
     "porcelana",
     "voltaje",
+    "cadencia",
+    "aliento",
 )
 
 ALLOWED_PORTAL_TEMPLATES = frozenset((*STANDARD_TEMPLATE_KEYS, *PREMIUM_TEMPLATE_KEYS))
