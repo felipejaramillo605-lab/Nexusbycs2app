@@ -21,7 +21,7 @@ from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
 from pydantic import BaseModel
 
 from payroll_co import DISCLAIMER
-from payroll_reports import COP, MONTHS_ES
+from payroll_reports import COP, MONTHS_ES, safe_text
 from payroll_reports import PRIMARY_HEX as XLSX_HEAD
 from payroll_reports import SOFT_HEX as XLSX_SOFT
 
@@ -113,7 +113,7 @@ def build_benefit_workbook(org_name: str, kind: str, year: int, semester: Option
             row["amount"],
         ]
         for index, value in enumerate(values, start=1):
-            cell = ws.cell(row=offset, column=index, value=value)
+            cell = ws.cell(row=offset, column=index, value=safe_text(value))
             cell.border = border
             if index == 4:
                 cell.number_format = COP
@@ -191,7 +191,7 @@ def build_sabana_workbook(org_name: str, year: int, runs: List[dict]) -> bytes:
                 computed["employer_cost"],
             ]
             for index, value in enumerate(values, start=1):
-                cell = ws.cell(row=row_index, column=index, value=value)
+                cell = ws.cell(row=row_index, column=index, value=safe_text(value))
                 cell.border = border
                 if index >= 6:
                     cell.number_format = COP
@@ -402,11 +402,11 @@ def build_benefits_router(db, get_current_user, require_management_role, resolve
         for row in data["ready"]:
             writer.writerow(
                 [
-                    row["document"],
-                    row["name"],
-                    row["bank_name"],
+                    safe_text(row["document"]),
+                    safe_text(row["name"]),
+                    safe_text(row["bank_name"]),
                     row["account_type"],
-                    row["account_number"],
+                    safe_text(row["account_number"]),
                     row["amount"],
                     row["reference"],
                 ]

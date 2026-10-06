@@ -162,6 +162,7 @@ def test_employee_summary_requests_and_cancellation_with_overlap_protection():
     _, client = build()
     summary = client.get("/api/staff/hr/summary", headers=H("ana")).json()
     assert summary["vacation"]["accrued"] > 14 and "UGPP" in summary["disclaimer"]
+    assert summary["fixed_contract"] is False
     monday = next_weekday(TODAY + timedelta(days=30))
     body = {"kind": "vacation", "start_date": monday.isoformat(), "end_date": (monday + timedelta(days=4)).isoformat()}
     created = client.post("/api/staff/hr/requests", json=body, headers=H("ana"))
@@ -368,3 +369,28 @@ def test_unpaid_permission_days_are_counted_for_payroll():
     ]
     assert subject.unpaid_days_in_period(rows, "b1", date(2026, 10, 1), date(2026, 10, 31)) == 5
     assert subject.unpaid_days_in_period(rows, "b1", date(2026, 10, 7), date(2026, 10, 31)) == 3
+
+
+def test_documents_must_really_be_what_they_claim_to_be():
+    _, client = build()
+    html = b"<html><script>alert(1)</script></html>"
+    assert (
+        client.post(
+            "/api/staff/hr/documents", files={"file": ("a.jpg", html, "image/jpeg")}, headers=H("ana")
+        ).status_code
+        == 400
+    )
+    assert (
+        client.post(
+            "/api/staff/hr/documents", files={"file": ("a.pdf", b"MZ binario", "application/pdf")}, headers=H("ana")
+        ).status_code
+        == 400
+    )
+    ok = client.post(
+        "/api/staff/hr/documents", files={"file": ("a.pdf", b"%PDF-1.4 contenido", "application/pdf")}, headers=H("ana")
+    )
+    assert ok.status_code == 200
+    assert subject.looks_like("image/png", b"\x89PNG\r\n\x1a\n....") and subject.looks_like(
+        "image/webp", b"RIFF1234WEBPxx"
+    )
+    assert not subject.looks_like("image/gif", b"GIF89a")

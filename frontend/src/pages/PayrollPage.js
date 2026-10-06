@@ -235,7 +235,7 @@ function RunsTab({ scope }) {
       {editing && <LineEditor line={editing} onClose={() => setEditing(null)} onSave={async (data) => { await act(() => payrollAPI.saveLine(run.run_id, editing.barber_id, data, scope), 'Cambios guardados'); setEditing(null); }} />}
       {reopening && (
         <AccessibleModal open onClose={() => setReopening(false)} labelledBy="reopen-title">
-          <section className="nexus-void-modal">
+          <section className="nexus-void-modal nexus-payroll-modal">
             <h2 id="reopen-title">Reabrir para corregir</h2>
             <p>La nómina vuelve a borrador (nueva versión) y queda registro del motivo.</p>
             <label className="text-sm block">Motivo de la corrección
@@ -259,7 +259,7 @@ function LineEditor({ line, onClose, onSave }) {
   const setRow = (index, patch) => setRows((current) => current.map((row, i) => (i === index ? { ...row, ...patch } : row)));
   return (
     <AccessibleModal open onClose={onClose} labelledBy="line-title">
-      <section className="nexus-void-modal">
+      <section className="nexus-void-modal nexus-payroll-modal">
         <h2 id="line-title">Novedades de {line.name}</h2>
         <label className="text-sm block">Días pagados (0 a {line.computed.period_days})
           <input className="nexus-field" type="number" min="0" max={line.computed.period_days} step="0.5" value={days} onChange={(e) => setDays(e.target.value)} data-testid="line-days" />
@@ -351,7 +351,7 @@ function ContractsTab({ scope }) {
       </div>
       {editing && (
         <AccessibleModal open onClose={() => setEditing(null)} labelledBy="contract-title">
-          <section className="nexus-void-modal">
+          <section className="nexus-void-modal nexus-payroll-modal">
             <h2 id="contract-title">Contrato de {editing.name}</h2>
             <label className="text-sm block">Tipo de contrato
               <select className="nexus-field" value={editing.contract_type} onChange={(e) => setEditing({ ...editing, contract_type: e.target.value })} data-testid="contract-type">
@@ -486,7 +486,7 @@ function ExtrasTab({ scope }) {
       </div>
       {editing && (
         <AccessibleModal open onClose={() => setEditing(null)} labelledBy="extra-title">
-          <section className="nexus-void-modal">
+          <section className="nexus-void-modal nexus-payroll-modal">
             <h2 id="extra-title">{editing.extra_id ? 'Editar auxilio' : 'Nuevo auxilio'}</h2>
             <label className="text-sm block">Nombre<input className="nexus-field" value={editing.name} onChange={(e) => setEditing({ ...editing, name: e.target.value })} placeholder="Auxilio de internet" data-testid="extra-name" /></label>
             <div className="grid grid-cols-2 gap-3 mt-3">
