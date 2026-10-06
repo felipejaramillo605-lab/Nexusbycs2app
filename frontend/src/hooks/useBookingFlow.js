@@ -54,6 +54,7 @@ export function useBookingFlow() {
   const [success, setSuccess] = useState(null);
   const [remember, setRemember] = useState(false);
   const [marketingConsent, setMarketingConsent] = useState(false);
+  const [policyAccepted, setPolicyAccepted] = useState(false);
   const [error, setError] = useState('');
   const [client, setClient] = useState({ name: '', phone: '', email: '' });
 
@@ -115,6 +116,7 @@ export function useBookingFlow() {
 
   const setRememberClientData = useCallback((value) => setRemember(value), []);
   const setMarketingConsentChoice = useCallback((value) => setMarketingConsent(value), []);
+  const setPolicyAcceptedChoice = useCallback((value) => setPolicyAccepted(value), []);
 
   const loadServices = useCallback(async () => {
     const response = await publicAPI.getServices(orgId);
@@ -234,6 +236,8 @@ export function useBookingFlow() {
   const submit = async () => {
     if (!client.name || !client.phone || !client.email) return toast.error('Completa todos los campos');
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(client.email)) return toast.error('Ingresa un correo válido');
+    const hasPolicy = !isGroupService && (selectedService?.deposit_percent || selectedService?.no_show_policy);
+    if (hasPolicy && !policyAccepted) return toast.error('Acepta las condiciones del servicio para reservar');
     setSubmitting(true);
     setError('');
     try {
@@ -254,6 +258,7 @@ export function useBookingFlow() {
         : await publicAPI.createAppointment(orgId, {
           ...payload,
           service_id: selectedService.service_id,
+          policy_accepted: policyAccepted,
           barber_id: selectedBarber.barber_id,
           date: selectedDate,
           time: selectedTime,
@@ -317,6 +322,7 @@ export function useBookingFlow() {
     success,
     remember,
     marketingConsent,
+    policyAccepted,
     error,
     client,
     eligible,
@@ -331,6 +337,7 @@ export function useBookingFlow() {
     updateClientField,
     setRememberClientData,
     setMarketingConsentChoice,
+    setPolicyAcceptedChoice,
     loadAvailability,
     next,
     submit,
