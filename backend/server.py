@@ -9442,6 +9442,14 @@ api_router.include_router(
     tags=["inventory"],
 )
 
+# Conteo fisico con equipo (acceso temporal, comparacion entre contadores, reconteo y resolucion)
+from physical_count import build_physical_count_router, ensure_physical_count_indexes
+
+api_router.include_router(
+    build_physical_count_router(db, get_current_user, require_management_role, resolve_team_organization),
+    tags=["inventory"],
+)
+
 # NEXUS_INVENTORY_REORDER_ALERTS_V1
 from inventory_reorder import build_inventory_reorder_router, ensure_inventory_reorder_indexes
 from low_stock_alerts import ensure_low_stock_alert_indexes
@@ -9812,6 +9820,7 @@ async def create_application_indexes():
     await ensure_purchase_order_indexes(db)
     await ensure_inventory_reorder_indexes(db)
     await ensure_inventory_locations_indexes(db)
+    await ensure_physical_count_indexes(db)
     await ensure_purchase_receipt_indexes(db)
     await ensure_subscription_indexes(db)
     await ensure_billing_hub_indexes(db)
