@@ -107,6 +107,7 @@ const tab = (name) => container.querySelector(`[data-tab="${name}"]`);
 test('always states that it does not replace a payroll software', async () => {
   await mount();
   expect(container.querySelector('[data-testid="payroll-disclaimer"]').textContent).toContain('No reemplaza un software de nómina');
+  expect(container.querySelector('[data-testid="payroll-disclaimer"]').textContent).toContain('ni para la UGPP');
 });
 
 test('creates a run, opens it and shows the breakdown, notes and per-employee actions', async () => {

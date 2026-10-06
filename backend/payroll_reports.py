@@ -255,6 +255,34 @@ def build_payroll_workbook(run: dict, organization_name: str) -> bytes:
         com.column_dimensions["B"].width = 24
         com.column_dimensions["C"].width = 20
 
+    # ---------------- Centros de costo (solo si se definieron)
+    if any(x.get("cost_center") for x in run.get("lines", [])):
+        cc = wb.create_sheet("Por centro de costos")
+        title(cc, "Costo de personal por centro de costos", subtitle, 5)
+        header_row(cc, 6, ["Centro de costos", "Empleados", "Devengado", "Aportes y provisiones", "Costo total"])
+        groups: dict = {}
+        for line in run.get("lines", []):
+            key = line.get("cost_center") or "Sin centro de costos"
+            bucket = groups.setdefault(key, {"count": 0, "gross": 0.0, "extra": 0.0, "cost": 0.0})
+            bucket["count"] += 1
+            computed = line.get("computed")
+            if computed:
+                bucket["gross"] += computed["gross"]
+                bucket["extra"] += computed["employer_total"] + computed["provisions_total"]
+                bucket["cost"] += computed["employer_cost"]
+            else:
+                bucket["gross"] += float(line.get("settlement_total", 0))
+                bucket["cost"] += float(line.get("settlement_total", 0))
+        r = 7
+        for name, bucket in sorted(groups.items()):
+            for col, value in enumerate(
+                [name, bucket["count"], bucket["gross"], bucket["extra"], bucket["cost"]], start=1
+            ):
+                body_cell(cc, r, col, value, money=col >= 3)
+            r += 1
+        for letter, width in zip("ABCDE", (34, 12, 18, 22, 18)):
+            cc.column_dimensions[letter].width = width
+
     # ---------------- Parametros y avisos
     info = wb.create_sheet("Parámetros y avisos")
     title(info, "Parámetros usados y avisos", subtitle, 2)

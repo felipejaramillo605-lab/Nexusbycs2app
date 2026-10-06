@@ -62,8 +62,9 @@ PERIOD_DAYS = {"monthly": 30, "biweekly": 15}
 FSP_BANDS = [(4, 1.0), (16, 1.2), (17, 1.4), (18, 1.6), (19, 1.8), (20, 2.0)]
 
 DISCLAIMER = (
-    "Documento informativo generado por Nexus. No reemplaza un software de nómina, la nómina electrónica ante la DIAN, "
-    "la liquidación de PILA ni la asesoría de un contador. Verifica los parámetros legales vigentes."
+    "Documento informativo generado por Nexus. No reemplaza un software de nómina ni la asesoría de un contador, y "
+    "esta app no sirve como soporte de nómina electrónica, facturas electrónicas ni para la UGPP. "
+    "Verifica los parámetros legales vigentes."
 )
 
 
