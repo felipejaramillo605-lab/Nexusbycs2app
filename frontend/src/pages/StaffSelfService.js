@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { CalendarDays, Camera, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
-import { hrAPI } from '../api';
+import { hrAPI, payrollAPI } from '../api';
 import { LoadingState, MotionPage, PageHeader, SurfaceCard } from '../components/design';
 
 const STATUS = { pending: 'Pendiente', approved: 'Aprobada', rejected: 'Rechazada', cancelled: 'Cancelada' };
@@ -19,6 +19,9 @@ export default function StaffSelfService() {
   const [file, setFile] = useState(null);
   const [calc, setCalc] = useState({ days: 5, result: null });
   const [busy, setBusy] = useState(false);
+  const [reference, setReference] = useState(null);
+  const [novelties, setNovelties] = useState([]);
+  const [overtime, setOvertime] = useState({ kind: 'overtime_day', date: today(), hours: 1 });
 
   const load = useCallback(async () => {
     try {
@@ -31,6 +34,9 @@ export default function StaffSelfService() {
 
   useEffect(() => {
     load();
+    // Horas extra: la referencia legal y mis solicitudes (si falla, la seccion simplemente no aparece)
+    Promise.resolve(payrollAPI?.noveltyReference?.()).then((r) => setReference(r?.data || null)).catch(() => {});
+    Promise.resolve(hrAPI?.myNovelties?.()).then((r) => setNovelties(r?.data?.items || [])).catch(() => {});
   }, [load]);
 
   const calculate = async () => {
@@ -57,6 +63,16 @@ export default function StaffSelfService() {
       toast.error(messageOf(error, 'No fue posible enviar la solicitud'));
     } finally {
       setBusy(false);
+    }
+  };
+
+  const sendOvertime = async () => {
+    try {
+      await hrAPI.requestOvertime({ kind: overtime.kind, date: overtime.date, hours: Number(overtime.hours) });
+      toast.success('Horas enviadas a tu manager para aprobación');
+      setNovelties((await hrAPI.myNovelties()).data.items || []);
+    } catch (error) {
+      toast.error(messageOf(error, 'No fue posible enviar las horas'));
     }
   };
 
@@ -136,6 +152,25 @@ export default function StaffSelfService() {
           ))}
         </div>
       </SurfaceCard>
+      {reference && (
+        <SurfaceCard>
+          <div className="p-4 space-y-3" data-testid="overtime-card">
+            <h2 className="text-lg">Horas extra y recargos</h2>
+            <p className="text-sm text-[var(--app-text-secondary)]">Solo aplica a contratos fijos. Tope: {reference.max_overtime_per_day} h extra al día y {reference.max_overtime_per_week} h a la semana. Tu manager debe aprobarlas.</p>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 items-end">
+              <label className="text-sm">Tipo
+                <select className="nexus-field" value={overtime.kind} onChange={(e) => setOvertime({ ...overtime, kind: e.target.value })} data-testid="overtime-kind">
+                  {Object.entries(reference.kinds).map(([key, row]) => <option key={key} value={key}>{row.label}</option>)}
+                </select>
+              </label>
+              <label className="text-sm">Fecha<input className="nexus-field" type="date" value={overtime.date} onChange={(e) => setOvertime({ ...overtime, date: e.target.value })} /></label>
+              <label className="text-sm">Horas<input className="nexus-field" type="number" min="0.5" max="12" step="0.5" value={overtime.hours} onChange={(e) => setOvertime({ ...overtime, hours: e.target.value })} data-testid="overtime-hours" /></label>
+            </div>
+            <button type="button" className="nexus-button nexus-button-primary" onClick={sendOvertime} data-testid="overtime-submit">Enviar horas</button>
+            {novelties.filter((n) => n.type === 'overtime').slice(0, 8).map((n) => <div key={n.novelty_id} className="text-sm" data-testid="overtime-row">{n.date} · {n.kind_label} · {n.hours} h · {STATUS[n.status] || n.status}</div>)}
+          </div>
+        </SurfaceCard>
+      )}
       <p className="text-xs text-[var(--app-text-secondary)]">{data.disclaimer}</p>
     </MotionPage>
   );

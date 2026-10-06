@@ -4,9 +4,13 @@ import StaffSelfService from './StaffSelfService';
 
 global.IS_REACT_ACT_ENVIRONMENT = true;
 
-const mockApi = { mySummary: jest.fn(), vacationCalc: jest.fn(), uploadDocument: jest.fn(), createRequest: jest.fn(), cancelRequest: jest.fn() };
+const mockApi = { mySummary: jest.fn(), vacationCalc: jest.fn(), uploadDocument: jest.fn(), createRequest: jest.fn(), cancelRequest: jest.fn(), requestOvertime: jest.fn(), myNovelties: jest.fn() };
+const mockReference = jest.fn();
 
-jest.mock('../api', () => ({ hrAPI: new Proxy({}, { get: (_, name) => (...args) => mockApi[name](...args) }) }));
+jest.mock('../api', () => ({
+  hrAPI: new Proxy({}, { get: (_, name) => (...args) => mockApi[name](...args) }),
+  payrollAPI: { noveltyReference: (...args) => mockReference(...args) },
+}));
 jest.mock('sonner', () => ({ toast: { success: jest.fn(), error: jest.fn() } }));
 jest.mock('../components/design', () => {
   const React = jest.requireActual('react');
@@ -35,6 +39,9 @@ beforeEach(() => {
   mockApi.uploadDocument.mockResolvedValue({ data: { document_id: 'doc1' } });
   mockApi.createRequest.mockResolvedValue({ data: {} });
   mockApi.cancelRequest.mockResolvedValue({ data: {} });
+  mockApi.requestOvertime.mockResolvedValue({ data: {} });
+  mockApi.myNovelties.mockResolvedValue({ data: { items: [{ novelty_id: 'n1', type: 'overtime', kind_label: 'Hora extra diurna', date: '2026-10-07', hours: 2, status: 'pending' }] } });
+  mockReference.mockResolvedValue({ data: { max_overtime_per_day: 2, max_overtime_per_week: 12, kinds: { overtime_day: { label: 'Hora extra diurna', multiplier: 1.25 }, overtime_night: { label: 'Hora extra nocturna', multiplier: 1.75 } } } });
 });
 afterEach(() => {
   act(() => root.unmount());
@@ -105,4 +112,14 @@ test('a pending request can be cancelled', async () => {
   await mount();
   await click(container.querySelector('[data-testid="cancel-request"]'));
   expect(mockApi.cancelRequest).toHaveBeenCalledWith('r1');
+});
+
+test('an employee can report overtime hours for approval and sees the status', async () => {
+  await mount();
+  expect(container.querySelector('[data-testid="overtime-row"]').textContent).toContain('Hora extra diurna · 2 h · Pendiente');
+  await setValue(container.querySelector('[data-testid="overtime-kind"]'), 'overtime_night');
+  await setValue(container.querySelector('[data-testid="overtime-hours"]'), '1.5');
+  await click(container.querySelector('[data-testid="overtime-submit"]'));
+  expect(mockApi.requestOvertime).toHaveBeenCalledWith(expect.objectContaining({ kind: 'overtime_night', hours: 1.5 }));
+  expect(container.querySelector('[data-testid="overtime-card"]').textContent).toContain('2 h extra al día y 12 h a la semana');
 });

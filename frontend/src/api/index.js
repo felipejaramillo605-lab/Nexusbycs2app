@@ -416,6 +416,8 @@ export const hrAPI = {
   calendar: (params) => api.get('/hr/calendar', { params }),
   overview: (params = {}) => api.get('/hr/overview', { params }),
   downloadDocument: (id, params = {}) => api.get(`/hr/documents/${id}`, { params, responseType: 'blob' }),
+  requestOvertime: (data) => api.post('/staff/hr/overtime', data),
+  myNovelties: () => api.get('/staff/hr/novelties'),
 };
 
 export const payrollAPI = {
@@ -439,6 +441,17 @@ export const payrollAPI = {
   downloadSlip: (id, barberId, params = {}) => api.get(`/payroll/runs/${id}/slips/${barberId}.pdf`, { params, responseType: 'blob' }),
   mySlips: () => api.get('/staff/payroll/slips'),
   downloadMySlip: (id) => api.get(`/staff/payroll/slips/${id}.pdf`, { responseType: 'blob' }),
+  noveltyReference: (params = {}) => api.get('/payroll/novelties/reference', { params }),
+  listNovelties: (params = {}) => api.get('/payroll/novelties', { params }),
+  registerOvertime: (data) => api.post('/payroll/novelties/overtime', data),
+  registerBonus: (data) => api.post('/payroll/novelties/bonus', data),
+  decideNovelty: (id, data, params = {}) => api.post(`/payroll/novelties/${id}/decide`, data, { params }),
+  benefitPreview: (kind, params) => api.get(`/payroll/benefits/${kind}`, { params }),
+  downloadBenefit: (kind, params) => api.get(`/payroll/benefits/${kind}/export.xlsx`, { params, responseType: 'blob' }),
+  applyBenefit: (data) => api.post('/payroll/benefits/apply', data),
+  downloadSabana: (params) => api.get('/payroll/sabana.xlsx', { params, responseType: 'blob' }),
+  dispersionPreview: (id, params = {}) => api.get(`/payroll/runs/${id}/dispersion`, { params }),
+  downloadDispersion: (id, params = {}) => api.get(`/payroll/runs/${id}/dispersion.csv`, { params, responseType: 'blob' }),
 };
 
 export const capacityAPI = {

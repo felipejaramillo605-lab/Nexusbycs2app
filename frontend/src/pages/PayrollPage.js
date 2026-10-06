@@ -6,6 +6,8 @@ import { payrollAPI } from '../api';
 import { useAuth } from '../context/AuthContext';
 import { AccessibleModal, EmptyState, LoadingState, MetricCard, MotionPage, PageHeader, SegmentedControl, SurfaceCard } from '../components/design';
 import { saveBlob } from '../lib/download';
+import PayrollNoveltiesTab from '../components/PayrollNoveltiesTab';
+import PayrollBenefitsTab from '../components/PayrollBenefitsTab';
 
 const cop = (value) => `$ ${new Intl.NumberFormat('es-CO', { maximumFractionDigits: 0 }).format(Number(value || 0))}`;
 const MONTHS = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
@@ -36,10 +38,12 @@ export default function PayrollPage() {
       <SegmentedControl
         value={tab}
         onChange={setTab}
-        options={[{ value: 'runs', label: 'Nóminas' }, { value: 'contracts', label: 'Contratos' }, { value: 'extras', label: 'Auxilios extras' }, { value: 'settings', label: 'Parámetros' }]}
+        options={[{ value: 'runs', label: 'Nóminas' }, { value: 'novelties', label: 'Novedades' }, { value: 'benefits', label: 'Prestaciones' }, { value: 'contracts', label: 'Contratos' }, { value: 'extras', label: 'Auxilios extras' }, { value: 'settings', label: 'Parámetros' }]}
       />
       <div className="mt-4">
         {tab === 'runs' && <RunsTab scope={scope} />}
+        {tab === 'novelties' && <PayrollNoveltiesTab scope={scope} />}
+        {tab === 'benefits' && <PayrollBenefitsTab scope={scope} />}
         {tab === 'contracts' && <ContractsTab scope={scope} />}
         {tab === 'extras' && <ExtrasTab scope={scope} />}
         {tab === 'settings' && <SettingsTab scope={scope} />}
@@ -112,6 +116,16 @@ function RunsTab({ scope }) {
     }
   };
 
+  const payments = async (item) => {
+    try {
+      const { data } = await payrollAPI.dispersionPreview(item.run_id, scope);
+      if (data.missing.length) toast.error(`Faltan datos bancarios de: ${data.missing.join(', ')}`);
+      if (data.ready.length) saveBlob(await payrollAPI.downloadDispersion(item.run_id, scope), `dispersion_${item.number}.csv`);
+    } catch (error) {
+      toast.error(messageOf(error, 'No fue posible generar el archivo de pagos'));
+    }
+  };
+
   if (loading) return <LoadingState />;
   const totals = run?.totals;
   return (
@@ -173,6 +187,7 @@ function RunsTab({ scope }) {
             </div>
             <div className="flex flex-wrap gap-3">
               <button type="button" className="nexus-button" onClick={() => download(() => payrollAPI.downloadReport(run.run_id, scope), `${run.number}_gastos_de_personal.xlsx`)} data-testid="download-report"><FileSpreadsheet size={16} /> Descargar Excel</button>
+              {['approved', 'paid'].includes(run.status) && <button type="button" className="nexus-button" onClick={() => payments(run)} data-testid="download-dispersion">Archivo de pagos (CSV)</button>}
               {run.status === 'draft' && <button type="button" className="nexus-button nexus-button-primary" disabled={busy} onClick={() => act(() => payrollAPI.approve(run.run_id, scope), 'Nómina aprobada')} data-testid="approve-run">Aprobar</button>}
               {run.status === 'draft' && <button type="button" className="nexus-button" disabled={busy} onClick={() => act(() => payrollAPI.cancel(run.run_id, scope), 'Nómina cancelada')}>Cancelar nómina</button>}
               {run.status === 'approved' && <button type="button" className="nexus-button nexus-button-primary" disabled={busy} onClick={() => act(() => payrollAPI.pay(run.run_id, scope), 'Nómina marcada como pagada')}>Marcar como pagada</button>}
@@ -297,7 +312,7 @@ function ContractsTab({ scope }) {
 
   const save = async () => {
     try {
-      const body = { ...scope, contract_type: editing.contract_type, pay_frequency: editing.pay_frequency || 'monthly', arl_risk_class: editing.arl_risk_class || 'I', start_date: editing.start_date || null, birth_date: editing.birth_date || null, cost_center: editing.cost_center || null, document: editing.document || null, position: editing.position || null };
+      const body = { ...scope, contract_type: editing.contract_type, pay_frequency: editing.pay_frequency || 'monthly', arl_risk_class: editing.arl_risk_class || 'I', start_date: editing.start_date || null, bank_name: editing.bank_name || null, account_type: editing.account_type || null, account_number: editing.account_number || null, birth_date: editing.birth_date || null, cost_center: editing.cost_center || null, document: editing.document || null, position: editing.position || null };
       if (editing.contract_type === 'fixed_salary') body.base_salary = Number(editing.base_salary);
       await payrollAPI.saveContract(editing.barber_id, body);
       toast.success('Contrato guardado');
@@ -370,6 +385,15 @@ function ContractsTab({ scope }) {
               <label className="text-sm">Documento (para la colilla)<input className="nexus-field" value={editing.document || ''} onChange={(e) => setEditing({ ...editing, document: e.target.value })} /></label>
               <label className="text-sm">Cargo<input className="nexus-field" value={editing.position || ''} onChange={(e) => setEditing({ ...editing, position: e.target.value })} /></label>
               <label className="text-sm">Fecha de nacimiento (cumpleaños del equipo)<input className="nexus-field" type="date" value={editing.birth_date || ''} onChange={(e) => setEditing({ ...editing, birth_date: e.target.value })} /></label>
+              <label className="text-sm">Banco (para el archivo de pagos)<input className="nexus-field" value={editing.bank_name || ''} onChange={(e) => setEditing({ ...editing, bank_name: e.target.value })} /></label>
+              <label className="text-sm">Tipo de cuenta
+                <select className="nexus-field" value={editing.account_type || ''} onChange={(e) => setEditing({ ...editing, account_type: e.target.value })}>
+                  <option value="">—</option>
+                  <option value="savings">Ahorros</option>
+                  <option value="checking">Corriente</option>
+                </select>
+              </label>
+              <label className="text-sm">Número de cuenta<input className="nexus-field" value={editing.account_number || ''} onChange={(e) => setEditing({ ...editing, account_number: e.target.value })} /></label>
               <label className="text-sm">Centro de costos (opcional)<input className="nexus-field" value={editing.cost_center || ''} onChange={(e) => setEditing({ ...editing, cost_center: e.target.value })} placeholder="Ej: Sede Norte" /></label>
             </div>
             <footer className="flex gap-3 mt-4">
