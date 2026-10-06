@@ -13,7 +13,7 @@ const IGNITION_VARIABLES = Object.freeze({
   '--app-surface-hover': '#30332D',
   '--app-text-primary': '#F4F4EF',
   '--app-text-secondary': '#B8B9B3',
-  '--app-text-muted': '#8D8F89',
+  '--app-text-muted': '#999B95',
   '--app-border': 'rgba(244,244,239,.14)',
   '--app-border-strong': '#C6F135',
   '--app-primary': '#C6F135',

@@ -13,7 +13,7 @@ const BLOOM_VARIABLES = Object.freeze({
   '--app-surface-hover': '#E7F1EC',
   '--app-text-primary': '#442C35',
   '--app-text-secondary': '#66535A',
-  '--app-text-muted': '#76666C',
+  '--app-text-muted': '#6E5F65',
   '--app-border': 'rgba(126,78,94,.18)',
   '--app-border-strong': '#C97B92',
   '--app-primary': '#356F60',
