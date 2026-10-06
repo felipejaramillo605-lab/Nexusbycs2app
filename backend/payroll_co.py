@@ -8,7 +8,8 @@ Reglas aplicadas (Codigo Sustantivo del Trabajo y normas de seguridad social):
 - Auxilio de transporte: solo si el salario basico es de hasta 2 SMMLV; cuenta para prima y cesantias, no para aportes
   ni vacaciones.
 - IBC (base de aportes) = salario + pagos que constituyen salario; piso 1 SMMLV (proporcional a los dias), tope 25
-  SMMLV. Los pagos que NO constituyen salario que superen el 40% del total devengado se suman al IBC (art. 30 Ley 1393/2010).
+  SMMLV. Los pagos que NO constituyen salario y superen el 40% del total devengado se suman al IBC (art. 30 Ley
+  1393/2010).
 - Deducciones del empleado: salud 4%, pension 4%, fondo de solidaridad pensional desde 4 SMMLV (1% a 2% segun tramo).
 - Aportes del empleador: salud 8,5%, pension 12%, ARL segun clase de riesgo, caja de compensacion 4%, SENA 2% e
   ICBF 3%. Salud, SENA e ICBF no se pagan si el empleador esta exonerado (art. 114-1 E.T.) y el trabajador gana
