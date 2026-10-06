@@ -544,3 +544,4 @@ button,[role="button"]{-webkit-tap-highlight-color:transparent}button:focus-visi
 /* La recepcion de mercancia necesita mas ancho que un modal estandar: 5 columnas por linea */
 .nexus-po-modal{width:min(1040px,calc(100vw - 2rem))}.nexus-po-modal .nexus-receipt-line{grid-template-columns:minmax(150px,1.2fr) repeat(4,minmax(110px,1fr))}@media(max-width:900px){.nexus-po-modal .nexus-receipt-line{grid-template-columns:1fr 1fr}.nexus-po-modal .nexus-receipt-line strong,.nexus-po-modal .nexus-receipt-line small{grid-column:1/-1}}
 @media(max-width:560px){.nexus-po-modal .nexus-receipt-line{grid-template-columns:1fr}.nexus-po-modal .nexus-receipt-line input{width:100%}}
+.nexus-directions-link{display:inline-flex;align-items:center;gap:.35rem;color:var(--app-primary);font-weight:650;text-decoration:underline}

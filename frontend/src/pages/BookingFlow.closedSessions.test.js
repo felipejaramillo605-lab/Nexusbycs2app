@@ -81,3 +81,15 @@ test('no notice when the class has no booking window', async () => {
   await mount({ classSessions: [{ class_session_id: 'o1', time: '09:00', open_for_booking: true }], slots: ['o1'], groupSessionById: () => ({ time: '09:00' }) });
   expect(container.querySelector('[data-testid="booking-window-notice"]')).toBeNull();
 });
+
+test('directions link only appears when the org enabled the map and has an address', async () => {
+  await mount({ organization: { name: 'Org', address: 'Calle 10 # 5-20', city: 'Cali', portal_show_map: true } });
+  const link = container.querySelector('[data-testid="portal-directions-link"]');
+  expect(link.getAttribute('href')).toBe('https://www.google.com/maps/search/?api=1&query=Calle%2010%20%23%205-20%2C%20Cali');
+  expect(link.getAttribute('rel')).toContain('noopener');
+});
+
+test('no directions link when the map is off', async () => {
+  await mount({ organization: { name: 'Org', address: 'Calle 10 # 5-20', portal_show_map: false } });
+  expect(container.querySelector('[data-testid="portal-directions-link"]')).toBeNull();
+});
