@@ -428,6 +428,22 @@ export const inventoryAPI = {
   stockByLocation: (params = {}) => api.get('/inventory/stock-by-location', { params }),
   getItemLocations: (id, params = {}) => api.get(`/inventory/${id}/locations`, { params }),
   saveItemLocations: (id, data) => api.put(`/inventory/${id}/locations`, data),
+  listCounts: (params = {}) => api.get('/inventory/counts', { params }),
+  myCounts: () => api.get('/inventory/counts/mine'),
+  createCount: (data) => api.post('/inventory/counts', data),
+  getCount: (id, params = {}) => api.get(`/inventory/counts/${id}`, { params }),
+  reviewCount: (id, params = {}) => api.get(`/inventory/counts/${id}/review`, { params }),
+  assignCount: (id, data) => api.post(`/inventory/counts/${id}/assignments`, data),
+  revokeCountAccess: (id, assignmentId, params = {}) => api.delete(`/inventory/counts/${id}/assignments/${assignmentId}`, { params }),
+  requestRecount: (id, targetId, data) => api.post(`/inventory/counts/${id}/targets/${targetId}/recount`, data),
+  resolveCountTarget: (id, targetId, data) => api.post(`/inventory/counts/${id}/targets/${targetId}/resolve`, data),
+  closeCount: (id, data = {}) => api.post(`/inventory/counts/${id}/close`, data),
+  cancelCount: (id, data = {}) => api.post(`/inventory/counts/${id}/cancel`, data),
+  getCountSheet: (id) => api.get(`/inventory/counts/${id}/sheet`),
+  addCountEntry: (id, data) => api.post(`/inventory/counts/${id}/entries`, data),
+  updateCountEntry: (id, entryId, data) => api.put(`/inventory/counts/${id}/entries/${entryId}`, data),
+  deleteCountEntry: (id, entryId) => api.delete(`/inventory/counts/${id}/entries/${entryId}`),
+  submitCount: (id) => api.post(`/inventory/counts/${id}/submit`, {}),
 };
 
 // NEXUS_COMMISSION_FOUNDATION_V1

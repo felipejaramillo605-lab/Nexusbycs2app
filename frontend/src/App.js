@@ -50,6 +50,7 @@ const OwnerSupportInbox = lazy(() => import('./pages/OwnerSupportInbox'));
 const OwnerPlatformBranding = lazy(() => import('./pages/OwnerPlatformBranding')); // NEXUS_PLATFORM_BRANDING_V1
 const ProfessionalMetrics = lazy(() => import('./pages/ProfessionalMetrics'));
 const StaffReviews = lazy(() => import('./pages/StaffReviews'));
+const InventoryCountSheet = lazy(() => import('./pages/InventoryCountSheet'));
 const OwnerOrganizationOnboarding = lazy(() => import('./pages/OwnerOrganizationOnboarding'));
 const ManagerOrganizationOnboarding = lazy(() => import('./pages/ManagerOrganizationOnboarding'));
 const NexusAI = lazy(() => import('./pages/NexusAI'));
@@ -362,6 +363,8 @@ function AppRouter() {
             </ProtectedRoute>
           }
         />
+
+        <Route path="/inventory/count/:countId" element={<ProtectedRoute allowedRoles={['manager', 'admin', 'staff']}><Suspense fallback={<PageLoader />}><InventoryCountSheet /></Suspense></ProtectedRoute>} />
 
         {/* NEXUS_GUIDE_V9 */}
         <Route path="/owner/guia" element={<ProtectedRoute requiredRole="owner"><GuideModule /></ProtectedRoute>} />
