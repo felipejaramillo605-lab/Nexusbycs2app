@@ -23,7 +23,7 @@ const BARBERIA_REAL_VARIABLES = Object.freeze({
   '--app-shadow-sm': '0 2px 10px rgba(8,17,28,.12)',
   '--app-shadow-md': '0 12px 34px rgba(8,17,28,.18)',
   '--app-shadow-lg': '0 28px 70px rgba(8,17,28,.26)',
-  '--app-on-primary': '#0F1B2B',
+  '--app-on-primary': '#FBF7ED',
   '--app-on-primary-hover': '#0F1B2B',
   '--client-surface': '#F3E9D2',
   '--client-surface-glass': 'rgba(243,233,210,.97)',
@@ -52,7 +52,7 @@ const BARBERIA_REAL_THEME = Object.freeze({
   border: 'rgba(116,84,26,.38)',
   blurAmount: '0px',
   glassShadow: '0 12px 34px rgba(8,17,28,.18)',
-  onAccentPrimary: '#0F1B2B',
+  onAccentPrimary: '#FBF7ED',
   onAccentSecondary: '#0F1B2B',
 });
 

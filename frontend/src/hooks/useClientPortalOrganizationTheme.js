@@ -3,6 +3,7 @@ import { useParams } from 'react-router-dom';
 import { useOrganization } from '../context/OrganizationContext';
 import { CLIENT_PORTAL_THEMES, getThemeColors } from '../constants/clientPortalThemes';
 import { resolvePremiumPortalTemplate } from '../portal-templates';
+import { contrastSafeColors } from '../lib/themeContrast';
 
 const hexToRgba = (hex, alpha) => {
   const value = String(hex || '').replace('#', '');
@@ -102,6 +103,16 @@ export function useClientPortalOrganizationTheme() {
     element.style.setProperty('--mouse-active', '1');
   }, []);
 
+  // Las plantillas premium traen su contraste ya resuelto; las estandar se ajustan para que siempre se lean.
+  const colors = useMemo(() => (activeTemplate ? {
+    textPrimary: theme.textPrimary,
+    textSecondary: theme.textSecondary,
+    accentPrimary: theme.accentPrimary,
+    accentSecondary: theme.accentSecondary,
+    onAccentPrimary: theme.onAccentPrimary || '#ffffff',
+    onAccentSecondary: theme.onAccentSecondary || theme.onAccentPrimary || '#ffffff',
+  } : contrastSafeColors(theme)), [theme, activeTemplate]);
+
   const themeVariables = useMemo(() => ({
     '--client-bg-start': theme.bgStart,
     '--client-bg-end': theme.bgEnd,
@@ -114,20 +125,20 @@ export function useClientPortalOrganizationTheme() {
     '--app-surface-elevated': theme.bgEnd,
     '--app-surface-muted': hexToRgba(theme.accentPrimary, .10),
     '--app-surface-hover': hexToRgba(theme.accentPrimary, .16),
-    '--app-text-primary': theme.textPrimary,
-    '--app-text-secondary': theme.textSecondary,
-    '--app-text-muted': theme.textSecondary,
+    '--app-text-primary': colors.textPrimary,
+    '--app-text-secondary': colors.textSecondary,
+    '--app-text-muted': colors.textSecondary,
     '--app-border': hexToRgba(theme.accentPrimary, .24),
     '--app-border-strong': hexToRgba(theme.accentPrimary, .42),
-    '--app-primary': theme.accentPrimary,
-    '--app-primary-hover': theme.accentSecondary,
+    '--app-primary': colors.accentPrimary,
+    '--app-primary-hover': colors.accentSecondary,
     '--app-primary-soft': hexToRgba(theme.accentPrimary, .14),
     '--app-focus-ring': hexToRgba(theme.accentPrimary, .32),
     '--app-shadow-sm': `0 2px 10px ${hexToRgba(theme.accentPrimary, .10)}`,
     '--app-shadow-md': `0 12px 34px ${hexToRgba(theme.accentPrimary, .16)}`,
     '--app-shadow-lg': `0 28px 70px ${hexToRgba(theme.accentPrimary, .22)}`,
-    '--app-on-primary': theme.onAccentPrimary || '#ffffff',
-    '--app-on-primary-hover': theme.onAccentSecondary || theme.onAccentPrimary || '#ffffff',
+    '--app-on-primary': colors.onAccentPrimary,
+    '--app-on-primary-hover': colors.onAccentSecondary,
     '--client-surface': theme.surface,
     '--client-surface-glass': theme.surfaceGlass,
     '--client-border': theme.border,
@@ -137,7 +148,7 @@ export function useClientPortalOrganizationTheme() {
     '--client-orb-2': hexToRgba(theme.accentSecondary, .08),
     '--client-glow': hexToRgba(theme.accentPrimary, .12),
     ...(activeTemplate?.variables || {}),
-  }), [theme, activeTemplate]);
+  }), [theme, activeTemplate, colors]);
 
   return {
     orgId,
