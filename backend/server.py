@@ -76,9 +76,16 @@ from data_retention import build_retention_router
 from org_retention import build_org_retention_router
 from media_rights import build_media_rights_router
 from marketing_window import blocked_message as marketing_blocked_message, marketing_allowed
-from messaging_consent import build_messaging_consent_router, consent_fields
+from messaging_consent import build_messaging_consent_router, consent_fields, messaging_status, stop_footer
 import whatsapp_service
 from whatsapp_webhook import build_whatsapp_webhook_router
+from premium_messaging import (
+    channel_capabilities,
+    normalized_notification_settings,
+    organization_has_premium,
+    subscription_has_premium,
+    whatsapp_enabled,
+)
 from country_profiles import (
     FEATURE_HR,
     FEATURE_MARKETING,
@@ -2968,7 +2975,10 @@ async def get_organization_profile(
     organization = await db.organizations.find_one({"organization_id": authorized_organization_id}, {"_id": 0})
     if not organization:
         raise HTTPException(status_code=404, detail="Organization not found")
-    return organization
+    subscription = await db.organization_subscriptions.find_one(
+        {"organization_id": authorized_organization_id}, {"_id": 0, "plan_code": 1, "status": 1}
+    )
+    return {**organization, "messaging_channel_capabilities": channel_capabilities(subscription)}
 
 
 @api_router.put("/organizations/{organization_id}", tags=["organizations"])
@@ -2988,6 +2998,23 @@ async def update_organization_profile(
         raise HTTPException(status_code=403, detail="Access denied")
 
     update_data = {k: v for k, v in data.dict().items() if v is not None}
+
+    if "notification_settings" in update_data:
+        subscription = await db.organization_subscriptions.find_one(
+            {"organization_id": organization_id}, {"_id": 0, "plan_code": 1, "status": 1}
+        )
+        premium = subscription_has_premium(subscription)
+        requested = update_data["notification_settings"] or {}
+        requested_whatsapp = any(
+            bool(requested.get(key))
+            for key in ("appointment_confirmation_whatsapp_enabled", "appointment_reminder_whatsapp_enabled")
+        )
+        if requested_whatsapp and not premium:
+            raise HTTPException(
+                status_code=403,
+                detail="WhatsApp para confirmaciones y recordatorios requiere una membresía Premium activa.",
+            )
+        update_data["notification_settings"] = normalized_notification_settings(requested, premium=premium)
 
     if "business_type" in update_data and update_data["business_type"] not in BUSINESS_TYPE_KEYS:
         raise HTTPException(status_code=422, detail="business_type is not allowed")
@@ -9173,6 +9200,44 @@ async def create_public_appointment(org_id: str, data: AppointmentCreate, reques
                     ),
                     worker_id="public_booking_confirmation",
                 )
+                premium = await organization_has_premium(db, org_id)
+                if whatsapp_enabled(
+                    organization.get("notification_settings"), "confirmation", premium=premium
+                ):
+                    client = await db.clients.find_one(
+                        {"organization_id": org_id, "phone": sanitized_phone},
+                        {"_id": 0, "messaging_consent": 1, "messaging_opt_out_at": 1},
+                    )
+                    allowed, reason = messaging_status(client, organization)
+                    if not allowed:
+                        logger.info("appointment_confirmation_whatsapp_skipped appointment_id=%s reason=%s", appointment_id, reason)
+                    else:
+                        language = profile_for(organization)["portal_language"]
+                        if language == "en":
+                            text = (
+                                f"Your appointment at {organization_name} is confirmed for {data.date} at {data.time}. "
+                                f"Service: {service.get('name', 'Booked service')}."
+                            )
+                        else:
+                            text = (
+                                f"Tu cita en {organization_name} está confirmada para {data.date} a las {data.time}. "
+                                f"Servicio: {service.get('name', 'Servicio reservado')}."
+                            )
+                        if profile_for(organization)["messaging_consent_required"]:
+                            text = f"{text} {stop_footer(language)}"
+                        result = await whatsapp_service.send_whatsapp_message(
+                            db,
+                            to_phone=sanitized_phone,
+                            message=text,
+                            organization_id=org_id,
+                            context="appointment_confirmation",
+                            language=language,
+                        )
+                        logger.info(
+                            "appointment_confirmation_whatsapp_result appointment_id=%s accepted=%s",
+                            appointment_id,
+                            bool(result.get("accepted")),
+                        )
                 if organization.get("notification_settings", {}).get("admin_new_appointment", True):
                     admin_user = await db.users.find_one(
                         {
