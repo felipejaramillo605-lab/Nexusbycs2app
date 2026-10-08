@@ -17,6 +17,7 @@ import { PREMIUM_TEMPLATE_KEYS } from '../portal-templates';
 import PortalCustomizationPanel from '../components/PortalCustomizationPanel';
 import OrganizationLogoUpload from '../components/OrganizationLogoUpload';
 import PremiumPlanRequestCard from '../components/PremiumPlanRequestCard';
+import EmailLabelsCard from '../components/EmailLabelsCard';
 
 const TABS = {
   general: { key: 'general', label: 'General', icon: SettingsIcon },
@@ -91,6 +92,8 @@ const Settings = () => {
   const [messagingCapabilities, setMessagingCapabilities] = useState({ email: true, whatsapp: false, premium_required_message: '' });
   const [appointmentChannels, setAppointmentChannels] = useState({ confirmation_whatsapp: false, reminder_whatsapp: false });
   const [savingAppointmentChannels, setSavingAppointmentChannels] = useState(false);
+  const [emailLabels, setEmailLabels] = useState({ custom: {}, effective: {} });
+  const [savingEmailLabels, setSavingEmailLabels] = useState(false);
 
   // Team Management State
   const [teamMembers, setTeamMembers] = useState([]);
@@ -157,6 +160,7 @@ const Settings = () => {
           whatsapp_enabled: !!ns.low_stock_alert_whatsapp_enabled,
         });
         setMessagingCapabilities(data.messaging_channel_capabilities || { email: true, whatsapp: false });
+        setEmailLabels({ custom: data.email_labels || {}, effective: data.email_labels_effective || {} });
         setAppointmentChannels({
           confirmation_whatsapp: !!ns.appointment_confirmation_whatsapp_enabled,
           reminder_whatsapp: !!ns.appointment_reminder_whatsapp_enabled,
@@ -341,6 +345,20 @@ const Settings = () => {
       toast.error(`Error: ${requestErrorMessage(error, 'No se pudo guardar')}`);
     } finally {
       setSavingLowStock(false);
+    }
+  };
+
+  const handleSaveEmailLabels = async (labels) => {
+    setSavingEmailLabels(true);
+    try {
+      await organizationAPI.update(organizationId, { email_labels: labels });
+      toast.success('Correos de citas actualizados');
+      await loadOrganization();
+      await refreshOrganization(organizationId);
+    } catch (error) {
+      toast.error(`Error: ${requestErrorMessage(error, 'No se pudo guardar')}`);
+    } finally {
+      setSavingEmailLabels(false);
     }
   };
 
@@ -828,6 +846,8 @@ const Settings = () => {
               {messagingCapabilities.whatsapp && <button type="submit" disabled={savingAppointmentChannels} className="w-full py-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-medium transition-all disabled:opacity-50 flex items-center justify-center gap-2">{savingAppointmentChannels ? <><Loader2 size={18} className="animate-spin" />Guardando...</> : <><Save size={18} />Guardar canales Premium</>}</button>}
             </form>
           </div>
+
+          <EmailLabelsCard custom={emailLabels.custom} effective={emailLabels.effective} onSave={handleSaveEmailLabels} saving={savingEmailLabels} />
 
           {/* NEXUS_REVIEW_REQUEST_SETTINGS_UI_V1 — CARD Solicitud automática de reseñas */}
           <div data-testid="review-request-settings-card" className="backdrop-blur-xl bg-white/3 border border-[var(--app-border)] rounded-2xl p-6">
