@@ -10,7 +10,9 @@ import { useCart } from '../lib/cart';
 import ClientPortalNav from '../components/ClientPortalNav';
 import { formatCOP as money } from '../lib/currency';
 
+import { usePortalT } from '../lib/portalI18n';
 export default function ClientCatalog() {
+  const { t } = usePortalT();
   const { orgId } = useParams();
   const navigate = useNavigate();
   const { organization, loadOrganization } = useOrganization();
@@ -42,7 +44,7 @@ export default function ClientCatalog() {
   const handleAdd = () => {
     if (!selected) return;
     cart.add(selected, qty);
-    toast.success(`${selected.name} agregado al carrito`);
+    toast.success(t('{0} agregado al carrito', selected.name));
     setSelected(null);
   };
 
@@ -50,8 +52,8 @@ export default function ClientCatalog() {
     return (
       <div className="nexus-client-theme min-h-screen flex flex-col items-center justify-center gap-4 p-8 text-center" style={{ background: 'var(--app-background, #0a0a0a)' }}>
         <ShoppingBag size={40} className="text-[var(--app-text-secondary)]" />
-        <h1 className="text-xl font-semibold text-[var(--app-text-primary)]">Catálogo no disponible</h1>
-        <p className="text-[var(--app-text-secondary)] max-w-sm">Este negocio no tiene un catálogo de productos activo en este momento.</p>
+        <h1 className="text-xl font-semibold text-[var(--app-text-primary)]">{t('Catálogo no disponible')}</h1>
+        <p className="text-[var(--app-text-secondary)] max-w-sm">{t('Este negocio no tiene un catálogo de productos activo en este momento.')}</p>
         <ClientPortalNav orgId={orgId} />
       </div>
     );
@@ -63,8 +65,8 @@ export default function ClientCatalog() {
       <div className="max-w-6xl mx-auto px-4 py-8">
         <header className="mb-8 text-center">
           <ShoppingBag size={32} className="mx-auto mb-2 text-[var(--app-primary)]" />
-          <h1 className="text-3xl font-semibold text-[var(--app-text-primary)]">Catálogo de {organization?.name || 'productos'}</h1>
-          <p className="text-[var(--app-text-secondary)] mt-1">Agrega productos a tu carrito y llévalos a tu próxima cita, o compra directo.</p>
+          <h1 className="text-3xl font-semibold text-[var(--app-text-primary)]">{t('Catálogo de')} {organization?.name || 'productos'}</h1>
+          <p className="text-[var(--app-text-secondary)] mt-1">{t('Agrega productos a tu carrito y llévalos a tu próxima cita, o compra directo.')}</p>
         </header>
 
         {loading ? (
@@ -74,7 +76,7 @@ export default function ClientCatalog() {
         ) : !products.length ? (
           <div className="text-center py-20">
             <ShoppingBag size={40} className="mx-auto mb-3 text-[var(--app-text-secondary)]" />
-            <p className="text-[var(--app-text-secondary)]">Aún no hay productos publicados.</p>
+            <p className="text-[var(--app-text-secondary)]">{t('Aún no hay productos publicados.')}</p>
           </div>
         ) : (
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
@@ -91,7 +93,7 @@ export default function ClientCatalog() {
                     <ImageOff size={28} className="text-[var(--app-text-secondary)]" />
                   )}
                   {!p.in_stock && (
-                    <span className="absolute top-2 right-2 px-2 py-1 rounded-full text-[10px] font-medium bg-black/70 text-white">Agotado</span>
+                    <span className="absolute top-2 right-2 px-2 py-1 rounded-full text-[10px] font-medium bg-black/70 text-white">{t('Agotado')}</span>
                   )}
                 </div>
                 <div className="p-3">
@@ -135,7 +137,7 @@ export default function ClientCatalog() {
               {selected.in_stock ? (
                 <>
                   <div className="flex items-center gap-3">
-                    <span className="text-sm text-[var(--app-text-secondary)]">Cantidad</span>
+                    <span className="text-sm text-[var(--app-text-secondary)]">{t('Cantidad')}</span>
                     <div className="flex items-center gap-2 border border-[var(--app-border)] rounded-xl">
                       <button onClick={() => setQty(q => Math.max(1, q - 1))} className="p-2"><Minus size={16} /></button>
                       <span className="w-8 text-center text-[var(--app-text-primary)]">{qty}</span>
@@ -143,11 +145,11 @@ export default function ClientCatalog() {
                     </div>
                   </div>
                   <button onClick={handleAdd} className="w-full py-3 rounded-xl bg-[var(--app-primary)] text-white font-medium flex items-center justify-center gap-2">
-                    <ShoppingCart size={18} />Agregar al carrito
+                    <ShoppingCart size={18} />{t('Agregar al carrito')}
                   </button>
                 </>
               ) : (
-                <div className="w-full py-3 rounded-xl bg-white/5 text-center text-[var(--app-text-secondary)]">Producto agotado por ahora</div>
+                <div className="w-full py-3 rounded-xl bg-white/5 text-center text-[var(--app-text-secondary)]">{t('Producto agotado por ahora')}</div>
               )}
             </div>
           </div>

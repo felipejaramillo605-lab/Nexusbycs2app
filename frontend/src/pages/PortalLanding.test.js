@@ -12,7 +12,10 @@ jest.mock('react-router-dom', () => ({
   Link: ({ children, to, ...props }) => <a href={to} {...props}>{children}</a>,
   useParams: () => ({ orgId: 'org_1' }),
 }), { virtual: true });
-jest.mock('../context/OrganizationContext', () => ({ useOrganization: () => ({ organization: mockOrg() }) }));
+jest.mock('../context/OrganizationContext', () => ({
+  useOrganization: () => ({ organization: mockOrg() }),
+  useOptionalOrganization: () => ({ organization: mockOrg() }),
+}));
 jest.mock('../api', () => ({
   publicAPI: { getServices: (...args) => mockServices(...args), getMembershipPlans: (...args) => mockPlans(...args) },
 }));
@@ -112,4 +115,20 @@ test('contact lists the business data and a safe WhatsApp link', async () => {
   expect(links.some((href) => href.startsWith('https://wa.me/573115587587'))).toBe(true);
   expect(links.some((href) => href.startsWith('https://www.google.com/maps/search/'))).toBe(true);
   expect(links).toContain('tel:3115587587');
+});
+
+test('a US organization opens the landing in English, with the switch to go back to Spanish', async () => {
+  const plan = { plan_id: 'p1', name: 'Energy', price: 440, billing_cycle_days: 30, classes_per_cycle: 8, unlimited: false, services: [{ service_id: 's1', name: 'Hot Barre' }] };
+  await mount({ organization: { ...org, operating_country: 'US', whatsapp_link: 'https://wa.me/13055551234' }, services: [hotBarre], plans: [plan] });
+  const nav = container.querySelector('.nexus-landing-nav');
+  expect(Array.from(nav.querySelectorAll('nav a')).map((a) => a.textContent)).toEqual(['Experiences', 'Plans', 'Contact']);
+  expect(nav.querySelector('.nexus-landing-login').textContent).toBe('Sign in');
+  expect(container.querySelector('.nexus-landing-hero .nexus-landing-reserve').textContent).toBe('Book a class');
+  const card = container.querySelector('[data-testid="landing-plan"]');
+  expect(card.textContent).toContain('8 classes');
+  expect(card.textContent).toContain('Valid for: 1 month');
+  const text = new URL(card.querySelector('a.nexus-landing-reserve').getAttribute('href')).searchParams.get('text');
+  expect(text).toContain('I would like the Energy plan');
+  expect(text).toContain('valid for 1 month');
+  expect(container.querySelector('[data-testid="portal-language-switch"]')).not.toBeNull();
 });

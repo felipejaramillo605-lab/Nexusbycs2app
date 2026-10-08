@@ -4,7 +4,9 @@ import { Star, X, MessageSquare, ExternalLink } from 'lucide-react';
 import { toast } from 'sonner';
 import { api } from '../api';
 
+import { usePortalT } from '../lib/portalI18n';
 export default function ReviewModal({ appointment, googleReview, onSubmitted, onSkip }) {
+  const { t } = usePortalT();
   const [rating, setRating] = useState(0);
   const [hoverRating, setHoverRating] = useState(0);
   const [comment, setComment] = useState('');
@@ -15,7 +17,7 @@ export default function ReviewModal({ appointment, googleReview, onSubmitted, on
 
   const handleSubmit = async () => {
     if (rating < 1) {
-      toast.error('Selecciona una calificación de 1 a 5 estrellas');
+      toast.error(t('Selecciona una calificación de 1 a 5 estrellas'));
       return;
     }
     setSubmitting(true);
@@ -25,14 +27,14 @@ export default function ReviewModal({ appointment, googleReview, onSubmitted, on
         professional_rating: rating,
         comment: comment.trim() || undefined,
       });
-      toast.success('¡Gracias por tu calificación!');
+      toast.success(t('¡Gracias por tu calificación!'));
       setSubmitted(true);
     } catch (error) {
       if (error.response?.status === 409) {
-        toast.error('Ya habías calificado esta cita');
+        toast.error(t('Ya habías calificado esta cita'));
         if (onSubmitted) onSubmitted(appointment.appointment_id);
       } else {
-        toast.error(error.response?.data?.detail || 'No fue posible enviar tu calificación');
+        toast.error(error.response?.data?.detail || t('No fue posible enviar tu calificación'));
       }
     } finally {
       setSubmitting(false);
@@ -53,7 +55,7 @@ export default function ReviewModal({ appointment, googleReview, onSubmitted, on
         <button
           onClick={handleClose}
           className="absolute top-4 right-4 text-zinc-500 hover:text-white transition-colors"
-          aria-label="Cerrar"
+          aria-label={t('Cerrar')}
         >
           <X size={20} />
         </button>
@@ -62,7 +64,7 @@ export default function ReviewModal({ appointment, googleReview, onSubmitted, on
           <>
             <div className="flex items-center gap-2 mb-1">
               <MessageSquare size={18} className="text-blue-400" />
-              <h2 className="text-lg font-semibold text-white">¿Cómo estuvo tu cita?</h2>
+              <h2 className="text-lg font-semibold text-white">{t('¿Cómo estuvo tu cita?')}</h2>
             </div>
             <div className="flex flex-col items-center mb-4" data-marker="barber_avatar_display">
               {appointment.barber_avatar ? (
@@ -75,7 +77,7 @@ export default function ReviewModal({ appointment, googleReview, onSubmitted, on
                 </div>
               )}
               <p className="text-sm text-zinc-400">
-                Con {appointment.barber_name} · {appointment.service_name}
+               {t('Con')} {appointment.barber_name} · {appointment.service_name}
               </p>
             </div>
 
@@ -102,7 +104,7 @@ export default function ReviewModal({ appointment, googleReview, onSubmitted, on
             <textarea
               value={comment}
               onChange={(e) => setComment(e.target.value.slice(0, 500))}
-              placeholder="Cuéntanos algo más sobre tu experiencia (opcional)"
+              placeholder={t('Cuéntanos algo más sobre tu experiencia (opcional)')}
               className="w-full min-h-[88px] p-3 rounded-xl bg-white/5 border border-white/10 text-white text-sm placeholder-zinc-500 focus:outline-none focus:border-blue-500/50 resize-none mb-4"
               maxLength={500}
             />
@@ -112,13 +114,13 @@ export default function ReviewModal({ appointment, googleReview, onSubmitted, on
               disabled={submitting || rating < 1}
               className="w-full py-3 bg-blue-500 hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed text-white font-medium rounded-xl transition-colors"
             >
-              {submitting ? 'Enviando...' : 'Enviar calificación'}
+              {submitting ? t('Enviando...') : t('Enviar calificación')}
             </button>
             <button
               onClick={handleClose}
               className="w-full py-2 mt-2 text-sm text-zinc-500 hover:text-zinc-300 transition-colors"
             >
-              Ahora no
+             {t('Ahora no')}
             </button>
           </>
         ) : (
@@ -126,13 +128,13 @@ export default function ReviewModal({ appointment, googleReview, onSubmitted, on
             <div className="w-14 h-14 mx-auto mb-3 rounded-2xl bg-green-500/15 flex items-center justify-center">
               <Star size={26} className="text-green-400" fill="currentColor" />
             </div>
-            <h2 className="text-lg font-semibold text-white mb-1">¡Gracias por tu calificación!</h2>
-            <p className="text-sm text-zinc-400 mb-5">Tu opinión nos ayuda a mejorar.</p>
+            <h2 className="text-lg font-semibold text-white mb-1">{t('¡Gracias por tu calificación!')}</h2>
+            <p className="text-sm text-zinc-400 mb-5">{t('Tu opinión nos ayuda a mejorar.')}</p>
 
             {googleReview?.enabled && googleReview?.link && (
               <>
                 <p className="text-sm text-zinc-300 mb-3">
-                  ¿Quieres compartir también tu experiencia en Google?
+                 {t('¿Quieres compartir también tu experiencia en Google?')}
                 </p>
                 <a
                   href={googleReview.link}
@@ -141,7 +143,7 @@ export default function ReviewModal({ appointment, googleReview, onSubmitted, on
                   className="w-full flex items-center justify-center gap-2 py-3 bg-white/5 hover:bg-white/10 border border-white/10 text-white font-medium rounded-xl transition-colors mb-2"
                 >
                   <ExternalLink size={16} />
-                  Dejar reseña en Google
+                 {t('Dejar reseña en Google')}
                 </a>
               </>
             )}
@@ -149,7 +151,7 @@ export default function ReviewModal({ appointment, googleReview, onSubmitted, on
               onClick={handleClose}
               className="w-full py-2 text-sm text-zinc-500 hover:text-zinc-300 transition-colors"
             >
-              Cerrar
+             {t('Cerrar')}
             </button>
           </div>
         )}

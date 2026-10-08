@@ -1,7 +1,8 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { useClientPortalOrganizationTheme } from '../hooks/useClientPortalOrganizationTheme';
 import OnboardingTour from './onboarding/OnboardingTour';
 import PortalWhatsAppButton from './PortalWhatsAppButton';
+import { usePortalT } from '../lib/portalI18n';
 import '../portal-templates/landing.css';
 import '../portal-templates/premium/barberia-real/barberia-real.css';
 import '../portal-templates/premium/bloom/bloom.css';
@@ -30,6 +31,13 @@ export const ClientPortalThemeWrapper = ({ children }) => {
     organization,
     orgId,
   } = useClientPortalOrganizationTheme();
+  const { lang } = usePortalT();
+  // Idioma del documento para lectores de pantalla y traductores del navegador.
+  useEffect(() => {
+    const previous = document.documentElement.lang;
+    document.documentElement.lang = lang;
+    return () => { document.documentElement.lang = previous; };
+  }, [lang]);
 
   return (
     <div

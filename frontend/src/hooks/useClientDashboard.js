@@ -3,8 +3,10 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { toast } from 'sonner';
 import { api } from '../api';
 
+import { usePortalT } from '../lib/portalI18n';
 /** Profile, history, membership, class and account mutations for the dashboard. */
 export function useClientDashboard() {
+  const { t } = usePortalT();
   const { orgId } = useParams();
   const navigate = useNavigate();
 
@@ -49,25 +51,25 @@ export function useClientDashboard() {
     setBookingSessionId(classSessionId);
     try {
       await api.post(`/public/clients/class-sessions/${classSessionId}/book`, { spot_label: spotLabel || null });
-      toast.success('Cupo reservado');
+      toast.success(t('Cupo reservado'));
       setPickingSpotFor(null);
       await loadClasses();
     } catch (error) {
       const detail = error.response?.data?.detail;
-      toast.error((typeof detail === 'object' ? detail?.message : detail) || 'No fue posible reservar el cupo');
+      toast.error((typeof detail === 'object' ? detail?.message : detail) || t('No fue posible reservar el cupo'));
     } finally {
       setBookingSessionId(null);
     }
   };
 
   const handleCancelClassBooking = async (classBookingId) => {
-    if (!window.confirm('¿Cancelar tu cupo en esta clase?')) return;
+    if (!window.confirm(t('¿Cancelar tu cupo en esta clase?'))) return;
     try {
       await api.post(`/public/clients/class-bookings/${classBookingId}/cancel`, {});
-      toast.success('Cupo cancelado');
+      toast.success(t('Cupo cancelado'));
       await loadClasses();
     } catch (error) {
-      toast.error(error.response?.data?.detail || 'No fue posible cancelar el cupo');
+      toast.error(error.response?.data?.detail || t('No fue posible cancelar el cupo'));
     }
   };
 
@@ -75,10 +77,10 @@ export function useClientDashboard() {
     setBookingSessionId(classSessionId);
     try {
       await api.post(`/public/clients/class-sessions/${classSessionId}/waitlist`, {});
-      toast.success('Te uniste a la lista de espera');
+      toast.success(t('Te uniste a la lista de espera'));
       await loadClasses();
     } catch (error) {
-      toast.error(error.response?.data?.detail || 'No fue posible unirte a la lista de espera');
+      toast.error(error.response?.data?.detail || t('No fue posible unirte a la lista de espera'));
     } finally {
       setBookingSessionId(null);
     }
@@ -87,10 +89,10 @@ export function useClientDashboard() {
   const handleLeaveWaitlist = async (waitlistId) => {
     try {
       await api.post(`/public/clients/waitlist/${waitlistId}/leave`, {});
-      toast.success('Saliste de la lista de espera');
+      toast.success(t('Saliste de la lista de espera'));
       await loadClasses();
     } catch (error) {
-      toast.error(error.response?.data?.detail || 'No fue posible salir de la lista de espera');
+      toast.error(error.response?.data?.detail || t('No fue posible salir de la lista de espera'));
     }
   };
 
@@ -115,15 +117,15 @@ export function useClientDashboard() {
       setAppointments(historyResponse.data.appointments || []);
     } catch (error) {
       if (error.response?.status === 401) {
-        toast.error('Sesión expirada. Inicia sesión nuevamente.');
+        toast.error(t('Sesión expirada. Inicia sesión nuevamente.'));
         navigate(`/portal/${orgId}/auth`);
       } else {
-        toast.error('Error al cargar tus datos');
+        toast.error(t('Error al cargar tus datos'));
       }
     } finally {
       setLoading(false);
     }
-  }, [orgId, navigate]);
+  }, [orgId, navigate, t]);
 
   useEffect(() => {
     loadDashboardData();
@@ -133,26 +135,26 @@ export function useClientDashboard() {
   const handleLogout = async () => {
     try {
       await api.post('/public/clients/logout', {});
-      toast.success('Sesión cerrada');
+      toast.success(t('Sesión cerrada'));
       navigate(`/portal/${orgId}/auth`);
     } catch (error) {
-      toast.error('Error al cerrar sesión');
+      toast.error(t('Error al cerrar sesión'));
     }
   };
 
   const handleCancelAppointment = async (appointmentId) => {
-    if (!window.confirm('¿Estás seguro de cancelar esta cita?')) return;
+    if (!window.confirm(t('¿Estás seguro de cancelar esta cita?'))) return;
     try {
       await api.post(`/public/clients/appointments/${appointmentId}/cancel`, {});
-      toast.success('Cita cancelada exitosamente');
+      toast.success(t('Cita cancelada exitosamente'));
       loadDashboardData();
     } catch (error) {
       if (error.response?.status === 404) {
-        toast.error('Esta cita ya no existe o fue cancelada');
+        toast.error(t('Esta cita ya no existe o fue cancelada'));
       } else if (error.response?.status === 400) {
-        toast.error(error.response.data.detail || 'No se puede cancelar esta cita');
+        toast.error(error.response.data.detail || t('No se puede cancelar esta cita'));
       } else {
-        toast.error('Error al cancelar la cita');
+        toast.error(t('Error al cancelar la cita'));
       }
       loadDashboardData();
     }
@@ -161,35 +163,35 @@ export function useClientDashboard() {
   const handleChangePin = async (event) => {
     event.preventDefault();
     if (!/^\d{4}$/.test(currentPin)) {
-      toast.error('El PIN actual debe ser de 4 dígitos');
+      toast.error(t('El PIN actual debe ser de 4 dígitos'));
       return;
     }
     if (!/^\d{4}$/.test(newPin)) {
-      toast.error('El nuevo PIN debe ser de 4 dígitos');
+      toast.error(t('El nuevo PIN debe ser de 4 dígitos'));
       return;
     }
     if (newPin !== confirmNewPin) {
-      toast.error('Los PINs nuevos no coinciden');
+      toast.error(t('Los PINs nuevos no coinciden'));
       return;
     }
     if (currentPin === newPin) {
-      toast.error('El nuevo PIN debe ser diferente al actual');
+      toast.error(t('El nuevo PIN debe ser diferente al actual'));
       return;
     }
 
     setChangingPin(true);
     try {
       await api.post('/public/clients/change-pin', { current_pin: currentPin, new_pin: newPin });
-      toast.success('PIN actualizado exitosamente');
+      toast.success(t('PIN actualizado exitosamente'));
       setShowChangePinModal(false);
       setCurrentPin('');
       setNewPin('');
       setConfirmNewPin('');
     } catch (error) {
       if (error.response?.status === 401) {
-        toast.error('PIN actual incorrecto');
+        toast.error(t('PIN actual incorrecto'));
       } else {
-        toast.error(error.response?.data?.detail || 'Error al cambiar el PIN');
+        toast.error(error.response?.data?.detail || t('Error al cambiar el PIN'));
       }
     } finally {
       setChangingPin(false);
@@ -199,11 +201,11 @@ export function useClientDashboard() {
   const handleDeleteAccount = async (event) => {
     event.preventDefault();
     if (deleteConfirmText !== 'ELIMINAR') {
-      toast.error('Debes escribir ELIMINAR en mayúsculas para confirmar');
+      toast.error(t('Debes escribir ELIMINAR en mayúsculas para confirmar'));
       return;
     }
     if (!/^\d{4}$/.test(deletePin)) {
-      toast.error('Ingresa tu PIN actual (4 dígitos)');
+      toast.error(t('Ingresa tu PIN actual (4 dígitos)'));
       return;
     }
 
@@ -213,13 +215,13 @@ export function useClientDashboard() {
         data: { current_pin: deletePin },
         params: { organization_id: orgId },
       });
-      toast.success('Cuenta eliminada exitosamente');
+      toast.success(t('Cuenta eliminada exitosamente'));
       navigate(`/book/${orgId}`);
     } catch (error) {
       if (error.response?.status === 401) {
-        toast.error('PIN incorrecto');
+        toast.error(t('PIN incorrecto'));
       } else {
-        toast.error(error.response?.data?.detail || 'Error al eliminar la cuenta');
+        toast.error(error.response?.data?.detail || t('Error al eliminar la cuenta'));
       }
     } finally {
       setDeleting(false);
