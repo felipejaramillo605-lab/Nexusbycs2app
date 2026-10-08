@@ -8,7 +8,9 @@ import { useCart } from '../lib/cart';
 import ClientPortalNav from '../components/ClientPortalNav';
 import { formatCOP as money } from '../lib/currency';
 
+import { usePortalT } from '../lib/portalI18n';
 export default function ClientCart() {
+  const { t } = usePortalT();
   const { orgId } = useParams();
   const navigate = useNavigate();
   const { organization } = useOrganization();
@@ -20,19 +22,19 @@ export default function ClientCart() {
       <ClientPortalNav orgId={orgId} />
       <div className="max-w-2xl mx-auto px-4 py-8">
         <button onClick={() => navigate(`/portal/${orgId}/catalog`)} className="flex items-center gap-2 text-sm text-[var(--app-text-secondary)] mb-4">
-          <ArrowLeft size={16} />Seguir comprando
+          <ArrowLeft size={16} />{t('Seguir comprando')}
         </button>
 
         <h1 className="text-2xl font-semibold text-[var(--app-text-primary)] mb-6 flex items-center gap-2">
-          <ShoppingCart size={24} />Tu carrito
+          <ShoppingCart size={24} />{t('Tu carrito')}
         </h1>
 
         {!cart.items.length ? (
           <div className="text-center py-16">
             <ShoppingCart size={40} className="mx-auto mb-3 text-[var(--app-text-secondary)]" />
-            <p className="text-[var(--app-text-secondary)] mb-4">Tu carrito está vacío</p>
+            <p className="text-[var(--app-text-secondary)] mb-4">{t('Tu carrito está vacío')}</p>
             <button onClick={() => navigate(`/portal/${orgId}/catalog`)} className="px-4 py-2 rounded-xl bg-[var(--app-primary)] text-white text-sm font-medium">
-              Ver catálogo
+             {t('Ver catálogo')}
             </button>
           </div>
         ) : (
@@ -59,21 +61,21 @@ export default function ClientCart() {
 
             <div className="p-4 rounded-2xl border border-[var(--app-border)] bg-[var(--app-surface)] mb-6">
               <div className="flex justify-between text-lg font-semibold text-[var(--app-text-primary)]">
-                <span>Total</span>
+                <span>{t('Total')}</span>
                 <span>{money(cart.total)}</span>
               </div>
             </div>
 
             <div className="space-y-3">
               <button onClick={() => navigate(`/book/${orgId}`)} className="w-full py-3 rounded-xl bg-[var(--app-primary)] text-white font-medium flex items-center justify-center gap-2">
-                <Calendar size={18} />Agendar una cita y llevar estos productos
+                <Calendar size={18} />{t('Agendar una cita y llevar estos productos')}
               </button>
               <button onClick={() => navigate(`/portal/${orgId}/catalog/checkout`)} className="w-full py-3 rounded-xl border border-[var(--app-border)] text-[var(--app-text-primary)] font-medium flex items-center justify-center gap-2">
-                <CreditCard size={18} />Solo comprar productos (sin cita)
+                <CreditCard size={18} />{t('Solo comprar productos (sin cita)')}
               </button>
             </div>
             <p className="text-xs text-[var(--app-text-secondary)] text-center mt-4">
-              El pago se realiza en el momento de tu cita o al retirar/coordinar la entrega con el negocio.
+             {t('El pago se realiza en el momento de tu cita o al retirar/coordinar la entrega con el negocio.')}
             </p>
           </>
         )}

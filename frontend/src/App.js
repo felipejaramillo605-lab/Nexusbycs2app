@@ -22,6 +22,8 @@ import { RouteExperienceFrame } from './components/design';
 import { ClientPortalThemeWrapper } from './components/ClientPortalThemeWrapper';
 import { settingsTabRedirectLocation } from './routing/settingsTabRedirect';
 import ConsentBanner from './components/ConsentBanner';
+import FeatureGate from './components/FeatureGate';
+import { FEATURES } from './lib/countryProfile';
 
 // NEXUS_FRONTEND_PERFORMANCE_4C1_V1
 const ReactQueryDevtools = process.env.NODE_ENV === 'development'
@@ -264,15 +266,15 @@ function AppRouter() {
 
         <Route
           path="/manager/wellbeing"
-          element={<ProtectedRoute allowedRoles={['owner', 'manager', 'admin']}><Suspense fallback={<PageLoader />}><ManagerWellbeing /></Suspense></ProtectedRoute>}
+          element={<ProtectedRoute allowedRoles={['owner', 'manager', 'admin']}><FeatureGate feature={FEATURES.HR}><Suspense fallback={<PageLoader />}><ManagerWellbeing /></Suspense></FeatureGate></ProtectedRoute>}
         />
         <Route
           path="/manager/hr"
-          element={<ProtectedRoute allowedRoles={['owner', 'manager', 'admin']}><Suspense fallback={<PageLoader />}><ManagerHR /></Suspense></ProtectedRoute>}
+          element={<ProtectedRoute allowedRoles={['owner', 'manager', 'admin']}><FeatureGate feature={FEATURES.HR}><Suspense fallback={<PageLoader />}><ManagerHR /></Suspense></FeatureGate></ProtectedRoute>}
         />
         <Route
           path="/manager/payroll"
-          element={<ProtectedRoute allowedRoles={['owner', 'manager', 'admin']}><Suspense fallback={<PageLoader />}><PayrollPage /></Suspense></ProtectedRoute>}
+          element={<ProtectedRoute allowedRoles={['owner', 'manager', 'admin']}><FeatureGate feature={FEATURES.PAYROLL}><Suspense fallback={<PageLoader />}><PayrollPage /></Suspense></FeatureGate></ProtectedRoute>}
         />
         <Route
           path="/manager/capacity"
@@ -343,7 +345,9 @@ function AppRouter() {
           path="/manager/marketing"
           element={
             <ProtectedRoute allowedRoles={['owner', 'manager', 'admin']}>
-              <MarketingCampaigns />
+              <FeatureGate feature={FEATURES.MARKETING}>
+                <MarketingCampaigns />
+              </FeatureGate>
             </ProtectedRoute>
           }
         />
@@ -388,8 +392,8 @@ function AppRouter() {
 
         <Route path="/inventory/count/:countId" element={<ProtectedRoute allowedRoles={['manager', 'admin', 'staff']}><Suspense fallback={<PageLoader />}><InventoryCountSheet /></Suspense></ProtectedRoute>} />
 
-        <Route path="/staff/bienestar" element={<ProtectedRoute requiredRole="staff"><Suspense fallback={<PageLoader />}><StaffWellbeing /></Suspense></ProtectedRoute>} />
-        <Route path="/staff/autogestion" element={<ProtectedRoute requiredRole="staff"><Suspense fallback={<PageLoader />}><StaffSelfService /></Suspense></ProtectedRoute>} />
+        <Route path="/staff/bienestar" element={<ProtectedRoute requiredRole="staff"><FeatureGate feature={FEATURES.HR} shell="staff"><Suspense fallback={<PageLoader />}><StaffWellbeing /></Suspense></FeatureGate></ProtectedRoute>} />
+        <Route path="/staff/autogestion" element={<ProtectedRoute requiredRole="staff"><FeatureGate feature={FEATURES.HR} shell="staff"><Suspense fallback={<PageLoader />}><StaffSelfService /></Suspense></FeatureGate></ProtectedRoute>} />
 
         {/* NEXUS_GUIDE_V9 */}
         <Route path="/owner/guia" element={<ProtectedRoute requiredRole="owner"><GuideModule /></ProtectedRoute>} />

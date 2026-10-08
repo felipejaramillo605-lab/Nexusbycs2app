@@ -4,7 +4,9 @@ import { Link } from 'react-router-dom';
 import { Lock, LogIn, UserPlus, ArrowLeft, Loader2, Eye, EyeOff, Cake } from 'lucide-react';
 import { useClientPortalAuth } from '../hooks/useClientPortalAuth';
 
+import { usePortalT } from '../lib/portalI18n';
 export default function ClientPortalAuth() {
+  const { t } = usePortalT();
   const {
     orgId, mode, setMode, phone, setPhone, name, setName, pin, setPin, birthday,
     setBirthday, showPin, setShowPin, marketingConsent, setMarketingConsent, termsAccepted, setTermsAccepted, loading,
@@ -17,12 +19,12 @@ export default function ClientPortalAuth() {
         <div className="text-center mb-8">
           <Link to={`/book/${orgId}`} className="inline-flex items-center gap-2 text-[var(--app-text-secondary)] hover:text-[var(--app-text-primary)] transition-colors mb-6">
             <ArrowLeft size={16} />
-            <span className="text-sm">Volver a reservar</span>
+            <span className="text-sm">{t('Volver a reservar')}</span>
           </Link>
           <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-[var(--app-primary)] to-[var(--app-primary-hover)] flex items-center justify-center mx-auto mb-4">
             <Lock size={28} className="text-white" />
           </div>
-          <h1 className="text-2xl font-bold text-[var(--app-text-primary)] mb-2">Portal de Clientes</h1>
+          <h1 className="text-2xl font-bold text-[var(--app-text-primary)] mb-2">{t('Portal de Clientes')}</h1>
           <p className="text-[var(--app-text-secondary)] text-sm">{organizationName}</p>
         </div>
 
@@ -38,7 +40,7 @@ export default function ClientPortalAuth() {
             }`}
           >
             <LogIn size={16} className="inline mr-2" />
-            Iniciar Sesión
+           {t('Iniciar Sesión')}
           </button>
           <button
             data-testid="portal-register-tab"
@@ -50,7 +52,7 @@ export default function ClientPortalAuth() {
             }`}
           >
             <UserPlus size={16} className="inline mr-2" />
-            Registrarse
+           {t('Registrarse')}
           </button>
         </div>
 
@@ -59,7 +61,7 @@ export default function ClientPortalAuth() {
           {/* Phone */}
           <div>
             <label className="block text-sm font-medium text-[var(--app-text-secondary)] mb-2">
-              Teléfono
+             {t('Teléfono')}
             </label>
             <input
               data-testid="portal-phone-input"
@@ -76,14 +78,14 @@ export default function ClientPortalAuth() {
           {mode === 'register' && (
             <div>
               <label className="block text-sm font-medium text-[var(--app-text-secondary)] mb-2">
-                Nombre completo
+               {t('Nombre completo')}
               </label>
               <input
                 data-testid="portal-name-input"
                 type="text"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                placeholder="Juan Pérez"
+                placeholder={t('Juan Pérez')}
                 required
                 maxLength={100}
                 className="w-full px-4 py-3 bg-[var(--app-surface-solid)] border border-[var(--app-border)] rounded-xl text-[var(--app-text-primary)] placeholder-[var(--app-text-muted)] focus:outline-none focus:ring-2 focus:ring-[var(--app-focus-ring)]"
@@ -96,7 +98,7 @@ export default function ClientPortalAuth() {
             <div>
               <label className="block text-sm font-medium text-[var(--app-text-secondary)] mb-2">
                 <Cake size={14} className="inline mr-1.5 -mt-0.5" />
-                Fecha de cumpleaños <span className="text-[var(--app-text-muted)] font-normal">(opcional)</span>
+               {t('Fecha de cumpleaños')} <span className="text-[var(--app-text-muted)] font-normal">{t('(opcional)')}</span>
               </label>
               <input
                 data-testid="portal-birthday-input"
@@ -106,7 +108,7 @@ export default function ClientPortalAuth() {
                 className="w-full px-4 py-3 bg-[var(--app-surface-solid)] border border-[var(--app-border)] rounded-xl text-[var(--app-text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--app-focus-ring)]"
               />
               <p className="text-xs text-[var(--app-text-muted)] mt-1">
-                Así podemos sorprenderte con algo especial ese día
+               {t('Así podemos sorprenderte con algo especial ese día')}
               </p>
             </div>
           )}
@@ -114,7 +116,7 @@ export default function ClientPortalAuth() {
           {/* PIN */}
           <div>
             <label className="block text-sm font-medium text-[var(--app-text-secondary)] mb-2">
-              PIN de 4 dígitos
+             {t('PIN de 4 dígitos')}
             </label>
             <div className="relative">
               <input
@@ -141,7 +143,7 @@ export default function ClientPortalAuth() {
             </div>
             {mode === 'register' && (
               <p className="text-xs text-[var(--app-text-muted)] mt-1">
-                Usa un PIN que puedas recordar fácilmente
+               {t('Usa un PIN que puedas recordar fácilmente')}
               </p>
             )}
           </div>
@@ -158,13 +160,13 @@ export default function ClientPortalAuth() {
                   className="mt-0.5 w-4 h-4 rounded accent-[var(--app-primary)]"
                 />
                 <p className="text-sm text-[var(--app-text-secondary)]">
-                  Acepto la{' '}
-                  <a href="/privacy-policy" target="_blank" rel="noopener noreferrer" className="underline">Política de Privacidad</a>{' '}y los{' '}
-                  <a href="/terms-of-service" target="_blank" rel="noopener noreferrer" className="underline">Términos de uso</a>
+                 {t('Acepto la')}{' '}
+                  <a href="/privacy-policy" target="_blank" rel="noopener noreferrer" className="underline">{t('Política de Privacidad')}</a>{' '}{t('y los')}{' '}
+                  <a href="/terms-of-service" target="_blank" rel="noopener noreferrer" className="underline">{t('Términos de uso')}</a>
                 </p>
               </label>
               <p className="text-xs text-[var(--app-text-muted)] mt-3">
-                Si eres menor de 18 años, necesitas autorización de tu representante.
+               {t('Si eres menor de 18 años, necesitas autorización de tu representante.')}
               </p>
             </div>
           )}
@@ -182,10 +184,10 @@ export default function ClientPortalAuth() {
                 />
                 <div className="flex-1">
                   <p className="text-sm text-[var(--app-text-secondary)]">
-                    Acepto recibir promociones y novedades por correo/WhatsApp
+                   {t('Acepto recibir promociones y novedades por correo/WhatsApp')}
                   </p>
                   <p className="text-xs text-[var(--app-text-muted)] mt-1">
-                    Puedes cancelar en cualquier momento
+                   {t('Puedes cancelar en cualquier momento')}
                   </p>
                 </div>
               </label>
@@ -202,11 +204,11 @@ export default function ClientPortalAuth() {
             {loading ? (
               <>
                 <Loader2 size={18} className="animate-spin" />
-                {mode === 'login' ? 'Iniciando...' : 'Creando cuenta...'}
+                {mode === 'login' ? t('Iniciando...') : t('Creando cuenta...')}
               </>
             ) : (
               <>
-                {mode === 'login' ? 'Iniciar Sesión' : 'Crear Cuenta'}
+                {mode === 'login' ? t('Iniciar Sesión') : t('Crear Cuenta')}
               </>
             )}
           </button>
@@ -218,7 +220,7 @@ export default function ClientPortalAuth() {
                 to={`/portal/${orgId}/forgot-pin`}
                 className="text-sm text-[var(--app-primary)] hover:text-[var(--app-primary-hover)] transition-colors"
               >
-                ¿Olvidaste tu PIN?
+               {t('¿Olvidaste tu PIN?')}
               </Link>
             </div>
           )}
@@ -228,8 +230,8 @@ export default function ClientPortalAuth() {
         <div className="mt-8 p-4 bg-[var(--app-primary-soft)] border border-[var(--app-border)] rounded-xl">
           <p className="text-xs text-[var(--app-text-secondary)] text-center">
             {mode === 'login'
-              ? 'Después de 5 intentos fallidos, tu cuenta se bloqueará por 15 minutos'
-              : 'Tu PIN es personal y confidencial. No lo compartas con nadie'}
+              ? t('Después de 5 intentos fallidos, tu cuenta se bloqueará por 15 minutos')
+              : t('Tu PIN es personal y confidencial. No lo compartas con nadie')}
           </p>
         </div>
       </div>

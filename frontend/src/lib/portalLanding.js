@@ -44,10 +44,13 @@ export const landingMenu = ({ hasExperiences, hasPlans, label }) => [
   { id: 'contacto', label: 'Contacto' },
 ].filter(Boolean);
 
-export const formatCycle = (days) => {
+const spanish = (text, ...args) => text.replace(/\{(\d+)\}/g, (match, index) => args[Number(index)] ?? match);
+
+/** Vigencia de un plan en palabras; `t` es la traduccion del portal (por defecto, espanol). */
+export const formatCycle = (days, t = spanish) => {
   const value = Number(days) || 30;
-  if (value === 30) return '1 mes';
-  if (value % 30 === 0) return `${value / 30} meses`;
-  if (value === 7) return '1 semana';
-  return `${value} días`;
+  if (value === 30) return t('1 mes');
+  if (value % 30 === 0) return t('{0} meses', value / 30);
+  if (value === 7) return t('1 semana');
+  return t('{0} días', value);
 };

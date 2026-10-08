@@ -4,12 +4,15 @@ import { Calendar, User, ShoppingBag, ShoppingCart } from 'lucide-react';
 import { useOrganization } from '../context/OrganizationContext';
 import { useCart } from '../lib/cart';
 
+import { usePortalT } from '../lib/portalI18n';
+import PortalLanguageSwitch from './PortalLanguageSwitch';
 /**
  * Persistent navigation bar for public client pages
  * Shows "Book Appointment" and "My Account" / "Sign In" buttons
  * Visible on BookingFlow, CustomerPortal, and CancelAppointment pages
  */
 export default function ClientPortalNav({ orgId }) {
+  const { t } = usePortalT();
   const navigate = useNavigate();
   const { organization } = useOrganization();
   // NEXUS_PRODUCT_CATALOG_V11: cart badge, only meaningful once the org record for
@@ -45,14 +48,15 @@ export default function ClientPortalNav({ orgId }) {
             tenant's and Nexus's brand are shown, so this bar goes back to
             being purely an actions bar. */}
         <div className="flex items-center justify-center md:justify-end gap-3">
+            <PortalLanguageSwitch />
             {catalogEnabled && (
               <button
                 onClick={() => navigate(`/portal/${orgId}/catalog`)}
                 className="flex items-center gap-2 px-4 py-2 bg-[var(--app-surface-hover)] hover:bg-[var(--app-surface-muted)] border border-[var(--app-border)] text-[var(--app-text-primary)] rounded-lg transition-all text-sm font-medium"
               >
                 <ShoppingBag size={16} />
-                <span className="hidden sm:inline">Catálogo</span>
-                <span className="sm:hidden">Tienda</span>
+                <span className="hidden sm:inline">{t('Catálogo')}</span>
+                <span className="sm:hidden">{t('Tienda')}</span>
               </button>
             )}
 
@@ -60,7 +64,7 @@ export default function ClientPortalNav({ orgId }) {
               <button
                 onClick={() => navigate(`/portal/${orgId}/cart`)}
                 className="relative flex items-center gap-2 px-3 py-2 bg-[var(--app-surface-hover)] hover:bg-[var(--app-surface-muted)] border border-[var(--app-border)] text-[var(--app-text-primary)] rounded-lg transition-all text-sm font-medium"
-                title="Ver carrito"
+                title={t('Ver carrito')}
               >
                 <ShoppingCart size={16} />
                 <span className="absolute -top-1.5 -right-1.5 bg-[var(--app-primary)] text-[var(--app-on-primary)] text-[10px] font-bold rounded-full min-w-[18px] h-[18px] flex items-center justify-center px-1">{count}</span>
@@ -72,8 +76,8 @@ export default function ClientPortalNav({ orgId }) {
               className="flex items-center gap-2 px-4 py-2 bg-[var(--app-primary)] hover:bg-[var(--app-primary-hover)] text-[var(--app-on-primary)] rounded-lg transition-all text-sm font-medium"
             >
               <Calendar size={16} />
-              <span className="hidden sm:inline">Agendar cita</span>
-              <span className="sm:hidden">Agendar</span>
+              <span className="hidden sm:inline">{t('Agendar cita')}</span>
+              <span className="sm:hidden">{t('Agendar')}</span>
             </button>
 
             <button
@@ -82,10 +86,10 @@ export default function ClientPortalNav({ orgId }) {
             >
               <User size={16} />
               <span className="hidden sm:inline">
-                {hasSession ? 'Mi cuenta' : 'Iniciar sesión'}
+                {hasSession ? t('Mi cuenta') : t('Iniciar sesión')}
               </span>
               <span className="sm:hidden">
-                {hasSession ? 'Cuenta' : 'Entrar'}
+                {hasSession ? t('Cuenta') : t('Entrar')}
               </span>
             </button>
         </div>

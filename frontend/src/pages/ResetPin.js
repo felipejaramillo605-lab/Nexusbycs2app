@@ -7,7 +7,9 @@ import { Lock, ArrowLeft, Loader2, CheckCircle2, XCircle, Eye, EyeOff } from 'lu
 import { toast } from 'sonner';
 import { api } from '../api';
 
+import { usePortalT } from '../lib/portalI18n';
 export default function ResetPin() {
+  const { t } = usePortalT();
   const { orgId } = useParams();
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
@@ -30,12 +32,12 @@ export default function ResetPin() {
     e.preventDefault();
 
     if (!/^\d{4}$/.test(newPin)) {
-      toast.error('El PIN debe ser de 4 dígitos');
+      toast.error(t('El PIN debe ser de 4 dígitos'));
       return;
     }
 
     if (newPin !== confirmPin) {
-      toast.error('Los PINs no coinciden');
+      toast.error(t('Los PINs no coinciden'));
       return;
     }
 
@@ -47,13 +49,13 @@ export default function ResetPin() {
       });
 
       setSuccess(true);
-      toast.success('PIN restablecido exitosamente');
+      toast.success(t('PIN restablecido exitosamente'));
     } catch (error) {
       if (error.response?.status === 404 || error.response?.status === 400) {
-        toast.error('El enlace es inválido o ha expirado');
+        toast.error(t('El enlace es inválido o ha expirado'));
         setInvalidToken(true);
       } else {
-        toast.error(error.response?.data?.detail || 'Error al restablecer el PIN');
+        toast.error(error.response?.data?.detail || t('Error al restablecer el PIN'));
       }
     } finally {
       setLoading(false);
@@ -67,22 +69,22 @@ export default function ResetPin() {
           <div className="w-16 h-16 rounded-2xl bg-[var(--app-danger-soft)] flex items-center justify-center mx-auto mb-6">
             <XCircle size={32} className="text-[var(--app-danger)]" />
           </div>
-          <h1 className="text-2xl font-bold text-[var(--app-text-primary)] mb-3">Enlace inválido</h1>
+          <h1 className="text-2xl font-bold text-[var(--app-text-primary)] mb-3">{t('Enlace inválido')}</h1>
           <p className="text-[var(--app-text-secondary)] mb-8">
-            Este enlace de restablecimiento no es válido o ha expirado. Por favor, solicita uno nuevo.
+           {t('Este enlace de restablecimiento no es válido o ha expirado. Por favor, solicita uno nuevo.')}
           </p>
           <div className="space-y-3">
             <Link
               to={`/portal/${orgId}/forgot-pin`}
               className="block w-full py-3 bg-[var(--app-primary)] hover:bg-[var(--app-primary-hover)] text-white font-medium rounded-xl transition-all"
             >
-              Solicitar nuevo enlace
+             {t('Solicitar nuevo enlace')}
             </Link>
             <Link
               to={`/portal/${orgId}/auth`}
               className="block w-full py-3 bg-[var(--app-surface-solid)] hover:bg-[var(--app-surface-hover)] border border-[var(--app-border)] text-[var(--app-text-primary)] rounded-xl transition-all"
             >
-              Volver a Inicio de Sesión
+             {t('Volver a Inicio de Sesión')}
             </Link>
           </div>
         </div>
@@ -97,15 +99,15 @@ export default function ResetPin() {
           <div className="w-16 h-16 rounded-2xl bg-[var(--app-success-soft)] flex items-center justify-center mx-auto mb-6">
             <CheckCircle2 size={32} className="text-[var(--app-success)]" />
           </div>
-          <h1 className="text-2xl font-bold text-[var(--app-text-primary)] mb-3">PIN restablecido</h1>
+          <h1 className="text-2xl font-bold text-[var(--app-text-primary)] mb-3">{t('PIN restablecido')}</h1>
           <p className="text-[var(--app-text-secondary)] mb-8">
-            Tu PIN ha sido actualizado exitosamente. Ya puedes iniciar sesión con tu nuevo PIN.
+           {t('Tu PIN ha sido actualizado exitosamente. Ya puedes iniciar sesión con tu nuevo PIN.')}
           </p>
           <Link
             to={`/portal/${orgId}/auth`}
             className="block w-full py-3 bg-[var(--app-primary)] hover:bg-[var(--app-primary-hover)] text-white font-medium rounded-xl transition-all"
           >
-            Iniciar Sesión
+           {t('Iniciar Sesión')}
           </Link>
         </div>
       </div>
@@ -120,23 +122,23 @@ export default function ResetPin() {
           className="inline-flex items-center gap-2 text-[var(--app-text-secondary)] hover:text-[var(--app-text-primary)] transition-colors mb-6 text-sm"
         >
           <ArrowLeft size={16} />
-          Volver
+         {t('Volver')}
         </Link>
 
         <div className="text-center mb-8">
           <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-[var(--app-primary)] to-[var(--app-primary-hover)] flex items-center justify-center mx-auto mb-4">
             <Lock size={28} className="text-white" />
           </div>
-          <h1 className="text-2xl font-bold text-[var(--app-text-primary)] mb-2">Restablecer PIN</h1>
+          <h1 className="text-2xl font-bold text-[var(--app-text-primary)] mb-2">{t('Restablecer PIN')}</h1>
           <p className="text-[var(--app-text-secondary)] text-sm">
-            Crea un nuevo PIN de 4 dígitos para tu cuenta
+           {t('Crea un nuevo PIN de 4 dígitos para tu cuenta')}
           </p>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
             <label className="block text-sm font-medium text-[var(--app-text-secondary)] mb-2">
-              Nuevo PIN
+             {t('Nuevo PIN')}
             </label>
             <div className="relative">
               <input
@@ -164,7 +166,7 @@ export default function ResetPin() {
 
           <div>
             <label className="block text-sm font-medium text-[var(--app-text-secondary)] mb-2">
-              Confirmar Nuevo PIN
+             {t('Confirmar Nuevo PIN')}
             </label>
             <input
               type={showPin ? 'text' : 'password'}
@@ -189,17 +191,17 @@ export default function ResetPin() {
             {loading ? (
               <>
                 <Loader2 size={18} className="animate-spin" />
-                Restableciendo...
+               {t('Restableciendo...')}
               </>
             ) : (
-              'Restablecer PIN'
+              t('Restablecer PIN')
             )}
           </button>
         </form>
 
         <div className="mt-8 p-4 bg-[var(--app-primary-soft)] border border-[var(--app-border)] rounded-xl">
           <p className="text-xs text-[var(--app-text-secondary)] text-center">
-            Tu nuevo PIN será solicitado en tu próximo inicio de sesión
+           {t('Tu nuevo PIN será solicitado en tu próximo inicio de sesión')}
           </p>
         </div>
       </div>

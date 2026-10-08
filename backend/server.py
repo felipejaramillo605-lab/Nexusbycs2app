@@ -76,6 +76,19 @@ from data_retention import build_retention_router
 from org_retention import build_org_retention_router
 from media_rights import build_media_rights_router
 from marketing_window import blocked_message as marketing_blocked_message, marketing_allowed
+from messaging_consent import build_messaging_consent_router, consent_fields
+import whatsapp_service
+from whatsapp_webhook import build_whatsapp_webhook_router
+from country_profiles import (
+    FEATURE_HR,
+    FEATURE_MARKETING,
+    FEATURE_PAYROLL,
+    assert_feature_enabled,
+    gated_current_user,
+    gated_team_resolver,
+    normalize_country,
+    organization_defaults,
+)
 from integrity_checks import build_integrity_router
 from owner_media_integrity import build_owner_media_integrity_router
 from owner_delivery_operations import (
@@ -641,6 +654,8 @@ class AppointmentCreate(BaseModel):
     date: str
     time: str
     marketing_consent: bool = False  # TCPA/Ley 1581 compliance
+    messaging_consent: bool = False  # NEXUS_MESSAGING_CONSENT_V1: textos/WhatsApp de la cita (EE. UU.)
+    messaging_consent_text: Optional[str] = Field(default=None, max_length=600)
     # NEXUS_PRODUCT_CATALOG_V11: optional cart carried over from the client portal.
     cart_items: Optional[List[dict]] = None
     policy_accepted: bool = False  # acepto deposito / politica de inasistencia del servicio
@@ -758,6 +773,8 @@ class OrganizationCreate(BaseModel):
     business_hours: Optional[str] = Field(default=None, max_length=2000)
     phone: Optional[str] = Field(default=None, max_length=40)
     whatsapp_link: Optional[str] = Field(default=None, max_length=500)
+    # NEXUS_COUNTRY_PROFILE_V1: pais donde ejerce la empresa; fija moneda, prefijo, zona horaria y funciones.
+    operating_country: Literal["CO", "US"] = "CO"
 
 
 class OrganizationUpdate(BaseModel):
@@ -2799,7 +2816,10 @@ async def create_organization(
                 "organization_id": duplicate.get("organization_id"),
             },
         )
-    normalized_profile = fiscal_profile_view({**normalize_fiscal_profile(data.fiscal_profile), "profile_version": 1})
+    fiscal_data = normalize_fiscal_profile(data.fiscal_profile)
+    if normalize_country(data.operating_country) == "US" and fiscal_data.get("country") in (None, "", "Colombia"):
+        fiscal_data["country"] = "United States"
+    normalized_profile = fiscal_profile_view({**fiscal_data, "profile_version": 1})
     if normalized_profile["profile_status"] != "complete":
         raise HTTPException(
             status_code=422,
@@ -2826,6 +2846,7 @@ async def create_organization(
         "created_at": now,
         "portal_template": "classic",
         "premium_templates_contracted": False,
+        **organization_defaults(data.operating_country),
     }
     profile = {
         **normalized_profile,
@@ -3919,6 +3940,8 @@ class ClassBookingCreate(BaseModel):
     client_phone: str = Field(..., max_length=32)
     client_email: Optional[EmailStr] = None
     marketing_consent: bool = False
+    messaging_consent: bool = False  # NEXUS_MESSAGING_CONSENT_V1: textos/WhatsApp de la cita (EE. UU.)
+    messaging_consent_text: Optional[str] = Field(default=None, max_length=600)
     spot_label: Optional[str] = None
 
 
@@ -3942,15 +3965,33 @@ async def _validate_and_claim_spot(db, class_session_id: str, service: Optional[
     return spot_label
 
 
-async def _upsert_public_client(db, org_id: str, phone: str, name: str, email: Optional[str], marketing_consent: bool, request: Request) -> str:
+async def _upsert_public_client(
+    db,
+    org_id: str,
+    phone: str,
+    name: str,
+    email: Optional[str],
+    marketing_consent: bool,
+    request: Request,
+    messaging_consent: bool = False,
+    messaging_consent_text: Optional[str] = None,
+) -> str:
     """Cliente por teléfono -- reutilizado por la reserva de invitado y la
     lista de espera de invitado (misma lógica, dos puntos de entrada)."""
     now = datetime.now(timezone.utc).isoformat()
     existing_client = await db.clients.find_one({"phone": phone, "organization_id": org_id}, {"_id": 0})
     client_id = existing_client["client_id"] if existing_client else f"client_{uuid.uuid4().hex[:12]}"
+    consent = consent_fields(
+        messaging_consent, messaging_consent_text, request.client.host if request.client else None, now
+    )
+    if existing_client and consent:
+        await db.clients.update_one(
+            {"client_id": client_id, "organization_id": org_id}, {"$set": {**consent, "updated_at": now}}
+        )
     if not existing_client:
         await db.clients.insert_one(
             {
+                **consent,
                 "client_id": client_id,
                 "organization_id": org_id,
                 "phone": phone,
@@ -4029,7 +4070,17 @@ async def book_class_session(org_id: str, class_session_id: str, data: ClassBook
         raise
 
     now = datetime.now(timezone.utc).isoformat()
-    client_id = await _upsert_public_client(db, org_id, phone, data.client_name, data.client_email, data.marketing_consent, request)
+    client_id = await _upsert_public_client(
+        db,
+        org_id,
+        phone,
+        data.client_name,
+        data.client_email,
+        data.marketing_consent,
+        request,
+        messaging_consent=data.messaging_consent,
+        messaging_consent_text=data.messaging_consent_text,
+    )
 
     booking = {
         "class_booking_id": f"cbk_{uuid.uuid4().hex[:12]}",
@@ -4243,6 +4294,8 @@ class ClassWaitlistJoin(BaseModel):
     client_phone: str = Field(..., max_length=32)
     client_email: Optional[EmailStr] = None
     marketing_consent: bool = False
+    messaging_consent: bool = False  # NEXUS_MESSAGING_CONSENT_V1: textos/WhatsApp de la cita (EE. UU.)
+    messaging_consent_text: Optional[str] = Field(default=None, max_length=600)
 
 
 @api_router.post("/public/{org_id}/class-sessions/{class_session_id}/waitlist", tags=["public-booking"])
@@ -4258,7 +4311,17 @@ async def join_class_waitlist(org_id: str, class_session_id: str, data: ClassWai
 
     phone = sanitize_phone(data.client_phone)
     await _enforce_guest_class_phone_rate_limit(org_id, phone, request)
-    client_id = await _upsert_public_client(db, org_id, phone, data.client_name, data.client_email, data.marketing_consent, request)
+    client_id = await _upsert_public_client(
+        db,
+        org_id,
+        phone,
+        data.client_name,
+        data.client_email,
+        data.marketing_consent,
+        request,
+        messaging_consent=data.messaging_consent,
+        messaging_consent_text=data.messaging_consent_text,
+    )
     entry = {
         "waitlist_id": f"wl_{uuid.uuid4().hex[:12]}",
         "organization_id": org_id,
@@ -7261,6 +7324,8 @@ async def upsert_client(
     marketing_consent: bool = False,
     consent_ip: Optional[str] = None,
     consent_text: Optional[str] = None,
+    messaging_consent: bool = False,
+    messaging_consent_text: Optional[str] = None,
 ):
     """
     Create or update client record. Uses phone as unique identifier per organization.
@@ -7285,6 +7350,8 @@ async def upsert_client(
             update_data["marketing_consent_ip"] = consent_ip
             update_data["marketing_consent_text"] = consent_text
 
+        update_data.update(consent_fields(messaging_consent, messaging_consent_text, consent_ip))
+
         await db.clients.update_one({"organization_id": organization_id, "phone": phone}, {"$set": update_data})
         return {**existing, **update_data}
     else:
@@ -7300,6 +7367,7 @@ async def upsert_client(
             "marketing_consent_given_at": datetime.now(timezone.utc).isoformat() if marketing_consent else None,
             "marketing_consent_ip": consent_ip if marketing_consent else None,
             "marketing_consent_text": consent_text if marketing_consent else None,
+            **consent_fields(messaging_consent, messaging_consent_text, consent_ip),
             "reminder_consent_given": True,  # Transactional messages always allowed
             "deletion_requested_at": None,
             "total_visits": 0,  # Starts at 0, increments only when appointments are completed
@@ -8311,6 +8379,8 @@ async def create_campaign(
     organization = None
     if org_id:
         organization = await db.organizations.find_one({"organization_id": org_id}, {"_id": 0})
+    # Estados Unidos: campanas deshabilitadas hasta validar TCPA / telemarketing de Florida / CAN-SPAM.
+    assert_feature_enabled(organization, FEATURE_MARKETING, plain=True)
 
     org_name = organization.get("name", "Nexus") if organization else "Nexus"
     org_address = organization.get("address") if organization else None
@@ -9170,6 +9240,8 @@ async def create_public_appointment(org_id: str, data: AppointmentCreate, reques
         marketing_consent=data.marketing_consent,
         consent_ip=request.client.host if request.client else None,
         consent_text="Acepto recibir promociones y novedades por correo/WhatsApp" if data.marketing_consent else None,
+        messaging_consent=data.messaging_consent,
+        messaging_consent_text=data.messaging_consent_text,
     )
 
     logger.info(f"[MOCK] Appointment {appointment_id} confirmed for {data.date} at {data.time}")
@@ -9481,7 +9553,12 @@ api_router.include_router(
 from payroll import build_payroll_router, ensure_payroll_indexes
 
 api_router.include_router(
-    build_payroll_router(db, get_current_user, require_management_role, resolve_team_organization),
+    build_payroll_router(
+        db,
+        gated_current_user(get_current_user, db, FEATURE_PAYROLL),
+        require_management_role,
+        gated_team_resolver(resolve_team_organization, db, FEATURE_PAYROLL),
+    ),
     tags=["payroll"],
 )
 
@@ -9489,7 +9566,12 @@ api_router.include_router(
 from hr_absences import build_hr_router, ensure_hr_indexes
 
 api_router.include_router(
-    build_hr_router(db, get_current_user, require_management_role, resolve_team_organization),
+    build_hr_router(
+        db,
+        gated_current_user(get_current_user, db, FEATURE_HR),
+        require_management_role,
+        gated_team_resolver(resolve_team_organization, db, FEATURE_HR),
+    ),
     tags=["hr"],
 )
 
@@ -9497,7 +9579,12 @@ api_router.include_router(
 from hr_wellbeing import build_wellbeing_router, ensure_wellbeing_indexes
 
 api_router.include_router(
-    build_wellbeing_router(db, get_current_user, require_management_role, resolve_team_organization),
+    build_wellbeing_router(
+        db,
+        gated_current_user(get_current_user, db, FEATURE_HR),
+        require_management_role,
+        gated_team_resolver(resolve_team_organization, db, FEATURE_HR),
+    ),
     tags=["hr"],
 )
 
@@ -9505,7 +9592,12 @@ api_router.include_router(
 from payroll_novelties import build_novelties_router, ensure_novelty_indexes
 
 api_router.include_router(
-    build_novelties_router(db, get_current_user, require_management_role, resolve_team_organization),
+    build_novelties_router(
+        db,
+        gated_current_user(get_current_user, db, FEATURE_PAYROLL),
+        require_management_role,
+        gated_team_resolver(resolve_team_organization, db, FEATURE_PAYROLL),
+    ),
     tags=["payroll"],
 )
 
@@ -9513,7 +9605,12 @@ api_router.include_router(
 from payroll_benefits import build_benefits_router
 
 api_router.include_router(
-    build_benefits_router(db, get_current_user, require_management_role, resolve_team_organization),
+    build_benefits_router(
+        db,
+        gated_current_user(get_current_user, db, FEATURE_PAYROLL),
+        require_management_role,
+        gated_team_resolver(resolve_team_organization, db, FEATURE_PAYROLL),
+    ),
     tags=["payroll"],
 )
 
@@ -9521,7 +9618,12 @@ api_router.include_router(
 from client_segments import build_segment_router
 
 api_router.include_router(
-    build_segment_router(db, get_current_user, require_management_role, resolve_team_organization),
+    build_segment_router(
+        db,
+        gated_current_user(get_current_user, db, FEATURE_MARKETING),
+        require_management_role,
+        gated_team_resolver(resolve_team_organization, db, FEATURE_MARKETING),
+    ),
     tags=["marketing"],
 )
 
@@ -9643,6 +9745,20 @@ api_router.include_router(
 from portal_landing import build_portal_landing_router
 
 api_router.include_router(build_portal_landing_router(db), tags=["public-booking"])
+
+# NEXUS_WHATSAPP_WEBHOOK_V1: verificacion de Meta, mensajes entrantes y baja automatica (STOP)
+api_router.include_router(
+    build_whatsapp_webhook_router(
+        db, lambda to, text: whatsapp_service.send_whatsapp_text(to_phone=to, text=text)
+    ),
+)
+
+# NEXUS_MESSAGING_CONSENT_V1: consentimiento y baja (STOP) de textos/WhatsApp
+api_router.include_router(
+    build_messaging_consent_router(
+        db, get_current_user, require_management_role, resolve_team_organization, get_current_client
+    ),
+)
 
 # NEXUS_SERVICE_PHOTOS_V1
 from service_media import build_service_media_router

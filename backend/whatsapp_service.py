@@ -34,6 +34,7 @@ cambio posterior, no hoy.
 from __future__ import annotations
 
 import os
+import re
 from datetime import datetime, timezone
 
 import httpx
@@ -43,6 +44,15 @@ from appointment_email_delivery import recipient_fingerprint
 GRAPH_API_VERSION = os.getenv("WHATSAPP_API_VERSION", "v21.0")
 GRAPH_API_BASE_URL = os.getenv("WHATSAPP_GRAPH_API_BASE_URL", "https://graph.facebook.com")
 DEFAULT_TEMPLATE_LANGUAGE = os.getenv("WHATSAPP_TEMPLATE_LANGUAGE", "es")
+
+
+# Codigo de idioma de la plantilla segun el idioma del cliente (la misma plantilla existe en espanol e ingles).
+TEMPLATE_LANGUAGES = {"es": DEFAULT_TEMPLATE_LANGUAGE, "en": os.getenv("WHATSAPP_TEMPLATE_LANGUAGE_EN", "en_US")}
+
+
+def template_parameter(text: str) -> str:
+    """Meta rechaza saltos de linea, tabulaciones y mas de 3 espacios seguidos dentro de una variable."""
+    return re.sub(r"\s*[\r\n\t]+\s*", " | ", str(text or "").strip()).replace("    ", "   ")[:1000]
 
 
 def _access_token() -> str:
@@ -124,8 +134,25 @@ async def send_whatsapp_template(
     return {"accepted": True, "provider": "whatsapp_cloud_api", "status": "sent", "message_id": message_id}
 
 
+async def send_whatsapp_text(*, to_phone: str, text: str) -> dict:
+    """Texto libre: solo llega si el cliente escribio al negocio en las ultimas 24 h (p. ej. confirmar una baja)."""
+    if not is_configured():
+        return {"accepted": False, "provider": "mock", "status": "not_configured"}
+    url = f"{GRAPH_API_BASE_URL}/{GRAPH_API_VERSION}/{_phone_number_id()}/messages"
+    payload = {"messaging_product": "whatsapp", "to": to_phone, "type": "text", "text": {"body": text}}
+    async with httpx.AsyncClient() as client:
+        response = await client.post(
+            url, headers={"Authorization": f"Bearer {_access_token()}"}, json=payload, timeout=15.0
+        )
+    return {
+        "accepted": response.status_code < 400,
+        "provider": "whatsapp_cloud_api",
+        "status": f"http_{response.status_code}",
+    }
+
+
 async def send_whatsapp_message(
-    db, *, to_phone: str, message: str, organization_id: str, context: str = "generic"
+    db, *, to_phone: str, message: str, organization_id: str, context: str = "generic", language: str = "es"
 ) -> dict:
     if not to_phone:
         return {
@@ -143,7 +170,12 @@ async def send_whatsapp_message(
 
     fingerprint = recipient_fingerprint(to_phone)
     try:
-        result = await send_whatsapp_template(to_phone=to_phone, template_name=template_name, template_params=[message])
+        result = await send_whatsapp_template(
+            to_phone=to_phone,
+            template_name=template_name,
+            template_params=[template_parameter(message)],
+            language=TEMPLATE_LANGUAGES.get(language, DEFAULT_TEMPLATE_LANGUAGE),
+        )
     except httpx.HTTPError as exc:
         print(
             f"whatsapp_send_failed recipient_fingerprint={fingerprint} context={context} organization_id={organization_id} diagnostic_code={type(exc).__name__}"
