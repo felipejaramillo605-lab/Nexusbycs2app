@@ -10160,6 +10160,12 @@ async def create_application_indexes():
         [("organization_id", 1), ("total_visits", -1), ("client_id", 1)],
         name="nexus_org_visits_client",
     )
+    # Busqueda de cliente por telefono dentro de la organizacion (cada reserva publica): evita recorrer
+    # todos los clientes de la organizacion. Propuesto por la auditoria de base de datos (Fase 5).
+    await db.clients.create_index(
+        [("organization_id", 1), ("phone", 1)],
+        name="nexus_org_phone_client_lookup",
+    )
     await db.transactions.create_index(
         [("organization_id", 1), ("created_at", -1), ("transaction_id", -1)],
         name="nexus_org_created_transaction_desc",
