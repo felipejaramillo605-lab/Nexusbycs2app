@@ -9,7 +9,6 @@ from __future__ import annotations
 
 from typing import Mapping
 
-
 PREMIUM_ACTIVE_STATUSES = frozenset({"active", "trial", "grace_period"})
 WHATSAPP_SETTING_KEYS = frozenset(
     {
@@ -28,15 +27,30 @@ def subscription_has_premium(subscription: Mapping | None) -> bool:
     )
 
 
+def organization_has_premium_package(organization: Mapping | None) -> bool:
+    """The Premium package (paid invoice flow) is recorded as flags on the organization itself."""
+    return bool((organization or {}).get("premium_templates_contracted"))
+
+
+def is_premium(organization: Mapping | None, subscription: Mapping | None) -> bool:
+    """Premium means the activated Premium package OR an active Premium subscription plan."""
+    return organization_has_premium_package(organization) or subscription_has_premium(subscription)
+
+
 async def organization_has_premium(db, organization_id: str) -> bool:
+    organization = await db.organizations.find_one(
+        {"organization_id": organization_id}, {"_id": 0, "premium_templates_contracted": 1}
+    )
+    if organization_has_premium_package(organization):
+        return True
     subscription = await db.organization_subscriptions.find_one(
         {"organization_id": organization_id}, {"_id": 0, "plan_code": 1, "status": 1}
     )
     return subscription_has_premium(subscription)
 
 
-def channel_capabilities(subscription: Mapping | None) -> dict:
-    premium = subscription_has_premium(subscription)
+def channel_capabilities(subscription: Mapping | None, organization: Mapping | None = None) -> dict:
+    premium = is_premium(organization, subscription)
     return {
         "email": True,
         "whatsapp": premium,

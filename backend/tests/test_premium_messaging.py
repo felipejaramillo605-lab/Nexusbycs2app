@@ -7,6 +7,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from premium_messaging import (  # noqa: E402
     channel_capabilities,
+    is_premium,
     normalized_notification_settings,
     organization_has_premium,
     subscription_has_premium,
@@ -46,5 +47,33 @@ def test_database_entitlement_uses_the_organization_subscription():
             assert query == {"organization_id": "org-premium"}
             return {"plan_code": "premium", "status": "active"}
 
-    db = SimpleNamespace(organization_subscriptions=Subscriptions())
+    class Organizations:
+        async def find_one(self, query, projection):
+            return {"organization_id": "org-premium"}
+
+    db = SimpleNamespace(organization_subscriptions=Subscriptions(), organizations=Organizations())
     assert asyncio.run(organization_has_premium(db, "org-premium"))
+
+
+def test_the_activated_premium_package_unlocks_whatsapp_without_a_premium_subscription():
+    package = {"premium_templates_contracted": True}
+    standard_subscription = {"plan_code": "standard", "status": "active"}
+    assert is_premium(package, standard_subscription)
+    assert is_premium(package, None)
+    assert not is_premium({"premium_templates_contracted": False}, standard_subscription)
+    assert not is_premium(None, None)
+    capabilities = channel_capabilities(standard_subscription, package)
+    assert capabilities["whatsapp"] is True and capabilities["premium_required_message"] is None
+
+
+def test_database_entitlement_accepts_the_package_even_when_the_subscription_is_standard():
+    class Organizations:
+        async def find_one(self, query, projection):
+            return {"premium_templates_contracted": True}
+
+    class Subscriptions:
+        async def find_one(self, query, projection):
+            raise AssertionError("the package already grants Premium; no subscription lookup needed")
+
+    db = SimpleNamespace(organizations=Organizations(), organization_subscriptions=Subscriptions())
+    assert asyncio.run(organization_has_premium(db, "org-cs2"))
