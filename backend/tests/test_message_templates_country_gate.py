@@ -4,6 +4,7 @@ Regresion: GET/POST/PUT/duplicate/delete de /organizations/{id}/message-template
 no aplicaba el guard de pais y devolvia 200 para organizaciones US (detectado en
 FASE 4 de la auditoria E2E, 2026-08-11).
 """
+
 import asyncio
 import os
 import sys
@@ -69,3 +70,9 @@ def test_create_message_template_blocked_for_us_org(monkeypatch):
     with pytest.raises(HTTPException) as caught:
         asyncio.run(server.create_message_template("org_us", data, authorization=None, session_token=None))
     assert caught.value.status_code == 403
+
+
+def test_server_exposes_the_country_profile_helper_used_by_public_booking_whatsapp():
+    """Regresion: profile_for se usaba en la confirmacion por WhatsApp sin estar importado (NameError)."""
+    assert callable(server.profile_for)
+    assert server.profile_for({"operating_country": "CO"})["portal_language"] == "es"
