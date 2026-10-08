@@ -5,6 +5,7 @@ import { publicAPI } from '../api';
 import { useOrganization } from '../context/OrganizationContext';
 import { useCart } from '../lib/cart';
 import { describeBookingConflict } from '../lib/bookingErrors';
+import { MESSAGING_CONSENT_TEXT, getCountryProfile } from '../lib/countryProfile';
 
 import { usePortalT } from '../lib/portalI18n';
 const weekday = (value) => {
@@ -39,6 +40,8 @@ export function useBookingFlow() {
   const { orgId } = useParams();
   const { organization, loadOrganization } = useOrganization();
   const cart = useCart(orgId);
+  // Estados Unidos: los textos/WhatsApp de la cita requieren un consentimiento expreso y registrado.
+  const messagingRequired = getCountryProfile(organization).messagingConsentRequired;
 
   const [step, setStep] = useState(1);
   const [services, setServices] = useState([]);
@@ -56,6 +59,7 @@ export function useBookingFlow() {
   const [success, setSuccess] = useState(null);
   const [remember, setRemember] = useState(false);
   const [marketingConsent, setMarketingConsent] = useState(false);
+  const [messagingConsent, setMessagingConsent] = useState(false);
   const [policyAccepted, setPolicyAccepted] = useState(false);
   const [error, setError] = useState('');
   const [client, setClient] = useState({ name: '', phone: '', email: '' });
@@ -118,6 +122,7 @@ export function useBookingFlow() {
 
   const setRememberClientData = useCallback((value) => setRemember(value), []);
   const setMarketingConsentChoice = useCallback((value) => setMarketingConsent(value), []);
+  const setMessagingConsentChoice = useCallback((value) => setMessagingConsent(value), []);
   const setPolicyAcceptedChoice = useCallback((value) => setPolicyAccepted(value), []);
 
   const loadServices = useCallback(async () => {
@@ -270,6 +275,9 @@ export function useBookingFlow() {
         client_phone: client.phone,
         client_email: client.email,
         marketing_consent: marketingConsent,
+        ...(messagingRequired && messagingConsent
+          ? { messaging_consent: true, messaging_consent_text: t(MESSAGING_CONSENT_TEXT) }
+          : {}),
       };
       const response = isGroupService
         ? await publicAPI.bookClassSession(orgId, selectedClassSession.class_session_id, payload)
@@ -340,6 +348,8 @@ export function useBookingFlow() {
     success,
     remember,
     marketingConsent,
+    messagingConsent,
+    messagingRequired,
     policyAccepted,
     error,
     client,
@@ -355,6 +365,7 @@ export function useBookingFlow() {
     updateClientField,
     setRememberClientData,
     setMarketingConsentChoice,
+    setMessagingConsentChoice,
     setPolicyAcceptedChoice,
     loadAvailability,
     next,

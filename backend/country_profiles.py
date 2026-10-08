@@ -77,9 +77,11 @@ def feature_blocked_detail(organization: Optional[dict], feature: str) -> dict:
     }
 
 
-def assert_feature_enabled(organization: Optional[dict], feature: str) -> None:
+def assert_feature_enabled(organization: Optional[dict], feature: str, plain: bool = False) -> None:
+    """403 si la funcion no esta disponible. ``plain`` devuelve solo el texto (para mostrarlo tal cual)."""
     if not feature_enabled(organization, feature):
-        raise HTTPException(status_code=403, detail=feature_blocked_detail(organization, feature))
+        detail = feature_blocked_detail(organization, feature)
+        raise HTTPException(status_code=403, detail=detail["message"] if plain else detail)
 
 
 def public_profile(organization: Optional[dict]) -> dict:

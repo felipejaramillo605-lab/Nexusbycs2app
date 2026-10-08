@@ -23,6 +23,7 @@ import { useClientDashboard } from '../hooks/useClientDashboard';
 import { bookingWindowNotice, formatOpensOn } from '../lib/bookingWindow';
 
 import { usePortalT } from '../lib/portalI18n';
+import MessagingPreference from '../components/MessagingPreference';
 export default function ClientPortalDashboard() {
   const { t } = usePortalT();
   const navigate = useNavigate();
@@ -236,6 +237,8 @@ export default function ClientPortalDashboard() {
               <div className="text-xs text-zinc-400">{t('Actualizar seguridad')}</div>
             </div>
           </button>
+
+          <MessagingPreference />
 
           <button
             onClick={() => setShowDeleteModal(true)}

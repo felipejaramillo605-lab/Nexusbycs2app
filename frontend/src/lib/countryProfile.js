@@ -38,6 +38,10 @@ export const COUNTRY_PROFILES = Object.freeze({
 
 export const DEFAULT_COUNTRY = 'CO';
 
+// Texto exacto que acepta el cliente para recibir mensajes de su cita por texto/WhatsApp (se guarda con la fecha y la IP).
+// Apoyo tecnico: un abogado debe validar esta redaccion antes de operar en Estados Unidos.
+export const MESSAGING_CONSENT_TEXT = 'Acepto recibir mensajes de texto o WhatsApp sobre mis citas (confirmaciones y recordatorios) en este número. La frecuencia varía y pueden aplicar tarifas de mensajes y datos. Responde STOP para dejar de recibirlos. No es necesario para reservar.';
+
 export const normalizeCountry = (value) => {
   const code = String(value || '').trim().toUpperCase();
   return COUNTRY_PROFILES[code] ? code : DEFAULT_COUNTRY;
