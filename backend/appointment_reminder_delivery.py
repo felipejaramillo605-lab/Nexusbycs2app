@@ -4,6 +4,7 @@ from __future__ import annotations
 from datetime import datetime, timedelta, timezone
 
 from appointment_email_delivery import execute_compatibility_delivery, recipient_fingerprint, recover_expired_claims
+from email_labels import resolve_email_labels
 from email_service import email_service
 from country_profiles import profile_for
 from messaging_consent import messaging_status, stop_footer
@@ -62,6 +63,7 @@ async def process_appointment_reminders(db, *, worker_id, at=None, limit=1000):
                 "time": appointment.get("time"),
                 "organization_name": organization_name,
                 "organization_phone": organization.get("phone"),
+                "email_labels": resolve_email_labels(organization),
             }
             result = await execute_compatibility_delivery(
                 db,
@@ -79,6 +81,7 @@ async def process_appointment_reminders(db, *, worker_id, at=None, limit=1000):
                     time=payload["time"],
                     organization_name=organization_name,
                     organization_phone=organization.get("phone"),
+                    labels=payload["email_labels"],
                 ),
                 worker_id=worker_id,
             )

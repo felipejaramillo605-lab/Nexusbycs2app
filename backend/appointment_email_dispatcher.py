@@ -93,6 +93,7 @@ def build_sender(delivery: Mapping[str, Any], service=email_service):
             organization_name=payload["organization_name"],
             organization_address=payload.get("organization_address"),
             cancellation_url=None,
+            labels=payload.get("email_labels"),
         )
     if event_type == "admin_new_booking":
         return lambda: service.send_admin_new_appointment_notification(
@@ -148,6 +149,7 @@ def build_sender(delivery: Mapping[str, Any], service=email_service):
         time=payload["time"],
         organization_name=payload["organization_name"],
         organization_phone=payload.get("organization_phone"),
+        labels=payload.get("email_labels"),
     )
 
 

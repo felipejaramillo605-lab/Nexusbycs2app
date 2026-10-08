@@ -77,6 +77,7 @@ from org_retention import build_org_retention_router
 from media_rights import build_media_rights_router
 from marketing_window import blocked_message as marketing_blocked_message, marketing_allowed
 from messaging_consent import build_messaging_consent_router, consent_fields, messaging_status, stop_footer
+from email_labels import resolve_email_labels, validate_email_labels
 import whatsapp_service
 from whatsapp_webhook import build_whatsapp_webhook_router
 from premium_messaging import (
@@ -792,6 +793,8 @@ class OrganizationUpdate(BaseModel):
     whatsapp_link: Optional[str] = None
     review_link: Optional[str] = None
     review_request_settings: Optional[dict] = None
+    # Iconos y palabras de los correos de citas (ver email_labels.py)
+    email_labels: Optional[dict] = None
     # NEXUS_LOYALTY_PROGRAM_V1
     loyalty_settings: Optional[dict] = None
     # NEXUS_BIRTHDAY_CAMPAIGN_V1
@@ -2978,7 +2981,11 @@ async def get_organization_profile(
     subscription = await db.organization_subscriptions.find_one(
         {"organization_id": authorized_organization_id}, {"_id": 0, "plan_code": 1, "status": 1}
     )
-    return {**organization, "messaging_channel_capabilities": channel_capabilities(subscription, organization)}
+    return {
+        **organization,
+        "messaging_channel_capabilities": channel_capabilities(subscription, organization),
+        "email_labels_effective": resolve_email_labels(organization),
+    }
 
 
 @api_router.put("/organizations/{organization_id}", tags=["organizations"])
@@ -2998,6 +3005,12 @@ async def update_organization_profile(
         raise HTTPException(status_code=403, detail="Access denied")
 
     update_data = {k: v for k, v in data.dict().items() if v is not None}
+
+    if "email_labels" in update_data:
+        try:
+            update_data["email_labels"] = validate_email_labels(update_data["email_labels"])
+        except ValueError as exc:
+            raise HTTPException(status_code=422, detail=str(exc))
 
     if "notification_settings" in update_data:
         subscription = await db.organization_subscriptions.find_one(
@@ -9170,6 +9183,7 @@ async def create_public_appointment(org_id: str, data: AppointmentCreate, reques
                     "time": data.time,
                     "organization_name": organization_name,
                     "organization_address": organization.get("address"),
+                    "email_labels": resolve_email_labels(organization),
                 }
                 # Build cancellation URL with FRONTEND_URL validation
                 frontend_url = os.environ.get("FRONTEND_URL", "").rstrip("/")
@@ -9198,6 +9212,7 @@ async def create_public_appointment(org_id: str, data: AppointmentCreate, reques
                         organization_name=organization_name,
                         organization_address=organization.get("address"),
                         cancellation_url=cancellation_url,
+                        labels=confirmation_payload["email_labels"],
                     ),
                     worker_id="public_booking_confirmation",
                 )
