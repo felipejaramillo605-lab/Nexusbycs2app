@@ -125,6 +125,7 @@ def build_client_whatsapp_router(
             message=message,
             organization_id=organization_id,
             context=f"client_{data.kind}",
+            language=language,
         )
         if not result.get("accepted"):
             # Never expose provider response text, request payloads or credentials.

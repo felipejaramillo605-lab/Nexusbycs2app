@@ -202,3 +202,39 @@ def test_send_whatsapp_template_raises_when_not_configured(monkeypatch):
                 to_phone="+573001234567", template_name="aviso_general", template_params=["hola"]
             )
         )
+
+
+def test_template_parameter_removes_line_breaks_that_meta_rejects():
+    assert whatsapp_service.template_parameter("Linea 1\nLinea 2\t\tfin") == "Linea 1 | Linea 2 | fin"
+    assert "\n" not in whatsapp_service.template_parameter("a\r\n\r\nb")
+    assert len(whatsapp_service.template_parameter("x" * 5000)) == 1000
+
+
+def test_the_template_language_follows_the_client_language(monkeypatch):
+    _clear_env(monkeypatch)
+    monkeypatch.setenv("WHATSAPP_ACCESS_TOKEN", "token-123")
+    monkeypatch.setenv("WHATSAPP_PHONE_NUMBER_ID", "555")
+    monkeypatch.setenv("WHATSAPP_GENERIC_TEMPLATE_NAME", "aviso_general")
+    seen = []
+
+    async def fake_template(**kwargs):
+        seen.append(kwargs)
+        return {"accepted": True, "provider": "whatsapp_cloud_api", "status": "sent"}
+
+    monkeypatch.setattr(whatsapp_service, "send_whatsapp_template", fake_template)
+    for language in ("es", "en"):
+        asyncio.run(
+            whatsapp_service.send_whatsapp_message(
+                _database(), to_phone="+573001112233", message="Hola\nmundo", organization_id="o", language=language
+            )
+        )
+    assert [call["language"] for call in seen] == ["es", "en_US"]
+    assert seen[0]["template_params"] == ["Hola | mundo"]
+    assert seen[0]["template_name"] == "aviso_general"
+
+
+def test_free_text_is_only_sent_with_credentials(monkeypatch):
+    _clear_env(monkeypatch)
+    assert (
+        asyncio.run(whatsapp_service.send_whatsapp_text(to_phone="+57300", text="hola"))["status"] == "not_configured"
+    )

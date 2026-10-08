@@ -77,6 +77,8 @@ from org_retention import build_org_retention_router
 from media_rights import build_media_rights_router
 from marketing_window import blocked_message as marketing_blocked_message, marketing_allowed
 from messaging_consent import build_messaging_consent_router, consent_fields
+import whatsapp_service
+from whatsapp_webhook import build_whatsapp_webhook_router
 from country_profiles import (
     FEATURE_HR,
     FEATURE_MARKETING,
@@ -9743,6 +9745,13 @@ api_router.include_router(
 from portal_landing import build_portal_landing_router
 
 api_router.include_router(build_portal_landing_router(db), tags=["public-booking"])
+
+# NEXUS_WHATSAPP_WEBHOOK_V1: verificacion de Meta, mensajes entrantes y baja automatica (STOP)
+api_router.include_router(
+    build_whatsapp_webhook_router(
+        db, lambda to, text: whatsapp_service.send_whatsapp_text(to_phone=to, text=text)
+    ),
+)
 
 # NEXUS_MESSAGING_CONSENT_V1: consentimiento y baja (STOP) de textos/WhatsApp
 api_router.include_router(
