@@ -42,7 +42,7 @@ class Collection:
         return dict(rows[0]) if rows else None
 
 
-def setup(monkeypatch, *, consent=True, role="manager", authenticated=True):
+def setup(monkeypatch, *, consent=True, role="manager", authenticated=True, plan_code="premium"):
     org = {"organization_id": "org-a", "name": "Empresa A", "timezone": "America/Bogota"}
     db = SimpleNamespace(
         clients=Collection(
@@ -64,6 +64,7 @@ def setup(monkeypatch, *, consent=True, role="manager", authenticated=True):
             ]
         ),
         organizations=Collection([org]),
+        organization_subscriptions=Collection([{"organization_id": "org-a", "plan_code": plan_code, "status": "active"}]),
         appointments=Collection([]),
         services=Collection([{"organization_id": "org-a", "service_id": "svc-a", "name": "Consulta"}]),
     )
@@ -121,6 +122,14 @@ def test_promotion_requires_explicit_consent(monkeypatch):
         assert result.status_code == 403
         assert "autorizó" in result.json()["detail"]
         sender.assert_not_awaited()
+
+
+def test_standard_organization_cannot_send_whatsapp(monkeypatch):
+    app, _, sender = setup(monkeypatch, plan_code="standard")
+    response = post(app, {"kind": "operational_notice", "message": "Cambio de horario"})
+    assert response.status_code == 403
+    assert "Premium" in response.json()["detail"]
+    sender.assert_not_awaited()
 
 
 def test_cross_organization_request_is_rejected(monkeypatch):

@@ -14,6 +14,7 @@ import whatsapp_service
 from country_profiles import FEATURE_MARKETING, assert_feature_enabled, profile_for
 from messaging_consent import messaging_status, stop_footer
 from marketing_window import blocked_message as marketing_blocked_message, marketing_allowed
+from premium_messaging import organization_has_premium
 
 NO_CONSENT_MESSAGE = (
     "El cliente no ha aceptado recibir mensajes de texto o WhatsApp. "
@@ -43,6 +44,12 @@ def build_client_whatsapp_router(
         user = await get_current_user(authorization, session_token)
         require_management_role(user)
         organization_id = await resolve_team_organization(user, data.organization_id)
+        if not await organization_has_premium(db, organization_id):
+            raise HTTPException(
+                403,
+                "WhatsApp está disponible únicamente con la membresía Premium. "
+                "Las comunicaciones transaccionales de cuentas Estándar se envían por correo electrónico.",
+            )
         client = await db.clients.find_one(
             {"client_id": client_id, "organization_id": organization_id},
             {
