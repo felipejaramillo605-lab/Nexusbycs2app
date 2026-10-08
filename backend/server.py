@@ -83,7 +83,7 @@ from premium_messaging import (
     channel_capabilities,
     normalized_notification_settings,
     organization_has_premium,
-    subscription_has_premium,
+    is_premium,
     whatsapp_enabled,
 )
 from country_profiles import (
@@ -2978,7 +2978,7 @@ async def get_organization_profile(
     subscription = await db.organization_subscriptions.find_one(
         {"organization_id": authorized_organization_id}, {"_id": 0, "plan_code": 1, "status": 1}
     )
-    return {**organization, "messaging_channel_capabilities": channel_capabilities(subscription)}
+    return {**organization, "messaging_channel_capabilities": channel_capabilities(subscription, organization)}
 
 
 @api_router.put("/organizations/{organization_id}", tags=["organizations"])
@@ -3003,7 +3003,8 @@ async def update_organization_profile(
         subscription = await db.organization_subscriptions.find_one(
             {"organization_id": organization_id}, {"_id": 0, "plan_code": 1, "status": 1}
         )
-        premium = subscription_has_premium(subscription)
+        current_organization = await db.organizations.find_one({"organization_id": organization_id}, {"_id": 0})
+        premium = is_premium(current_organization, subscription)
         requested = update_data["notification_settings"] or {}
         requested_whatsapp = any(
             bool(requested.get(key))
