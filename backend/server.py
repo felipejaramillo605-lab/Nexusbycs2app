@@ -96,6 +96,7 @@ from country_profiles import (
     gated_team_resolver,
     normalize_country,
     organization_defaults,
+    profile_for,
 )
 from integrity_checks import build_integrity_router
 from owner_media_integrity import build_owner_media_integrity_router
@@ -8275,6 +8276,8 @@ async def list_message_templates(
     require_management_role(current_user)
     if not await validate_organization_access(current_user, organization_id):
         raise HTTPException(403, "Access denied")
+    organization = await db.organizations.find_one({"organization_id": organization_id}, {"_id": 0})
+    assert_feature_enabled(organization, FEATURE_MARKETING)
     templates = await get_or_seed_templates(db, organization_id)
     return {"items": templates, "variables": SUPPORTED_VARIABLES}
 
@@ -8290,6 +8293,8 @@ async def create_message_template(
     require_management_role(current_user)
     if not await validate_organization_access(current_user, organization_id):
         raise HTTPException(403, "Access denied")
+    organization = await db.organizations.find_one({"organization_id": organization_id}, {"_id": 0})
+    assert_feature_enabled(organization, FEATURE_MARKETING)
     if data.channel not in CHANNELS:
         raise HTTPException(400, f"channel must be one of {sorted(CHANNELS)}")
     if data.purpose not in PURPOSES:
@@ -8326,6 +8331,8 @@ async def update_message_template(
         raise HTTPException(404, "Template not found")
     if not await validate_organization_access(current_user, tpl["organization_id"]):
         raise HTTPException(403, "Access denied")
+    organization = await db.organizations.find_one({"organization_id": tpl["organization_id"]}, {"_id": 0})
+    assert_feature_enabled(organization, FEATURE_MARKETING)
     if tpl.get("is_default"):
         raise HTTPException(400, "Default templates can't be edited -- duplicate it first")
     update_data = {k: v.strip() for k, v in data.dict().items() if v is not None}
@@ -8347,6 +8354,8 @@ async def duplicate_message_template(
         raise HTTPException(404, "Template not found")
     if not await validate_organization_access(current_user, tpl["organization_id"]):
         raise HTTPException(403, "Access denied")
+    organization = await db.organizations.find_one({"organization_id": tpl["organization_id"]}, {"_id": 0})
+    assert_feature_enabled(organization, FEATURE_MARKETING)
     now = datetime.now(timezone.utc).isoformat()
     copy_row = {
         **tpl,
@@ -8372,6 +8381,8 @@ async def delete_message_template(
         raise HTTPException(404, "Template not found")
     if not await validate_organization_access(current_user, tpl["organization_id"]):
         raise HTTPException(403, "Access denied")
+    organization = await db.organizations.find_one({"organization_id": tpl["organization_id"]}, {"_id": 0})
+    assert_feature_enabled(organization, FEATURE_MARKETING)
     if tpl.get("is_default"):
         raise HTTPException(400, "Default templates can't be deleted")
     await db.message_templates.delete_one({"template_id": template_id})
