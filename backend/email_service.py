@@ -39,6 +39,25 @@ def recipient_fingerprint(value: str) -> str:
     return hashlib.sha256(str(value or "").strip().lower().encode()).hexdigest()[:16]
 
 
+def _label_values(labels):
+    """Iconos y palabras elegidos por el negocio (escapados); sin valores, los de siempre."""
+    labels = labels or {}
+    return (
+        escape(labels.get("service_icon") or "✂️"),
+        escape(labels.get("professional_icon") or "👤"),
+        escape(labels.get("service_label") or "Servicio"),
+        escape(labels.get("professional_label") or "Profesional"),
+    )
+
+
+def _service_professional_rows(labels, service_name, professional_name):
+    service_icon, professional_icon, service_label, professional_label = _label_values(labels)
+    return [
+        (f"{service_icon} {service_label}", service_name),
+        (f"{professional_icon} {professional_label}", professional_name),
+    ]
+
+
 class EmailService:
     def __init__(self):
         self.smtp_host = os.environ.get('SMTP_HOST', 'smtp.gmail.com')
@@ -228,7 +247,8 @@ class EmailService:
         theme: str = 'classic',
         total_visits: int = 0,
         whatsapp_link: Optional[str] = None,
-        phone: Optional[str] = None
+        phone: Optional[str] = None,
+        labels: Optional[dict] = None,
     ) -> bool:
         """Send appointment confirmation email"""
         # Escape all user inputs
@@ -291,7 +311,7 @@ class EmailService:
             f'<tr><td style="padding:10px 0;font-family:Arial,sans-serif;font-size:14px;color:#667085;border-bottom:1px solid #EEF1F6;">{label}</td>'
             f'<td align="right" style="padding:10px 0;font-family:Arial,sans-serif;font-size:14px;font-weight:600;color:#111827;border-bottom:1px solid #EEF1F6;">{value}</td></tr>'
             for label, value in [
-                ("📅 Fecha", date), ("🕐 Hora", time), ("✂️ Servicio", service_name), ("👤 Profesional", barber_name),
+                ("📅 Fecha", date), ("🕐 Hora", time), *_service_professional_rows(labels, service_name, barber_name),
             ] + ([("📍 Dirección", escape(organization_address))] if organization_address else [])
         )
         body_html = f"""
@@ -446,7 +466,8 @@ class EmailService:
         date: str,
         time: str,
         organization_name: str,
-        organization_phone: Optional[str] = None
+        organization_phone: Optional[str] = None,
+        labels: Optional[dict] = None,
     ) -> bool:
         """Send appointment reminder email (24h before)"""
         # Escape all user inputs
@@ -458,6 +479,7 @@ class EmailService:
             organization_phone = escape(organization_phone)
         
         subject = f"🔔 Recordatorio de Cita - {organization_name}"
+        service_icon, professional_icon, _, _ = _label_values(labels)
 
         body_html = f"""
             <p style="font-size:16px;line-height:24px;margin:0 0 4px;">Hola <strong>{customer_name}</strong>,</p>
@@ -465,8 +487,8 @@ class EmailService:
             <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0"
                 style="background:#F8FAFC;border:1px solid #EEF1F6;border-radius:14px;padding:16px 18px;margin:16px 0;">
                 <tr><td style="font-family:Arial,sans-serif;font-size:14px;color:#1F2937;padding:4px 0;"><strong>📅 {date}</strong> a las <strong>🕐 {time}</strong></td></tr>
-                <tr><td style="font-family:Arial,sans-serif;font-size:14px;color:#1F2937;padding:4px 0;">✂️ {service_name}</td></tr>
-                <tr><td style="font-family:Arial,sans-serif;font-size:14px;color:#1F2937;padding:4px 0;">👤 {barber_name}</td></tr>
+                <tr><td style="font-family:Arial,sans-serif;font-size:14px;color:#1F2937;padding:4px 0;">{service_icon} {service_name}</td></tr>
+                <tr><td style="font-family:Arial,sans-serif;font-size:14px;color:#1F2937;padding:4px 0;">{professional_icon} {barber_name}</td></tr>
                 {f'<tr><td style="font-family:Arial,sans-serif;font-size:14px;color:#1F2937;padding:4px 0;">📞 {organization_phone}</td></tr>' if organization_phone else ''}
             </table>
             <p style="color:#667085;margin-top:24px;font-size:14px;">¡Te esperamos! Si no puedes asistir, por favor avísanos con anticipación.</p>
