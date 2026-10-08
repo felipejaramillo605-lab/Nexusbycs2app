@@ -5,6 +5,10 @@ from datetime import datetime, timedelta, timezone
 
 from appointment_email_delivery import execute_compatibility_delivery, recipient_fingerprint, recover_expired_claims
 from email_service import email_service
+from country_profiles import profile_for
+from messaging_consent import messaging_status, stop_footer
+from premium_messaging import organization_has_premium, whatsapp_enabled
+import whatsapp_service
 
 
 def tomorrow_utc(at=None):
@@ -90,6 +94,45 @@ async def process_appointment_reminders(db, *, worker_id, at=None, limit=1000):
                 )
                 summary["accepted"] += 1
                 print(f"reminder_provider_accepted appointment_id={appointment_id} recipient_fingerprint={fingerprint} appointment_marked={int(update.modified_count == 1)}")
+                # WhatsApp is an additional Premium channel. Its failure must never
+                # make an already accepted email reminder look failed or retried.
+                premium = await organization_has_premium(db, organization_id)
+                if whatsapp_enabled(
+                    organization.get("notification_settings"), "reminder", premium=premium
+                ) and appointment.get("client_phone"):
+                    client = await db.clients.find_one(
+                        {"organization_id": organization_id, "phone": appointment["client_phone"]},
+                        {"_id": 0, "messaging_consent": 1, "messaging_opt_out_at": 1},
+                    )
+                    allowed, reason = messaging_status(client, organization)
+                    if not allowed:
+                        print(f"reminder_whatsapp_skipped appointment_id={appointment_id} reason={reason}")
+                    else:
+                        language = profile_for(organization)["portal_language"]
+                        if language == "en":
+                            message = (
+                                f"Hi {payload['customer_name']}, this is a reminder of your appointment at "
+                                f"{organization_name}: {payload['date']} at {payload['time']}. Service: {service_name}."
+                            )
+                        else:
+                            message = (
+                                f"Hola {payload['customer_name']}, te recordamos tu cita en {organization_name}: "
+                                f"{payload['date']} a las {payload['time']}. Servicio: {service_name}."
+                            )
+                        if profile_for(organization)["messaging_consent_required"]:
+                            message = f"{message} {stop_footer(language)}"
+                        whatsapp = await whatsapp_service.send_whatsapp_message(
+                            db,
+                            to_phone=appointment["client_phone"],
+                            message=message,
+                            organization_id=organization_id,
+                            context="appointment_reminder",
+                            language=language,
+                        )
+                        print(
+                            "reminder_whatsapp_result "
+                            f"appointment_id={appointment_id} accepted={int(bool(whatsapp.get('accepted')))}"
+                        )
             else:
                 summary["failed"] += 1
                 print(f"reminder_not_accepted appointment_id={appointment_id} recipient_fingerprint={fingerprint} status={result.get('status')}")

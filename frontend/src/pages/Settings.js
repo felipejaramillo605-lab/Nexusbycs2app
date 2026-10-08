@@ -88,6 +88,9 @@ const Settings = () => {
   const [notificationSettings, setNotificationSettings] = useState({});
   const [lowStockData, setLowStockData] = useState({ email_enabled: false, whatsapp_enabled: false });
   const [savingLowStock, setSavingLowStock] = useState(false);
+  const [messagingCapabilities, setMessagingCapabilities] = useState({ email: true, whatsapp: false, premium_required_message: '' });
+  const [appointmentChannels, setAppointmentChannels] = useState({ confirmation_whatsapp: false, reminder_whatsapp: false });
+  const [savingAppointmentChannels, setSavingAppointmentChannels] = useState(false);
 
   // Team Management State
   const [teamMembers, setTeamMembers] = useState([]);
@@ -152,6 +155,11 @@ const Settings = () => {
         setLowStockData({
           email_enabled: !!ns.low_stock_alert_enabled,
           whatsapp_enabled: !!ns.low_stock_alert_whatsapp_enabled,
+        });
+        setMessagingCapabilities(data.messaging_channel_capabilities || { email: true, whatsapp: false });
+        setAppointmentChannels({
+          confirmation_whatsapp: !!ns.appointment_confirmation_whatsapp_enabled,
+          reminder_whatsapp: !!ns.appointment_reminder_whatsapp_enabled,
         });
     } catch (error) {
       console.error('❌ CATCH ERROR AL CARGAR ORGANIZACIÓN:', error);
@@ -333,6 +341,28 @@ const Settings = () => {
       toast.error(`Error: ${requestErrorMessage(error, 'No se pudo guardar')}`);
     } finally {
       setSavingLowStock(false);
+    }
+  };
+
+  const handleSaveAppointmentChannels = async (e) => {
+    e.preventDefault();
+    setSavingAppointmentChannels(true);
+    try {
+      const payload = {
+        notification_settings: {
+          ...notificationSettings,
+          appointment_confirmation_whatsapp_enabled: messagingCapabilities.whatsapp && !!appointmentChannels.confirmation_whatsapp,
+          appointment_reminder_whatsapp_enabled: messagingCapabilities.whatsapp && !!appointmentChannels.reminder_whatsapp,
+        },
+      };
+      await organizationAPI.update(organizationId, payload);
+      setNotificationSettings(payload.notification_settings);
+      toast.success('Canales de citas actualizados');
+      await refreshOrganization(organizationId);
+    } catch (error) {
+      toast.error(`Error: ${requestErrorMessage(error, 'No se pudo guardar')}`);
+    } finally {
+      setSavingAppointmentChannels(false);
     }
   };
 
@@ -780,6 +810,22 @@ const Settings = () => {
               >
                 {savingLowStock ? <><Loader2 size={18} className="animate-spin" />Guardando...</> : <><Save size={18} />Guardar alertas</>}
               </button>
+            </form>
+          </div>
+
+          <div data-testid="appointment-channel-settings-card" className="backdrop-blur-xl bg-white/3 border border-[var(--app-border)] rounded-2xl p-6">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-10 h-10 rounded-xl bg-emerald-500/20 flex items-center justify-center"><MessageSquare size={20} strokeWidth={1.5} className="text-emerald-400" /></div>
+              <div><h2 className="text-lg font-medium text-[var(--app-text-primary)]">Confirmaciones y recordatorios</h2><p className="text-sm text-zinc-400">El correo electrónico es el canal base para todas las cuentas.</p></div>
+            </div>
+            {!messagingCapabilities.whatsapp && <p data-testid="premium-whatsapp-notice" className="mb-4 rounded-xl border border-amber-400/30 bg-amber-400/10 p-3 text-sm text-amber-200">{messagingCapabilities.premium_required_message || 'WhatsApp requiere una membresía Premium activa. Tu cuenta seguirá enviando estas comunicaciones por correo electrónico.'}</p>}
+            <form onSubmit={handleSaveAppointmentChannels} className="space-y-3">
+              <div className="rounded-xl border border-[var(--app-border)] bg-white/5 p-3 text-sm text-[var(--app-text-primary)]">Correo electrónico: habilitado para confirmaciones y recordatorios.</div>
+              {['confirmation', 'reminder'].map((event) => <label key={event} className="flex items-center justify-between rounded-xl border border-[var(--app-border)] bg-white/5 p-3">
+                <span><span className="block text-sm font-medium text-[var(--app-text-primary)]">{event === 'confirmation' ? 'Enviar confirmaciones también por WhatsApp' : 'Enviar recordatorios también por WhatsApp'}</span><span className="block text-xs text-zinc-400">Disponible solo para Premium y sujeto al consentimiento del cliente.</span></span>
+                <input type="checkbox" data-testid={`appointment-${event}-whatsapp-toggle`} disabled={!messagingCapabilities.whatsapp} checked={!!appointmentChannels[`${event}_whatsapp`]} onChange={(e) => setAppointmentChannels({ ...appointmentChannels, [`${event}_whatsapp`]: e.target.checked })} className="w-5 h-5 disabled:opacity-40" />
+              </label>)}
+              {messagingCapabilities.whatsapp && <button type="submit" disabled={savingAppointmentChannels} className="w-full py-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-medium transition-all disabled:opacity-50 flex items-center justify-center gap-2">{savingAppointmentChannels ? <><Loader2 size={18} className="animate-spin" />Guardando...</> : <><Save size={18} />Guardar canales Premium</>}</button>}
             </form>
           </div>
 
