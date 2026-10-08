@@ -12,8 +12,8 @@ from motor.motor_asyncio import AsyncIOMotorClient
 
 async def seed_database():
     """Create seed data for testing"""
-    mongo_url = os.getenv('MONGO_URL', 'mongodb://localhost:27017')
-    db_name = os.getenv('DB_NAME', 'barbershop')
+    mongo_url = os.environ['MONGO_URL']
+    db_name = os.environ['DB_NAME']
     
     print(f"Connecting to: {db_name}")
     client = AsyncIOMotorClient(mongo_url)
