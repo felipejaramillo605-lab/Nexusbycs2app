@@ -2,6 +2,7 @@ import os
 import pytest
 import requests
 from pymongo import MongoClient
+import object_storage
 
 BASE_URL = os.environ.get("REACT_APP_BACKEND_URL", "https://listos-manager-reg.preview.emergentagent.com").rstrip("/")
 ORIGIN = BASE_URL
@@ -9,6 +10,17 @@ ORG_ID = "org_demo001"
 
 MONGO_URL = os.environ.get("MONGO_URL", "mongodb://localhost:27017")
 DB_NAME = os.environ.get("DB_NAME", "test_database")
+
+
+@pytest.fixture(autouse=True)
+def block_external_object_storage(monkeypatch):
+    """Tests must replace R2 with an in-memory fake; they may never create a real client."""
+    object_storage._client_for.cache_clear()
+
+    def blocked_client(*_args, **_kwargs):
+        raise AssertionError("Tests must not connect to external object storage")
+
+    monkeypatch.setattr(object_storage, "_client_for", blocked_client)
 
 
 @pytest.fixture(scope="session")
