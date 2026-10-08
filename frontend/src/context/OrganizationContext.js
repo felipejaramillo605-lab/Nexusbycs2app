@@ -1,5 +1,7 @@
 import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
 import { publicAPI } from '../api';
+import { setActiveCurrency } from '../lib/currency';
+import { getCountryProfile } from '../lib/countryProfile';
 
 const OrganizationContext = createContext(null);
 
@@ -7,6 +9,11 @@ export const OrganizationProvider = ({ children }) => {
   const [organization, setOrganization] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+
+  // La moneda funcional sigue al pais de la organizacion cargada (COP en Colombia, USD en Estados Unidos).
+  useEffect(() => {
+    setActiveCurrency(organization ? getCountryProfile(organization).currency : 'COP');
+  }, [organization]);
 
   // Load organization by ID
   const loadOrganization = useCallback(async (orgId) => {
@@ -80,5 +87,8 @@ export const useOrganization = () => {
   }
   return context;
 };
+
+// Igual que useOrganization pero sin lanzar error fuera del proveedor (componentes compartidos y pruebas).
+export const useOptionalOrganization = () => useContext(OrganizationContext);
 
 export default OrganizationContext;

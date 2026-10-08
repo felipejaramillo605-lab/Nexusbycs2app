@@ -76,6 +76,16 @@ from data_retention import build_retention_router
 from org_retention import build_org_retention_router
 from media_rights import build_media_rights_router
 from marketing_window import blocked_message as marketing_blocked_message, marketing_allowed
+from country_profiles import (
+    FEATURE_HR,
+    FEATURE_MARKETING,
+    FEATURE_PAYROLL,
+    assert_feature_enabled,
+    gated_current_user,
+    gated_team_resolver,
+    normalize_country,
+    organization_defaults,
+)
 from integrity_checks import build_integrity_router
 from owner_media_integrity import build_owner_media_integrity_router
 from owner_delivery_operations import (
@@ -758,6 +768,8 @@ class OrganizationCreate(BaseModel):
     business_hours: Optional[str] = Field(default=None, max_length=2000)
     phone: Optional[str] = Field(default=None, max_length=40)
     whatsapp_link: Optional[str] = Field(default=None, max_length=500)
+    # NEXUS_COUNTRY_PROFILE_V1: pais donde ejerce la empresa; fija moneda, prefijo, zona horaria y funciones.
+    operating_country: Literal["CO", "US"] = "CO"
 
 
 class OrganizationUpdate(BaseModel):
@@ -2799,7 +2811,10 @@ async def create_organization(
                 "organization_id": duplicate.get("organization_id"),
             },
         )
-    normalized_profile = fiscal_profile_view({**normalize_fiscal_profile(data.fiscal_profile), "profile_version": 1})
+    fiscal_data = normalize_fiscal_profile(data.fiscal_profile)
+    if normalize_country(data.operating_country) == "US" and fiscal_data.get("country") in (None, "", "Colombia"):
+        fiscal_data["country"] = "United States"
+    normalized_profile = fiscal_profile_view({**fiscal_data, "profile_version": 1})
     if normalized_profile["profile_status"] != "complete":
         raise HTTPException(
             status_code=422,
@@ -2826,6 +2841,7 @@ async def create_organization(
         "created_at": now,
         "portal_template": "classic",
         "premium_templates_contracted": False,
+        **organization_defaults(data.operating_country),
     }
     profile = {
         **normalized_profile,
@@ -8311,6 +8327,8 @@ async def create_campaign(
     organization = None
     if org_id:
         organization = await db.organizations.find_one({"organization_id": org_id}, {"_id": 0})
+    # Estados Unidos: campanas deshabilitadas hasta validar TCPA / telemarketing de Florida / CAN-SPAM.
+    assert_feature_enabled(organization, FEATURE_MARKETING)
 
     org_name = organization.get("name", "Nexus") if organization else "Nexus"
     org_address = organization.get("address") if organization else None
@@ -9481,7 +9499,12 @@ api_router.include_router(
 from payroll import build_payroll_router, ensure_payroll_indexes
 
 api_router.include_router(
-    build_payroll_router(db, get_current_user, require_management_role, resolve_team_organization),
+    build_payroll_router(
+        db,
+        gated_current_user(get_current_user, db, FEATURE_PAYROLL),
+        require_management_role,
+        gated_team_resolver(resolve_team_organization, db, FEATURE_PAYROLL),
+    ),
     tags=["payroll"],
 )
 
@@ -9489,7 +9512,12 @@ api_router.include_router(
 from hr_absences import build_hr_router, ensure_hr_indexes
 
 api_router.include_router(
-    build_hr_router(db, get_current_user, require_management_role, resolve_team_organization),
+    build_hr_router(
+        db,
+        gated_current_user(get_current_user, db, FEATURE_HR),
+        require_management_role,
+        gated_team_resolver(resolve_team_organization, db, FEATURE_HR),
+    ),
     tags=["hr"],
 )
 
@@ -9497,7 +9525,12 @@ api_router.include_router(
 from hr_wellbeing import build_wellbeing_router, ensure_wellbeing_indexes
 
 api_router.include_router(
-    build_wellbeing_router(db, get_current_user, require_management_role, resolve_team_organization),
+    build_wellbeing_router(
+        db,
+        gated_current_user(get_current_user, db, FEATURE_HR),
+        require_management_role,
+        gated_team_resolver(resolve_team_organization, db, FEATURE_HR),
+    ),
     tags=["hr"],
 )
 
@@ -9505,7 +9538,12 @@ api_router.include_router(
 from payroll_novelties import build_novelties_router, ensure_novelty_indexes
 
 api_router.include_router(
-    build_novelties_router(db, get_current_user, require_management_role, resolve_team_organization),
+    build_novelties_router(
+        db,
+        gated_current_user(get_current_user, db, FEATURE_PAYROLL),
+        require_management_role,
+        gated_team_resolver(resolve_team_organization, db, FEATURE_PAYROLL),
+    ),
     tags=["payroll"],
 )
 
@@ -9513,7 +9551,12 @@ api_router.include_router(
 from payroll_benefits import build_benefits_router
 
 api_router.include_router(
-    build_benefits_router(db, get_current_user, require_management_role, resolve_team_organization),
+    build_benefits_router(
+        db,
+        gated_current_user(get_current_user, db, FEATURE_PAYROLL),
+        require_management_role,
+        gated_team_resolver(resolve_team_organization, db, FEATURE_PAYROLL),
+    ),
     tags=["payroll"],
 )
 
@@ -9521,7 +9564,12 @@ api_router.include_router(
 from client_segments import build_segment_router
 
 api_router.include_router(
-    build_segment_router(db, get_current_user, require_management_role, resolve_team_organization),
+    build_segment_router(
+        db,
+        gated_current_user(get_current_user, db, FEATURE_MARKETING),
+        require_management_role,
+        gated_team_resolver(resolve_team_organization, db, FEATURE_MARKETING),
+    ),
     tags=["marketing"],
 )
 

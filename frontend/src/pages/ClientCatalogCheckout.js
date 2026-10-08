@@ -11,12 +11,14 @@ import { useClientPortalTheme } from '../hooks/useClientPortalTheme';
 import { useCart } from '../lib/cart';
 import ClientPortalNav from '../components/ClientPortalNav';
 import { formatCOP as money } from '../lib/currency';
+import { getCountryProfile } from '../lib/countryProfile';
 
 export default function ClientCatalogCheckout() {
   const { orgId } = useParams();
   const navigate = useNavigate();
   const { organization } = useOrganization();
   useClientPortalTheme(organization);
+  const phoneCountry = getCountryProfile(organization).phoneCountry;
   const cart = useCart(orgId);
 
   const [form, setForm] = useState({ client_name: '', client_phone: '', client_email: '', notes: '' });
@@ -111,7 +113,7 @@ export default function ClientCatalogCheckout() {
               </label>
               <label className="block">
                 <span className="text-sm text-[var(--app-text-secondary)]">Teléfono</span>
-                <PhoneInput international defaultCountry="CO" value={form.client_phone} onChange={value => setForm({ ...form, client_phone: value || '' })} />
+                <PhoneInput international defaultCountry={phoneCountry} value={form.client_phone} onChange={value => setForm({ ...form, client_phone: value || '' })} />
               </label>
               <label className="block">
                 <span className="text-sm text-[var(--app-text-secondary)]">Correo electrónico (opcional)</span>
