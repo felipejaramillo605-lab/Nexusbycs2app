@@ -3,8 +3,10 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { toast } from 'sonner';
 import { api } from '../api';
 
+import { usePortalT } from '../lib/portalI18n';
 /** Authentication state and requests for a client's public portal account. */
 export function useClientPortalAuth() {
+  const { t } = usePortalT();
   const { orgId } = useParams();
   const navigate = useNavigate();
   const [mode, setMode] = useState('login');
@@ -35,20 +37,20 @@ export function useClientPortalAuth() {
   const handleLogin = async (event) => {
     event.preventDefault();
     if (!/^\d{4}$/.test(pin)) {
-      toast.error('El PIN debe ser exactamente 4 dígitos');
+      toast.error(t('El PIN debe ser exactamente 4 dígitos'));
       return;
     }
 
     setLoading(true);
     try {
       await api.post('/public/clients/login', { phone, organization_id: orgId, pin });
-      toast.success('¡Bienvenido de nuevo!');
+      toast.success(t('¡Bienvenido de nuevo!'));
       navigate(`/portal/${orgId}/dashboard`);
     } catch (error) {
       if (error.response?.status === 429) {
-        toast.error(error.response.data.detail || 'Demasiados intentos. Espera un momento.');
+        toast.error(error.response.data.detail || t('Demasiados intentos. Espera un momento.'));
       } else {
-        toast.error(error.response?.data?.detail || 'PIN o teléfono incorrecto');
+        toast.error(error.response?.data?.detail || t('PIN o teléfono incorrecto'));
       }
     } finally {
       setLoading(false);
@@ -58,15 +60,15 @@ export function useClientPortalAuth() {
   const handleRegister = async (event) => {
     event.preventDefault();
     if (!name.trim()) {
-      toast.error('El nombre es requerido');
+      toast.error(t('El nombre es requerido'));
       return;
     }
     if (!/^\d{4}$/.test(pin)) {
-      toast.error('El PIN debe ser exactamente 4 dígitos');
+      toast.error(t('El PIN debe ser exactamente 4 dígitos'));
       return;
     }
     if (!termsAccepted) {
-      toast.error('Debes aceptar la Política de Privacidad y los Términos');
+      toast.error(t('Debes aceptar la Política de Privacidad y los Términos'));
       return;
     }
 
@@ -81,13 +83,13 @@ export function useClientPortalAuth() {
         terms_accepted: termsAccepted,
         birthday: birthday || undefined,
       });
-      toast.success('¡Cuenta creada exitosamente!');
+      toast.success(t('¡Cuenta creada exitosamente!'));
       navigate(`/portal/${orgId}/dashboard`);
     } catch (error) {
       if (error.response?.status === 429) {
-        toast.error('Demasiados intentos. Intenta más tarde.');
+        toast.error(t('Demasiados intentos. Intenta más tarde.'));
       } else {
-        toast.error(error.response?.data?.detail || 'Error al crear cuenta');
+        toast.error(error.response?.data?.detail || t('Error al crear cuenta'));
       }
     } finally {
       setLoading(false);

@@ -6,6 +6,7 @@ import { useOrganization } from '../context/OrganizationContext';
 import { useCart } from '../lib/cart';
 import { describeBookingConflict } from '../lib/bookingErrors';
 
+import { usePortalT } from '../lib/portalI18n';
 const weekday = (value) => {
   if (!value) return null;
   const [year, month, day] = value.split('-').map(Number);
@@ -34,6 +35,7 @@ export const BOOKING_STEPS = ['Servicio', 'Profesional', 'Fecha y hora', 'Tus da
 
 /** Business state and requests for the public appointment/class booking flow. */
 export function useBookingFlow() {
+  const { t } = usePortalT();
   const { orgId } = useParams();
   const { organization, loadOrganization } = useOrganization();
   const cart = useCart(orgId);
@@ -89,11 +91,11 @@ export function useBookingFlow() {
     if (value && selectedBarber && !isGroupService && !works(selectedBarber, value)) {
       setSelectedDate('');
       setSlots([]);
-      setError('El profesional no trabaja en la fecha seleccionada.');
+      setError(t('El profesional no trabaja en la fecha seleccionada.'));
       return;
     }
     setSelectedDate(value);
-  }, [selectedBarber, isGroupService]);
+  }, [selectedBarber, isGroupService, t]);
 
   const selectSlot = useCallback((slot) => {
     setSelectedTime(slot);
@@ -177,17 +179,17 @@ export function useBookingFlow() {
       const detail = err.response?.data?.detail;
       const message = typeof detail === 'object' ? detail?.message : detail;
       setError(err.response?.status === 409
-        ? 'El profesional no está disponible en esta fecha.'
-        : message || 'No fue posible consultar la disponibilidad.');
+        ? t('El profesional no está disponible en esta fecha.')
+        : message || t('No fue posible consultar la disponibilidad.'));
       return [];
     } finally {
       setLoadingSlots(false);
     }
-  }, [orgId, selectedBarber, selectedService, selectedDate, organization?.timezone]);
+  }, [orgId, selectedBarber, selectedService, selectedDate, organization?.timezone, t]);
 
   useEffect(() => {
     loadOrganization(orgId);
-    Promise.all([loadServices(), loadBarbers()]).catch(() => toast.error('No fue posible cargar la información del negocio'));
+    Promise.all([loadServices(), loadBarbers()]).catch(() => toast.error(t('No fue posible cargar la información del negocio')));
     const saved = localStorage.getItem('nexus_client_data');
     if (saved) {
       try {
@@ -197,7 +199,7 @@ export function useBookingFlow() {
         // Ignore malformed locally remembered client data, as before.
       }
     }
-  }, [orgId, loadOrganization, loadServices, loadBarbers]);
+  }, [orgId, loadOrganization, loadServices, loadBarbers, t]);
 
   // Desde la pagina de inicio del portal: ?servicio=<id> deja elegida la clase y salta al paso del profesional.
   useEffect(() => {
@@ -222,12 +224,12 @@ export function useBookingFlow() {
     setSelectedClassSession(null);
     if (selectedBarber && selectedService && selectedDate) {
       if (selectedService.service_type !== 'group' && !works(selectedBarber, selectedDate)) {
-        setError('El profesional no trabaja en la fecha seleccionada.');
+        setError(t('El profesional no trabaja en la fecha seleccionada.'));
         return;
       }
       loadAvailability();
     }
-  }, [selectedBarber, selectedService, selectedDate, loadAvailability]);
+  }, [selectedBarber, selectedService, selectedDate, loadAvailability, t]);
 
   useEffect(() => {
     if (selectedBarber && selectedService) {
@@ -241,25 +243,25 @@ export function useBookingFlow() {
   }, [selectedService, selectedBarber]);
 
   const next = () => {
-    if (step === 1 && !selectedService) return toast.error('Selecciona un servicio');
-    if (step === 2 && !selectedBarber) return toast.error('Selecciona un profesional');
+    if (step === 1 && !selectedService) return toast.error(t('Selecciona un servicio'));
+    if (step === 2 && !selectedBarber) return toast.error(t('Selecciona un profesional'));
     if (step === 3 && (!selectedDate || !selectedTime || (isGroupService && !selectedClassSession))) {
-      return toast.error('Selecciona fecha y hora');
+      return toast.error(t('Selecciona fecha y hora'));
     }
     setStep((value) => Math.min(4, value + 1));
   };
 
   const submit = async () => {
-    if (!client.name || !client.phone || !client.email) return toast.error('Completa todos los campos');
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(client.email)) return toast.error('Ingresa un correo válido');
+    if (!client.name || !client.phone || !client.email) return toast.error(t('Completa todos los campos'));
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(client.email)) return toast.error(t('Ingresa un correo válido'));
     const hasPolicy = !isGroupService && (selectedService?.deposit_percent || selectedService?.no_show_policy);
-    if (hasPolicy && !policyAccepted) return toast.error('Acepta las condiciones del servicio para reservar');
+    if (hasPolicy && !policyAccepted) return toast.error(t('Acepta las condiciones del servicio para reservar'));
     setSubmitting(true);
     setError('');
     try {
       const refreshedSlots = await loadAvailability();
       if (!refreshedSlots.includes(selectedTime) || (isGroupService && !selectedClassSession)) {
-        setError('Este horario ya no está disponible. Selecciona uno posterior.');
+        setError(t('Este horario ya no está disponible. Selecciona uno posterior.'));
         setStep(3);
         return;
       }
@@ -293,21 +295,21 @@ export function useBookingFlow() {
       else localStorage.removeItem('nexus_client_data');
       cart.clear();
       setSuccess(result);
-      toast.success(isGroupService ? 'Cupo reservado' : 'Cita reservada');
+      toast.success(isGroupService ? t('Cupo reservado') : t('Cita reservada'));
     } catch (err) {
       const status = err.response?.status;
       const detail = err.response?.data?.detail;
       const message = typeof detail === 'object' ? detail?.message : detail;
       if (status === 409) {
         const conflict = describeBookingConflict(detail);
-        setError(conflict.message);
+        setError(t(conflict.message));
         if (conflict.backToStep) {
           setStep(conflict.backToStep);
           await loadAvailability();
-          setError(conflict.message);
+          setError(t(conflict.message));
         }
       } else {
-        setError(message || 'No fue posible crear la cita.');
+        setError(message || t('No fue posible crear la cita.'));
       }
     } finally {
       setSubmitting(false);

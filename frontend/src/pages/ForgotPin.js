@@ -11,7 +11,9 @@ import { Mail, ArrowLeft, Loader2, CheckCircle2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { api } from '../api';
 
+import { usePortalT } from '../lib/portalI18n';
 export default function ForgotPin() {
+  const { t } = usePortalT();
   const { orgId } = useParams();
   const [phone, setPhone] = useState('');
   const [loading, setLoading] = useState(false);
@@ -21,7 +23,7 @@ export default function ForgotPin() {
     e.preventDefault();
 
     if (!phone.trim()) {
-      toast.error('Ingresa tu número de teléfono');
+      toast.error(t('Ingresa tu número de teléfono'));
       return;
     }
 
@@ -33,7 +35,7 @@ export default function ForgotPin() {
       });
 
       setSent(true);
-      toast.success('Revisa tu correo electrónico');
+      toast.success(t('Revisa tu correo electrónico'));
     } catch (error) {
       // Por seguridad, el backend siempre responde exitosamente
       // incluso si el teléfono no existe
@@ -50,19 +52,19 @@ export default function ForgotPin() {
           <div className="w-16 h-16 rounded-2xl bg-[var(--app-success-soft)] flex items-center justify-center mx-auto mb-6">
             <CheckCircle2 size={32} className="text-[var(--app-success)]" />
           </div>
-          <h1 className="text-2xl font-bold text-[var(--app-text-primary)] mb-3">Revisa tu correo</h1>
+          <h1 className="text-2xl font-bold text-[var(--app-text-primary)] mb-3">{t('Revisa tu correo')}</h1>
           <p className="text-[var(--app-text-secondary)] mb-8">
-            Si tu teléfono está registrado, recibirás un correo con instrucciones para restablecer tu PIN.
+           {t('Si tu teléfono está registrado, recibirás un correo con instrucciones para restablecer tu PIN.')}
           </p>
           <div className="space-y-3">
             <Link
               to={`/portal/${orgId}/auth`}
               className="block w-full py-3 bg-[var(--app-primary)] hover:bg-[var(--app-primary-hover)] text-white font-medium rounded-xl transition-all"
             >
-              Volver a Inicio de Sesión
+             {t('Volver a Inicio de Sesión')}
             </Link>
             <p className="text-sm text-[var(--app-text-muted)]">
-              ¿No recibiste el correo? Revisa tu carpeta de spam o intenta de nuevo en unos minutos.
+             {t('¿No recibiste el correo? Revisa tu carpeta de spam o intenta de nuevo en unos minutos.')}
             </p>
           </div>
         </div>
@@ -78,23 +80,23 @@ export default function ForgotPin() {
           className="inline-flex items-center gap-2 text-[var(--app-text-secondary)] hover:text-[var(--app-text-primary)] transition-colors mb-6 text-sm"
         >
           <ArrowLeft size={16} />
-          Volver
+         {t('Volver')}
         </Link>
 
         <div className="text-center mb-8">
           <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-[var(--app-primary)] to-[var(--app-primary-hover)] flex items-center justify-center mx-auto mb-4">
             <Mail size={28} className="text-white" />
           </div>
-          <h1 className="text-2xl font-bold text-[var(--app-text-primary)] mb-2">¿Olvidaste tu PIN?</h1>
+          <h1 className="text-2xl font-bold text-[var(--app-text-primary)] mb-2">{t('¿Olvidaste tu PIN?')}</h1>
           <p className="text-[var(--app-text-secondary)] text-sm">
-            Ingresa tu teléfono y te enviaremos instrucciones por correo
+           {t('Ingresa tu teléfono y te enviaremos instrucciones por correo')}
           </p>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
             <label className="block text-sm font-medium text-[var(--app-text-secondary)] mb-2">
-              Teléfono registrado
+             {t('Teléfono registrado')}
             </label>
             <input
               type="tel"
@@ -114,17 +116,17 @@ export default function ForgotPin() {
             {loading ? (
               <>
                 <Loader2 size={18} className="animate-spin" />
-                Enviando...
+               {t('Enviando...')}
               </>
             ) : (
-              'Enviar instrucciones'
+              t('Enviar instrucciones')
             )}
           </button>
         </form>
 
         <div className="mt-8 p-4 bg-[var(--app-primary-soft)] border border-[var(--app-border)] rounded-xl">
           <p className="text-xs text-[var(--app-text-secondary)] text-center">
-            Por tu seguridad, enviaremos el correo solo si el teléfono está registrado en nuestro sistema
+           {t('Por tu seguridad, enviaremos el correo solo si el teléfono está registrado en nuestro sistema')}
           </p>
         </div>
       </div>

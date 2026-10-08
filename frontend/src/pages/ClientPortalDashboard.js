@@ -22,7 +22,9 @@ import ReviewModal from '../components/ReviewModal';
 import { useClientDashboard } from '../hooks/useClientDashboard';
 import { bookingWindowNotice, formatOpensOn } from '../lib/bookingWindow';
 
+import { usePortalT } from '../lib/portalI18n';
 export default function ClientPortalDashboard() {
+  const { t } = usePortalT();
   const navigate = useNavigate();
   const {
     orgId,
@@ -70,28 +72,28 @@ export default function ClientPortalDashboard() {
         return (
           <span className="inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-blue-500/20 text-blue-400 text-xs">
             <CheckCircle2 size={12} />
-            Confirmada
+           {t('Confirmada')}
           </span>
         );
       case 'completed':
         return (
           <span className="inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-green-500/20 text-green-400 text-xs">
             <CheckCircle2 size={12} />
-            Completada
+           {t('Completada')}
           </span>
         );
       case 'cancelled':
         return (
           <span className="inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-red-500/20 text-red-400 text-xs">
             <XCircle size={12} />
-            Cancelada
+           {t('Cancelada')}
           </span>
         );
       case 'no-show':
         return (
           <span className="inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-orange-500/20 text-orange-400 text-xs">
             <AlertCircle size={12} />
-            No asistió
+           {t('No asistió')}
           </span>
         );
       default:
@@ -146,12 +148,12 @@ export default function ClientPortalDashboard() {
             className="inline-flex items-center gap-2 text-zinc-400 hover:text-white transition-colors mb-4 text-sm"
           >
             <ArrowLeft size={16} />
-            Volver a reservar
+           {t('Volver a reservar')}
           </Link>
           <div className="flex items-center justify-between">
             <div>
               <h1 className="text-2xl font-bold text-white mb-1">
-                Hola, {clientData?.name}
+               {t('Hola,')} {clientData?.name}
               </h1>
               <p className="text-sm text-zinc-400">{clientData?.phone}</p>
             </div>
@@ -160,7 +162,7 @@ export default function ClientPortalDashboard() {
               className="flex items-center gap-2 px-4 py-2 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl text-zinc-300 transition-colors"
             >
               <LogOut size={16} />
-              Salir
+             {t('Salir')}
             </button>
           </div>
         </div>
@@ -175,9 +177,9 @@ export default function ClientPortalDashboard() {
                 <Star size={22} className="text-amber-400" fill="currentColor" />
               </div>
               <div className="flex-1">
-                <h2 className="text-lg font-semibold text-white">Tus puntos de lealtad</h2>
+                <h2 className="text-lg font-semibold text-white">{t('Tus puntos de lealtad')}</h2>
                 <p className="text-xs text-zinc-400">
-                  {loyalty.points_per_visit > 0 ? `Ganas ${loyalty.points_per_visit} puntos por cada visita` : 'Programa de fidelización'}
+                  {loyalty.points_per_visit > 0 ? t('Ganas {0} puntos por cada visita', loyalty.points_per_visit) : t('Programa de fidelización')}
                 </p>
               </div>
               <div data-testid="loyalty-points-value" className="text-3xl font-bold text-amber-400">
@@ -196,8 +198,8 @@ export default function ClientPortalDashboard() {
                 <div className="flex items-center justify-between text-sm">
                   <span className="text-zinc-400">
                     {loyalty.points_to_next_reward > 0
-                      ? `Te faltan ${loyalty.points_to_next_reward} puntos para tu próxima recompensa`
-                      : '¡Ya puedes canjear tu recompensa!'}
+                      ? t('Te faltan {0} puntos para tu próxima recompensa', loyalty.points_to_next_reward)
+                      : t('¡Ya puedes canjear tu recompensa!')}
                   </span>
                   <span className="text-amber-400 font-medium">{loyalty.progress_percent}%</span>
                 </div>
@@ -219,8 +221,8 @@ export default function ClientPortalDashboard() {
           >
             <Plus size={20} className="text-white" />
             <div className="text-left">
-              <div className="font-medium text-white">Nueva Cita</div>
-              <div className="text-xs text-blue-100">Reservar ahora</div>
+              <div className="font-medium text-white">{t('Nueva Cita')}</div>
+              <div className="text-xs text-blue-100">{t('Reservar ahora')}</div>
             </div>
           </button>
 
@@ -230,8 +232,8 @@ export default function ClientPortalDashboard() {
           >
             <Lock size={20} className="text-zinc-400" />
             <div className="text-left">
-              <div className="font-medium text-white">Cambiar PIN</div>
-              <div className="text-xs text-zinc-400">Actualizar seguridad</div>
+              <div className="font-medium text-white">{t('Cambiar PIN')}</div>
+              <div className="text-xs text-zinc-400">{t('Actualizar seguridad')}</div>
             </div>
           </button>
 
@@ -241,8 +243,8 @@ export default function ClientPortalDashboard() {
           >
             <Trash2 size={20} className="text-zinc-400 group-hover:text-red-400" />
             <div className="text-left">
-              <div className="font-medium text-white group-hover:text-red-400">Eliminar Cuenta</div>
-              <div className="text-xs text-zinc-400 group-hover:text-red-400/70">Permanente</div>
+              <div className="font-medium text-white group-hover:text-red-400">{t('Eliminar Cuenta')}</div>
+              <div className="text-xs text-zinc-400 group-hover:text-red-400/70">{t('Permanente')}</div>
             </div>
           </button>
         </div>
@@ -255,11 +257,11 @@ export default function ClientPortalDashboard() {
                 <CreditCard size={22} className="text-violet-400" />
               </div>
               <div className="flex-1">
-                <h2 className="text-lg font-semibold text-white">{membership.plan?.name || 'Tu membresía'}</h2>
+                <h2 className="text-lg font-semibold text-white">{membership.plan?.name || t('Tu membresía')}</h2>
                 <p className="text-xs text-zinc-400">
                   {membership.membership.status === 'active'
                     ? `Activa · vence ${membership.membership.period_end}`
-                    : `Vencida el ${membership.membership.period_end} · puedes seguir asistiendo pagando el día, o renovar`}
+                    : t('Vencida el {0} · puedes seguir asistiendo pagando el día, o renovar', membership.membership.period_end)}
                 </p>
               </div>
             </div>
@@ -268,7 +270,7 @@ export default function ClientPortalDashboard() {
                 {membership.benefits.map(b => (
                   <li key={b.service_id} className="flex items-center justify-between">
                     <span>{b.service_name}</span>
-                    <span className="text-zinc-400">{b.monthly_limit ? `${b.remaining}/${b.monthly_limit} restantes` : 'Ilimitado'}</span>
+                    <span className="text-zinc-400">{b.monthly_limit ? `${b.remaining}/${b.monthly_limit} restantes` : t('Ilimitado')}</span>
                   </li>
                 ))}
               </ul>
@@ -279,14 +281,14 @@ export default function ClientPortalDashboard() {
         <div>
           <h2 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
             <Users size={20} className="text-violet-400" />
-            Clases grupales
+           {t('Clases grupales')}
           </h2>
           {loadingClasses ? (
-            <div className="p-8 bg-white/5 border border-white/10 rounded-xl text-center text-zinc-400">Cargando clases...</div>
+            <div className="p-8 bg-white/5 border border-white/10 rounded-xl text-center text-zinc-400">{t('Cargando clases...')}</div>
           ) : classSessions.length === 0 ? (
             <div className="p-8 bg-white/5 border border-white/10 rounded-xl text-center">
               <Users size={32} className="text-zinc-600 mx-auto mb-3" />
-              <p className="text-zinc-400">No hay clases grupales disponibles por ahora</p>
+              <p className="text-zinc-400">{t('No hay clases grupales disponibles por ahora')}</p>
             </div>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -305,22 +307,22 @@ export default function ClientPortalDashboard() {
                   <div className="flex items-start justify-between mb-2">
                     <div>
                       <h3 className="font-medium text-white">{session.service_name}</h3>
-                      <p className="text-sm text-zinc-400">Con {session.barber_name}</p>
+                      <p className="text-sm text-zinc-400">{t('Con')} {session.barber_name}</p>
                     </div>
                     <span className="inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-white/10 text-zinc-300 text-xs">
-                      {session.spots_available} cupos
+                      {session.spots_available} {t('cupos')}
                     </span>
                   </div>
                   <div className="flex items-center gap-4 text-sm text-zinc-400 mb-3">
                     <span className="flex items-center gap-1"><Calendar size={14} />{session.date}</span>
                     <span className="flex items-center gap-1"><Clock size={14} />{session.time}</span>
-                    {session.service_presentation?.duration && <span>{session.service_presentation.duration} min</span>}
+                    {session.service_presentation?.duration && <span>{session.service_presentation.duration} {t('min')}</span>}
                   </div>
                   {session.service_presentation?.short_description && <p className="text-sm text-zinc-300 mb-3">{session.service_presentation.short_description}</p>}
                   <p className="text-xs text-zinc-500 mb-3">
                     {session.membership_covers
-                      ? (session.membership_remaining != null ? `Cubierto por tu plan · ${session.membership_remaining} restantes este mes` : 'Cubierto por tu plan')
-                      : `Sin membresía: $${session.drop_in_price} pagando el día`}
+                      ? (session.membership_remaining != null ? t('Cubierto por tu plan · {0} restantes este mes', session.membership_remaining) : t('Cubierto por tu plan'))
+                      : t('Sin membresía: ${0} pagando el día', session.drop_in_price)}
                   </p>
                   {session.already_booked ? (
                     <>
@@ -330,14 +332,14 @@ export default function ClientPortalDashboard() {
                           shown every time the portal loads, not just once at
                           booking time. */}
                       <div className="mb-2 p-2.5 bg-emerald-500/10 border border-emerald-500/30 rounded-lg text-xs text-emerald-300 space-y-0.5">
-                        <p className="font-medium">Cupo confirmado{session.my_spot_label ? ` · ${session.my_spot_label}` : ''}</p>
-                        {session.my_confirmation_code && <p className="text-emerald-400/80">Código de confirmación: {session.my_confirmation_code}</p>}
+                        <p className="font-medium">{t('Cupo confirmado')}{session.my_spot_label ? ` · ${session.my_spot_label}` : ''}</p>
+                        {session.my_confirmation_code && <p className="text-emerald-400/80">{t('Código de confirmación:')} {session.my_confirmation_code}</p>}
                       </div>
                       <button
                         onClick={() => handleCancelClassBooking(session.my_class_booking_id)}
                         className="w-full py-2 bg-red-500/10 hover:bg-red-500/20 border border-red-500/30 text-red-400 rounded-lg text-sm transition-colors"
                       >
-                        Cancelar cupo
+                       {t('Cancelar cupo')}
                       </button>
                     </>
                   ) : session.already_waitlisted ? (
@@ -345,11 +347,11 @@ export default function ClientPortalDashboard() {
                       onClick={() => handleLeaveWaitlist(session.my_waitlist_id)}
                       className="w-full py-2 bg-white/10 hover:bg-white/15 border border-white/20 text-zinc-300 rounded-lg text-sm transition-colors"
                     >
-                      En lista de espera · salir
+                     {t('En lista de espera · salir')}
                     </button>
                   ) : session.open_for_booking === false ? (
                     <div className="p-2.5 bg-amber-500/10 border border-amber-500/30 rounded-lg text-xs text-amber-200 space-y-0.5" data-testid="portal-class-not-open">
-                      <p className="font-medium">Las reservas abren el {formatOpensOn(session.booking_opens_on)}</p>
+                      <p className="font-medium">{t('Las reservas abren el')} {formatOpensOn(session.booking_opens_on)}</p>
                       {session.booking_window_days ? <p>{bookingWindowNotice(session.booking_window_days)}</p> : null}
                     </div>
                   ) : session.spots_available <= 0 ? (
@@ -358,7 +360,7 @@ export default function ClientPortalDashboard() {
                       disabled={bookingSessionId === session.class_session_id}
                       className="w-full py-2 bg-white/10 hover:bg-white/15 border border-white/20 text-zinc-300 rounded-lg text-sm transition-colors disabled:opacity-50"
                     >
-                      {bookingSessionId === session.class_session_id ? 'Uniéndote...' : 'Unirme a la lista de espera'}
+                      {bookingSessionId === session.class_session_id ? t('Uniéndote...') : t('Unirme a la lista de espera')}
                     </button>
                   ) : session.spot_layout?.length && pickingSpotFor === session.class_session_id ? (
                     <div className="space-y-2">
@@ -377,14 +379,14 @@ export default function ClientPortalDashboard() {
                           );
                         })}
                       </div>
-                      <button onClick={() => setPickingSpotFor(null)} className="w-full py-1.5 text-xs text-zinc-500 hover:text-zinc-300">Cancelar</button>
+                      <button onClick={() => setPickingSpotFor(null)} className="w-full py-1.5 text-xs text-zinc-500 hover:text-zinc-300">{t('Cancelar')}</button>
                     </div>
                   ) : session.spot_layout?.length ? (
                     <button
                       onClick={() => setPickingSpotFor(session.class_session_id)}
                       className="w-full py-2 bg-violet-500/20 hover:bg-violet-500/30 border border-violet-500/30 text-violet-300 rounded-lg text-sm transition-colors"
                     >
-                      Elegir spot
+                     {t('Elegir spot')}
                     </button>
                   ) : (
                     <button
@@ -392,7 +394,7 @@ export default function ClientPortalDashboard() {
                       disabled={bookingSessionId === session.class_session_id}
                       className="w-full py-2 bg-violet-500/20 hover:bg-violet-500/30 border border-violet-500/30 text-violet-300 rounded-lg text-sm transition-colors disabled:opacity-50"
                     >
-                      {bookingSessionId === session.class_session_id ? 'Reservando...' : 'Reservar cupo'}
+                      {bookingSessionId === session.class_session_id ? t('Reservando...') : t('Reservar cupo')}
                     </button>
                   )}
                   </div>
@@ -407,7 +409,7 @@ export default function ClientPortalDashboard() {
           <div>
             <h2 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
               <Calendar size={20} className="text-blue-400" />
-              Próximas Citas
+             {t('Próximas Citas')}
             </h2>
             <div className="space-y-3">
               {upcomingAppointments.map((apt) => (
@@ -418,7 +420,7 @@ export default function ClientPortalDashboard() {
                   <div className="flex items-start justify-between mb-3">
                     <div>
                       <h3 className="font-medium text-white mb-1">{apt.service_name}</h3>
-                      <p className="text-sm text-zinc-400">Con {apt.barber_name}</p>
+                      <p className="text-sm text-zinc-400">{t('Con')} {apt.barber_name}</p>
                     </div>
                     {getStatusBadge(apt.status)}
                   </div>
@@ -437,14 +439,14 @@ export default function ClientPortalDashboard() {
                       onClick={() => handleCancelAppointment(apt.appointment_id)}
                       className="w-full py-2 bg-red-500/10 hover:bg-red-500/20 border border-red-500/30 text-red-400 rounded-lg text-sm transition-colors"
                     >
-                      Cancelar cita
+                     {t('Cancelar cita')}
                     </button>
                   )}
                   <button
                     onClick={() => navigate(`/portal/${orgId}/reschedule/${apt.appointment_id}`)}
                     className="w-full mt-2 py-2 bg-blue-500/10 hover:bg-blue-500/20 border border-blue-500/30 text-blue-300 rounded-lg text-sm transition-colors"
                   >
-                    Reprogramar cita
+                   {t('Reprogramar cita')}
                   </button>
                 </div>
               ))}
@@ -456,7 +458,7 @@ export default function ClientPortalDashboard() {
         <div>
           <h2 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
             <Clock size={20} className="text-zinc-400" />
-            Historial ({pastAppointments.length})
+           {t('Historial (')}{pastAppointments.length})
           </h2>
           {pastAppointments.length > 0 ? (
             <div className="space-y-3">
@@ -468,7 +470,7 @@ export default function ClientPortalDashboard() {
                   <div className="flex items-start justify-between mb-2">
                     <div>
                       <h3 className="font-medium text-white">{apt.service_name}</h3>
-                      <p className="text-sm text-zinc-500">Con {apt.barber_name}</p>
+                      <p className="text-sm text-zinc-500">{t('Con')} {apt.barber_name}</p>
                     </div>
                     {getStatusBadge(apt.status)}
                   </div>
@@ -488,7 +490,7 @@ export default function ClientPortalDashboard() {
           ) : (
             <div className="p-8 bg-white/5 border border-white/10 rounded-xl text-center">
               <Clock size={32} className="text-zinc-600 mx-auto mb-3" />
-              <p className="text-zinc-400">No tienes citas anteriores</p>
+              <p className="text-zinc-400">{t('No tienes citas anteriores')}</p>
             </div>
           )}
         </div>
@@ -498,11 +500,11 @@ export default function ClientPortalDashboard() {
       {showChangePinModal && (
         <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 z-50">
           <div className="bg-zinc-900 border border-white/10 rounded-2xl max-w-md w-full p-6">
-            <h3 className="text-xl font-bold text-white mb-4">Cambiar PIN</h3>
+            <h3 className="text-xl font-bold text-white mb-4">{t('Cambiar PIN')}</h3>
             <form onSubmit={handleChangePin} className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-zinc-400 mb-2">
-                  PIN Actual
+                 {t('PIN Actual')}
                 </label>
                 <input
                   type="password"
@@ -516,7 +518,7 @@ export default function ClientPortalDashboard() {
               </div>
               <div>
                 <label className="block text-sm font-medium text-zinc-400 mb-2">
-                  Nuevo PIN
+                 {t('Nuevo PIN')}
                 </label>
                 <input
                   type="password"
@@ -530,7 +532,7 @@ export default function ClientPortalDashboard() {
               </div>
               <div>
                 <label className="block text-sm font-medium text-zinc-400 mb-2">
-                  Confirmar Nuevo PIN
+                 {t('Confirmar Nuevo PIN')}
                 </label>
                 <input
                   type="password"
@@ -553,7 +555,7 @@ export default function ClientPortalDashboard() {
                   }}
                   className="flex-1 py-3 bg-white/5 hover:bg-white/10 border border-white/10 text-white rounded-xl transition-colors"
                 >
-                  Cancelar
+                 {t('Cancelar')}
                 </button>
                 <button
                   type="submit"
@@ -563,10 +565,10 @@ export default function ClientPortalDashboard() {
                   {changingPin ? (
                     <>
                       <Loader2 size={18} className="animate-spin" />
-                      Actualizando...
+                     {t('Actualizando...')}
                     </>
                   ) : (
-                    'Cambiar PIN'
+                    t('Cambiar PIN')
                   )}
                 </button>
               </div>
@@ -584,19 +586,19 @@ export default function ClientPortalDashboard() {
                 <Trash2 size={24} className="text-red-400" />
               </div>
               <div>
-                <h3 className="text-xl font-bold text-white">Eliminar Cuenta</h3>
-                <p className="text-sm text-zinc-400">Esta acción es permanente</p>
+                <h3 className="text-xl font-bold text-white">{t('Eliminar Cuenta')}</h3>
+                <p className="text-sm text-zinc-400">{t('Esta acción es permanente')}</p>
               </div>
             </div>
             <div className="bg-red-500/10 border border-red-500/30 rounded-xl p-4 mb-4">
               <p className="text-sm text-red-200">
-                ⚠️ Tu perfil será eliminado, pero tus citas anteriores se mantendrán en el historial del negocio.
+               {t('⚠️ Tu perfil será eliminado, pero tus citas anteriores se mantendrán en el historial del negocio.')}
               </p>
             </div>
             <form onSubmit={handleDeleteAccount} className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-zinc-400 mb-2">
-                  PIN actual (4 dígitos)
+                 {t('PIN actual (4 dígitos)')}
                 </label>
                 <input
                   type="password"
@@ -611,13 +613,13 @@ export default function ClientPortalDashboard() {
               </div>
               <div>
                 <label className="block text-sm font-medium text-zinc-400 mb-2">
-                  Escribe <span className="text-red-400 font-bold">ELIMINAR</span> para confirmar
+                 {t('Escribe')} <span className="text-red-400 font-bold">{t('ELIMINAR')}</span> {t('para confirmar')}
                 </label>
                 <input
                   type="text"
                   value={deleteConfirmText}
                   onChange={(e) => setDeleteConfirmText(e.target.value)}
-                  placeholder="ELIMINAR"
+                  placeholder={t('ELIMINAR')}
                   required
                   className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-red-500/50"
                 />
@@ -632,7 +634,7 @@ export default function ClientPortalDashboard() {
                   }}
                   className="flex-1 py-3 bg-white/5 hover:bg-white/10 border border-white/10 text-white rounded-xl transition-colors"
                 >
-                  Cancelar
+                 {t('Cancelar')}
                 </button>
                 <button
                   type="submit"
@@ -642,10 +644,10 @@ export default function ClientPortalDashboard() {
                   {deleting ? (
                     <>
                       <Loader2 size={18} className="animate-spin" />
-                      Eliminando...
+                     {t('Eliminando...')}
                     </>
                   ) : (
-                    'Eliminar mi cuenta'
+                    t('Eliminar mi cuenta')
                   )}
                 </button>
               </div>
