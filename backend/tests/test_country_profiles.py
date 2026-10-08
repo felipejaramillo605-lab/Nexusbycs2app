@@ -1,5 +1,6 @@
 """Perfiles de pais: Colombia conserva todo; Estados Unidos oculta nomina, RRHH y campanas."""
 
+import asyncio
 import sys
 from pathlib import Path
 from types import SimpleNamespace
@@ -76,8 +77,11 @@ def test_blocked_detail_names_the_country_and_is_stable_for_the_frontend():
     assert caught.value.status_code == 403
 
 
-@pytest.mark.asyncio
-async def test_gated_current_user_blocks_users_of_us_organizations_only():
+def test_gated_current_user_blocks_users_of_us_organizations_only():
+    asyncio.run(_gated_current_user_blocks_users_of_us_organizations_only())
+
+
+async def _gated_current_user_blocks_users_of_us_organizations_only():
     db = make_db()
 
     async def get_current_user(*args, **kwargs):
@@ -92,8 +96,11 @@ async def test_gated_current_user_blocks_users_of_us_organizations_only():
     assert caught.value.status_code == 403 and caught.value.detail["country"] == "US"
 
 
-@pytest.mark.asyncio
-async def test_gated_team_resolver_blocks_owner_acting_on_a_us_organization():
+def test_gated_team_resolver_blocks_owner_acting_on_a_us_organization():
+    asyncio.run(_gated_team_resolver_blocks_owner_acting_on_a_us_organization())
+
+
+async def _gated_team_resolver_blocks_owner_acting_on_a_us_organization():
     db = make_db()
 
     async def resolve(user, requested):
