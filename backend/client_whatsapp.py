@@ -11,6 +11,7 @@ from fastapi import APIRouter, Cookie, Header, HTTPException
 from pydantic import BaseModel, ConfigDict, Field
 
 import whatsapp_service
+from country_profiles import FEATURE_MARKETING, assert_feature_enabled
 from marketing_window import blocked_message as marketing_blocked_message, marketing_allowed
 
 
@@ -42,6 +43,12 @@ def build_client_whatsapp_router(
         )
         if not client:
             raise HTTPException(404, "Cliente no encontrado en esta organización")
+        if data.kind == "promotion":
+            # Estados Unidos: la publicidad por WhatsApp esta deshabilitada hasta validar TCPA / FTSA.
+            promo_org = await db.organizations.find_one(
+                {"organization_id": organization_id}, {"_id": 0, "operating_country": 1}
+            )
+            assert_feature_enabled(promo_org, FEATURE_MARKETING)
         if data.kind == "promotion" and client.get("accepts_marketing") is not True:
             raise HTTPException(403, "El cliente no autorizó mensajes de marketing")
         if data.kind == "promotion" and not marketing_allowed():

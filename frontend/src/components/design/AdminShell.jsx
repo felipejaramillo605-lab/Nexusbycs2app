@@ -9,7 +9,7 @@ import ThemeToggle from '../ThemeToggle';
 import NotificationBellEnhanced from '../NotificationBellEnhanced';
 import { useAccessibleDialog } from './useAccessibleDialog';
 import OnboardingTour from '../onboarding/OnboardingTour';
-import { getAdminSections } from './adminNavigation';
+import { filterSectionsByCountry, getAdminSections } from './adminNavigation';
 import { ownerConsoleSections, ownerMobilePrimary } from './ownerConsoleSections';
 import { CommandPalette } from './CommandPalette';
 const ShellContext=createContext(false);
@@ -23,7 +23,7 @@ export function AdminShell({children,organizationName='Nexus',organizationId,act
  // unchanged, still enforced server-side per endpoint exactly as before.
  const isOwnerConsole=user?.role==='owner'&&location.pathname.startsWith('/owner');
  const {organization,loadOrganization}=useOrganization();
- const allowed=useMemo(()=>isOwnerConsole?ownerConsoleSections:getAdminSections(organization?.business_type).map(section=>({...section,items:section.items.filter(item=>!item[3]||item[3]===user?.role)})),[isOwnerConsole,organization?.business_type,user?.role]);
+ const allowed=useMemo(()=>isOwnerConsole?ownerConsoleSections:filterSectionsByCountry(getAdminSections(organization?.business_type),organization).map(section=>({...section,items:section.items.filter(item=>!item[3]||item[3]===user?.role)})),[isOwnerConsole,organization,user?.role]);
  const mobilePrimary=isOwnerConsole?ownerMobilePrimary:mobilePrimaryManager;
  // NEXUS_OWNER_CONSOLE_SHELL_V1 (plan PR 10): search over the real nav
  // registry currently in `allowed` -- flattened once here so the palette

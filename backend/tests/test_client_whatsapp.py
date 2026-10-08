@@ -226,3 +226,16 @@ def test_an_operational_notice_is_not_advertising_and_ignores_the_window(monkeyp
     monkeypatch.setattr(client_whatsapp, "marketing_allowed", lambda *args, **kwargs: False)
     result = post(app, {"kind": "operational_notice", "message": "Cerramos temprano"})
     assert result.status_code != 409
+
+
+def test_us_organization_cannot_send_promotions_but_reminders_and_notices_still_work(monkeypatch):
+    app, db, sender = setup(monkeypatch)
+    db.organizations.rows[0]["operating_country"] = "US"
+    blocked = post(app, {"kind": "promotion", "message": "Oferta"})
+    assert blocked.status_code == 403
+    assert blocked.json()["detail"]["code"] == "feature_unavailable_for_country"
+    sender.assert_not_awaited()
+    # Los avisos operativos no son marketing: siguen disponibles.
+    ok = post(app, {"kind": "operational_notice", "message": "Tu cita cambió de hora"})
+    assert ok.status_code == 200
+    sender.assert_awaited_once()
