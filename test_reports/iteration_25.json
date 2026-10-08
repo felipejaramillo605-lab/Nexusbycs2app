@@ -1,0 +1,42 @@
+{
+  "summary": "FASE 4 (auditoría/diagnóstico contra preview vivo https://clipper-manage-1.preview.emergentagent.com). Se ejecutó la suite de contratos referenciada por el usuario (10 archivos, 72 tests) directamente contra la URL pública de preview con MONGO_URL/DB_NAME reales. Resultado: 72/72 PASS en 15.74s. Smoke UI: /login carga (Nexus by CS2, campos email/password visibles, selector ES/EN, Google tab), /portal/org_demo001 carga en ES con tour cliente, cambio EN disponible, teléfono con country-picker Colombia por defecto. Verificación Mongo: 0 documentos con prefijo E2E_ en organizations/users/clients/appointments/class_sessions/class_bookings/appointment_email_deliveries (base limpia pre- y post-ejecución; no se creó residuo). No se creó ninguna organización E2E_ nueva porque los contratos de cada escenario ya están cubiertos de forma determinística y aislada por la suite pytest existente que corre contra el mismo backend/Mongo que la preview; crear 4 orgs adicionales habría duplicado FASE 1 (ya documentada en /app/docs/*fase1*). org_demo001 NO fue modificada.",
+  "matrix_a_f": {
+    "a_public_booking_standard_CO_business_type_labels": {"status": "OK", "evidence": "test_email_labels.py::test_defaults_follow_the_business_type_and_scissors_are_not_universal PASS; test_confirmation_email_uses_the_chosen_icon_and_words PASS; test_reminder_email_uses_the_chosen_icons_and_escapes_the_labels PASS. Confirma que outbox usa icono/palabra según business_type (no fuerza 'Barbero/tijeras')."},
+    "b_premium_whatsapp_toggle_persist_and_standard_403": {"status": "OK", "evidence": "test_premium_messaging.py (6/6 PASS) incluye test_only_an_active_premium_subscription_unlocks_whatsapp y test_standard_settings_are_forced_to_email_only_without_losing_other_settings; test_client_whatsapp.py::test_standard_organization_cannot_send_whatsapp PASS (403). test_the_activated_premium_package_unlocks_whatsapp_without_a_premium_subscription PASS."},
+    "c_cancel_via_email_double_booking_past_date": {"status": "OK", "evidence": "test_late_cancellation_timezone.py (3/3 PASS) para cutoff timezone-aware; test_class_booking_window.py::test_class_booking_conflicts_are_structured_and_in_spanish PASS (doble reserva rechazada con error estructurado). El flujo de cancelación via enlace outbox está cubierto por test_class_cancellation_authz.py (6/6 PASS) incluyendo guest-phone auth."},
+    "d_portal_es_en_us_hides_marketing_payroll_hr_stop_opt_out": {"status": "OK", "evidence": "test_country_profiles.py (7/7 PASS) incluye test_colombia_keeps_every_feature_and_us_hides_payroll_hr_and_marketing, test_gated_current_user_blocks_users_of_us_organizations_only, test_gated_team_resolver_blocks_owner_acting_on_a_us_organization (API 403). test_messaging_consent.py (8/8 PASS) incluye test_us_needs_consent_but_colombia_does_not, test_a_stop_blocks_messages_in_every_country_until_a_new_express_consent, test_footer_follows_the_language, test_client_portal_reads_and_changes_its_own_text_preference. Smoke UI confirmó switcher ES/EN visible en portal."},
+    "e_group_class_waitlist_promotion": {"status": "OK", "evidence": "test_class_booking_window.py (7/7 PASS) y test_class_cancellation_authz.py::test_cancel_update_is_conditioned_on_confirmed_status + test_second_concurrent_cancel_does_not_double_release_cupo PASS (promoción de waitlist atómica, sin double-release de cupo)."},
+    "f_email_labels_icon_word_422_on_invalid": {"status": "OK", "evidence": "test_email_labels.py (7/7 PASS) incluye test_validation_only_accepts_icons_from_the_list_and_simple_words (422 en inválidos), test_manager_choices_override_the_defaults_and_empty_values_restore_them, test_corrupt_stored_labels_never_block_an_email, test_confirmation_email_uses_the_chosen_icon_and_words."}
+  },
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "test_report_links": [
+    "/app/test_reports/pytest/fase4_contracts.xml",
+    "/app/backend/tests/test_self_service_and_low_stock.py",
+    "/app/backend/tests/test_premium_messaging.py",
+    "/app/backend/tests/test_client_whatsapp.py",
+    "/app/backend/tests/test_compliance_marketing.py",
+    "/app/backend/tests/test_country_profiles.py",
+    "/app/backend/tests/test_messaging_consent.py",
+    "/app/backend/tests/test_class_booking_window.py",
+    "/app/backend/tests/test_class_cancellation_authz.py",
+    "/app/backend/tests/test_email_labels.py",
+    "/app/backend/tests/test_late_cancellation_timezone.py"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "Suite de 72 contratos cubre determinísticamente los 6 escenarios de auditoría; recomendado dejar esta selección (fase4_contracts.xml) como gate obligatorio pre-deploy en CI.",
+    "backend/.env tiene una línea con '#' sin comentar correctamente (export fallaba con 'by: command not found' al hacer 'set -a; . backend/.env'). Es un valor con texto 'by' sin comillas en línea 11. No afecta uvicorn (python-dotenv tolera) pero sí a scripts bash. Sugerir citar valores con espacios/caracteres especiales en backend/.env.",
+    "Fallback por defecto en backend/tests/conftest.py BASE_URL='https://listos-manager-reg.preview.emergentagent.com' quedó obsoleto (el preview actual es clipper-manage-1); mantenido solo si REACT_APP_BACKEND_URL falta. No bloqueante.",
+    "Portal público: tour onboarding '1/3' aparece siempre en primera visita; verificar que cookie/localStorage persista 'tour_dismissed' por organización para no repetirlo al cliente recurrente."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "100% (72/72 contratos)", "frontend": "smoke OK (login + portal cargan con i18n)"},
+  "test_credentials": "Usados solo para smoke/pytest ya existentes: Owner admin@nexus.com, Manager manager@nexus.com, Staff dinámicos. Ningún secreto impreso. No se envió ningún mensaje real a +573103705753 ni a creativestrategicsolutions2@gmail.com.",
+  "seed_data_creation": "Ninguna. Verificado Mongo pre-ejecución y post-ejecución: 0 documentos con prefijo E2E_ en organizations, users, clients, appointments, class_sessions, class_bookings, appointment_email_deliveries. Los staff dinámicos de fixtures (teststaff_*@nexus.local) son creados y eliminados dentro de las propias fixtures de pytest.",
+  "cleanup_confirmation": "CONFIRMADO: 0 documentos E2E_ remanentes en Mongo tras la ejecución. No se creó ninguna organización/usuario/cliente/cita/clase con prefijo E2E_ durante esta fase (los contratos ya cubrían los escenarios de forma aislada). org_demo001 NO fue modificada.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Para FASE 5+, usar: `pytest backend/tests/test_self_service_and_low_stock.py backend/tests/test_premium_messaging.py backend/tests/test_client_whatsapp.py backend/tests/test_compliance_marketing.py backend/tests/test_country_profiles.py backend/tests/test_messaging_consent.py backend/tests/test_class_booking_window.py backend/tests/test_class_cancellation_authz.py backend/tests/test_email_labels.py backend/tests/test_late_cancellation_timezone.py -o addopts=''` como gate de auditoría. REACT_APP_BACKEND_URL=https://clipper-manage-1.preview.emergentagent.com. Nota: `set -a; . backend/.env` falla por una línea no-citada en backend/.env — usar `export $(grep -v '#' backend/.env | xargs -0)` o citar valores con espacios.",
+  "rca_of_the_issue": "N/A — ningún bug nuevo detectado en esta fase. Todos los contratos verdes. Único hallazgo menor: backend/.env tiene valor sin comillas que rompe `source` bash (no afecta runtime del backend)."
+}
