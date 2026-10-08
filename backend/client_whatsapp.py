@@ -11,8 +11,14 @@ from fastapi import APIRouter, Cookie, Header, HTTPException
 from pydantic import BaseModel, ConfigDict, Field
 
 import whatsapp_service
-from country_profiles import FEATURE_MARKETING, assert_feature_enabled
+from country_profiles import FEATURE_MARKETING, assert_feature_enabled, profile_for
+from messaging_consent import messaging_status, stop_footer
 from marketing_window import blocked_message as marketing_blocked_message, marketing_allowed
+
+NO_CONSENT_MESSAGE = (
+    "El cliente no ha aceptado recibir mensajes de texto o WhatsApp. "
+    "Pídele que lo autorice al reservar o desde su cuenta."
+)
 
 
 class ClientWhatsAppRequest(BaseModel):
@@ -39,16 +45,28 @@ def build_client_whatsapp_router(
         organization_id = await resolve_team_organization(user, data.organization_id)
         client = await db.clients.find_one(
             {"client_id": client_id, "organization_id": organization_id},
-            {"_id": 0, "name": 1, "phone": 1, "accepts_marketing": 1},
+            {
+                "_id": 0,
+                "name": 1,
+                "phone": 1,
+                "accepts_marketing": 1,
+                "messaging_consent": 1,
+                "messaging_opt_out_at": 1,
+            },
         )
         if not client:
             raise HTTPException(404, "Cliente no encontrado en esta organización")
+        organization = await db.organizations.find_one({"organization_id": organization_id}, {"_id": 0})
+        language = profile_for(organization)["portal_language"]
         if data.kind == "promotion":
             # Estados Unidos: la publicidad por WhatsApp esta deshabilitada hasta validar TCPA / FTSA.
-            promo_org = await db.organizations.find_one(
-                {"organization_id": organization_id}, {"_id": 0, "operating_country": 1}
+            assert_feature_enabled(organization, FEATURE_MARKETING, plain=True)
+        allowed, reason = messaging_status(client, organization)
+        if not allowed:
+            raise HTTPException(
+                403,
+                ("El cliente pidió no recibir más mensajes (STOP)." if reason == "opted_out" else NO_CONSENT_MESSAGE),
             )
-            assert_feature_enabled(promo_org, FEATURE_MARKETING)
         if data.kind == "promotion" and client.get("accepts_marketing") is not True:
             raise HTTPException(403, "El cliente no autorizó mensajes de marketing")
         if data.kind == "promotion" and not marketing_allowed():
@@ -60,7 +78,6 @@ def build_client_whatsapp_router(
         if data.kind == "reminder":
             # Ignore arbitrary text for reminders: they must describe a real,
             # future, confirmed appointment within this client's organization.
-            organization = await db.organizations.find_one({"organization_id": organization_id}, {"_id": 0})
             _, tz = organization_timezone(organization)
             now = datetime.now(tz)
             date, time = now.date().isoformat(), now.strftime("%H:%M")
@@ -80,16 +97,27 @@ def build_client_whatsapp_router(
                 {"service_id": appointment.get("service_id"), "organization_id": organization_id},
                 {"_id": 0, "name": 1},
             )
-            message = (
-                f"Hola {client.get('name', 'cliente')}, te recordamos tu cita en "
-                f"{(organization or {}).get('name', 'Nexus')}: "
-                f"{appointment['date']} a las {appointment['time']}. "
-                f"Servicio: {(service or {}).get('name', 'Servicio reservado')}."
-            )
+            if language == "en":
+                message = (
+                    f"Hi {client.get('name', 'there')}, this is a reminder of your appointment at "
+                    f"{(organization or {}).get('name', 'Nexus')}: "
+                    f"{appointment['date']} at {appointment['time']}. "
+                    f"Service: {(service or {}).get('name', 'Booked service')}."
+                )
+            else:
+                message = (
+                    f"Hola {client.get('name', 'cliente')}, te recordamos tu cita en "
+                    f"{(organization or {}).get('name', 'Nexus')}: "
+                    f"{appointment['date']} a las {appointment['time']}. "
+                    f"Servicio: {(service or {}).get('name', 'Servicio reservado')}."
+                )
         else:
             message = (data.message or "").strip()
             if not message:
                 raise HTTPException(400, "Escribe el contenido del mensaje")
+        if profile_for(organization)["messaging_consent_required"] and "STOP" not in message.upper():
+            # Los textos a clientes de EE. UU. siempre explican como darse de baja.
+            message = f"{message} {stop_footer(language)}"
 
         result = await whatsapp_service.send_whatsapp_message(
             db,

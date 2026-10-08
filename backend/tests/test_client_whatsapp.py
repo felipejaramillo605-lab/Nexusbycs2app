@@ -228,14 +228,51 @@ def test_an_operational_notice_is_not_advertising_and_ignores_the_window(monkeyp
     assert result.status_code != 409
 
 
-def test_us_organization_cannot_send_promotions_but_reminders_and_notices_still_work(monkeypatch):
+def test_us_organization_cannot_send_promotions_and_texts_need_the_client_consent(monkeypatch):
     app, db, sender = setup(monkeypatch)
     db.organizations.rows[0]["operating_country"] = "US"
     blocked = post(app, {"kind": "promotion", "message": "Oferta"})
     assert blocked.status_code == 403
-    assert blocked.json()["detail"]["code"] == "feature_unavailable_for_country"
+    assert "no está disponible" in blocked.json()["detail"]  # texto plano: las pantallas lo muestran tal cual
     sender.assert_not_awaited()
-    # Los avisos operativos no son marketing: siguen disponibles.
+    # Los avisos operativos no son marketing, pero en EE. UU. el canal de texto exige consentimiento registrado.
+    no_consent = post(app, {"kind": "operational_notice", "message": "Tu cita cambió de hora"})
+    assert no_consent.status_code == 403
+    assert "no ha aceptado" in no_consent.json()["detail"]
+    sender.assert_not_awaited()
+    db.clients.rows[0]["messaging_consent"] = True
     ok = post(app, {"kind": "operational_notice", "message": "Tu cita cambió de hora"})
     assert ok.status_code == 200
-    sender.assert_awaited_once()
+    assert sender.await_args.kwargs["message"].endswith("Responde STOP para dejar de recibir mensajes.") is False
+    assert sender.await_args.kwargs["message"].endswith("Reply STOP to opt out.")
+
+
+def test_a_stop_is_honored_in_every_country(monkeypatch):
+    app, db, sender = setup(monkeypatch)  # Colombia: no exige consentimiento de canal
+    assert post(app, {"kind": "operational_notice", "message": "Hola"}).status_code == 200
+    db.clients.rows[0]["messaging_opt_out_at"] = "2026-10-08T10:00:00+00:00"
+    stopped = post(app, {"kind": "operational_notice", "message": "Hola"})
+    assert stopped.status_code == 403
+    assert "STOP" in stopped.json()["detail"]
+    assert post(app, {"kind": "promotion", "message": "Oferta"}).status_code == 403
+    assert sender.await_count == 1
+
+
+def test_us_reminders_are_written_in_english_with_the_stop_footer(monkeypatch):
+    app, db, sender = setup(monkeypatch)
+    db.organizations.rows[0]["operating_country"] = "US"
+    db.clients.rows[0]["messaging_consent"] = True
+    db.appointments.rows.append(
+        {
+            "organization_id": "org-a",
+            "client_phone": "+573001234567",
+            "status": "confirmed",
+            "date": "2999-01-01",
+            "time": "10:00",
+            "service_id": "svc-a",
+        }
+    )
+    assert post(app, {"kind": "reminder"}).status_code == 200
+    text = sender.await_args.kwargs["message"]
+    assert text.startswith("Hi Ana, this is a reminder of your appointment at Empresa A")
+    assert text.endswith("Reply STOP to opt out.")

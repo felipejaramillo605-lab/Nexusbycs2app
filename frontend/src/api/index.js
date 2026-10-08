@@ -381,6 +381,7 @@ export const appointmentAPI = {
 
 export const clientAPI = {
   sendWhatsApp: (clientId, data) => api.post(`/clients/${clientId}/messages/whatsapp`, data),
+  setMessagingOptOut: (clientId, data) => api.post(`/clients/${clientId}/messaging-opt-out`, data),
   getAll: (params = {}) => api.get('/clients', { params }),
   getHistory: (clientId) => api.get(`/clients/${clientId}/history`),
   update: (clientId, data) => api.put(`/clients/${clientId}`, null, { params: data }),
@@ -635,6 +636,9 @@ export const clientPortalAPI = {
   register: (data) => axios.post(`${API}/public/clients/register`, data, { withCredentials: true }),
   login: (data) => axios.post(`${API}/public/clients/login`, data, { withCredentials: true }),
   logout: () => axios.post(`${API}/public/clients/logout`, {}, { withCredentials: true }),
+  // NEXUS_MESSAGING_CONSENT_V1
+  getMessagingConsent: () => axios.get(`${API}/public/clients/messaging-consent`, { withCredentials: true }),
+  setMessagingConsent: (data) => axios.put(`${API}/public/clients/messaging-consent`, data, { withCredentials: true }),
   getMe: () => axios.get(`${API}/public/clients/me`, { withCredentials: true }),
   getHistory: (phone, orgId) => axios.get(`${API}/public/clients/history`, { params: { phone, organization_id: orgId }, withCredentials: true }),
   cancelAppointment: (appointmentId) => axios.post(`${API}/public/clients/appointments/${appointmentId}/cancel`, {}, { withCredentials: true }),

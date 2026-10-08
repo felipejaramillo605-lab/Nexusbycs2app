@@ -268,6 +268,20 @@ const ManagerClients = () => {
     }
   };
 
+  // Baja de mensajes (el cliente respondio STOP): se respeta en todos los envios, en cualquier pais.
+  const handleToggleOptOut = async (client) => {
+    const optedOut = !client.messaging_opt_out_at;
+    try {
+      await clientAPI.setMessagingOptOut(client.client_id, { opted_out: optedOut, organization_id: organizationId });
+      const stamp = optedOut ? new Date().toISOString() : null;
+      setClients((current) => current.map((c) => (c.client_id === client.client_id ? { ...c, messaging_opt_out_at: stamp } : c)));
+      setSelectedClient((current) => (current && current.client_id === client.client_id ? { ...current, messaging_opt_out_at: stamp } : current));
+      toast.success(optedOut ? 'Baja registrada: no se le enviarán más mensajes' : 'Baja retirada');
+    } catch (error) {
+      toast.error(error?.response?.data?.detail || 'No fue posible actualizar la baja');
+    }
+  };
+
   // NEXUS_CLIENT_BIRTHDAY_V1
   const handleUpdateBirthday = async (clientId, birthday) => {
     try {
@@ -888,6 +902,17 @@ const ManagerClients = () => {
                 {whatsappKind(selectedTemplate) === 'promotion' && selectedClient.accepts_marketing !== true && (
                   <p role="alert" className="mt-3 text-sm text-yellow-400">El cliente no autorizó mensajes de marketing.</p>
                 )}
+              </div>
+
+              <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-[var(--app-border)] p-3 text-sm" data-testid="client-stop-block">
+                <span className="text-zinc-400">
+                  {selectedClient.messaging_opt_out_at
+                    ? 'El cliente pidió no recibir más mensajes (STOP).'
+                    : 'Si el cliente responde STOP, regístralo para no escribirle más.'}
+                </span>
+                <button type="button" onClick={() => handleToggleOptOut(selectedClient)} className="rounded-lg border border-[var(--app-border)] px-3 py-1.5 text-xs font-medium text-[var(--app-text-primary)] hover:bg-white/5">
+                  {selectedClient.messaging_opt_out_at ? 'Quitar baja' : 'Registrar baja (STOP)'}
+                </button>
               </div>
 
               {/* Custom Message (Optional) */}

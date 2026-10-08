@@ -76,6 +76,7 @@ from data_retention import build_retention_router
 from org_retention import build_org_retention_router
 from media_rights import build_media_rights_router
 from marketing_window import blocked_message as marketing_blocked_message, marketing_allowed
+from messaging_consent import build_messaging_consent_router, consent_fields
 from country_profiles import (
     FEATURE_HR,
     FEATURE_MARKETING,
@@ -651,6 +652,8 @@ class AppointmentCreate(BaseModel):
     date: str
     time: str
     marketing_consent: bool = False  # TCPA/Ley 1581 compliance
+    messaging_consent: bool = False  # NEXUS_MESSAGING_CONSENT_V1: textos/WhatsApp de la cita (EE. UU.)
+    messaging_consent_text: Optional[str] = Field(default=None, max_length=600)
     # NEXUS_PRODUCT_CATALOG_V11: optional cart carried over from the client portal.
     cart_items: Optional[List[dict]] = None
     policy_accepted: bool = False  # acepto deposito / politica de inasistencia del servicio
@@ -3935,6 +3938,8 @@ class ClassBookingCreate(BaseModel):
     client_phone: str = Field(..., max_length=32)
     client_email: Optional[EmailStr] = None
     marketing_consent: bool = False
+    messaging_consent: bool = False  # NEXUS_MESSAGING_CONSENT_V1: textos/WhatsApp de la cita (EE. UU.)
+    messaging_consent_text: Optional[str] = Field(default=None, max_length=600)
     spot_label: Optional[str] = None
 
 
@@ -3958,15 +3963,33 @@ async def _validate_and_claim_spot(db, class_session_id: str, service: Optional[
     return spot_label
 
 
-async def _upsert_public_client(db, org_id: str, phone: str, name: str, email: Optional[str], marketing_consent: bool, request: Request) -> str:
+async def _upsert_public_client(
+    db,
+    org_id: str,
+    phone: str,
+    name: str,
+    email: Optional[str],
+    marketing_consent: bool,
+    request: Request,
+    messaging_consent: bool = False,
+    messaging_consent_text: Optional[str] = None,
+) -> str:
     """Cliente por teléfono -- reutilizado por la reserva de invitado y la
     lista de espera de invitado (misma lógica, dos puntos de entrada)."""
     now = datetime.now(timezone.utc).isoformat()
     existing_client = await db.clients.find_one({"phone": phone, "organization_id": org_id}, {"_id": 0})
     client_id = existing_client["client_id"] if existing_client else f"client_{uuid.uuid4().hex[:12]}"
+    consent = consent_fields(
+        messaging_consent, messaging_consent_text, request.client.host if request.client else None, now
+    )
+    if existing_client and consent:
+        await db.clients.update_one(
+            {"client_id": client_id, "organization_id": org_id}, {"$set": {**consent, "updated_at": now}}
+        )
     if not existing_client:
         await db.clients.insert_one(
             {
+                **consent,
                 "client_id": client_id,
                 "organization_id": org_id,
                 "phone": phone,
@@ -4045,7 +4068,17 @@ async def book_class_session(org_id: str, class_session_id: str, data: ClassBook
         raise
 
     now = datetime.now(timezone.utc).isoformat()
-    client_id = await _upsert_public_client(db, org_id, phone, data.client_name, data.client_email, data.marketing_consent, request)
+    client_id = await _upsert_public_client(
+        db,
+        org_id,
+        phone,
+        data.client_name,
+        data.client_email,
+        data.marketing_consent,
+        request,
+        messaging_consent=data.messaging_consent,
+        messaging_consent_text=data.messaging_consent_text,
+    )
 
     booking = {
         "class_booking_id": f"cbk_{uuid.uuid4().hex[:12]}",
@@ -4259,6 +4292,8 @@ class ClassWaitlistJoin(BaseModel):
     client_phone: str = Field(..., max_length=32)
     client_email: Optional[EmailStr] = None
     marketing_consent: bool = False
+    messaging_consent: bool = False  # NEXUS_MESSAGING_CONSENT_V1: textos/WhatsApp de la cita (EE. UU.)
+    messaging_consent_text: Optional[str] = Field(default=None, max_length=600)
 
 
 @api_router.post("/public/{org_id}/class-sessions/{class_session_id}/waitlist", tags=["public-booking"])
@@ -4274,7 +4309,17 @@ async def join_class_waitlist(org_id: str, class_session_id: str, data: ClassWai
 
     phone = sanitize_phone(data.client_phone)
     await _enforce_guest_class_phone_rate_limit(org_id, phone, request)
-    client_id = await _upsert_public_client(db, org_id, phone, data.client_name, data.client_email, data.marketing_consent, request)
+    client_id = await _upsert_public_client(
+        db,
+        org_id,
+        phone,
+        data.client_name,
+        data.client_email,
+        data.marketing_consent,
+        request,
+        messaging_consent=data.messaging_consent,
+        messaging_consent_text=data.messaging_consent_text,
+    )
     entry = {
         "waitlist_id": f"wl_{uuid.uuid4().hex[:12]}",
         "organization_id": org_id,
@@ -7277,6 +7322,8 @@ async def upsert_client(
     marketing_consent: bool = False,
     consent_ip: Optional[str] = None,
     consent_text: Optional[str] = None,
+    messaging_consent: bool = False,
+    messaging_consent_text: Optional[str] = None,
 ):
     """
     Create or update client record. Uses phone as unique identifier per organization.
@@ -7301,6 +7348,8 @@ async def upsert_client(
             update_data["marketing_consent_ip"] = consent_ip
             update_data["marketing_consent_text"] = consent_text
 
+        update_data.update(consent_fields(messaging_consent, messaging_consent_text, consent_ip))
+
         await db.clients.update_one({"organization_id": organization_id, "phone": phone}, {"$set": update_data})
         return {**existing, **update_data}
     else:
@@ -7316,6 +7365,7 @@ async def upsert_client(
             "marketing_consent_given_at": datetime.now(timezone.utc).isoformat() if marketing_consent else None,
             "marketing_consent_ip": consent_ip if marketing_consent else None,
             "marketing_consent_text": consent_text if marketing_consent else None,
+            **consent_fields(messaging_consent, messaging_consent_text, consent_ip),
             "reminder_consent_given": True,  # Transactional messages always allowed
             "deletion_requested_at": None,
             "total_visits": 0,  # Starts at 0, increments only when appointments are completed
@@ -8328,7 +8378,7 @@ async def create_campaign(
     if org_id:
         organization = await db.organizations.find_one({"organization_id": org_id}, {"_id": 0})
     # Estados Unidos: campanas deshabilitadas hasta validar TCPA / telemarketing de Florida / CAN-SPAM.
-    assert_feature_enabled(organization, FEATURE_MARKETING)
+    assert_feature_enabled(organization, FEATURE_MARKETING, plain=True)
 
     org_name = organization.get("name", "Nexus") if organization else "Nexus"
     org_address = organization.get("address") if organization else None
@@ -9188,6 +9238,8 @@ async def create_public_appointment(org_id: str, data: AppointmentCreate, reques
         marketing_consent=data.marketing_consent,
         consent_ip=request.client.host if request.client else None,
         consent_text="Acepto recibir promociones y novedades por correo/WhatsApp" if data.marketing_consent else None,
+        messaging_consent=data.messaging_consent,
+        messaging_consent_text=data.messaging_consent_text,
     )
 
     logger.info(f"[MOCK] Appointment {appointment_id} confirmed for {data.date} at {data.time}")
@@ -9691,6 +9743,13 @@ api_router.include_router(
 from portal_landing import build_portal_landing_router
 
 api_router.include_router(build_portal_landing_router(db), tags=["public-booking"])
+
+# NEXUS_MESSAGING_CONSENT_V1: consentimiento y baja (STOP) de textos/WhatsApp
+api_router.include_router(
+    build_messaging_consent_router(
+        db, get_current_user, require_management_role, resolve_team_organization, get_current_client
+    ),
+)
 
 # NEXUS_SERVICE_PHOTOS_V1
 from service_media import build_service_media_router
