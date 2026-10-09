@@ -27,6 +27,7 @@ import hmac
 import re
 import asyncio
 from html import escape as html_escape
+from request_observability import log_request_latency, request_started_at
 
 # Email service
 from email_service import email_service
@@ -9915,6 +9916,7 @@ app.add_middleware(
 
 @app.middleware("http")
 async def request_security_and_headers(request: Request, call_next):
+    started_at = request_started_at()
     try:
         await enforce_request_security(request)
         await enforce_view_mode(request, db, record_security_event)
@@ -9926,6 +9928,9 @@ async def request_security_and_headers(request: Request, call_next):
             content={"detail": exc.detail},
             headers=exc.headers or {},
         )
+    except Exception:
+        log_request_latency(logger, request, 500, started_at)
+        raise
     response.headers["X-Frame-Options"] = "DENY"
     response.headers["X-Content-Type-Options"] = "nosniff"
     response.headers["X-XSS-Protection"] = "0"
@@ -9938,6 +9943,7 @@ async def request_security_and_headers(request: Request, call_next):
     response.headers["Cross-Origin-Opener-Policy"] = "same-origin"
     response.headers["Cross-Origin-Resource-Policy"] = "same-site"
     apply_cache_policy(request.url.path, response.headers)
+    log_request_latency(logger, request, response.status_code, started_at)
     return response
 
 
