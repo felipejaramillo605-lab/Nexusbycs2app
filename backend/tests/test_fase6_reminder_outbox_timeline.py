@@ -14,6 +14,7 @@ elegir la fecha objetivo (mañana). Las marcas de tiempo internas de la cola
 Por eso el reloj controlado de esta prueba se monta sobre `now_utc` (mockeado
 solo en el test, sin tocar produccion) y se avanza explicitamente entre pasos.
 """
+
 import asyncio
 import os
 import sys
@@ -234,23 +235,34 @@ def test_timeline_queue_accept_idempotent(monkeypatch):
 def test_stale_claim_is_recovered_and_then_delivered(monkeypatch):
     timeline = []
     clock = Clock(FIXED_AT)
-    db = make_db(appointment={
-        "appointment_id": "apt_E2E_fase6_2",
-        "organization_id": "org_E2E_fase6",
-        "client_email": "cliente.e2e.fase6b@example.com",
-        "client_name": "Cliente E2E B",
-        "status": "confirmed",
-        "date": "2026-08-12",
-        "time": "11:00",
-    })
+    db = make_db(
+        appointment={
+            "appointment_id": "apt_E2E_fase6_2",
+            "organization_id": "org_E2E_fase6",
+            "client_email": "cliente.e2e.fase6b@example.com",
+            "client_name": "Cliente E2E B",
+            "status": "confirmed",
+            "date": "2026-08-12",
+            "time": "11:00",
+        }
+    )
     monkeypatch.setattr(delivery_subject, "now_utc", lambda: clock.now)
 
     # Worker A reclama la entrega y se cae antes de responder (queda "processing").
-    queued = asyncio.run(delivery_subject.enqueue_delivery(
-        db, organization_id="org_E2E_fase6", appointment_id="apt_E2E_fase6_2",
-        event_type="reminder_24h", recipient="cliente.e2e.fase6b@example.com", payload={}, scheduled_for=FIXED_AT,
-    ))
-    claimed = asyncio.run(delivery_subject.claim_delivery_by_key(db, queued["delivery"]["delivery_key"], "stale_worker"))
+    queued = asyncio.run(
+        delivery_subject.enqueue_delivery(
+            db,
+            organization_id="org_E2E_fase6",
+            appointment_id="apt_E2E_fase6_2",
+            event_type="reminder_24h",
+            recipient="cliente.e2e.fase6b@example.com",
+            payload={},
+            scheduled_for=FIXED_AT,
+        )
+    )
+    claimed = asyncio.run(
+        delivery_subject.claim_delivery_by_key(db, queued["delivery"]["delivery_key"], "stale_worker")
+    )
     assert claimed["status"] == "processing"
     timeline.append(("A_worker_claims_then_dies", {"status": claimed["status"]}))
 
@@ -276,15 +288,17 @@ def test_stale_claim_is_recovered_and_then_delivered(monkeypatch):
 def test_provider_failure_retries_without_duplicating(monkeypatch):
     timeline = []
     clock = Clock(FIXED_AT)
-    db = make_db(appointment={
-        "appointment_id": "apt_E2E_fase6_3",
-        "organization_id": "org_E2E_fase6",
-        "client_email": "cliente.e2e.fase6c@example.com",
-        "client_name": "Cliente E2E C",
-        "status": "confirmed",
-        "date": "2026-08-12",
-        "time": "12:00",
-    })
+    db = make_db(
+        appointment={
+            "appointment_id": "apt_E2E_fase6_3",
+            "organization_id": "org_E2E_fase6",
+            "client_email": "cliente.e2e.fase6c@example.com",
+            "client_name": "Cliente E2E C",
+            "status": "confirmed",
+            "date": "2026-08-12",
+            "time": "12:00",
+        }
+    )
 
     summary_fail = run_cycle(db, lambda: False, clock, monkeypatch)
     timeline.append(("A_provider_rejects", summary_fail))
@@ -325,7 +339,9 @@ def test_whatsapp_failure_never_marks_the_accepted_email_as_failed(monkeypatch):
         "time": "09:00",
     }
     db = make_db(org=org, appointment=appt)
-    db.clients = Lookup([{"organization_id": org["organization_id"], "phone": appt["client_phone"], "messaging_consent": True}])
+    db.clients = Lookup(
+        [{"organization_id": org["organization_id"], "phone": appt["client_phone"], "messaging_consent": True}]
+    )
 
     async def failing_whatsapp(*_args, **_kwargs):
         raise RuntimeError("provider_unreachable")
@@ -337,5 +353,7 @@ def test_whatsapp_failure_never_marks_the_accepted_email_as_failed(monkeypatch):
     assert summary["accepted"] == 1, "el correo se contabiliza como aceptado aunque WhatsApp falle despues"
     assert summary["failed"] == 0, "un fallo de WhatsApp no debe inflar el contador de fallidos del ciclo"
     email_delivery = db.appointment_email_deliveries.docs[0]
-    assert email_delivery["status"] == "provider_accepted", "el fallo de WhatsApp no debe tocar el estado del correo ya aceptado"
+    assert (
+        email_delivery["status"] == "provider_accepted"
+    ), "el fallo de WhatsApp no debe tocar el estado del correo ya aceptado"
     print(f"FASE6_TIMELINE D_whatsapp_failure_email_still_accepted: {email_delivery['status']} summary={summary}")
