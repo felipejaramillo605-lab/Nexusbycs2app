@@ -90,6 +90,23 @@ async def _log_mock(db, *, to_phone: str, message: str, organization_id: str, co
     return {"accepted": True, "provider": "mock", "status": "sent_mock"}
 
 
+def provider_error_fields(response) -> dict:
+    """Codigos numericos del error de Meta (``error.code`` / ``error.error_subcode``), nunca su texto ni datos."""
+    try:
+        body = response.json()
+    except ValueError:
+        return {}
+    error = body.get("error") if isinstance(body, dict) else None
+    if not isinstance(error, dict):
+        return {}
+    fields = {}
+    for key in ("code", "error_subcode"):
+        value = error.get(key)
+        if isinstance(value, int) and not isinstance(value, bool):
+            fields[f"provider_{key}"] = value
+    return fields
+
+
 async def send_whatsapp_template(
     *, to_phone: str, template_name: str, template_params: list[str], language: str = DEFAULT_TEMPLATE_LANGUAGE
 ) -> dict:
@@ -128,8 +145,19 @@ async def send_whatsapp_template(
             "provider": "whatsapp_cloud_api",
             "status": f"http_{response.status_code}",
             "detail": response.text,
+            **provider_error_fields(response),
         }
-    body = response.json()
+    try:
+        body = response.json()
+    except ValueError:
+        body = None
+    if not isinstance(body, dict):
+        # No propagar una respuesta truncada/no JSON del proveedor: el llamador la traduce a un error controlado.
+        return {
+            "accepted": False,
+            "provider": "whatsapp_cloud_api",
+            "status": "invalid_provider_response",
+        }
     message_id = (body.get("messages") or [{}])[0].get("id")
     return {"accepted": True, "provider": "whatsapp_cloud_api", "status": "sent", "message_id": message_id}
 
@@ -185,6 +213,8 @@ async def send_whatsapp_message(
         print(f"whatsapp_sent recipient_fingerprint={fingerprint} context={context} organization_id={organization_id}")
     else:
         print(
-            f"whatsapp_rejected recipient_fingerprint={fingerprint} context={context} organization_id={organization_id} status={result.get('status')}"
+            f"whatsapp_rejected recipient_fingerprint={fingerprint} context={context} organization_id={organization_id} "
+            f"status={result.get('status')} provider_code={result.get('provider_code')} "
+            f"provider_error_subcode={result.get('provider_error_subcode')}"
         )
     return result

@@ -22,6 +22,40 @@ NO_CONSENT_MESSAGE = (
 )
 
 
+GENERIC_PROVIDER_FAILURE = "No fue posible enviar WhatsApp; revisa la configuración del canal"
+# Codigo de error de la Cloud API de Meta -> motivo en lenguaje claro para el gerente (solo textos nuestros).
+PROVIDER_FAILURE_REASONS = {
+    131042: "la cuenta de WhatsApp Business no tiene un método de pago válido en Meta",
+    190: "el token de acceso de WhatsApp es inválido o venció",
+    132001: "la plantilla no existe o no está aprobada en el idioma pedido",
+    132000: "la plantilla recibió un número de variables distinto al aprobado",
+    131030: "el destinatario no está autorizado mientras la app esté en modo de pruebas",
+    131026: "el mensaje no se puede entregar a ese número (puede no tener WhatsApp)",
+    131049: "Meta decidió no entregar este mensaje promocional a ese número",
+    130429: "se alcanzó el límite de envíos de la cuenta; intenta más tarde",
+    131056: "se alcanzó el límite de envíos hacia ese número; intenta más tarde",
+}
+
+
+def provider_failure_message(result: dict) -> str:
+    """Motivo seguro del rechazo: solo textos propios y codigos numericos, nunca la respuesta del proveedor."""
+    code = result.get("provider_code")
+    status = str(result.get("status") or "")
+    reason = PROVIDER_FAILURE_REASONS.get(code) if isinstance(code, int) else None
+    if reason is None and status == "http_401":
+        reason = PROVIDER_FAILURE_REASONS[190]
+    if reason is None and status == "invalid_provider_response":
+        reason = "Meta respondió con un formato inesperado"
+    if reason is None and status == "missing_template_configuration":
+        reason = "falta configurar el nombre de la plantilla de WhatsApp"
+    if reason is None and status == "request_failed":
+        reason = "no hubo conexión con Meta"
+    suffix = f" (código Meta {code})" if isinstance(code, int) else ""
+    if reason is None:
+        return f"{GENERIC_PROVIDER_FAILURE}{suffix}"
+    return f"No fue posible enviar WhatsApp: {reason}{suffix}"
+
+
 class ClientWhatsAppRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
     kind: Literal["reminder", "promotion", "operational_notice"]
@@ -135,8 +169,9 @@ def build_client_whatsapp_router(
             language=language,
         )
         if not result.get("accepted"):
-            # Never expose provider response text, request payloads or credentials.
-            raise HTTPException(502, "No fue posible enviar WhatsApp; revisa la configuración del canal")
+            # Never expose provider response text, request payloads or credentials. Se responde 424 y no 502: un
+            # 502 propio lo reemplaza Cloudflare por su pagina generica y se pierde el motivo real del rechazo.
+            raise HTTPException(424, provider_failure_message(result))
         return {"accepted": True, "provider": result.get("provider"), "status": result.get("status")}
 
     return router

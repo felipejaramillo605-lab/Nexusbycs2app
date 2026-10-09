@@ -107,6 +107,22 @@ def test_unsigned_or_wrongly_signed_requests_are_rejected_and_change_nothing(mon
     assert sent == []
 
 
+def test_oversized_signed_payload_is_rejected_before_processing(monkeypatch):
+    client, db, sent = build(monkeypatch)
+    raw = b"{" + (b" " * subject.MAX_BODY_BYTES) + b"}"
+    signature = "sha256=" + hmac.new(SECRET.encode(), raw, hashlib.sha256).hexdigest()
+
+    response = client.post(
+        "/api/webhooks/whatsapp",
+        content=raw,
+        headers={"Content-Type": "application/json", "X-Hub-Signature-256": signature},
+    )
+
+    assert response.status_code == 413
+    assert all(doc["messaging_opt_out_at"] is None for doc in db.clients.docs)
+    assert sent == []
+
+
 def test_stop_opts_out_every_client_with_that_phone_in_every_organization_and_confirms(monkeypatch):
     client, db, sent = build(monkeypatch)
     response = signed(client, payload("  Stop. "))

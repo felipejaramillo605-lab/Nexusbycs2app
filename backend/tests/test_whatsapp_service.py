@@ -174,6 +174,63 @@ def test_real_mode_http_error_is_not_accepted_and_not_raised(monkeypatch):
     assert result["provider"] == "whatsapp_cloud_api"
 
 
+def test_real_mode_non_json_success_response_is_not_accepted_and_not_raised(monkeypatch):
+    _clear_env(monkeypatch)
+    monkeypatch.setenv("WHATSAPP_ACCESS_TOKEN", "token-123")
+    monkeypatch.setenv("WHATSAPP_PHONE_NUMBER_ID", "phone-456")
+    monkeypatch.setenv("WHATSAPP_GENERIC_TEMPLATE_NAME", "aviso_general")
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, text="upstream response was incomplete")
+
+    _patch_transport(monkeypatch, handler)
+    result = asyncio.run(
+        whatsapp_service.send_whatsapp_message(
+            _database(), to_phone="+573001234567", message="hola", organization_id="org-1"
+        )
+    )
+
+    assert result == {
+        "accepted": False,
+        "provider": "whatsapp_cloud_api",
+        "status": "invalid_provider_response",
+    }
+
+
+def test_real_mode_non_object_json_success_response_is_not_accepted_and_not_raised(monkeypatch):
+    _clear_env(monkeypatch)
+    monkeypatch.setenv("WHATSAPP_ACCESS_TOKEN", "token-123")
+    monkeypatch.setenv("WHATSAPP_PHONE_NUMBER_ID", "phone-456")
+    monkeypatch.setenv("WHATSAPP_GENERIC_TEMPLATE_NAME", "aviso_general")
+
+    _patch_transport(monkeypatch, lambda request: httpx.Response(200, json=["unexpected"]))
+    result = asyncio.run(
+        whatsapp_service.send_whatsapp_message(
+            _database(), to_phone="+573001234567", message="hola", organization_id="o"
+        )
+    )
+    assert result["accepted"] is False and result["status"] == "invalid_provider_response"
+
+
+def test_real_mode_rejection_exposes_only_numeric_meta_error_codes(monkeypatch):
+    _clear_env(monkeypatch)
+    monkeypatch.setenv("WHATSAPP_ACCESS_TOKEN", "token-123")
+    monkeypatch.setenv("WHATSAPP_PHONE_NUMBER_ID", "phone-456")
+    monkeypatch.setenv("WHATSAPP_GENERIC_TEMPLATE_NAME", "aviso_general")
+
+    body = {"error": {"message": "Payment issue", "type": "OAuthException", "code": 131042, "error_subcode": 2494055}}
+    _patch_transport(monkeypatch, lambda request: httpx.Response(400, json=body))
+    result = asyncio.run(
+        whatsapp_service.send_whatsapp_message(
+            _database(), to_phone="+573001234567", message="hola", organization_id="o"
+        )
+    )
+    assert result["status"] == "http_400"
+    assert result["provider_code"] == 131042 and result["provider_error_subcode"] == 2494055
+    assert whatsapp_service.provider_error_fields(httpx.Response(400, text="<html>bad gateway</html>")) == {}
+    assert whatsapp_service.provider_error_fields(httpx.Response(400, json={"error": {"code": "131042"}})) == {}
+
+
 def test_real_mode_network_failure_is_not_accepted_and_not_raised(monkeypatch):
     _clear_env(monkeypatch)
     monkeypatch.setenv("WHATSAPP_ACCESS_TOKEN", "token-123")
