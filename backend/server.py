@@ -10100,6 +10100,12 @@ async def create_application_indexes():
     await db.inventory_audit_lines.create_index(
         [("audit_id", 1), ("audit_line_id", 1)], unique=True, name="nexus_inventory_audit_lines_unique"
     )
+    # Los detalles, exportaciones y hojas de conteo de auditoría se filtran
+    # por audit_id y se ordenan por nombre del producto. Sin este índice Mongo
+    # debía ordenar en memoria todas las líneas de una auditoría grande.
+    await db.inventory_audit_lines.create_index(
+        [("audit_id", 1), ("item_name_snapshot", 1)], name="nexus_inventory_audit_lines_name"
+    )
     # NEXUS_SERVICE_RECIPES_INDEXES_5B_PACKAGE_1_V1
     await ensure_service_recipe_indexes(db)
     # NEXUS_CHECKOUT_INVENTORY_INDEXES_5B_PACKAGE_2_V1
