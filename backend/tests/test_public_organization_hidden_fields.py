@@ -53,7 +53,6 @@ def test_public_organization_hides_internal_ids_and_management_settings(monkeypa
         "created_by_owner_id",
         "primary_manager_user_id",
         "notification_settings",
-        "loyalty_settings",
         "review_request_settings",
         "birthday_campaign",
         "nexus_ai_contracted",
@@ -65,5 +64,14 @@ def test_public_organization_hides_internal_ids_and_management_settings(monkeypa
 def test_public_organization_keeps_what_the_booking_flow_needs(monkeypatch):
     monkeypatch.setattr(server, "db", SimpleNamespace(organizations=FakeOrganizations()))
     organization = asyncio.run(server.get_organization_public("org-a"))
-    for needed in ("organization_id", "name", "address", "phone", "whatsapp_link", "business_type", "portal_template"):
+    for needed in (
+        "organization_id",
+        "name",
+        "address",
+        "phone",
+        "whatsapp_link",
+        "business_type",
+        "portal_template",
+        "loyalty_settings",  # programa de lealtad visible para el cliente
+    ):
         assert needed in organization, needed

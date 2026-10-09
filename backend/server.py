@@ -3121,7 +3121,6 @@ PUBLIC_ORGANIZATION_EXCLUDED_FIELDS = {
     "nexus_ai_enabled": 0,
     "portal_template_entitlement_request_id": 0,
     "notification_settings": 0,
-    "loyalty_settings": 0,
     "review_request_settings": 0,
     "birthday_campaign": 0,
 }
