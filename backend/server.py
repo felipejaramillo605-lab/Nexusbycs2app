@@ -3106,25 +3106,23 @@ async def update_organization_profile(
 
 
 
-# NEXUS_PUBLIC_ORG_PROJECTION_V1: a true whitelist turned out unsafe here --
-# Settings.js and BusinessProfile.js (manager-only pages, but both gated by
-# their own auth, not by this endpoint) both call this exact public route to
-# populate the manager's own settings form, and read notification_settings,
-# loyalty_settings and review_request_settings from it. Excluding those would
-# have silently broken the low-stock-alert, loyalty and review-request
-# sections of Settings.js. The real fix is migrating those two pages onto an
-# authenticated organization fetch -- out of scope for this finding. Until
-# then, exclude only the fields nothing in the frontend reads from this
-# endpoint: owner_id (the concrete example the audit called out) and the
-# platform-entitlement flags. The premium-template entitlement is fetched
-# internally to compute the effective public template, then removed below.
+# NEXUS_PUBLIC_ORG_PROJECTION_V1: respuesta publica de la organizacion para el flujo de reserva. Settings.js y
+# BusinessProfile.js ya leen la organizacion por la ruta autenticada (organizationAPI.get), asi que aqui se
+# excluyen los identificadores internos y los ajustes de gestion que el portal no necesita (auditoria de
+# produccion 2026-10, AUD-01). El derecho a plantillas premium se consulta internamente para calcular la
+# plantilla efectiva y se elimina de la respuesta mas abajo.
 PUBLIC_ORGANIZATION_EXCLUDED_FIELDS = {
     "_id": 0,
     "owner_id": 0,
+    "created_by_owner_id": 0,
+    "primary_manager_user_id": 0,
     "created_at": 0,
     "nexus_ai_contracted": 0,
     "nexus_ai_enabled": 0,
     "portal_template_entitlement_request_id": 0,
+    "notification_settings": 0,
+    "review_request_settings": 0,
+    "birthday_campaign": 0,
 }
 
 
