@@ -188,4 +188,6 @@ async def get_or_seed_templates(db, organization_id: str) -> list[dict]:
     except Exception:
         # otra request concurrente ya sembró -- devolver lo que haya quedado
         return await db.message_templates.find({"organization_id": organization_id}, {"_id": 0}).to_list(200)
+    for row in seeded:
+        row.pop("_id", None)
     return seeded

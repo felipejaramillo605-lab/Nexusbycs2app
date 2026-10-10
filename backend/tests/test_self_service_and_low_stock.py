@@ -42,8 +42,6 @@ def _login(email, password):
     # so on a busy CI run it can land in the same /auth/login rate-limit window (5/minute/IP)
     # as everything else and get a 429 that has nothing to do with the registration flow
     # being tested.
-    import time
-
     s = _session()
     r = s.post(f"{BASE_URL}/api/auth/login", json={"email": email, "password": password}, timeout=15)
     if r.status_code == 429:
