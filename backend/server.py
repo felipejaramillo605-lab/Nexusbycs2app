@@ -6078,9 +6078,119 @@ async def transaction_summary(
 ):
     current_user = await get_current_user(authorization, session_token)
     query = await transaction_query(current_user, organization_id, start_date, end_date, barber_id, payment_method)
-    items = await db.transactions.find(query, {"_id": 0}).to_list(100000)
+
+    # This endpoint feeds the dashboard and previously loaded every matching
+    # transaction into the API process just to calculate aggregates. Keep the
+    # response contract, but let MongoDB stream and group the records instead.
+    # `$convert` deliberately mirrors the old `float(value or 0)` behaviour for
+    # legacy documents whose money values were stored as strings or null.
+    money_fields = (
+        "service_price_snapshot",
+        "discount_amount",
+        "net_service_amount",
+        "tip_amount",
+        "total_received",
+        "staff_commission_amount",
+        "business_amount",
+        "staff_total_amount",
+    )
+    numeric_projection = {
+        field: {"$convert": {"input": {"$ifNull": [f"${field}", 0]}, "to": "double", "onError": 0, "onNull": 0}}
+        for field in money_fields
+    }
+    aggregation = [
+        {"$match": query},
+        {
+            "$project": {
+                **numeric_projection,
+                # `dict.get("payment_method", "other")` used by the old
+                # implementation only defaulted missing keys (not explicit
+                # nulls), so retain that compatibility detail.
+                "payment_method": {
+                    "$cond": [
+                        {"$eq": [{"$type": "$payment_method"}, "missing"]},
+                        "other",
+                        "$payment_method",
+                    ]
+                },
+                "summary_date": {
+                    "$let": {
+                        "vars": {
+                            "created_at_text": {
+                                "$convert": {"input": "$created_at", "to": "string", "onError": "", "onNull": ""}
+                            }
+                        },
+                        "in": {
+                            "$let": {
+                                "vars": {"date_prefix": {"$substrCP": ["$$created_at_text", 0, 10]}},
+                                "in": {
+                                    "$cond": [
+                                        {"$eq": ["$$date_prefix", ""]},
+                                        "unknown",
+                                        "$$date_prefix",
+                                    ]
+                                },
+                            }
+                        },
+                    }
+                },
+            }
+        },
+        {
+            "$facet": {
+                "totals": [
+                    {
+                        "$group": {
+                            "_id": None,
+                            "transaction_count": {"$sum": 1},
+                            "total_service_price": {"$sum": "$service_price_snapshot"},
+                            "total_discount": {"$sum": "$discount_amount"},
+                            "total_net_service_amount": {"$sum": "$net_service_amount"},
+                            "total_tips": {"$sum": "$tip_amount"},
+                            "total_received": {"$sum": "$total_received"},
+                            "total_staff_commission": {"$sum": "$staff_commission_amount"},
+                            "total_business_amount": {"$sum": "$business_amount"},
+                            "total_staff_amount": {"$sum": "$staff_total_amount"},
+                        }
+                    }
+                ],
+                "payment_methods": [
+                    {
+                        "$group": {
+                            "_id": "$payment_method",
+                            "count": {"$sum": 1},
+                            "total_received": {"$sum": "$total_received"},
+                        }
+                    },
+                    {"$project": {"_id": 0, "method": "$_id", "count": 1, "total_received": 1}},
+                    {"$sort": {"total_received": -1}},
+                ],
+                "daily_totals": [
+                    {
+                        "$group": {
+                            "_id": "$summary_date",
+                            "total_received": {"$sum": "$total_received"},
+                            "net_service_amount": {"$sum": "$net_service_amount"},
+                            "transaction_count": {"$sum": 1},
+                        }
+                    },
+                    {
+                        "$project": {
+                            "_id": 0,
+                            "date": "$_id",
+                            "total_received": 1,
+                            "net_service_amount": 1,
+                            "transaction_count": 1,
+                        }
+                    },
+                    {"$sort": {"date": 1}},
+                ],
+            }
+        },
+    ]
+    aggregate_result = await db.transactions.aggregate(aggregation).to_list(1)
     totals = {
-        "transaction_count": len(items),
+        "transaction_count": 0,
         "total_service_price": 0.0,
         "total_discount": 0.0,
         "total_net_service_amount": 0.0,
@@ -6090,39 +6200,24 @@ async def transaction_summary(
         "total_business_amount": 0.0,
         "total_staff_amount": 0.0,
     }
-    payment_totals = {}
-    daily_totals = {}
-    for item in items:
-        totals["total_service_price"] += float(item.get("service_price_snapshot", 0) or 0)
-        totals["total_discount"] += float(item.get("discount_amount", 0) or 0)
-        totals["total_net_service_amount"] += float(item.get("net_service_amount", 0) or 0)
-        totals["total_tips"] += float(item.get("tip_amount", 0) or 0)
-        totals["total_received"] += float(item.get("total_received", 0) or 0)
-        totals["total_staff_commission"] += float(item.get("staff_commission_amount", 0) or 0)
-        totals["total_business_amount"] += float(item.get("business_amount", 0) or 0)
-        totals["total_staff_amount"] += float(item.get("staff_total_amount", 0) or 0)
-        method = item.get("payment_method", "other")
-        method_row = payment_totals.setdefault(method, {"method": method, "count": 0, "total_received": 0.0})
-        method_row["count"] += 1
-        method_row["total_received"] += float(item.get("total_received", 0) or 0)
-        day = str(item.get("created_at", ""))[:10] or "unknown"
-        day_row = daily_totals.setdefault(
-            day, {"date": day, "total_received": 0.0, "net_service_amount": 0.0, "transaction_count": 0}
-        )
-        day_row["total_received"] += float(item.get("total_received", 0) or 0)
-        day_row["net_service_amount"] += float(item.get("net_service_amount", 0) or 0)
-        day_row["transaction_count"] += 1
+    aggregate_row = aggregate_result[0] if aggregate_result else {}
+    aggregate_totals = (aggregate_row.get("totals") or [{}])[0]
+    for key in totals:
+        if key in aggregate_totals:
+            totals[key] = aggregate_totals[key]
     for key in totals:
         if key != "transaction_count":
-            totals[key] = round(totals[key], 2)
-    for row in payment_totals.values():
-        row["total_received"] = round(row["total_received"], 2)
-    for row in daily_totals.values():
-        row["total_received"] = round(row["total_received"], 2)
-        row["net_service_amount"] = round(row["net_service_amount"], 2)
-    totals["average_ticket"] = round(totals["total_received"] / len(items), 2) if items else 0.0
-    totals["payment_methods"] = sorted(payment_totals.values(), key=lambda row: row["total_received"], reverse=True)
-    totals["daily_totals"] = [daily_totals[key] for key in sorted(daily_totals)]
+            totals[key] = round(float(totals[key] or 0), 2)
+    payment_totals = aggregate_row.get("payment_methods") or []
+    daily_totals = aggregate_row.get("daily_totals") or []
+    for row in payment_totals:
+        row["total_received"] = round(float(row.get("total_received") or 0), 2)
+    for row in daily_totals:
+        row["total_received"] = round(float(row.get("total_received") or 0), 2)
+        row["net_service_amount"] = round(float(row.get("net_service_amount") or 0), 2)
+    totals["average_ticket"] = round(totals["total_received"] / totals["transaction_count"], 2) if totals["transaction_count"] else 0.0
+    totals["payment_methods"] = payment_totals
+    totals["daily_totals"] = daily_totals
     return totals
 
 
