@@ -64,7 +64,9 @@ def setup(monkeypatch, *, consent=True, role="manager", authenticated=True, plan
             ]
         ),
         organizations=Collection([org]),
-        organization_subscriptions=Collection([{"organization_id": "org-a", "plan_code": plan_code, "status": "active"}]),
+        organization_subscriptions=Collection(
+            [{"organization_id": "org-a", "plan_code": plan_code, "status": "active"}]
+        ),
         appointments=Collection([]),
         services=Collection([{"organization_id": "org-a", "service_id": "svc-a", "name": "Consulta"}]),
     )
@@ -210,8 +212,34 @@ def test_provider_failure_does_not_expose_provider_details(monkeypatch):
     app, _, sender = setup(monkeypatch)
     sender.return_value = {"accepted": False, "provider": "whatsapp_cloud_api", "detail": "sensitive-response"}
     result = post(app, {"kind": "operational_notice", "message": "Cerramos temprano"})
-    assert result.status_code == 502
+    # 424 y no 502: un 502 propio lo reemplaza Cloudflare por su pagina generica y oculta el motivo.
+    assert result.status_code == 424
     assert "sensitive-response" not in result.text
+    assert "revisa la configuración del canal" in result.json()["detail"]
+
+
+def test_provider_failure_explains_the_meta_error_code_without_leaking_the_response(monkeypatch):
+    app, _, sender = setup(monkeypatch)
+    sender.return_value = {
+        "accepted": False,
+        "provider": "whatsapp_cloud_api",
+        "status": "http_400",
+        "detail": '{"error": {"message": "secret-token-abc"}}',
+        "provider_code": 131042,
+    }
+    result = post(app, {"kind": "operational_notice", "message": "Cerramos temprano"})
+    assert result.status_code == 424
+    assert "método de pago" in result.json()["detail"]
+    assert "131042" in result.json()["detail"]
+    assert "secret-token-abc" not in result.text
+
+
+def test_provider_failure_message_covers_known_causes_and_unknown_codes():
+    assert "token" in client_whatsapp.provider_failure_message({"status": "http_401"})
+    assert "plantilla" in client_whatsapp.provider_failure_message({"provider_code": 132001})
+    assert "formato inesperado" in client_whatsapp.provider_failure_message({"status": "invalid_provider_response"})
+    unknown = client_whatsapp.provider_failure_message({"status": "http_500", "provider_code": 999999})
+    assert unknown.startswith(client_whatsapp.GENERIC_PROVIDER_FAILURE) and "999999" in unknown
 
 
 def test_promotion_outside_the_ley_2300_window_is_blocked_with_a_clear_message(monkeypatch):
