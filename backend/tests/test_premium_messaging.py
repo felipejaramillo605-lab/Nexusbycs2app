@@ -11,6 +11,7 @@ from premium_messaging import (  # noqa: E402
     normalized_notification_settings,
     organization_has_premium,
     subscription_has_premium,
+    whatsapp_setting_enabled,
     whatsapp_enabled,
 )
 
@@ -29,8 +30,15 @@ def test_standard_settings_are_forced_to_email_only_without_losing_other_setting
     )
     assert settings["appointment_confirmation_whatsapp_enabled"] is False
     assert settings["appointment_reminder_whatsapp_enabled"] is False
+    assert settings["low_stock_alert_whatsapp_enabled"] is False
     assert settings["other_setting"] is True
     assert not whatsapp_enabled(settings, "confirmation", premium=False)
+
+
+def test_low_stock_whatsapp_obeys_the_same_premium_entitlement():
+    settings = {"low_stock_alert_whatsapp_enabled": True}
+    assert not whatsapp_setting_enabled(settings, "low_stock_alert_whatsapp_enabled", premium=False)
+    assert whatsapp_setting_enabled(settings, "low_stock_alert_whatsapp_enabled", premium=True)
 
 
 def test_capabilities_explain_the_premium_requirement():

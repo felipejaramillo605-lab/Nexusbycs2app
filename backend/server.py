@@ -3023,12 +3023,16 @@ async def update_organization_profile(
         requested = update_data["notification_settings"] or {}
         requested_whatsapp = any(
             bool(requested.get(key))
-            for key in ("appointment_confirmation_whatsapp_enabled", "appointment_reminder_whatsapp_enabled")
+            for key in (
+                "appointment_confirmation_whatsapp_enabled",
+                "appointment_reminder_whatsapp_enabled",
+                "low_stock_alert_whatsapp_enabled",
+            )
         )
         if requested_whatsapp and not premium:
             raise HTTPException(
                 status_code=403,
-                detail="WhatsApp para confirmaciones y recordatorios requiere una membresía Premium activa.",
+                detail="WhatsApp requiere una membresía Premium activa.",
             )
         update_data["notification_settings"] = normalized_notification_settings(requested, premium=premium)
 

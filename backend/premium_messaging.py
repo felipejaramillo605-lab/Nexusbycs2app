@@ -10,10 +10,14 @@ from __future__ import annotations
 from typing import Mapping
 
 PREMIUM_ACTIVE_STATUSES = frozenset({"active", "trial", "grace_period"})
+# Keep every organization-initiated WhatsApp channel in this list.  The UI is
+# only a convenience layer: settings written through the API must remain safe
+# if a client is stale or bypasses the browser entirely.
 WHATSAPP_SETTING_KEYS = frozenset(
     {
         "appointment_confirmation_whatsapp_enabled",
         "appointment_reminder_whatsapp_enabled",
+        "low_stock_alert_whatsapp_enabled",
     }
 )
 
@@ -57,7 +61,7 @@ def channel_capabilities(subscription: Mapping | None, organization: Mapping | N
         "premium_required_message": (
             None
             if premium
-            else "WhatsApp para confirmaciones y recordatorios está disponible con la membresía Premium. "
+            else "WhatsApp está disponible con la membresía Premium. "
             "Tu cuenta Estándar seguirá enviando estas comunicaciones por correo electrónico."
         ),
     }
@@ -73,8 +77,11 @@ def normalized_notification_settings(settings: Mapping | None, *, premium: bool)
     return normalized
 
 
+def whatsapp_setting_enabled(settings: Mapping | None, key: str, *, premium: bool) -> bool:
+    """Resolve an organization-initiated WhatsApp setting after entitlement."""
+    return bool(premium and key in WHATSAPP_SETTING_KEYS and (settings or {}).get(key, False))
+
+
 def whatsapp_enabled(settings: Mapping | None, event: str, *, premium: bool) -> bool:
-    if not premium:
-        return False
     key = f"appointment_{event}_whatsapp_enabled"
-    return bool((settings or {}).get(key, False))
+    return whatsapp_setting_enabled(settings, key, premium=premium)

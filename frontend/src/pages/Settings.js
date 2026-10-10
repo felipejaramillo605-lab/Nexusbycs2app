@@ -155,11 +155,14 @@ const Settings = () => {
         // NEXUS_LOW_STOCK_ALERT_DAEMON_V1
         const ns = data.notification_settings || {};
         setNotificationSettings(ns);
+        const capabilities = data.messaging_channel_capabilities || { email: true, whatsapp: false };
         setLowStockData({
           email_enabled: !!ns.low_stock_alert_enabled,
-          whatsapp_enabled: !!ns.low_stock_alert_whatsapp_enabled,
+          // Do not display an old persisted flag as usable for a Standard
+          // account while the server is normalizing it.
+          whatsapp_enabled: !!(ns.low_stock_alert_whatsapp_enabled && capabilities.whatsapp),
         });
-        setMessagingCapabilities(data.messaging_channel_capabilities || { email: true, whatsapp: false });
+        setMessagingCapabilities(capabilities);
         setEmailLabels({ custom: data.email_labels || {}, effective: data.email_labels_effective || {} });
         setAppointmentChannels({
           confirmation_whatsapp: !!ns.appointment_confirmation_whatsapp_enabled,
@@ -334,7 +337,7 @@ const Settings = () => {
         notification_settings: {
           ...notificationSettings,
           low_stock_alert_enabled: !!lowStockData.email_enabled,
-          low_stock_alert_whatsapp_enabled: !!lowStockData.whatsapp_enabled,
+          low_stock_alert_whatsapp_enabled: !!(lowStockData.whatsapp_enabled && messagingCapabilities.whatsapp),
         },
       };
       await organizationAPI.update(organizationId, payload);
@@ -808,16 +811,18 @@ const Settings = () => {
                 <div>
                   <div className="text-sm font-medium text-[var(--app-text-primary)]">Enviar también por WhatsApp</div>
                   <div className="text-xs text-zinc-400">
-                    Al número registrado en tu perfil.{' '}
-                    <span className="text-amber-400">Modo simulado (mock): falta la API key de WhatsApp — la estructura ya está lista, solo falta activarla.</span>
+                    {messagingCapabilities.whatsapp
+                      ? 'Al número registrado en tu perfil.'
+                      : 'Disponible solo para Premium. Las cuentas Estándar reciben esta alerta por correo electrónico.'}
                   </div>
                 </div>
                 <input
                   type="checkbox"
                   data-testid="low-stock-whatsapp-toggle"
+                  disabled={!messagingCapabilities.whatsapp}
                   checked={lowStockData.whatsapp_enabled}
                   onChange={(e) => setLowStockData({ ...lowStockData, whatsapp_enabled: e.target.checked })}
-                  className="w-5 h-5"
+                  className="w-5 h-5 disabled:opacity-40"
                 />
               </label>
               <button
