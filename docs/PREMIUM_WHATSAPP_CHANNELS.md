@@ -2,8 +2,8 @@
 
 ## Política de producto
 
-- **Estándar:** confirmaciones y recordatorios por correo electrónico. WhatsApp no se habilita.
-- **Premium activo:** correo electrónico como canal base y WhatsApp como canal adicional configurable para confirmaciones y recordatorios.
+- **Estándar:** confirmaciones, recordatorios y alertas operativas por correo electrónico. WhatsApp no se habilita.
+- **Premium activo:** correo electrónico como canal base y WhatsApp como canal adicional configurable para confirmaciones, recordatorios y alertas de bajo stock.
 - Una suscripción Premium en estado `active`, `trial` o `grace_period` habilita WhatsApp. Una suspensión, un plan Standard o la ausencia de suscripción no lo habilita.
 
 ## Controles de seguridad y entrega
@@ -22,10 +22,18 @@ Correo no depende del resultado de WhatsApp: un error del proveedor o una planti
 
 ## Configuración para Managers
 
-En **Configuración → General → Confirmaciones y recordatorios**:
+En **Configuración → General**:
 
-- Estándar ve el correo como canal base y un aviso que explica que WhatsApp requiere Premium.
-- Premium puede marcar de forma independiente WhatsApp para confirmaciones y para recordatorios.
+- Estándar ve el correo como canal base y un aviso que explica que WhatsApp requiere Premium. La casilla de WhatsApp de alertas de bajo stock permanece deshabilitada.
+- Premium puede marcar de forma independiente WhatsApp para confirmaciones, recordatorios y alertas de bajo stock.
+
+## Defensa en profundidad
+
+La restricción se aplica en tres niveles:
+
+1. La interfaz deshabilita los interruptores de WhatsApp fuera de Premium y evita mostrar como activa una preferencia antigua.
+2. `PUT /organizations/{id}` rechaza intentos API de activar cualquier interruptor de WhatsApp para una cuenta Estándar y normaliza los indicadores persistidos a `false`.
+3. El daemon mensual de bajo stock vuelve a consultar la suscripción antes de llamar a Meta. Así, una bandera persistida de versiones anteriores no permite un envío de WhatsApp fuera de Premium.
 
 ## Operación y despliegue
 

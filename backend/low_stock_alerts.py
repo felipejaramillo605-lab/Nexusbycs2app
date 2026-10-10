@@ -22,6 +22,7 @@ from datetime import datetime, timezone
 
 from inventory_reorder import load_suggestions
 from email_service import email_service
+from premium_messaging import organization_has_premium, whatsapp_setting_enabled
 from whatsapp_service import send_whatsapp_message
 
 DEFAULT_SEND_DAY = 1
@@ -117,16 +118,23 @@ async def process_low_stock_alerts(db, *, at=None):
             except Exception as exc:
                 print(f"low_stock_alert_email_failed organization_id={org_id} diagnostic_code={type(exc).__name__}")
 
+        # A stale database flag must never turn a Standard account into a
+        # WhatsApp sender.  Check the current entitlement at send time as the
+        # appointment confirmation/reminder paths do.
         if whatsapp_enabled and recipient.get("phone"):
-            message = (
-                f"⚠️ *{organization_name}* tiene {len(alerts)} producto(s) con bajo stock. "
-                "Revisa tus alertas de reorden en Nexus."
-            )
-            result = await send_whatsapp_message(
-                db, to_phone=recipient["phone"], message=message, organization_id=org_id, context="low_stock_alert"
-            )
-            if result.get("accepted"):
-                summary["sent_whatsapp"] += 1
+            premium = await organization_has_premium(db, org_id)
+            if whatsapp_setting_enabled(
+                settings, "low_stock_alert_whatsapp_enabled", premium=premium
+            ):
+                message = (
+                    f"⚠️ *{organization_name}* tiene {len(alerts)} producto(s) con bajo stock. "
+                    "Revisa tus alertas de reorden en Nexus."
+                )
+                result = await send_whatsapp_message(
+                    db, to_phone=recipient["phone"], message=message, organization_id=org_id, context="low_stock_alert"
+                )
+                if result.get("accepted"):
+                    summary["sent_whatsapp"] += 1
 
     print(
         "low_stock_alert_cycle_summary "
